@@ -23,7 +23,7 @@ jobs:
         make tidy
         if [[ ! -z "$(git status --short)" ]]
         then
-          echo "there are some modified files, rerun 'make all-tidy' to update them and check the changes in"
+          echo "there are some modified files, rerun 'make tidy' to update them and check the changes in"
           git status
           exit 1
         fi
