@@ -7,9 +7,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/Azure/ARO-tools/pkg/testutil"
 	"github.com/stretchr/testify/assert"
-
-	"github.com/Azure/ARO-HCP/tooling/templatize/internal/testutil"
 )
 
 func TestConfigProvider(t *testing.T) {
