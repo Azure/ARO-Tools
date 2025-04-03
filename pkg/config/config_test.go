@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -162,7 +163,9 @@ func TestMergeVariable(t *testing.T) {
 
 func TestLoadSchemaURL(t *testing.T) {
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintln(w, "{\"type\": \"object\"}")
+		if _, err := fmt.Fprintln(w, "{\"type\": \"object\"}"); err != nil {
+			log.Printf("failed to write response: %v", err)
+		}
 	}))
 	defer testServer.Close()
 
