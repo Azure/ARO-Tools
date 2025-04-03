@@ -16,4 +16,4 @@ lint:
 
 lint-fix:
 	go tool golangci-lint run --fix ./...
-.PHONY: lint
+.PHONY: lint-fix
