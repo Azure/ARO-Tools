@@ -1,3 +1,7 @@
+tidy:
+	go mod tidy
+.PHONY: tidy
+
 test:
 	go test -cover -race ./...
 .PHONY: test

@@ -20,6 +20,15 @@ jobs:
         with:
           go-version: "1.24.1"
           check-latest: true
+      - name: 'Check Go modules'
+        run: |
+          make tidy
+          if [[ ! -z "$(git status --short)" ]]
+          then
+            echo "there are some modified files, rerun 'make tidy' to update them and check the changes in"
+            git status
+            exit 1
+          fi          
       - name: Lint
         run: make lint
       - name: Test 
