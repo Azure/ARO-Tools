@@ -8,6 +8,8 @@ formatters:
       sections:
         - standard
         - default
+        - prefix(k8s.io)
+        - prefix(sigs.k8s.io)
         - prefix(github.com/Azure)
         - blank
         - dot
