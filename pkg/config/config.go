@@ -76,6 +76,35 @@ func InterfaceToVariables(i interface{}) (Variables, bool) {
 	return Variables{}, false
 }
 
+// VariablesToInterface converts the Variables to a map[string]any recursively
+func VariablesToInterface(data any) any {
+	switch cfg := data.(type) {
+	case Variables:
+		// first level
+		result := make(map[string]any)
+
+		for k, v := range cfg {
+			result[fmt.Sprintf("%v", k)] = VariablesToInterface(v)
+		}
+
+		return result
+
+	case []any:
+		// other levels: get array values
+		var result []any
+
+		for _, v := range cfg {
+			result = append(result, VariablesToInterface(v))
+		}
+
+		return result
+
+	default:
+		// final level: return the data (bool, string, int, etc.)
+		return data
+	}
+}
+
 // Merges variables, returns merged variables
 // However the return value is only used for recursive updates on the map
 // The actual merged variables are updated in the base map
