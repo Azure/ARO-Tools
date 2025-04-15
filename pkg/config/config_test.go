@@ -20,40 +20,40 @@ func TestConfigProvider(t *testing.T) {
 
 	configProvider := NewConfigProvider("../../testdata/config.yaml")
 
-	variables, err := configProvider.GetVariables("public", "int", region, NewConfigReplacements(region, regionShort, stamp))
+	config, err := configProvider.GetDeployEnvRegionConfiguration("public", "int", region, NewConfigReplacements(region, regionShort, stamp))
 	assert.NoError(t, err)
-	assert.NotNil(t, variables)
+	assert.NotNil(t, config)
 
 	// key is not in the config file
-	assert.Nil(t, variables["svc_resourcegroup"])
+	assert.Nil(t, config["svc_resourcegroup"])
 
 	// key is in the config file, region constant value
-	assert.Equal(t, "uksouth", variables["test"])
+	assert.Equal(t, "uksouth", config["test"])
 
 	// key is in the config file, default in INT, constant value
-	assert.Equal(t, "aro-hcp-int.azurecr.io/maestro-server:the-stable-one", variables["maestro_image"])
+	assert.Equal(t, "aro-hcp-int.azurecr.io/maestro-server:the-stable-one", config["maestro_image"])
 
 	// key is in the config file, default, varaible value
-	assert.Equal(t, fmt.Sprintf("hcp-underlay-%s", regionShort), variables["regionRG"])
+	assert.Equal(t, fmt.Sprintf("hcp-underlay-%s", regionShort), config["regionRG"])
 }
 
-func TestInterfaceToVariable(t *testing.T) {
+func TestInterfaceToConfiguration(t *testing.T) {
 	testCases := []struct {
-		name               string
-		i                  interface{}
-		ok                 bool
-		expecetedVariables Variables
+		name                   string
+		i                      interface{}
+		ok                     bool
+		expecetedConfiguration Configuration
 	}{
 		{
-			name:               "empty interface",
-			ok:                 false,
-			expecetedVariables: Variables{},
+			name:                   "empty interface",
+			ok:                     false,
+			expecetedConfiguration: Configuration{},
 		},
 		{
-			name:               "empty map",
-			i:                  map[string]interface{}{},
-			ok:                 true,
-			expecetedVariables: Variables{},
+			name:                   "empty map",
+			i:                      map[string]interface{}{},
+			ok:                     true,
+			expecetedConfiguration: Configuration{},
 		},
 		{
 			name: "map",
@@ -62,7 +62,7 @@ func TestInterfaceToVariable(t *testing.T) {
 				"key2": "value2",
 			},
 			ok: true,
-			expecetedVariables: Variables{
+			expecetedConfiguration: Configuration{
 				"key1": "value1",
 				"key2": "value2",
 			},
@@ -75,8 +75,8 @@ func TestInterfaceToVariable(t *testing.T) {
 				},
 			},
 			ok: true,
-			expecetedVariables: Variables{
-				"key1": Variables{
+			expecetedConfiguration: Configuration{
+				"key1": Configuration{
 					"key2": "value2",
 				},
 			},
@@ -85,19 +85,19 @@ func TestInterfaceToVariable(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			vars, ok := InterfaceToVariables(tc.i)
+			vars, ok := InterfaceToConfiguration(tc.i)
 			assert.Equal(t, tc.ok, ok)
-			assert.Equal(t, tc.expecetedVariables, vars)
+			assert.Equal(t, tc.expecetedConfiguration, vars)
 		})
 	}
 }
 
-func TestMergeVariable(t *testing.T) {
+func TestMergeConfiguration(t *testing.T) {
 	testCases := []struct {
 		name     string
-		base     Variables
-		override Variables
-		expected Variables
+		base     Configuration
+		override Configuration
+		expected Configuration
 	}{
 		{
 			name:     "nil base",
@@ -105,56 +105,56 @@ func TestMergeVariable(t *testing.T) {
 		},
 		{
 			name:     "empty base and override",
-			base:     Variables{},
-			expected: Variables{},
+			base:     Configuration{},
+			expected: Configuration{},
 		},
 		{
 			name:     "merge into empty base",
-			base:     Variables{},
-			override: Variables{"key1": "value1"},
-			expected: Variables{"key1": "value1"},
+			base:     Configuration{},
+			override: Configuration{"key1": "value1"},
+			expected: Configuration{"key1": "value1"},
 		},
 		{
 			name:     "merge into base",
-			base:     Variables{"key1": "value1"},
-			override: Variables{"key2": "value2"},
-			expected: Variables{"key1": "value1", "key2": "value2"},
+			base:     Configuration{"key1": "value1"},
+			override: Configuration{"key2": "value2"},
+			expected: Configuration{"key1": "value1", "key2": "value2"},
 		},
 		{
 			name:     "override base, change schema",
-			base:     Variables{"key1": Variables{"key2": "value2"}},
-			override: Variables{"key1": "value1"},
-			expected: Variables{"key1": "value1"},
+			base:     Configuration{"key1": Configuration{"key2": "value2"}},
+			override: Configuration{"key1": "value1"},
+			expected: Configuration{"key1": "value1"},
 		},
 		{
 			name:     "merge into sub map",
-			base:     Variables{"key1": Variables{"key2": "value2"}},
-			override: Variables{"key1": Variables{"key3": "value3"}},
-			expected: Variables{"key1": Variables{"key2": "value2", "key3": "value3"}},
+			base:     Configuration{"key1": Configuration{"key2": "value2"}},
+			override: Configuration{"key1": Configuration{"key3": "value3"}},
+			expected: Configuration{"key1": Configuration{"key2": "value2", "key3": "value3"}},
 		},
 		{
 			name:     "override sub map value",
-			base:     Variables{"key1": Variables{"key2": "value2"}},
-			override: Variables{"key1": Variables{"key2": "value3"}},
-			expected: Variables{"key1": Variables{"key2": "value3"}},
+			base:     Configuration{"key1": Configuration{"key2": "value2"}},
+			override: Configuration{"key1": Configuration{"key2": "value3"}},
+			expected: Configuration{"key1": Configuration{"key2": "value3"}},
 		},
 		{
 			name:     "override nested sub map",
-			base:     Variables{"key1": Variables{"key2": Variables{"key3": "value3"}}},
-			override: Variables{"key1": Variables{"key2": Variables{"key3": "value4"}}},
-			expected: Variables{"key1": Variables{"key2": Variables{"key3": "value4"}}},
+			base:     Configuration{"key1": Configuration{"key2": Configuration{"key3": "value3"}}},
+			override: Configuration{"key1": Configuration{"key2": Configuration{"key3": "value4"}}},
+			expected: Configuration{"key1": Configuration{"key2": Configuration{"key3": "value4"}}},
 		},
 		{
 			name:     "override nested sub map multiple levels",
-			base:     Variables{"key1": Variables{"key2": Variables{"key3": "value3"}}},
-			override: Variables{"key1": Variables{"key2": Variables{"key4": "value4"}}, "key5": "value5"},
-			expected: Variables{"key1": Variables{"key2": Variables{"key3": "value3", "key4": "value4"}}, "key5": "value5"},
+			base:     Configuration{"key1": Configuration{"key2": Configuration{"key3": "value3"}}},
+			override: Configuration{"key1": Configuration{"key2": Configuration{"key4": "value4"}}, "key5": "value5"},
+			expected: Configuration{"key1": Configuration{"key2": Configuration{"key3": "value3", "key4": "value4"}}, "key5": "value5"},
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := MergeVariables(tc.base, tc.override)
+			result := MergeConfiguration(tc.base, tc.override)
 			assert.Equal(t, tc.expected, result)
 		})
 	}
@@ -234,9 +234,9 @@ func TestValidateSchema(t *testing.T) {
 }
 
 func TestConvertToInterface(t *testing.T) {
-	vars := Variables{
+	vars := Configuration{
 		"key1": "value1",
-		"key2": Variables{
+		"key2": Configuration{
 			"key3": "value3",
 		},
 	}
