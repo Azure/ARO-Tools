@@ -20,40 +20,40 @@ func TestConfigProvider(t *testing.T) {
 
 	configProvider := NewConfigProvider("../../testdata/config.yaml")
 
-	Configuration, err := configProvider.GetConfiguration("public", "int", region, NewConfigReplacements(region, regionShort, stamp))
+	config, err := configProvider.GetConfiguration("public", "int", region, NewConfigReplacements(region, regionShort, stamp))
 	assert.NoError(t, err)
-	assert.NotNil(t, Configuration)
+	assert.NotNil(t, config)
 
 	// key is not in the config file
-	assert.Nil(t, Configuration["svc_resourcegroup"])
+	assert.Nil(t, config["svc_resourcegroup"])
 
 	// key is in the config file, region constant value
-	assert.Equal(t, "uksouth", Configuration["test"])
+	assert.Equal(t, "uksouth", config["test"])
 
 	// key is in the config file, default in INT, constant value
-	assert.Equal(t, "aro-hcp-int.azurecr.io/maestro-server:the-stable-one", Configuration["maestro_image"])
+	assert.Equal(t, "aro-hcp-int.azurecr.io/maestro-server:the-stable-one", config["maestro_image"])
 
 	// key is in the config file, default, varaible value
-	assert.Equal(t, fmt.Sprintf("hcp-underlay-%s", regionShort), Configuration["regionRG"])
+	assert.Equal(t, fmt.Sprintf("hcp-underlay-%s", regionShort), config["regionRG"])
 }
 
 func TestInterfaceToConfiguration(t *testing.T) {
 	testCases := []struct {
-		name                   string
-		i                      interface{}
-		ok                     bool
-		expecetedConfiguration Configuration
+		name                  string
+		i                     interface{}
+		ok                    bool
+		expecetdConfiguration Configuration
 	}{
 		{
-			name:                   "empty interface",
-			ok:                     false,
-			expecetedConfiguration: Configuration{},
+			name:                  "empty interface",
+			ok:                    false,
+			expecetdConfiguration: Configuration{},
 		},
 		{
-			name:                   "empty map",
-			i:                      map[string]interface{}{},
-			ok:                     true,
-			expecetedConfiguration: Configuration{},
+			name:                  "empty map",
+			i:                     map[string]interface{}{},
+			ok:                    true,
+			expecetdConfiguration: Configuration{},
 		},
 		{
 			name: "map",
@@ -62,7 +62,7 @@ func TestInterfaceToConfiguration(t *testing.T) {
 				"key2": "value2",
 			},
 			ok: true,
-			expecetedConfiguration: Configuration{
+			expecetdConfiguration: Configuration{
 				"key1": "value1",
 				"key2": "value2",
 			},
@@ -75,7 +75,7 @@ func TestInterfaceToConfiguration(t *testing.T) {
 				},
 			},
 			ok: true,
-			expecetedConfiguration: Configuration{
+			expecetdConfiguration: Configuration{
 				"key1": Configuration{
 					"key2": "value2",
 				},
@@ -87,7 +87,7 @@ func TestInterfaceToConfiguration(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			vars, ok := InterfaceToConfiguration(tc.i)
 			assert.Equal(t, tc.ok, ok)
-			assert.Equal(t, tc.expecetedConfiguration, vars)
+			assert.Equal(t, tc.expecetdConfiguration, vars)
 		})
 	}
 }
