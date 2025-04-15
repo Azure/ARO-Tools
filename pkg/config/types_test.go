@@ -5,14 +5,14 @@ import "testing"
 func TestGetByPath(t *testing.T) {
 	tests := []struct {
 		name  string
-		vars  Variables
+		vars  Configuration
 		path  string
 		want  any
 		found bool
 	}{
 		{
 			name: "simple",
-			vars: Variables{
+			vars: Configuration{
 				"key": "value",
 			},
 			path:  "key",
@@ -21,8 +21,8 @@ func TestGetByPath(t *testing.T) {
 		},
 		{
 			name: "nested",
-			vars: Variables{
-				"key": Variables{
+			vars: Configuration{
+				"key": Configuration{
 					"key": "value",
 				},
 			},
@@ -35,10 +35,10 @@ func TestGetByPath(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got, found := tt.vars.GetByPath(tt.path)
 			if got != tt.want {
-				t.Errorf("Variables.GetByPath() got = %v, want %v", got, tt.want)
+				t.Errorf("Configuration.GetByPath() got = %v, want %v", got, tt.want)
 			}
 			if found != tt.found {
-				t.Errorf("Variables.GetByPath() found = %v, want %v", found, tt.found)
+				t.Errorf("Configuration.GetByPath() found = %v, want %v", found, tt.found)
 			}
 		})
 	}
