@@ -104,9 +104,9 @@ func MergeConfiguration(base, override Configuration) Configuration {
 
 // Needed to convert Configuration to map[string]interface{} for jsonschema validation
 // see: https://github.com/santhosh-tekuri/jsonschema/blob/boon/schema.go#L124
-func convertToInterface(configuration Configuration) map[string]any {
+func convertToInterface(config Configuration) map[string]any {
 	m := map[string]any{}
-	for k, v := range configuration {
+	for k, v := range config {
 		if subMap, ok := v.(Configuration); ok {
 			m[k] = convertToInterface(subMap)
 		} else {
@@ -154,7 +154,7 @@ func (cp *configProviderImpl) loadSchema() (any, error) {
 	return schema, nil
 }
 
-func (cp *configProviderImpl) validateSchema(Configuration Configuration) error {
+func (cp *configProviderImpl) validateSchema(config Configuration) error {
 	c := jsonschema.NewCompiler()
 
 	schema, err := cp.loadSchema()
@@ -171,7 +171,7 @@ func (cp *configProviderImpl) validateSchema(Configuration Configuration) error 
 		return fmt.Errorf("failed to compile schema: %v", err)
 	}
 
-	err = sch.Validate(convertToInterface(Configuration))
+	err = sch.Validate(convertToInterface(config))
 	if err != nil {
 		return fmt.Errorf("failed to validate schema: %v", err)
 	}
@@ -182,7 +182,7 @@ func (cp *configProviderImpl) validateSchema(Configuration Configuration) error 
 // Processing means it will apply the appropriate overrides to the general configuration
 // It will also apply any ConfigReplacements configured
 func (cp *configProviderImpl) GetConfiguration(cloud, deployEnv, region string, configReplacements *ConfigReplacements) (Configuration, error) {
-	Configuration, err := cp.GetDeployEnvConfiguration(cloud, deployEnv, configReplacements)
+	config, err := cp.GetDeployEnvConfiguration(cloud, deployEnv, configReplacements)
 	if err != nil {
 		return nil, err
 	}
@@ -192,14 +192,14 @@ func (cp *configProviderImpl) GetConfiguration(cloud, deployEnv, region string, 
 	if err != nil {
 		return nil, err
 	}
-	MergeConfiguration(Configuration, regionOverrides)
+	MergeConfiguration(config, regionOverrides)
 
 	// validate schema
-	err = cp.validateSchema(Configuration)
+	err = cp.validateSchema(config)
 	if err != nil {
 		return nil, err
 	}
-	return Configuration, nil
+	return config, nil
 }
 
 // Validate basic validation
@@ -235,14 +235,14 @@ func (cp *configProviderImpl) GetDeployEnvConfiguration(cloud, deployEnv string,
 		return nil, err
 	}
 
-	Configuration := Configuration{}
-	MergeConfiguration(Configuration, config.GetDefaults())
-	MergeConfiguration(Configuration, config.GetCloudOverrides(cloud))
-	MergeConfiguration(Configuration, config.GetDeployEnvOverrides(cloud, deployEnv))
+	mergedConfig := Configuration{}
+	MergeConfiguration(mergedConfig, config.GetDefaults())
+	MergeConfiguration(mergedConfig, config.GetCloudOverrides(cloud))
+	MergeConfiguration(mergedConfig, config.GetDeployEnvOverrides(cloud, deployEnv))
 
 	cp.schema = config.GetSchema()
 
-	return Configuration, nil
+	return mergedConfig, nil
 }
 
 // GetRegions returns the list of configured regions
