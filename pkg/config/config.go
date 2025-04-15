@@ -15,10 +15,12 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// DefaultConfigReplacements has no replacements configured
 func DefaultConfigReplacements() *ConfigReplacements {
 	return NewConfigReplacements("", "", "")
 }
 
+// NewConfigReplacements returns a new ConfigurationReplacements instance with given values
 func NewConfigReplacements(regionReplacement, regionShortReplacement, stampReplacement string) *ConfigReplacements {
 	return &ConfigReplacements{
 		RegionReplacement:      regionReplacement,
@@ -27,12 +29,14 @@ func NewConfigReplacements(regionReplacement, regionShortReplacement, stampRepla
 	}
 }
 
+// ConfigReplacements holds replacement values
 type ConfigReplacements struct {
 	RegionReplacement      string
 	RegionShortReplacement string
 	StampReplacement       string
 }
 
+// AsMap returns a map[string]interface{} representation of this ConfigReplacement instance
 func (c *ConfigReplacements) AsMap() map[string]interface{} {
 	return map[string]interface{}{
 		"ctx": map[string]interface{}{
@@ -43,6 +47,7 @@ func (c *ConfigReplacements) AsMap() map[string]interface{} {
 	}
 }
 
+// ConfigProvider resolves service configuration for specific environments and clouds using a base configuration file.
 type ConfigProvider interface {
 	Validate(cloud, deployEnv string) error
 	GetConfiguration(cloud, deployEnv, region string, configReplacements *ConfigReplacements) (Configuration, error)
@@ -57,6 +62,9 @@ func NewConfigProvider(config string) ConfigProvider {
 	}
 }
 
+// InterfaceToConfiguration, pass in an interface of map[string]any and get (Configuration, true) back
+// This is also converting nested maps, making it easier to iterate over the configuration.
+// If type does not match, second return value will be false
 func InterfaceToConfiguration(i interface{}) (Configuration, bool) {
 	// Helper, that reduces need for reflection calls, i.e. MapIndex
 	// from: https://github.com/peterbourgon/mergemap/blob/master/mergemap.go
@@ -170,6 +178,9 @@ func (cp *configProviderImpl) validateSchema(Configuration Configuration) error 
 	return nil
 }
 
+// GetConfiguration reads, processes, validates and returns the configuration
+// Processing means it will apply the appropriate overrides to the general configuration
+// It will also apply any ConfigReplacements configured
 func (cp *configProviderImpl) GetConfiguration(cloud, deployEnv, region string, configReplacements *ConfigReplacements) (Configuration, error) {
 	Configuration, err := cp.GetDeployEnvConfiguration(cloud, deployEnv, configReplacements)
 	if err != nil {
@@ -191,6 +202,8 @@ func (cp *configProviderImpl) GetConfiguration(cloud, deployEnv, region string, 
 	return Configuration, nil
 }
 
+// Validate basic validation
+// todo: check, if this can be unexported
 func (cp *configProviderImpl) Validate(cloud, deployEnv string) error {
 	config, err := cp.loadConfig(DefaultConfigReplacements())
 	if err != nil {
@@ -210,6 +223,8 @@ func (cp *configProviderImpl) Validate(cloud, deployEnv string) error {
 	return nil
 }
 
+// GetDeployEnvConfiguration load and merge the configuration
+// todo: check, if this can be unexported
 func (cp *configProviderImpl) GetDeployEnvConfiguration(cloud, deployEnv string, configReplacements *ConfigReplacements) (Configuration, error) {
 	config, err := cp.loadConfig(configReplacements)
 	if err != nil {
@@ -230,6 +245,7 @@ func (cp *configProviderImpl) GetDeployEnvConfiguration(cloud, deployEnv string,
 	return Configuration, nil
 }
 
+// GetRegions returns the list of configured regions
 func (cp *configProviderImpl) GetRegions(cloud, deployEnv string) ([]string, error) {
 	config, err := cp.loadConfig(DefaultConfigReplacements())
 	if err != nil {
@@ -243,6 +259,7 @@ func (cp *configProviderImpl) GetRegions(cloud, deployEnv string) ([]string, err
 	return regions, nil
 }
 
+// GetRegionOverrides retun a configuration where region overrides have been applied
 func (cp *configProviderImpl) GetRegionOverrides(cloud, deployEnv, region string, configReplacements *ConfigReplacements) (Configuration, error) {
 	config, err := cp.loadConfig(configReplacements)
 	if err != nil {
