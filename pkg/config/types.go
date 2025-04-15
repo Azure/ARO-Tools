@@ -10,14 +10,14 @@ type configProviderImpl struct {
 	schema string
 }
 
-type Variables map[string]any
+type Configuration map[string]any
 
-func (v Variables) GetByPath(path string) (any, bool) {
+func (v Configuration) GetByPath(path string) (any, bool) {
 	keys := strings.Split(path, ".")
 	var current any = v
 
 	for _, key := range keys {
-		if m, ok := current.(Variables); ok {
+		if m, ok := current.(Configuration); ok {
 			current, ok = m[key]
 			if !ok {
 				return nil, false
@@ -30,15 +30,15 @@ func (v Variables) GetByPath(path string) (any, bool) {
 	return current, true
 }
 
-func NewVariableOverrides() VariableOverrides {
-	return &variableOverrides{}
+func NewConfigurationOverrides() ConfigurationOverrides {
+	return &configurationOverrides{}
 }
 
-type VariableOverrides interface {
-	GetDefaults() Variables
-	GetCloudOverrides(cloud string) Variables
-	GetDeployEnvOverrides(cloud, deployEnv string) Variables
-	GetRegionOverrides(cloud, deployEnv, region string) Variables
+type ConfigurationOverrides interface {
+	GetDefaults() Configuration
+	GetCloudOverrides(cloud string) Configuration
+	GetDeployEnvOverrides(cloud, deployEnv string) Configuration
+	GetRegionOverrides(cloud, deployEnv, region string) Configuration
 	GetRegions(cloud, deployEnv string) []string
 	GetSchema() string
 	HasSchema() bool
@@ -46,46 +46,46 @@ type VariableOverrides interface {
 	HasDeployEnv(cloud, deployEnv string) bool
 }
 
-type variableOverrides struct {
-	Schema   string    `yaml:"$schema"`
-	Defaults Variables `yaml:"defaults"`
+type configurationOverrides struct {
+	Schema   string        `yaml:"$schema"`
+	Defaults Configuration `yaml:"defaults"`
 	// key is the cloud alias
 	Overrides map[string]*struct {
-		Defaults Variables `yaml:"defaults"`
+		Defaults Configuration `yaml:"defaults"`
 		// key is the deploy env
 		Overrides map[string]*struct {
-			Defaults Variables `yaml:"defaults"`
+			Defaults Configuration `yaml:"defaults"`
 			// key is the region name
-			Overrides map[string]Variables `yaml:"regions"`
+			Overrides map[string]Configuration `yaml:"regions"`
 		} `yaml:"environments"`
 	} `yaml:"clouds"`
 }
 
-func (vo *variableOverrides) GetSchema() string {
+func (vo *configurationOverrides) GetSchema() string {
 	return vo.Schema
 }
 
-func (vo *variableOverrides) HasSchema() bool {
+func (vo *configurationOverrides) HasSchema() bool {
 	return vo.Schema != ""
 }
 
-func (vo *variableOverrides) GetDefaults() Variables {
+func (vo *configurationOverrides) GetDefaults() Configuration {
 	return vo.Defaults
 }
 
-func (vo *variableOverrides) HasCloud(cloud string) bool {
+func (vo *configurationOverrides) HasCloud(cloud string) bool {
 	_, ok := vo.Overrides[cloud]
 	return ok
 }
 
-func (vo *variableOverrides) GetCloudOverrides(cloud string) Variables {
+func (vo *configurationOverrides) GetCloudOverrides(cloud string) Configuration {
 	if cloudOverride, ok := vo.Overrides[cloud]; ok {
 		return cloudOverride.Defaults
 	}
-	return Variables{}
+	return Configuration{}
 }
 
-func (vo *variableOverrides) HasDeployEnv(cloud, deployEnv string) bool {
+func (vo *configurationOverrides) HasDeployEnv(cloud, deployEnv string) bool {
 	if cloudOverride, ok := vo.Overrides[cloud]; ok {
 		_, ok := cloudOverride.Overrides[deployEnv]
 		return ok
@@ -93,16 +93,16 @@ func (vo *variableOverrides) HasDeployEnv(cloud, deployEnv string) bool {
 	return false
 }
 
-func (vo *variableOverrides) GetDeployEnvOverrides(cloud, deployEnv string) Variables {
+func (vo *configurationOverrides) GetDeployEnvOverrides(cloud, deployEnv string) Configuration {
 	if cloudOverride, ok := vo.Overrides[cloud]; ok {
 		if deployEnvOverride, ok := cloudOverride.Overrides[deployEnv]; ok {
 			return deployEnvOverride.Defaults
 		}
 	}
-	return Variables{}
+	return Configuration{}
 }
 
-func (vo *variableOverrides) GetRegions(cloud, deployEnv string) []string {
+func (vo *configurationOverrides) GetRegions(cloud, deployEnv string) []string {
 	deployEnvOverrides, err := vo.getAllDeployEnvRegionOverrides(cloud, deployEnv)
 	if err != nil {
 		return []string{}
@@ -114,7 +114,7 @@ func (vo *variableOverrides) GetRegions(cloud, deployEnv string) []string {
 	return regions
 }
 
-func (vo *variableOverrides) getAllDeployEnvRegionOverrides(cloud, deployEnv string) (map[string]Variables, error) {
+func (vo *configurationOverrides) getAllDeployEnvRegionOverrides(cloud, deployEnv string) (map[string]Configuration, error) {
 	if cloudOverride, ok := vo.Overrides[cloud]; ok {
 		if deployEnvOverride, ok := cloudOverride.Overrides[deployEnv]; ok {
 			return deployEnvOverride.Overrides, nil
@@ -125,14 +125,14 @@ func (vo *variableOverrides) getAllDeployEnvRegionOverrides(cloud, deployEnv str
 	return nil, fmt.Errorf("cloud %s not found in config", cloud)
 }
 
-func (vo *variableOverrides) GetRegionOverrides(cloud, deployEnv, region string) Variables {
+func (vo *configurationOverrides) GetRegionOverrides(cloud, deployEnv, region string) Configuration {
 	regionOverrides, err := vo.getAllDeployEnvRegionOverrides(cloud, deployEnv)
 	if err != nil {
-		return Variables{}
+		return Configuration{}
 	}
 	if regionOverrides, ok := regionOverrides[region]; ok {
 		return regionOverrides
 	} else {
-		return Variables{}
+		return Configuration{}
 	}
 }
