@@ -50,7 +50,7 @@ func (c *ConfigReplacements) AsMap() map[string]interface{} {
 // ConfigProvider resolves service configuration for specific environments and clouds using a base configuration file.
 type ConfigProvider interface {
 	Validate(cloud, deployEnv string) error
-	GetConfiguration(cloud, deployEnv, region string, configReplacements *ConfigReplacements) (Configuration, error)
+	GetDeployEnvRegionConfiguration(cloud, deployEnv, region string, configReplacements *ConfigReplacements) (Configuration, error)
 	GetDeployEnvConfiguration(cloud, deployEnv string, configReplacements *ConfigReplacements) (Configuration, error)
 	GetRegions(cloud, deployEnv string) ([]string, error)
 	GetRegionOverrides(cloud, deployEnv, region string, configReplacements *ConfigReplacements) (Configuration, error)
@@ -178,10 +178,9 @@ func (cp *configProviderImpl) validateSchema(config Configuration) error {
 	return nil
 }
 
-// GetConfiguration reads, processes, validates and returns the configuration
-// Processing means it will apply the appropriate overrides to the general configuration
-// It will also apply any ConfigReplacements configured
-func (cp *configProviderImpl) GetConfiguration(cloud, deployEnv, region string, configReplacements *ConfigReplacements) (Configuration, error) {
+// GetDeployEnvRegionConfiguration reads, processes, validates and returns the configuration
+// It uses GetDeployEnvConfiguration and will in addition merge region overrides
+func (cp *configProviderImpl) GetDeployEnvRegionConfiguration(cloud, deployEnv, region string, configReplacements *ConfigReplacements) (Configuration, error) {
 	config, err := cp.GetDeployEnvConfiguration(cloud, deployEnv, configReplacements)
 	if err != nil {
 		return nil, err
@@ -203,7 +202,6 @@ func (cp *configProviderImpl) GetConfiguration(cloud, deployEnv, region string, 
 }
 
 // Validate basic validation
-// todo: check, if this can be unexported
 func (cp *configProviderImpl) Validate(cloud, deployEnv string) error {
 	config, err := cp.loadConfig(DefaultConfigReplacements())
 	if err != nil {
@@ -224,7 +222,7 @@ func (cp *configProviderImpl) Validate(cloud, deployEnv string) error {
 }
 
 // GetDeployEnvConfiguration load and merge the configuration
-// todo: check, if this can be unexported
+// todo: this is called in HCP, so it should use schema validation as well.
 func (cp *configProviderImpl) GetDeployEnvConfiguration(cloud, deployEnv string, configReplacements *ConfigReplacements) (Configuration, error) {
 	config, err := cp.loadConfig(configReplacements)
 	if err != nil {

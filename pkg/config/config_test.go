@@ -20,7 +20,7 @@ func TestConfigProvider(t *testing.T) {
 
 	configProvider := NewConfigProvider("../../testdata/config.yaml")
 
-	config, err := configProvider.GetConfiguration("public", "int", region, NewConfigReplacements(region, regionShort, stamp))
+	config, err := configProvider.GetDeployEnvRegionConfiguration("public", "int", region, NewConfigReplacements(region, regionShort, stamp))
 	assert.NoError(t, err)
 	assert.NotNil(t, config)
 
@@ -39,21 +39,21 @@ func TestConfigProvider(t *testing.T) {
 
 func TestInterfaceToConfiguration(t *testing.T) {
 	testCases := []struct {
-		name                  string
-		i                     interface{}
-		ok                    bool
-		expecetdConfiguration Configuration
+		name                   string
+		i                      interface{}
+		ok                     bool
+		expecetedConfiguration Configuration
 	}{
 		{
-			name:                  "empty interface",
-			ok:                    false,
-			expecetdConfiguration: Configuration{},
+			name:                   "empty interface",
+			ok:                     false,
+			expecetedConfiguration: Configuration{},
 		},
 		{
-			name:                  "empty map",
-			i:                     map[string]interface{}{},
-			ok:                    true,
-			expecetdConfiguration: Configuration{},
+			name:                   "empty map",
+			i:                      map[string]interface{}{},
+			ok:                     true,
+			expecetedConfiguration: Configuration{},
 		},
 		{
 			name: "map",
@@ -62,7 +62,7 @@ func TestInterfaceToConfiguration(t *testing.T) {
 				"key2": "value2",
 			},
 			ok: true,
-			expecetdConfiguration: Configuration{
+			expecetedConfiguration: Configuration{
 				"key1": "value1",
 				"key2": "value2",
 			},
@@ -75,7 +75,7 @@ func TestInterfaceToConfiguration(t *testing.T) {
 				},
 			},
 			ok: true,
-			expecetdConfiguration: Configuration{
+			expecetedConfiguration: Configuration{
 				"key1": Configuration{
 					"key2": "value2",
 				},
@@ -87,7 +87,7 @@ func TestInterfaceToConfiguration(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			vars, ok := InterfaceToConfiguration(tc.i)
 			assert.Equal(t, tc.ok, ok)
-			assert.Equal(t, tc.expecetdConfiguration, vars)
+			assert.Equal(t, tc.expecetedConfiguration, vars)
 		})
 	}
 }

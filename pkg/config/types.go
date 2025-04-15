@@ -10,6 +10,7 @@ type configProviderImpl struct {
 	schema string
 }
 
+// Configuration is the top-level container for all values for all services. See an example at: https://github.com/Azure/ARO-HCP/blob/main/config/config.yaml
 type Configuration map[string]any
 
 func (v Configuration) GetByPath(path string) (any, bool) {
