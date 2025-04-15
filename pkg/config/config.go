@@ -15,10 +15,12 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// DefaultConfigReplacements has no replacements configured
 func DefaultConfigReplacements() *ConfigReplacements {
 	return NewConfigReplacements("", "", "")
 }
 
+// NewConfigReplacements returns a new ConfigurationReplacements instance with given values
 func NewConfigReplacements(regionReplacement, regionShortReplacement, stampReplacement string) *ConfigReplacements {
 	return &ConfigReplacements{
 		RegionReplacement:      regionReplacement,
@@ -27,12 +29,14 @@ func NewConfigReplacements(regionReplacement, regionShortReplacement, stampRepla
 	}
 }
 
+// ConfigReplacements holds replacement values
 type ConfigReplacements struct {
 	RegionReplacement      string
 	RegionShortReplacement string
 	StampReplacement       string
 }
 
+// AsMap returns a map[string]interface{} representation of this ConfigReplacement instance
 func (c *ConfigReplacements) AsMap() map[string]interface{} {
 	return map[string]interface{}{
 		"ctx": map[string]interface{}{
@@ -43,12 +47,13 @@ func (c *ConfigReplacements) AsMap() map[string]interface{} {
 	}
 }
 
+// ConfigProvider resolves service configuration for specific environments and clouds using a base configuration file.
 type ConfigProvider interface {
 	Validate(cloud, deployEnv string) error
-	GetVariables(cloud, deployEnv, region string, configReplacements *ConfigReplacements) (Variables, error)
-	GetDeployEnvVariables(cloud, deployEnv string, configReplacements *ConfigReplacements) (Variables, error)
+	GetDeployEnvRegionConfiguration(cloud, deployEnv, region string, configReplacements *ConfigReplacements) (Configuration, error)
+	GetDeployEnvConfiguration(cloud, deployEnv string, configReplacements *ConfigReplacements) (Configuration, error)
 	GetRegions(cloud, deployEnv string) ([]string, error)
-	GetRegionOverrides(cloud, deployEnv, region string, configReplacements *ConfigReplacements) (Variables, error)
+	GetRegionOverrides(cloud, deployEnv, region string, configReplacements *ConfigReplacements) (Configuration, error)
 }
 
 func NewConfigProvider(config string) ConfigProvider {
@@ -57,15 +62,18 @@ func NewConfigProvider(config string) ConfigProvider {
 	}
 }
 
-func InterfaceToVariables(i interface{}) (Variables, bool) {
+// InterfaceToConfiguration, pass in an interface of map[string]any and get (Configuration, true) back
+// This is also converting nested maps, making it easier to iterate over the configuration.
+// If type does not match, second return value will be false
+func InterfaceToConfiguration(i interface{}) (Configuration, bool) {
 	// Helper, that reduces need for reflection calls, i.e. MapIndex
 	// from: https://github.com/peterbourgon/mergemap/blob/master/mergemap.go
 	value := reflect.ValueOf(i)
 	if value.Kind() == reflect.Map {
-		m := Variables{}
+		m := Configuration{}
 		for _, k := range value.MapKeys() {
 			v := value.MapIndex(k).Interface()
-			if nestedMap, ok := InterfaceToVariables(v); ok {
+			if nestedMap, ok := InterfaceToConfiguration(v); ok {
 				m[k.String()] = nestedMap
 			} else {
 				m[k.String()] = v
@@ -73,19 +81,19 @@ func InterfaceToVariables(i interface{}) (Variables, bool) {
 		}
 		return m, true
 	}
-	return Variables{}, false
+	return Configuration{}, false
 }
 
-// Merges variables, returns merged variables
+// Merges Configuration, returns merged Configuration
 // However the return value is only used for recursive updates on the map
-// The actual merged variables are updated in the base map
-func MergeVariables(base, override Variables) Variables {
+// The actual merged Configuration are updated in the base map
+func MergeConfiguration(base, override Configuration) Configuration {
 	for k, newValue := range override {
 		if baseValue, exists := base[k]; exists {
-			srcMap, srcMapOk := InterfaceToVariables(newValue)
-			dstMap, dstMapOk := InterfaceToVariables(baseValue)
+			srcMap, srcMapOk := InterfaceToConfiguration(newValue)
+			dstMap, dstMapOk := InterfaceToConfiguration(baseValue)
 			if srcMapOk && dstMapOk {
-				newValue = MergeVariables(dstMap, srcMap)
+				newValue = MergeConfiguration(dstMap, srcMap)
 			}
 		}
 		base[k] = newValue
@@ -94,12 +102,12 @@ func MergeVariables(base, override Variables) Variables {
 	return base
 }
 
-// Needed to convert Variables to map[string]interface{} for jsonschema validation
+// Needed to convert Configuration to map[string]interface{} for jsonschema validation
 // see: https://github.com/santhosh-tekuri/jsonschema/blob/boon/schema.go#L124
-func convertToInterface(variables Variables) map[string]any {
+func convertToInterface(config Configuration) map[string]any {
 	m := map[string]any{}
-	for k, v := range variables {
-		if subMap, ok := v.(Variables); ok {
+	for k, v := range config {
+		if subMap, ok := v.(Configuration); ok {
 			m[k] = convertToInterface(subMap)
 		} else {
 			m[k] = v
@@ -146,7 +154,7 @@ func (cp *configProviderImpl) loadSchema() (any, error) {
 	return schema, nil
 }
 
-func (cp *configProviderImpl) validateSchema(variables Variables) error {
+func (cp *configProviderImpl) validateSchema(config Configuration) error {
 	c := jsonschema.NewCompiler()
 
 	schema, err := cp.loadSchema()
@@ -163,15 +171,17 @@ func (cp *configProviderImpl) validateSchema(variables Variables) error {
 		return fmt.Errorf("failed to compile schema: %v", err)
 	}
 
-	err = sch.Validate(convertToInterface(variables))
+	err = sch.Validate(convertToInterface(config))
 	if err != nil {
 		return fmt.Errorf("failed to validate schema: %v", err)
 	}
 	return nil
 }
 
-func (cp *configProviderImpl) GetVariables(cloud, deployEnv, region string, configReplacements *ConfigReplacements) (Variables, error) {
-	variables, err := cp.GetDeployEnvVariables(cloud, deployEnv, configReplacements)
+// GetDeployEnvRegionConfiguration reads, processes, validates and returns the configuration
+// It uses GetDeployEnvConfiguration and will in addition merge region overrides
+func (cp *configProviderImpl) GetDeployEnvRegionConfiguration(cloud, deployEnv, region string, configReplacements *ConfigReplacements) (Configuration, error) {
+	config, err := cp.GetDeployEnvConfiguration(cloud, deployEnv, configReplacements)
 	if err != nil {
 		return nil, err
 	}
@@ -181,16 +191,17 @@ func (cp *configProviderImpl) GetVariables(cloud, deployEnv, region string, conf
 	if err != nil {
 		return nil, err
 	}
-	MergeVariables(variables, regionOverrides)
+	MergeConfiguration(config, regionOverrides)
 
 	// validate schema
-	err = cp.validateSchema(variables)
+	err = cp.validateSchema(config)
 	if err != nil {
 		return nil, err
 	}
-	return variables, nil
+	return config, nil
 }
 
+// Validate basic validation
 func (cp *configProviderImpl) Validate(cloud, deployEnv string) error {
 	config, err := cp.loadConfig(DefaultConfigReplacements())
 	if err != nil {
@@ -210,7 +221,9 @@ func (cp *configProviderImpl) Validate(cloud, deployEnv string) error {
 	return nil
 }
 
-func (cp *configProviderImpl) GetDeployEnvVariables(cloud, deployEnv string, configReplacements *ConfigReplacements) (Variables, error) {
+// GetDeployEnvConfiguration load and merge the configuration
+// todo: this is called in HCP, so it should use schema validation as well.
+func (cp *configProviderImpl) GetDeployEnvConfiguration(cloud, deployEnv string, configReplacements *ConfigReplacements) (Configuration, error) {
 	config, err := cp.loadConfig(configReplacements)
 	if err != nil {
 		return nil, err
@@ -220,16 +233,17 @@ func (cp *configProviderImpl) GetDeployEnvVariables(cloud, deployEnv string, con
 		return nil, err
 	}
 
-	variables := Variables{}
-	MergeVariables(variables, config.GetDefaults())
-	MergeVariables(variables, config.GetCloudOverrides(cloud))
-	MergeVariables(variables, config.GetDeployEnvOverrides(cloud, deployEnv))
+	mergedConfig := Configuration{}
+	MergeConfiguration(mergedConfig, config.GetDefaults())
+	MergeConfiguration(mergedConfig, config.GetCloudOverrides(cloud))
+	MergeConfiguration(mergedConfig, config.GetDeployEnvOverrides(cloud, deployEnv))
 
 	cp.schema = config.GetSchema()
 
-	return variables, nil
+	return mergedConfig, nil
 }
 
+// GetRegions returns the list of configured regions
 func (cp *configProviderImpl) GetRegions(cloud, deployEnv string) ([]string, error) {
 	config, err := cp.loadConfig(DefaultConfigReplacements())
 	if err != nil {
@@ -243,7 +257,8 @@ func (cp *configProviderImpl) GetRegions(cloud, deployEnv string) ([]string, err
 	return regions, nil
 }
 
-func (cp *configProviderImpl) GetRegionOverrides(cloud, deployEnv, region string, configReplacements *ConfigReplacements) (Variables, error) {
+// GetRegionOverrides retun a configuration where region overrides have been applied
+func (cp *configProviderImpl) GetRegionOverrides(cloud, deployEnv, region string, configReplacements *ConfigReplacements) (Configuration, error) {
 	config, err := cp.loadConfig(configReplacements)
 	if err != nil {
 		return nil, err
@@ -251,7 +266,7 @@ func (cp *configProviderImpl) GetRegionOverrides(cloud, deployEnv, region string
 	return config.GetRegionOverrides(cloud, deployEnv, region), nil
 }
 
-func (cp *configProviderImpl) loadConfig(configReplacements *ConfigReplacements) (VariableOverrides, error) {
+func (cp *configProviderImpl) loadConfig(configReplacements *ConfigReplacements) (ConfigurationOverrides, error) {
 	// TODO validate that field names are unique regardless of casing
 	// parse, execute and unmarshal the config file as a template to generate the final config file
 	rawContent, err := PreprocessFile(cp.config, configReplacements.AsMap())
@@ -259,7 +274,7 @@ func (cp *configProviderImpl) loadConfig(configReplacements *ConfigReplacements)
 		return nil, err
 	}
 
-	currentVariableOverrides := NewVariableOverrides()
+	currentVariableOverrides := NewConfigurationOverrides()
 	if err := yaml.Unmarshal(rawContent, currentVariableOverrides); err == nil {
 		return currentVariableOverrides, nil
 	} else {
@@ -268,7 +283,7 @@ func (cp *configProviderImpl) loadConfig(configReplacements *ConfigReplacements)
 }
 
 // PreprocessFile reads and processes a gotemplate
-// The path will be read as is. It parses the file as a template, and executes it with the provided variables.
+// The path will be read as is. It parses the file as a template, and executes it with the provided Configuration.
 func PreprocessFile(templateFilePath string, vars map[string]any) ([]byte, error) {
 	content, err := os.ReadFile(templateFilePath)
 	if err != nil {
