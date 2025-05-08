@@ -37,10 +37,10 @@ func TestConfigProvider(t *testing.T) {
 	configProvider := NewConfigProvider("../../testdata/config.yaml")
 
 	config, err := configProvider.GetDeployEnvRegionConfiguration(cloud, environment, region, &ConfigReplacements{
-		RegionReplacement: region,
+		RegionReplacement:      region,
 		RegionShortReplacement: regionShort,
-		StampReplacement: stamp,
-		CloudReplacement: cloud,
+		StampReplacement:       stamp,
+		CloudReplacement:       cloud,
 		EnvironmentReplacement: environment,
 	})
 	assert.NoError(t, err)

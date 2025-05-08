@@ -39,7 +39,7 @@ type ConfigReplacements struct {
 	RegionReplacement      string
 	RegionShortReplacement string
 	StampReplacement       string
-	CloudReplacement 	 string
+	CloudReplacement       string
 	EnvironmentReplacement string
 }
 
