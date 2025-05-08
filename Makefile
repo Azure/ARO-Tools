@@ -17,3 +17,7 @@ lint:
 lint-fix:
 	go tool golangci-lint run --fix ./...
 .PHONY: lint-fix
+
+format:
+	go tool golangci-lint fmt  ./.
+.PHONY: format
