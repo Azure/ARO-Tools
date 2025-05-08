@@ -19,5 +19,5 @@ lint-fix:
 .PHONY: lint-fix
 
 format:
-	go tool github.com/daixiang0/gci write -s standard -s default -s 'prefix(k8s.io)' -s 'prefix(sigs.k8s.io)' -s 'prefix(github.com/Azure)' -s blank -s dot .
+	go tool golangci-lint fmt  ./.
 .PHONY: format
