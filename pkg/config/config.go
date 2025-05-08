@@ -31,16 +31,7 @@ import (
 
 // DefaultConfigReplacements has no replacements configured
 func DefaultConfigReplacements() *ConfigReplacements {
-	return NewConfigReplacements("", "", "")
-}
-
-// NewConfigReplacements returns a new ConfigurationReplacements instance with given values
-func NewConfigReplacements(regionReplacement, regionShortReplacement, stampReplacement string) *ConfigReplacements {
-	return &ConfigReplacements{
-		RegionReplacement:      regionReplacement,
-		RegionShortReplacement: regionShortReplacement,
-		StampReplacement:       stampReplacement,
-	}
+	return &ConfigReplacements{}
 }
 
 // ConfigReplacements holds replacement values
@@ -48,6 +39,8 @@ type ConfigReplacements struct {
 	RegionReplacement      string
 	RegionShortReplacement string
 	StampReplacement       string
+	CloudReplacement       string
+	EnvironmentReplacement string
 }
 
 // AsMap returns a map[string]interface{} representation of this ConfigReplacement instance
@@ -57,6 +50,8 @@ func (c *ConfigReplacements) AsMap() map[string]interface{} {
 			"region":      c.RegionReplacement,
 			"regionShort": c.RegionShortReplacement,
 			"stamp":       c.StampReplacement,
+			"cloud":       c.CloudReplacement,
+			"environment": c.EnvironmentReplacement,
 		},
 	}
 }
