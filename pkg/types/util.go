@@ -15,14 +15,14 @@
 package types
 
 import (
-	_ "embed"
-
 	"encoding/json"
 	"fmt"
 	"strings"
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
 	"gopkg.in/yaml.v3"
+
+	_ "embed"
 )
 
 //go:embed pipeline.schema.v1.json
