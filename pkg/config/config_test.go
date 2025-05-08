@@ -31,10 +31,18 @@ func TestConfigProvider(t *testing.T) {
 	region := "uksouth"
 	regionShort := "uks"
 	stamp := "1"
+	cloud := "public"
+	environment := "int"
 
 	configProvider := NewConfigProvider("../../testdata/config.yaml")
 
-	config, err := configProvider.GetDeployEnvRegionConfiguration("public", "int", region, NewConfigReplacements(region, regionShort, stamp))
+	config, err := configProvider.GetDeployEnvRegionConfiguration(cloud, environment, region, &ConfigReplacements{
+		RegionReplacement: region,
+		RegionShortReplacement: regionShort,
+		StampReplacement: stamp,
+		CloudReplacement: cloud,
+		EnvironmentReplacement: environment,
+	})
 	assert.NoError(t, err)
 	assert.NotNil(t, config)
 
@@ -49,6 +57,9 @@ func TestConfigProvider(t *testing.T) {
 
 	// key is in the config file, default, varaible value
 	assert.Equal(t, fmt.Sprintf("hcp-underlay-%s", regionShort), config["regionRG"])
+
+	// key is in the config file, varaible value
+	assert.Equal(t, fmt.Sprintf("%s-%s", cloud, environment), config["cloudEnv"])
 }
 
 func TestInterfaceToConfiguration(t *testing.T) {
