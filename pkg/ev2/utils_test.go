@@ -15,12 +15,15 @@
 package ev2
 
 import (
-	"fmt"
+	"path/filepath"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	"gotest.tools/assert"
 
 	"github.com/Azure/ARO-Tools/pkg/config"
+	"github.com/Azure/ARO-Tools/pkg/types"
 )
 
 func TestScopeBindingVariables(t *testing.T) {
@@ -50,10 +53,70 @@ func TestScopeBindingVariables(t *testing.T) {
 		"__enableOptionalStep__":            "$config(enableOptionalStep)",
 	}
 
-	fmt.Println(expectedVars)
-	fmt.Println(vars)
-
 	if diff := cmp.Diff(expectedVars, vars); diff != "" {
 		t.Errorf("got incorrect vars: %v", diff)
+	}
+}
+
+func TestDeepCopy(t *testing.T) {
+	configProvider := config.NewConfigProvider("../../testdata/config.yaml")
+	vars, err := configProvider.GetDeployEnvRegionConfiguration("public", "int", "", config.NewConfigReplacements("r", "sr", "s"))
+	if err != nil {
+		t.Errorf("failed to get variables: %v", err)
+	}
+	pipeline, err := types.NewPipelineFromFile("../../testdata/pipeline.yaml", vars)
+	if err != nil {
+		t.Errorf("failed to read new pipeline: %v", err)
+	}
+
+	newPipelinePath := "new-pipeline.yaml"
+	pipelineCopy, err := deepCopyPipeline(pipeline, newPipelinePath)
+	if err != nil {
+		t.Errorf("failed to copy pipeline: %v", err)
+	}
+
+	assert.Assert(t, pipeline != pipelineCopy, "expected pipeline and copy to be different")
+
+	if diff := cmp.Diff(pipeline, pipelineCopy, cmpopts.IgnoreUnexported(types.Pipeline{}, types.ShellStep{}, types.ARMStep{})); diff != "" {
+		t.Errorf("got diffs after pipeline deep copy: %v", diff)
+	}
+}
+
+func TestAbsoluteFilePath(t *testing.T) {
+	pipelineFilePath := "../../testdata/pipeline.yaml"
+
+	abspath := func(path string) string {
+		abs, _ := filepath.Abs(path)
+		return abs
+	}
+	testCases := []struct {
+		name         string
+		relativeFile string
+		absoluteFile string
+	}{
+		{
+			name:         "basic",
+			relativeFile: "test.bicepparam",
+			absoluteFile: abspath("../../testdata/test.bicepparam"),
+		},
+		{
+			name:         "go one lower",
+			relativeFile: "../test.bicepparam",
+			absoluteFile: abspath("../../test.bicepparam"),
+		},
+		{
+			name:         "subdir",
+			relativeFile: "subdir/test.bicepparam",
+			absoluteFile: abspath("../../testdata/subdir/test.bicepparam"),
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			abs, err := absoluteFilePath(pipelineFilePath, tc.relativeFile)
+			if err != nil {
+				t.Errorf("failed to get absolute file path: %v", err)
+			}
+			assert.Equal(t, abs, tc.absoluteFile, "expected absolute file path to be correct")
+		})
 	}
 }

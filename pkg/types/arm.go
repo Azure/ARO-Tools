@@ -5,6 +5,16 @@ import (
 	"strings"
 )
 
+type ARMStep struct {
+	StepMeta        `yaml:",inline"`
+	Command         string     `yaml:"command,omitempty"`
+	Variables       []Variable `yaml:"variables,omitempty"`
+	Template        string     `yaml:"template,omitempty"`
+	Parameters      string     `yaml:"parameters,omitempty"`
+	DeploymentLevel string     `yaml:"deploymentLevel,omitempty"`
+	OutputOnly      bool       `yaml:"outputOnly,omitempty"`
+}
+
 func NewARMStep(name string, template string, parameters string, deploymentLevel string) *ARMStep {
 	return &ARMStep{
 		StepMeta: StepMeta{
@@ -30,16 +40,6 @@ func (s *ARMStep) WithVariables(variables ...Variable) *ARMStep {
 func (s *ARMStep) WithOutputOnly() *ARMStep {
 	s.OutputOnly = true
 	return s
-}
-
-type ARMStep struct {
-	StepMeta        `yaml:",inline"`
-	Command         string     `yaml:"command,omitempty"`
-	Variables       []Variable `yaml:"variables,omitempty"`
-	Template        string     `yaml:"template,omitempty"`
-	Parameters      string     `yaml:"parameters,omitempty"`
-	DeploymentLevel string     `yaml:"deploymentLevel,omitempty"`
-	OutputOnly      bool       `yaml:"outputOnly,omitempty"`
 }
 
 func (s *ARMStep) Description() string {
