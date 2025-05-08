@@ -2,6 +2,13 @@ package types
 
 import "fmt"
 
+type Step interface {
+	StepName() string
+	ActionType() string
+	Description() string
+	Dependencies() []string
+}
+
 type StepMeta struct {
 	Name      string   `yaml:"name"`
 	Action    string   `yaml:"action"`
@@ -18,13 +25,6 @@ func (m *StepMeta) ActionType() string {
 
 func (m *StepMeta) Dependencies() []string {
 	return m.DependsOn
-}
-
-type Step interface {
-	StepName() string
-	ActionType() string
-	Description() string
-	Dependencies() []string
 }
 
 type GenericStep struct {
