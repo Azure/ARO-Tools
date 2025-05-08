@@ -17,7 +17,6 @@ package ev2
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"gopkg.in/yaml.v3"
 
@@ -38,12 +37,12 @@ func PrecompilePipelineFileForEV2(pipelineFilePath string, cfg config.Configurat
 	if err != nil {
 		return "", err
 	}
-	err = os.WriteFile(precompiledPipeline.PipelineFilePath(), pipelineBytes, 0644)
+	err = os.WriteFile(pipelineFilePath, pipelineBytes, 0644)
 	if err != nil {
 		return "", err
 	}
 
-	return precompiledPipeline.PipelineFilePath(), nil
+	return pipelineFilePath, nil
 }
 
 func PrecompilePipelineForEV2(pipelineFilePath string, cfg config.Configuration) (*types.Pipeline, error) {
@@ -52,20 +51,20 @@ func PrecompilePipelineForEV2(pipelineFilePath string, cfg config.Configuration)
 	if err != nil {
 		return nil, err
 	}
-	referencedFiles, err := readReferencedPipelineFiles(originalPipeline)
+	referencedFiles, err := readReferencedPipelineFiles(originalPipeline, pipelineFilePath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read referenced files of pipeline %s: %w", originalPipeline.PipelineFilePath(), err)
+		return nil, fmt.Errorf("failed to read referenced files of pipeline %s: %w", pipelineFilePath, err)
 	}
 
 	// precompile the pipeline and referenced files
-	processedPipeline, processedFiles, err := processPipelineForEV2(originalPipeline, referencedFiles, cfg)
+	processedPipeline, processedFiles, err := processPipelineForEV2(originalPipeline, pipelineFilePath, referencedFiles, cfg)
 	if err != nil {
 		return nil, err
 	}
 
 	// store the processed files to disk relative to the pipeline directory
 	for filePath, content := range processedFiles {
-		absFilePath, err := processedPipeline.AbsoluteFilePath(filePath)
+		absFilePath, err := absoluteFilePath(pipelineFilePath, filePath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get absolute file path for %q: %w", filePath, err)
 		}
@@ -78,13 +77,13 @@ func PrecompilePipelineForEV2(pipelineFilePath string, cfg config.Configuration)
 	return processedPipeline, nil
 }
 
-func readReferencedPipelineFiles(p *types.Pipeline) (map[string][]byte, error) {
+func readReferencedPipelineFiles(p *types.Pipeline, pipelineFilePath string) (map[string][]byte, error) {
 	referencedFiles := make(map[string][]byte)
 	for _, rg := range p.ResourceGroups {
 		for _, step := range rg.Steps {
 			switch concreteStep := step.(type) {
 			case *types.ARMStep:
-				absFilePath, err := p.AbsoluteFilePath(concreteStep.Parameters)
+				absFilePath, err := absoluteFilePath(pipelineFilePath, concreteStep.Parameters)
 				if err != nil {
 					return nil, fmt.Errorf("failed to get absolute file path for %q: %w", concreteStep.Parameters, err)
 				}
@@ -99,8 +98,8 @@ func readReferencedPipelineFiles(p *types.Pipeline) (map[string][]byte, error) {
 	return referencedFiles, nil
 }
 
-func processPipelineForEV2(p *types.Pipeline, referencedFiles map[string][]byte, cfg config.Configuration) (*types.Pipeline, map[string][]byte, error) {
-	processingPipeline, err := p.DeepCopy(buildPrefixedFilePath(p.PipelineFilePath(), precompiledPrefix))
+func processPipelineForEV2(p *types.Pipeline, pipelinePath string, referencedFiles map[string][]byte, cfg config.Configuration) (*types.Pipeline, map[string][]byte, error) {
+	processingPipeline, err := deepCopyPipeline(p, buildPrefixedFilePath(pipelinePath, precompiledPrefix))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -126,10 +125,4 @@ func processPipelineForEV2(p *types.Pipeline, referencedFiles map[string][]byte,
 		}
 	}
 	return processingPipeline, processedFiles, nil
-}
-
-func buildPrefixedFilePath(path, prefix string) string {
-	dir := filepath.Dir(path)
-	base := filepath.Base(path)
-	return filepath.Join(dir, prefix+base)
 }

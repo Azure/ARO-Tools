@@ -4,16 +4,16 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/Azure/ARO-Tools/pkg/config"
 	"gopkg.in/yaml.v3"
+
+	"github.com/Azure/ARO-Tools/pkg/config"
 )
 
 type Pipeline struct {
-	schema           string `yaml:"$schema,omitempty"`
-	pipelineFilePath string
-	ServiceGroup     string           `yaml:"serviceGroup"`
-	RolloutName      string           `yaml:"rolloutName"`
-	ResourceGroups   []*ResourceGroup `yaml:"resourceGroups"`
+	schema         string           `yaml:"$schema,omitempty"`
+	ServiceGroup   string           `yaml:"serviceGroup"`
+	RolloutName    string           `yaml:"rolloutName"`
+	ResourceGroups []*ResourceGroup `yaml:"resourceGroups"`
 }
 
 func NewPipelineFromFile(pipelineFilePath string, cfg config.Configuration) (*Pipeline, error) {
@@ -70,11 +70,10 @@ func NewPlainPipelineFromBytes(filepath string, bytes []byte) (*Pipeline, error)
 	}
 
 	pipeline := &Pipeline{
-		schema:           rawPipeline.Schema,
-		pipelineFilePath: filepath,
-		ServiceGroup:     rawPipeline.ServiceGroup,
-		RolloutName:      rawPipeline.RolloutName,
-		ResourceGroups:   make([]*ResourceGroup, len(rawPipeline.ResourceGroups)),
+		schema:         rawPipeline.Schema,
+		ServiceGroup:   rawPipeline.ServiceGroup,
+		RolloutName:    rawPipeline.RolloutName,
+		ResourceGroups: make([]*ResourceGroup, len(rawPipeline.ResourceGroups)),
 	}
 
 	for i, rawRg := range rawPipeline.ResourceGroups {
@@ -154,25 +153,4 @@ func (p *Pipeline) Validate() error {
 		}
 	}
 	return nil
-}
-
-func (p *Pipeline) DeepCopy(newPipelineFilePath string) (*Pipeline, error) {
-	data, err := yaml.Marshal(p)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal pipeline: %v", err)
-	}
-
-	copy, err := NewPlainPipelineFromBytes(newPipelineFilePath, data)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal pipeline: %v", err)
-	}
-	return copy, nil
-}
-
-func (p *Pipeline) PipelineFilePath() string {
-	return p.pipelineFilePath
-}
-
-func (p *Pipeline) AbsoluteFilePath(filePath string) (string, error) {
-	return filepath.Abs(filepath.Join(filepath.Dir(p.pipelineFilePath), filePath))
 }

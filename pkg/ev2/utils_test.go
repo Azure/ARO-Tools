@@ -15,6 +15,7 @@
 package ev2
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -48,6 +49,9 @@ func TestScopeBindingVariables(t *testing.T) {
 		"__clustersService.replicas__":      "$config(clustersService.replicas)",
 		"__enableOptionalStep__":            "$config(enableOptionalStep)",
 	}
+
+	fmt.Println(expectedVars)
+	fmt.Println(vars)
 
 	if diff := cmp.Diff(expectedVars, vars); diff != "" {
 		t.Errorf("got incorrect vars: %v", diff)
