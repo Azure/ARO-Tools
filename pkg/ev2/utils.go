@@ -16,8 +16,12 @@ package ev2
 
 import (
 	"fmt"
+	"path/filepath"
+
+	"gopkg.in/yaml.v3"
 
 	"github.com/Azure/ARO-Tools/pkg/config"
+	"github.com/Azure/ARO-Tools/pkg/types"
 )
 
 //
@@ -73,4 +77,27 @@ func ScopeBindingVariables(configProvider config.ConfigProvider, cloud, deployEn
 		variables[key] = fmt.Sprintf("$config(%s)", value)
 	}
 	return variables, nil
+}
+
+func deepCopyPipeline(p *types.Pipeline, newPipelineFilePath string) (*types.Pipeline, error) {
+	data, err := yaml.Marshal(p)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal pipeline: %v", err)
+	}
+
+	copy, err := types.NewPlainPipelineFromBytes(newPipelineFilePath, data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal pipeline: %v", err)
+	}
+	return copy, nil
+}
+
+func buildPrefixedFilePath(path, prefix string) string {
+	dir := filepath.Dir(path)
+	base := filepath.Base(path)
+	return filepath.Join(dir, prefix+base)
+}
+
+func absoluteFilePath(pipelineFilePath, filePath string) (string, error) {
+	return filepath.Abs(filepath.Join(filepath.Dir(pipelineFilePath), filePath))
 }

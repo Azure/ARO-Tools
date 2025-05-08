@@ -16,6 +16,7 @@ package types
 
 import (
 	_ "embed"
+
 	"encoding/json"
 	"fmt"
 	"strings"
