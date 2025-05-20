@@ -4,9 +4,10 @@ import (
 	"os"
 	"testing"
 
-	"github.com/Azure/ARO-Tools/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
+
+	"github.com/Azure/ARO-Tools/internal/testutil"
 )
 
 func TestNewPlainPipelineFromBytes(t *testing.T) {
