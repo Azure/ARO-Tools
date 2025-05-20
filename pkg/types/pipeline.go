@@ -16,7 +16,6 @@ package types
 
 import (
 	"fmt"
-	"path/filepath"
 
 	"gopkg.in/yaml.v3"
 
@@ -41,12 +40,7 @@ func NewPipelineFromFile(pipelineFilePath string, cfg config.Configuration) (*Pi
 		return nil, fmt.Errorf("failed to validate pipeline schema: %w", err)
 	}
 
-	absPath, err := filepath.Abs(pipelineFilePath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get absolute path for pipeline file %q: %w", pipelineFilePath, err)
-	}
-
-	pipeline, err := NewPlainPipelineFromBytes(absPath, bytes)
+	pipeline, err := NewPlainPipelineFromBytes(bytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal pipeline file %w", err)
 	}
@@ -56,7 +50,7 @@ func NewPipelineFromFile(pipelineFilePath string, cfg config.Configuration) (*Pi
 	}
 	return pipeline, nil
 }
-func NewPlainPipelineFromBytes(filepath string, bytes []byte) (*Pipeline, error) {
+func NewPlainPipelineFromBytes(bytes []byte) (*Pipeline, error) {
 	rawPipeline := &struct {
 		Schema         string `yaml:"$schema,omitempty"`
 		ServiceGroup   string `yaml:"serviceGroup"`
@@ -64,7 +58,6 @@ func NewPlainPipelineFromBytes(filepath string, bytes []byte) (*Pipeline, error)
 		ResourceGroups []struct {
 			Name         string           `yaml:"name"`
 			Subscription string           `yaml:"subscription"`
-			AKSCluster   string           `yaml:"aksCluster,omitempty"`
 			Steps        []map[string]any `yaml:"steps"`
 		} `yaml:"resourceGroups"`
 	}{}
@@ -95,7 +88,6 @@ func NewPlainPipelineFromBytes(filepath string, bytes []byte) (*Pipeline, error)
 		pipeline.ResourceGroups[i] = rg
 		rg.Name = rawRg.Name
 		rg.Subscription = rawRg.Subscription
-		rg.AKSCluster = rawRg.AKSCluster
 		rg.Steps = make([]Step, len(rawRg.Steps))
 		for i, rawStep := range rawRg.Steps {
 			// preprocess variableRef step properties

@@ -164,6 +164,9 @@
                                 "command": {
                                     "type": "string"
                                 },
+                                "aksCluster": {
+                                    "type": "string"
+                                },
                                 "variables": {
                                     "type": "array",
                                     "items": {
@@ -288,6 +291,9 @@
                                             "enum": ["Shell"]
                                         },
                                         "command": {
+                                            "type": "string"
+                                        },
+                                        "aksCluster": {
                                             "type": "string"
                                         },
                                         "variables": {
@@ -501,9 +507,6 @@
                                 "action"
                             ]
                         }
-                    },
-                    "aksCluster": {
-                        "type": "string"
                     }
                 },
                 "required": [

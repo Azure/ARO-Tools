@@ -17,10 +17,11 @@ package types
 import "fmt"
 
 type ShellStep struct {
-	StepMeta  `yaml:",inline"`
-	Command   string     `yaml:"command,omitempty"`
-	Variables []Variable `yaml:"variables,omitempty"`
-	DryRun    DryRun     `yaml:"dryRun,omitempty"`
+	StepMeta   `yaml:",inline"`
+	AKSCluster string     `yaml:"aksCluster,omitempty"`
+	Command    string     `yaml:"command,omitempty"`
+	Variables  []Variable `yaml:"variables,omitempty"`
+	DryRun     DryRun     `yaml:"dryRun,omitempty"`
 }
 
 func NewShellStep(name string, command string) *ShellStep {
@@ -35,6 +36,11 @@ func NewShellStep(name string, command string) *ShellStep {
 
 func (s *ShellStep) Description() string {
 	return fmt.Sprintf("Step %s\n  Kind: %s\n  Command: %s\n", s.Name, s.Action, s.Command)
+}
+
+func (s *ShellStep) WithAKSCluster(aksCluster string) *ShellStep {
+	s.AKSCluster = aksCluster
+	return s
 }
 
 func (s *ShellStep) WithDependsOn(dependsOn ...string) *ShellStep {
