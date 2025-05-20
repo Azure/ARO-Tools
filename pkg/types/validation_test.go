@@ -210,7 +210,6 @@ func TestValidatePipelineSchema(t *testing.T) {
 					map[string]interface{}{
 						"name":         "rg",
 						"subscription": "sub",
-						"aksCluster":   "aks",
 						"steps": []interface{}{
 							map[string]interface{}{
 								"name":    "step",

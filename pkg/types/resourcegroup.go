@@ -19,7 +19,6 @@ import "fmt"
 type ResourceGroup struct {
 	Name         string `yaml:"name"`
 	Subscription string `yaml:"subscription"`
-	AKSCluster   string `yaml:"aksCluster,omitempty"`
 	Steps        []Step `yaml:"steps"`
 }
 
