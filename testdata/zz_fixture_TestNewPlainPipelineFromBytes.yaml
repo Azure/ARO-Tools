@@ -1,13 +1,13 @@
 serviceGroup: Microsoft.Azure.ARO.Test
 rolloutName: Test Rollout
 resourceGroups:
-    - name: hcp-underlay-$(regionShortName)
-      subscription: hcp-$location()
+    - name: '{{ .regionRG  }}'
+      subscription: '{{ .serviceClusterSubscription  }}'
       steps:
         - name: deploy
           action: Shell
+          aksCluster: '{{ .aksName  }}'
           command: make deploy
-          aksCluster: test
           variables:
             - name: MAESTRO_IMAGE
               configRef: maestro_image
@@ -18,10 +18,13 @@ resourceGroups:
             variables:
                 - name: DRY_RUN
                   value: A very dry one
+        - name: optionalStep
+          action: Shell
+          command: make optional
         - name: svc
           action: ARM
           template: templates/svc-cluster.bicep
-          parameters: ev2-precompiled-test.bicepparam
+          parameters: test.bicepparam
           deploymentLevel: ResourceGroup
         - name: cxChildZone
           action: DelegateChildZone

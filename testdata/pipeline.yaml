@@ -4,11 +4,11 @@ rolloutName: Test Rollout
 resourceGroups:
 - name: '{{ .regionRG  }}'
   subscription: '{{ .serviceClusterSubscription  }}'
-  aksCluster: '{{ .aksName  }}'
   steps:
   - name: deploy
     action: Shell
     command: make deploy
+    aksCluster: '{{ .aksName  }}'
     variables:
     - name: MAESTRO_IMAGE
       configRef: maestro_image
