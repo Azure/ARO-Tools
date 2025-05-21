@@ -507,6 +507,10 @@
                                 "action"
                             ]
                         }
+                    },
+                    "aksCluster": {
+                        "description": "Deprecated, to be removed", 
+                        "type": "string"
                     }
                 },
                 "required": [

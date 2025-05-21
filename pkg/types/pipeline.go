@@ -40,7 +40,7 @@ func NewPipelineFromFile(pipelineFilePath string, cfg config.Configuration) (*Pi
 		return nil, fmt.Errorf("failed to validate pipeline schema: %w", err)
 	}
 
-	pipeline, err := NewPlainPipelineFromBytes(bytes)
+	pipeline, err := NewPlainPipelineFromBytes("", bytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal pipeline file %w", err)
 	}
@@ -50,15 +50,19 @@ func NewPipelineFromFile(pipelineFilePath string, cfg config.Configuration) (*Pi
 	}
 	return pipeline, nil
 }
-func NewPlainPipelineFromBytes(bytes []byte) (*Pipeline, error) {
+
+// Deprecated: first parameter can be removed
+func NewPlainPipelineFromBytes(_ string, bytes []byte) (*Pipeline, error) {
 	rawPipeline := &struct {
 		Schema         string `yaml:"$schema,omitempty"`
 		ServiceGroup   string `yaml:"serviceGroup"`
 		RolloutName    string `yaml:"rolloutName"`
 		ResourceGroups []struct {
-			Name         string           `yaml:"name"`
-			Subscription string           `yaml:"subscription"`
-			Steps        []map[string]any `yaml:"steps"`
+			Name         string `yaml:"name"`
+			Subscription string `yaml:"subscription"`
+			// Deprecated: AKSCluster to be removed
+			AKSCluster string           `yaml:"aksCluster,omitempty"`
+			Steps      []map[string]any `yaml:"steps"`
 		} `yaml:"resourceGroups"`
 	}{}
 	err := yaml.Unmarshal(bytes, rawPipeline)
