@@ -19,7 +19,9 @@ import "fmt"
 type ResourceGroup struct {
 	Name         string `yaml:"name"`
 	Subscription string `yaml:"subscription"`
-	Steps        []Step `yaml:"steps"`
+	// Deprecated: AKSCluster to be removed
+	AKSCluster string `yaml:"aksCluster,omitempty"`
+	Steps      []Step `yaml:"steps"`
 }
 
 func (rg *ResourceGroup) Validate() error {

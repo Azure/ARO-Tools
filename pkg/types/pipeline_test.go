@@ -14,7 +14,7 @@ func TestNewPlainPipelineFromBytes(t *testing.T) {
 	pipelineBytes, err := os.ReadFile("../../testdata/zz_fixture_TestNewPlainPipelineFromBytes.yaml")
 	assert.NoError(t, err)
 
-	p, err := NewPlainPipelineFromBytes(pipelineBytes)
+	p, err := NewPlainPipelineFromBytes("", pipelineBytes)
 	assert.NoError(t, err)
 
 	pipelineBytes, err = yaml.Marshal(p)
