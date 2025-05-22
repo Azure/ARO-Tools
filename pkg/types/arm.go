@@ -7,7 +7,6 @@ import (
 
 type ARMStep struct {
 	StepMeta        `yaml:",inline"`
-	Command         string     `yaml:"command,omitempty"`
 	Variables       []Variable `yaml:"variables,omitempty"`
 	Template        string     `yaml:"template,omitempty"`
 	Parameters      string     `yaml:"parameters,omitempty"`
