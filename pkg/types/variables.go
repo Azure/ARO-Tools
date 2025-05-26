@@ -6,10 +6,10 @@ import (
 )
 
 type Variable struct {
-	Name      string `yaml:"name"`
-	Value     any    `yaml:"value"`
-	ConfigRef string `yaml:"configRef"`
-	Input     *Input `yaml:"input"`
+	Name      string `yaml:"name,omitempty"`
+	Value     any    `yaml:"value,omitempty"`
+	ConfigRef string `yaml:"configRef,omitempty"`
+	Input     *Input `yaml:"input,omitempty"`
 }
 
 type Input struct {
