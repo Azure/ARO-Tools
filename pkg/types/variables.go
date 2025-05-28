@@ -55,22 +55,19 @@ func (v *Variable) Validate(data map[string]any) error {
 
 // getConfigValue returns the value for the key in the configuration
 func getConfigValue(data map[string]any, key string) (any, error) {
-	err := fmt.Errorf("missing or empty value for key %s in configuration", key)
 	keys := strings.Split(key, ".")
 
-	var result any
+	var result any = data
 
-	result = data
-
-	for _, k := range keys {
+	for i, k := range keys {
 		cast, matchesType := result.(map[string]any)
 		if !matchesType {
-			return nil, err
+			return nil, fmt.Errorf("%s: configuration value is %T, not %T", strings.Join(keys[0:i], "."), result, map[string]any{})
 		}
 
 		value, exists := cast[k]
 		if !exists {
-			return nil, err
+			return nil, fmt.Errorf("%s: configuration has no member %s", strings.Join(keys[0:i], "."), k)
 		}
 
 		result = value
