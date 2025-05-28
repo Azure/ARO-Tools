@@ -40,15 +40,3 @@ type DryRun struct {
 	Variables []Variable `yaml:"variables,omitempty"`
 	Command   string     `yaml:"command,omitempty"`
 }
-
-type Variable struct {
-	Name      string `yaml:"name,omitempty"`
-	ConfigRef string `yaml:"configRef,omitempty"`
-	Value     string `yaml:"value,omitempty"`
-	Input     *Input `yaml:"input,omitempty"`
-}
-
-type Input struct {
-	Name string `yaml:"name"`
-	Step string `yaml:"step"`
-}

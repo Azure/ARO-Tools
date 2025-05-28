@@ -13,6 +13,7 @@ type ARMStep struct {
 	Parameters      string     `yaml:"parameters,omitempty"`
 	DeploymentLevel string     `yaml:"deploymentLevel,omitempty"`
 	OutputOnly      bool       `yaml:"outputOnly,omitempty"`
+	DeploymentMode  string     `yaml:"deploymentMode,omitempty"`
 }
 
 func NewARMStep(name string, template string, parameters string, deploymentLevel string) *ARMStep {

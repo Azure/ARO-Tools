@@ -21,11 +21,27 @@ resourceGroups:
         - name: optionalStep
           action: Shell
           command: make optional
+        - name: shellComplete
+          action: Shell
+          aksCluster: '{{ .aksName }}'
+          command: make optional
+          variables:
+            - name: MAESTRO_IMAGE
+              configRef: maestro_image
+          dryRun:
+            variables:
+                - name: DRY_RUN
+                  value: A very dry one
+          subnetId: id
+          shellIdentity:
+            name: shellIdentity
+            configRef: maestro_image
         - name: svc
           action: ARM
           template: templates/svc-cluster.bicep
           parameters: test.bicepparam
           deploymentLevel: ResourceGroup
+          deploymentMode: complete
         - name: cxChildZone
           action: DelegateChildZone
           dependsOn:
