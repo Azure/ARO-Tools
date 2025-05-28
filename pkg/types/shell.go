@@ -22,6 +22,20 @@ type ShellStep struct {
 	Command    string     `yaml:"command,omitempty"`
 	Variables  []Variable `yaml:"variables,omitempty"`
 	DryRun     DryRun     `yaml:"dryRun,omitempty"`
+
+	// Optional fields
+	References []Reference `yaml:"references,omitempty"`
+	SubnetId   string      `yaml:"subnetId,omitempty"`
+
+	ShellIdentity Variable `yaml:"shellIdentity,omitempty"`
+}
+
+type Reference struct {
+	// Environment variable name
+	Name string `yaml:"name"`
+
+	// The path to a file.
+	FilePath string `yaml:"filepath"`
 }
 
 func NewShellStep(name string, command string) *ShellStep {
