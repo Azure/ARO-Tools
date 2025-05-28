@@ -6,24 +6,10 @@ import (
 )
 
 // Variable
-//  1. Hardcode: value is hardcoded
-//     Name: variable name (eg: hello)
-//     Value: hardcoded value  (eg: world)
-//     Scope Bindings:
-//     Find: __hello__
-//     ReplaceWith: "world"
-//  2. Configuration: configuration reference
-//     ConfigRef: configuration key (eg: test)
-//     Scope Bindings:
-//     Find: __test__
-//     ReplaceWith: "$config(test)"
-//  3. Output chaining: value is outout from the previous step
-//     Name: variable name (eg: test)
-//     Input.Step: step name (eg: step)
-//     Input.Name: output name (eg: output)
-//     Scope Bindings:
-//     Find: __test__
-//     ReplaceWith:  "$serviceResourceDefinition(step).action(Deploy).outputs(output.value)"
+// Use this to pass in values to pipeline steps. Values can come from various sources:
+//   - Value: Use the value field to "hardcode" a value.
+//   - ConfigRef: Use this to reference an entry in a config.Configuration.
+//   - Input: Use this to specify an output chaining input.
 type Variable struct {
 	Name      string `yaml:"name,omitempty"`
 	Value     any    `yaml:"value,omitempty"`
