@@ -5,6 +5,25 @@ import (
 	"strings"
 )
 
+// Variable
+//  1. Hardcode: value is hardcoded
+//     Name: variable name (eg: hello)
+//     Value: hardcoded value  (eg: world)
+//     Scope Bindings:
+//     Find: __hello__
+//     ReplaceWith: "world"
+//  2. Configuration: configuration reference
+//     ConfigRef: configuration key (eg: test)
+//     Scope Bindings:
+//     Find: __test__
+//     ReplaceWith: "$config(test)"
+//  3. Output chaining: value is outout from the previous step
+//     Name: variable name (eg: test)
+//     Input.Step: step name (eg: step)
+//     Input.Name: output name (eg: output)
+//     Scope Bindings:
+//     Find: __test__
+//     ReplaceWith:  "$serviceResourceDefinition(step).action(Deploy).outputs(output.value)"
 type Variable struct {
 	Name      string `yaml:"name,omitempty"`
 	Value     any    `yaml:"value,omitempty"`
@@ -20,7 +39,6 @@ type Input struct {
 // Validate checks if the variable is valid
 func (v *Variable) Validate(data map[string]any) error {
 	if v.ConfigRef != "" {
-		// Confugration
 		val, err := getConfigValue(data, v.ConfigRef)
 		if err != nil {
 			return err
@@ -28,8 +46,7 @@ func (v *Variable) Validate(data map[string]any) error {
 
 		v.Value = val
 	} else if v.Value == nil && v.Input == nil {
-		// Hardcode
-		// Output chaining
+		// In this case no value is set, clearly an error
 		return fmt.Errorf("missing or empty value for variable %s", v.Name)
 	}
 
