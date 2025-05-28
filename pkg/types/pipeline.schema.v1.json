@@ -157,6 +157,9 @@
                                 "parameters": {
                                     "type": "string"
                                 },
+                                "deploymentMode": {
+                                    "type": "string"
+                                },
                                 "deploymentLevel": {
                                     "type": "string",
                                     "enum": ["ResourceGroup", "Subscription"]
@@ -181,6 +184,12 @@
                                 },
                                 "dryRun": {
                                     "type": "object"
+                                },
+                                "subnetId": {
+                                    "type": "string"
+                                },
+                                "shellIdentity": {
+                                    "$ref": "#/definitions/variableRef"
                                 },
                                 "vaultBaseUrl": {
                                     "$ref": "#/definitions/variableRef"
@@ -270,6 +279,10 @@
                                             "type": "string",
                                             "enum": ["ResourceGroup", "Subscription"]
                                         },
+                                        "deploymentMode": {
+                                            "type": "string",
+                                            "enum": ["incremental", "complete"]
+                                        },
                                         "outputOnly": {
                                             "type": "boolean"
                                         }
@@ -301,6 +314,12 @@
                                             "items": {
                                                 "$ref": "#/definitions/variable"
                                             }
+                                        },
+                                        "subnetId": {
+                                            "type": "string"
+                                        },
+                                        "shellIdentity": {
+                                            "$ref": "#/definitions/variable"
                                         },
                                         "dependsOn": {
                                             "type": "array",
