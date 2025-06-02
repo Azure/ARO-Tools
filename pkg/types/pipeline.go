@@ -32,7 +32,7 @@ type Pipeline struct {
 func NewPipelineFromFile(pipelineFilePath string, cfg config.Configuration) (*Pipeline, error) {
 	bytes, err := config.PreprocessFile(pipelineFilePath, cfg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to preprocess pipeline file %w", err)
+		return nil, fmt.Errorf("failed to preprocess pipeline file: %w", err)
 	}
 
 	err = ValidatePipelineSchema(bytes)
@@ -42,11 +42,11 @@ func NewPipelineFromFile(pipelineFilePath string, cfg config.Configuration) (*Pi
 
 	pipeline, err := NewPlainPipelineFromBytes("", bytes)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal pipeline file %w", err)
+		return nil, fmt.Errorf("failed to unmarshal pipeline file: %w", err)
 	}
 	err = pipeline.Validate()
 	if err != nil {
-		return nil, fmt.Errorf("pipeline file failed validation %w", err)
+		return nil, fmt.Errorf("pipeline file failed validation: %w", err)
 	}
 	return pipeline, nil
 }
