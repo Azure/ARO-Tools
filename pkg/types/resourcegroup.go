@@ -16,6 +16,7 @@ package types
 
 import "fmt"
 
+// ResourceGroup represents the resourcegroup containing all steps
 type ResourceGroup struct {
 	Name         string `yaml:"name"`
 	Subscription string `yaml:"subscription"`

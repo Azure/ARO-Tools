@@ -29,6 +29,16 @@ type Pipeline struct {
 	ResourceGroups []*ResourceGroup `yaml:"resourceGroups"`
 }
 
+// NewPipelineFromFile prepocesses and creates a new Pipeline instance from a file.
+//
+// Parameters:
+//   - pipelineFilePath: The path to the pipeline file.
+//   - cfg: The configuration object used for preprocessing the file.
+//
+// Returns:
+//   - A pointer to a new Pipeline instance if successful.
+//   - An error if there was a problem preprocessing the file, validating the schema,
+//     unmarshaling the pipeline, or validating the pipeline instance.
 func NewPipelineFromFile(pipelineFilePath string, cfg config.Configuration) (*Pipeline, error) {
 	bytes, err := config.PreprocessFile(pipelineFilePath, cfg)
 	if err != nil {
@@ -51,7 +61,13 @@ func NewPipelineFromFile(pipelineFilePath string, cfg config.Configuration) (*Pi
 	return pipeline, nil
 }
 
-// Deprecated: first parameter can be removed
+// NewPlainPipelineFromBytes creates a new PlainPipeline instance from a YAML-encoded byte slice.
+//
+// Parameters:
+//   - bytes: A byte slice containing YAML-encoded data representing a pipeline.
+//
+// Returns:
+//   - A pointer to a new PlainPipeline instance, or an error if the input is invalid.
 func NewPlainPipelineFromBytes(_ string, bytes []byte) (*Pipeline, error) {
 	rawPipeline := &struct {
 		Schema         string `yaml:"$schema,omitempty"`
@@ -132,6 +148,13 @@ func NewPlainPipelineFromBytes(_ string, bytes []byte) (*Pipeline, error) {
 	return pipeline, nil
 }
 
+// Validate checks the integrity of the pipeline and its resource groups.
+// It ensures that there are no duplicate step names, that all dependencies exist,
+// and that each resource group is valid.
+//
+// Returns:
+//   - An error if the pipeline or any of its resource groups are invalid.
+//   - nil if the pipeline and all its resource groups are valid.
 func (p *Pipeline) Validate() error {
 	// collect all steps from all resourcegroups and fail if there are duplicates
 	stepMap := make(map[string]Step)
