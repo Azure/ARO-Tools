@@ -300,7 +300,7 @@ func PreprocessFile(templateFilePath string, vars map[string]any) ([]byte, error
 	}
 	processedContent, err := PreprocessContent(content, vars)
 	if err != nil {
-		return nil, fmt.Errorf("failed to preprocess file %s: %w", templateFilePath, err)
+		return nil, fmt.Errorf("failed to preprocess content %s: %w", templateFilePath, err)
 	}
 	return processedContent, nil
 }
