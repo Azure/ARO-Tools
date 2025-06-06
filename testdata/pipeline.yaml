@@ -23,6 +23,10 @@ resourceGroups:
       variables:
       - name: DRY_RUN
         value: "A very dry one"
+      - name: FROM_EV2_REGION
+        value: '{{ .availabilityZoneCount }}'
+      - name: FROM_EV2_CORE
+        value: '{{ .vaultDomainSuffix }}'
   - name: svc
     action: ARM
     template: templates/svc-cluster.bicep

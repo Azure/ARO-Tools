@@ -18,9 +18,11 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/Azure/ARO-Tools/internal/testutil"
 	"github.com/Azure/ARO-Tools/pkg/config"
+	"github.com/Azure/ARO-Tools/pkg/config/ev2config"
 )
 
 func TestNewPipelineFromFile(t *testing.T) {
@@ -31,6 +33,8 @@ func TestNewPipelineFromFile(t *testing.T) {
 	environment := "int"
 
 	provider := config.NewConfigProvider("../../testdata/config.yaml")
+	ev2, err := ev2config.Config()
+	require.NoError(t, err)
 
 	cfg, err := provider.GetDeployEnvRegionConfiguration(cloud, environment, region, &config.ConfigReplacements{
 		RegionReplacement:      region,
@@ -38,6 +42,7 @@ func TestNewPipelineFromFile(t *testing.T) {
 		StampReplacement:       stamp,
 		CloudReplacement:       cloud,
 		EnvironmentReplacement: environment,
+		Ev2Config:              ev2.ResolveRegion(cloud, "prod", region),
 	})
 	assert.NoError(t, err)
 
