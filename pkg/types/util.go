@@ -15,7 +15,6 @@
 package types
 
 import (
-	_ "embed"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -23,6 +22,8 @@ import (
 	"github.com/santhosh-tekuri/jsonschema/v6"
 
 	"sigs.k8s.io/yaml"
+
+	_ "embed"
 )
 
 //go:embed pipeline.schema.v1.json

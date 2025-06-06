@@ -42,11 +42,13 @@ type ConfigReplacements struct {
 	StampReplacement       string
 	CloudReplacement       string
 	EnvironmentReplacement string
+
+	Ev2Config map[string]interface{}
 }
 
 // AsMap returns a map[string]interface{} representation of this ConfigReplacement instance
 func (c *ConfigReplacements) AsMap() map[string]interface{} {
-	return map[string]interface{}{
+	m := map[string]interface{}{
 		"ctx": map[string]interface{}{
 			"region":      c.RegionReplacement,
 			"regionShort": c.RegionShortReplacement,
@@ -54,15 +56,17 @@ func (c *ConfigReplacements) AsMap() map[string]interface{} {
 			"cloud":       c.CloudReplacement,
 			"environment": c.EnvironmentReplacement,
 		},
+		"ev2": c.Ev2Config,
 	}
+	return m
 }
 
 // ConfigProvider resolves service configuration for specific environments and clouds using a base configuration file.
 type ConfigProvider interface {
-	Validate(cloud, deployEnv string) error
+	Validate(cloud, deployEnv string, configReplacements *ConfigReplacements) error
 	GetDeployEnvRegionConfiguration(cloud, deployEnv, region string, configReplacements *ConfigReplacements) (Configuration, error)
 	GetDeployEnvConfiguration(cloud, deployEnv string, configReplacements *ConfigReplacements) (Configuration, error)
-	GetRegions(cloud, deployEnv string) ([]string, error)
+	GetRegions(cloud, deployEnv string, configReplacements *ConfigReplacements) ([]string, error)
 	GetRegionOverrides(cloud, deployEnv, region string, configReplacements *ConfigReplacements) (Configuration, error)
 }
 
@@ -212,8 +216,8 @@ func (cp *configProviderImpl) GetDeployEnvRegionConfiguration(cloud, deployEnv, 
 }
 
 // Validate basic validation
-func (cp *configProviderImpl) Validate(cloud, deployEnv string) error {
-	config, err := cp.loadConfig(DefaultConfigReplacements())
+func (cp *configProviderImpl) Validate(cloud, deployEnv string, configReplacements *ConfigReplacements) error {
+	config, err := cp.loadConfig(configReplacements)
 	if err != nil {
 		return err
 	}
@@ -238,28 +242,23 @@ func (cp *configProviderImpl) GetDeployEnvConfiguration(cloud, deployEnv string,
 	if err != nil {
 		return nil, err
 	}
-	err = cp.Validate(cloud, deployEnv)
+	err = cp.Validate(cloud, deployEnv, configReplacements)
 	if err != nil {
 		return nil, err
 	}
-
-	mergedConfig := Configuration{}
-	MergeConfiguration(mergedConfig, config.GetDefaults())
-	MergeConfiguration(mergedConfig, config.GetCloudOverrides(cloud))
-	MergeConfiguration(mergedConfig, config.GetDeployEnvOverrides(cloud, deployEnv))
 
 	cp.schema = config.GetSchema()
 
-	return mergedConfig, nil
+	return config.ResolveEnvironment(cloud, deployEnv), nil
 }
 
 // GetRegions returns the list of configured regions
-func (cp *configProviderImpl) GetRegions(cloud, deployEnv string) ([]string, error) {
-	config, err := cp.loadConfig(DefaultConfigReplacements())
+func (cp *configProviderImpl) GetRegions(cloud, deployEnv string, configReplacements *ConfigReplacements) ([]string, error) {
+	config, err := cp.loadConfig(configReplacements)
 	if err != nil {
 		return nil, err
 	}
-	err = cp.Validate(cloud, deployEnv)
+	err = cp.Validate(cloud, deployEnv, configReplacements)
 	if err != nil {
 		return nil, err
 	}
