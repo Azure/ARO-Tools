@@ -1,0 +1,128 @@
+$schema: pipeline.schema.v1
+resourceGroups:
+- name: hcp-underlay-uks
+  steps:
+  - action: Shell
+    aksCluster: aro-hcp-aks
+    command: make deploy
+    dryRun: {}
+    name: deploy
+    shellIdentity:
+      configRef: aroDevopsMsiId
+      name: shellIdentity
+    variables:
+    - configRef: maestro_image
+      name: MAESTRO_IMAGE
+  - action: Shell
+    command: make deploy
+    dryRun:
+      variables:
+      - name: DRY_RUN
+        value: A very dry one
+    name: dry-run
+    shellIdentity:
+      configRef: aroDevopsMsiId
+      name: shellIdentity
+  - action: ARM
+    deploymentLevel: ResourceGroup
+    name: svc
+    parameters: test.bicepparam
+    template: templates/svc-cluster.bicep
+  - action: DelegateChildZone
+    childZone:
+      configRef: childZone
+      name: childZone
+    dependsOn:
+    - deploy
+    name: cxChildZone
+    parentZone:
+      configRef: parentZone
+      name: parentZone
+  - action: SetCertificateIssuer
+    dependsOn:
+    - deploy
+    issuer:
+      configRef: provider
+      name: issuer
+    name: issuerTest
+    vaultBaseUrl:
+      configRef: vaultBaseUrl
+      name: vaultBaseUrl
+  - action: SetCertificateIssuer
+    dependsOn:
+    - deploy
+    issuer:
+      name: issuer
+      value: provider
+    name: issuerTestOutputChaining
+    vaultBaseUrl:
+      input:
+        name: kvUrl
+        step: deploy
+      name: vaultBaseUrl
+  - action: CreateCertificate
+    certificateName:
+      name: certificateName
+      value: hcp-mdsd
+    contentType:
+      name: contentType
+      value: x-pem-file
+    issuer:
+      name: issuer
+      value: OneCertV2-PrivateCA
+    name: cert
+    san:
+      name: san
+      value: hcp-mdsd.geneva.keyvault.aro-int.azure.com
+    vaultBaseUrl:
+      name: vaultBaseUrl
+      value: https://arohcp-svc-ln.vault.azure.net
+  - action: ResourceProviderRegistration
+    name: rpRegistration
+    resourceProviderNamespaces:
+      name: resourceProviderNamespaces
+      value:
+      - Microsoft.Storage
+      - Microsoft.EventHub
+      - Microsoft.Insights
+  - action: RPLogsAccount
+    certdescription:
+      name: certdescription
+      value: HCP Service Cluster
+    certsan:
+      name: certsan
+      value: san
+    configVersion:
+      name: configVersion
+      value: version
+    events:
+      akskubesystem: kubesystem
+    name: rpAccount
+    namespace:
+      name: namespace
+      value: ns
+    subscriptionId:
+      name: subscriptionId
+      value: sub
+  - action: ClusterLogsAccount
+    certdescription:
+      name: certdescription
+      value: HCP Management Cluster
+    certsan:
+      name: certsan
+      value: san
+    configVersion:
+      name: configVersion
+      value: version
+    events:
+      akskubesystem: kubesystem
+    name: clusterAccount
+    namespace:
+      name: namespace
+      value: ns
+    subscriptionId:
+      name: subscriptionId
+      value: sub
+  subscription: hcp-uksouth
+rolloutName: Test Rollout
+serviceGroup: Microsoft.Azure.ARO.Test

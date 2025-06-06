@@ -45,11 +45,6 @@ func NewPipelineFromFile(pipelineFilePath string, cfg config.Configuration) (*Pi
 		return nil, fmt.Errorf("failed to preprocess pipeline file: %w", err)
 	}
 
-	err = ValidatePipelineSchema(bytes)
-	if err != nil {
-		return nil, fmt.Errorf("failed to validate pipeline schema: %w", err)
-	}
-
 	pipeline, err := NewPlainPipelineFromBytes("", bytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal pipeline file: %w", err)
@@ -129,6 +124,16 @@ func NewPlainPipelineFromBytes(_ string, bytes []byte) (*Pipeline, error) {
 				rg.Steps[i] = &ShellStep{}
 			case "ARM":
 				rg.Steps[i] = &ARMStep{}
+			case "DelegateChildZone":
+				rg.Steps[i] = &DelegateChildZoneStep{}
+			case "SetCertificateIssuer":
+				rg.Steps[i] = &SetCertificateIssuerStep{}
+			case "CreateCertificate":
+				rg.Steps[i] = &CreateCertificateStep{}
+			case "ResourceProviderRegistration":
+				rg.Steps[i] = &ResourceProviderRegistrationStep{}
+			case "RPLogsAccount", "ClusterLogsAccount":
+				rg.Steps[i] = &LogsStep{}
 			default:
 				rg.Steps[i] = &GenericStep{}
 			}
