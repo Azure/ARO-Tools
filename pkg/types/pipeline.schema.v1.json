@@ -142,110 +142,6 @@
                         "type": "array",
                         "items": {
                             "type": "object",
-                            "additionalProperties": false,
-                            "properties": {
-                                "name": {
-                                    "type": "string"
-                                },
-                                "action": {
-                                    "type": "string",
-                                    "enum": ["ARM", "Shell", "DelegateChildZone", "SetCertificateIssuer", "CreateCertificate", "ResourceProviderRegistration", "RPLogsAccount", "ClusterLogsAccount"]
-                                },
-                                "template": {
-                                    "type": "string"
-                                },
-                                "parameters": {
-                                    "type": "string"
-                                },
-                                "deploymentMode": {
-                                    "type": "string"
-                                },
-                                "deploymentLevel": {
-                                    "type": "string",
-                                    "enum": ["ResourceGroup", "Subscription"]
-                                },
-                                "command": {
-                                    "type": "string"
-                                },
-                                "aksCluster": {
-                                    "type": "string"
-                                },
-                                "variables": {
-                                    "type": "array",
-                                    "items": {
-                                        "$ref": "#/definitions/variable"
-                                    }
-                                },
-                                "dependsOn": {
-                                    "type": "array",
-                                    "items": {
-                                        "type": "string"
-                                    }
-                                },
-                                "dryRun": {
-                                    "type": "object"
-                                },
-                                "subnetId": {
-                                    "type": "string"
-                                },
-                                "shellIdentity": {
-                                    "$ref": "#/definitions/variableRef"
-                                },
-                                "vaultBaseUrl": {
-                                    "$ref": "#/definitions/variableRef"
-                                },
-                                "certificateName": {
-                                    "$ref": "#/definitions/variableRef"
-                                },
-                                "contentType": {
-                                    "$ref": "#/definitions/variableRef"
-                                },
-                                "san": {
-                                    "$ref": "#/definitions/variableRef"
-                                },
-                                "issuer": {
-                                    "$ref": "#/definitions/variableRef"
-                                },
-                                "parentZone": {
-                                    "$ref": "#/definitions/variableRef"
-                                },
-                                "childZone": {
-                                    "$ref": "#/definitions/variableRef"
-                                },
-                                "subscriptionId": {
-                                    "$ref": "#/definitions/variableRef"
-                                },
-                                "resourceProviderNamespaces": {
-                                    "$ref": "#/definitions/variableRef"
-                                },
-                                "namespace": {
-                                    "$ref": "#/definitions/variableRef"
-                                },
-                                "certsan": {
-                                    "$ref": "#/definitions/variableRef"
-                                },
-                                "certdescription": {
-                                    "$ref": "#/definitions/variableRef"
-                                },
-                                "configVersion": {
-                                    "$ref": "#/definitions/variableRef"
-                                },
-                                "events": {
-                                    "type": "object",
-                                    "additionalProperties": false,
-                                    "properties": {
-                                        "akskubesystem": {
-                                            "type": "string"
-                                        }
-                                    },
-                                    "required": [
-                                        "akskubesystem"
-                                    ]
-                                },
-                                "outputOnly": {
-                                    "type": "boolean"
-                                }
-                            },
                             "oneOf": [
                                 {
                                     "additionalProperties": false,
@@ -254,8 +150,7 @@
                                             "type": "string"
                                         },
                                         "action": {
-                                            "type": "string",
-                                            "enum": ["ARM"]
+                                            "const": "ARM"
                                         },
                                         "template": {
                                             "type": "string"
@@ -277,11 +172,17 @@
                                         },
                                         "deploymentLevel": {
                                             "type": "string",
-                                            "enum": ["ResourceGroup", "Subscription"]
+                                            "enum": [
+                                                "ResourceGroup",
+                                                "Subscription"
+                                            ]
                                         },
                                         "deploymentMode": {
                                             "type": "string",
-                                            "enum": ["incremental", "complete"]
+                                            "enum": [
+                                                "incremental",
+                                                "complete"
+                                            ]
                                         },
                                         "outputOnly": {
                                             "type": "boolean"
@@ -300,8 +201,7 @@
                                             "type": "string"
                                         },
                                         "action": {
-                                            "type": "string",
-                                            "enum": ["Shell"]
+                                            "const": "Shell"
                                         },
                                         "command": {
                                             "type": "string"
@@ -319,7 +219,7 @@
                                             "type": "string"
                                         },
                                         "shellIdentity": {
-                                            "$ref": "#/definitions/variable"
+                                            "$ref": "#/definitions/variableRef"
                                         },
                                         "dependsOn": {
                                             "type": "array",
@@ -354,8 +254,7 @@
                                             "type": "string"
                                         },
                                         "action": {
-                                            "type": "string",
-                                            "enum": ["DelegateChildZone"]
+                                            "const": "DelegateChildZone"
                                         },
                                         "parentZone": {
                                             "$ref": "#/definitions/variableRef"
@@ -382,8 +281,7 @@
                                             "type": "string"
                                         },
                                         "action": {
-                                            "type": "string",
-                                            "enum": ["SetCertificateIssuer"]
+                                            "const": "SetCertificateIssuer"
                                         },
                                         "vaultBaseUrl": {
                                             "$ref": "#/definitions/variableRef"
@@ -410,8 +308,7 @@
                                             "type": "string"
                                         },
                                         "action": {
-                                            "type": "string",
-                                            "enum": ["CreateCertificate"]
+                                            "const": "CreateCertificate"
                                         },
                                         "vaultBaseUrl": {
                                             "$ref": "#/definitions/variableRef"
@@ -450,8 +347,7 @@
                                             "type": "string"
                                         },
                                         "action": {
-                                            "type": "string",
-                                            "enum": ["ResourceProviderRegistration"]
+                                            "const": "ResourceProviderRegistration"
                                         },
                                         "resourceProviderNamespaces": {
                                             "$ref": "#/definitions/variableRef"
@@ -528,7 +424,7 @@
                         }
                     },
                     "aksCluster": {
-                        "description": "Deprecated, to be removed", 
+                        "description": "Deprecated, to be removed",
                         "type": "string"
                     }
                 },

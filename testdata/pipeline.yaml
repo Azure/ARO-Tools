@@ -9,21 +9,20 @@ resourceGroups:
     action: Shell
     command: make deploy
     aksCluster: '{{ .aksName  }}'
+    shellIdentity:
+      configRef: aroDevopsMsiId
     variables:
     - name: MAESTRO_IMAGE
       configRef: maestro_image
   - name: dry-run
     action: Shell
     command: make deploy
+    shellIdentity:
+      configRef: aroDevopsMsiId
     dryRun:
       variables:
       - name: DRY_RUN
         value: "A very dry one"
-  {{- if .enableOptionalStep }}
-  - name: optionalStep
-    action: Shell
-    command: make optional
-  {{- end }}
   - name: svc
     action: ARM
     template: templates/svc-cluster.bicep
