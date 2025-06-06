@@ -37,6 +37,12 @@ func NewDNSStep(name string) *DNSStep {
 	}
 }
 
+// WithDependsOn fluent method that sets DependsOn
+func (s *DNSStep) WithDependsOn(dependsOn ...string) *DNSStep {
+	s.DependsOn = dependsOn
+	return s
+}
+
 // WithParent fluent method that sets parent
 func (s *DNSStep) WithParent(parent Variable) *DNSStep {
 	s.Parent = parent
