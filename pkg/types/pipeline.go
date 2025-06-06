@@ -132,6 +132,8 @@ func NewPlainPipelineFromBytes(_ string, bytes []byte) (*Pipeline, error) {
 				rg.Steps[i] = &ARMStep{}
 			case "delegatechildzone":
 				rg.Steps[i] = &DNSStep{}
+			case "resourceproviderregistration":
+				rg.Steps[i] = &RPStep{}
 			default:
 				rg.Steps[i] = &GenericStep{}
 			}
