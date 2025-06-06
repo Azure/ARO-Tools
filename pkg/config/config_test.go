@@ -12,19 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package config
+package config_test
 
 import (
 	"fmt"
-	"log"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
 	"github.com/Azure/ARO-Tools/internal/testutil"
+	"github.com/Azure/ARO-Tools/pkg/config"
+	"github.com/Azure/ARO-Tools/pkg/config/ev2config"
 )
 
 func TestConfigProvider(t *testing.T) {
@@ -34,32 +33,35 @@ func TestConfigProvider(t *testing.T) {
 	cloud := "public"
 	environment := "int"
 
-	configProvider := NewConfigProvider("../../testdata/config.yaml")
+	configProvider := config.NewConfigProvider("../../testdata/config.yaml")
+	ev2, err := ev2config.Config()
+	assert.NoError(t, err)
 
-	config, err := configProvider.GetDeployEnvRegionConfiguration(cloud, environment, region, &ConfigReplacements{
+	cfg, err := configProvider.GetDeployEnvRegionConfiguration(cloud, environment, region, &config.ConfigReplacements{
 		RegionReplacement:      region,
 		RegionShortReplacement: regionShort,
 		StampReplacement:       stamp,
 		CloudReplacement:       cloud,
 		EnvironmentReplacement: environment,
+		Ev2Config:              ev2.ResolveRegion(cloud, "prod", region),
 	})
 	assert.NoError(t, err)
-	assert.NotNil(t, config)
+	assert.NotNil(t, cfg)
 
 	// key is not in the config file
-	assert.Nil(t, config["svc_resourcegroup"])
+	assert.Nil(t, cfg["svc_resourcegroup"])
 
 	// key is in the config file, region constant value
-	assert.Equal(t, "uksouth", config["test"])
+	assert.Equal(t, "uksouth", cfg["test"])
 
 	// key is in the config file, default in INT, constant value
-	assert.Equal(t, "aro-hcp-int.azurecr.io/maestro-server:the-stable-one", config["maestro_image"])
+	assert.Equal(t, "aro-hcp-int.azurecr.io/maestro-server:the-stable-one", cfg["maestro_image"])
 
 	// key is in the config file, default, varaible value
-	assert.Equal(t, fmt.Sprintf("hcp-underlay-%s", regionShort), config["regionRG"])
+	assert.Equal(t, fmt.Sprintf("hcp-underlay-%s", regionShort), cfg["regionRG"])
 
 	// key is in the config file, varaible value
-	assert.Equal(t, fmt.Sprintf("%s-%s", cloud, environment), config["cloudEnv"])
+	assert.Equal(t, fmt.Sprintf("%s-%s", cloud, environment), cfg["cloudEnv"])
 }
 
 func TestInterfaceToConfiguration(t *testing.T) {
@@ -67,18 +69,18 @@ func TestInterfaceToConfiguration(t *testing.T) {
 		name                   string
 		i                      interface{}
 		ok                     bool
-		expecetedConfiguration Configuration
+		expecetedConfiguration config.Configuration
 	}{
 		{
 			name:                   "empty interface",
 			ok:                     false,
-			expecetedConfiguration: Configuration{},
+			expecetedConfiguration: config.Configuration{},
 		},
 		{
 			name:                   "empty map",
 			i:                      map[string]interface{}{},
 			ok:                     true,
-			expecetedConfiguration: Configuration{},
+			expecetedConfiguration: config.Configuration{},
 		},
 		{
 			name: "map",
@@ -87,7 +89,7 @@ func TestInterfaceToConfiguration(t *testing.T) {
 				"key2": "value2",
 			},
 			ok: true,
-			expecetedConfiguration: Configuration{
+			expecetedConfiguration: config.Configuration{
 				"key1": "value1",
 				"key2": "value2",
 			},
@@ -100,8 +102,8 @@ func TestInterfaceToConfiguration(t *testing.T) {
 				},
 			},
 			ok: true,
-			expecetedConfiguration: Configuration{
-				"key1": Configuration{
+			expecetedConfiguration: config.Configuration{
+				"key1": config.Configuration{
 					"key2": "value2",
 				},
 			},
@@ -110,7 +112,7 @@ func TestInterfaceToConfiguration(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			vars, ok := InterfaceToConfiguration(tc.i)
+			vars, ok := config.InterfaceToConfiguration(tc.i)
 			assert.Equal(t, tc.ok, ok)
 			assert.Equal(t, tc.expecetedConfiguration, vars)
 		})
@@ -120,9 +122,9 @@ func TestInterfaceToConfiguration(t *testing.T) {
 func TestMergeConfiguration(t *testing.T) {
 	testCases := []struct {
 		name     string
-		base     Configuration
-		override Configuration
-		expected Configuration
+		base     config.Configuration
+		override config.Configuration
+		expected config.Configuration
 	}{
 		{
 			name:     "nil base",
@@ -130,160 +132,67 @@ func TestMergeConfiguration(t *testing.T) {
 		},
 		{
 			name:     "empty base and override",
-			base:     Configuration{},
-			expected: Configuration{},
+			base:     config.Configuration{},
+			expected: config.Configuration{},
 		},
 		{
 			name:     "merge into empty base",
-			base:     Configuration{},
-			override: Configuration{"key1": "value1"},
-			expected: Configuration{"key1": "value1"},
+			base:     config.Configuration{},
+			override: config.Configuration{"key1": "value1"},
+			expected: config.Configuration{"key1": "value1"},
 		},
 		{
 			name:     "merge into base",
-			base:     Configuration{"key1": "value1"},
-			override: Configuration{"key2": "value2"},
-			expected: Configuration{"key1": "value1", "key2": "value2"},
+			base:     config.Configuration{"key1": "value1"},
+			override: config.Configuration{"key2": "value2"},
+			expected: config.Configuration{"key1": "value1", "key2": "value2"},
 		},
 		{
 			name:     "override base, change schema",
-			base:     Configuration{"key1": Configuration{"key2": "value2"}},
-			override: Configuration{"key1": "value1"},
-			expected: Configuration{"key1": "value1"},
+			base:     config.Configuration{"key1": config.Configuration{"key2": "value2"}},
+			override: config.Configuration{"key1": "value1"},
+			expected: config.Configuration{"key1": "value1"},
 		},
 		{
 			name:     "merge into sub map",
-			base:     Configuration{"key1": Configuration{"key2": "value2"}},
-			override: Configuration{"key1": Configuration{"key3": "value3"}},
-			expected: Configuration{"key1": Configuration{"key2": "value2", "key3": "value3"}},
+			base:     config.Configuration{"key1": config.Configuration{"key2": "value2"}},
+			override: config.Configuration{"key1": config.Configuration{"key3": "value3"}},
+			expected: config.Configuration{"key1": config.Configuration{"key2": "value2", "key3": "value3"}},
 		},
 		{
 			name:     "override sub map value",
-			base:     Configuration{"key1": Configuration{"key2": "value2"}},
-			override: Configuration{"key1": Configuration{"key2": "value3"}},
-			expected: Configuration{"key1": Configuration{"key2": "value3"}},
+			base:     config.Configuration{"key1": config.Configuration{"key2": "value2"}},
+			override: config.Configuration{"key1": config.Configuration{"key2": "value3"}},
+			expected: config.Configuration{"key1": config.Configuration{"key2": "value3"}},
 		},
 		{
 			name:     "override nested sub map",
-			base:     Configuration{"key1": Configuration{"key2": Configuration{"key3": "value3"}}},
-			override: Configuration{"key1": Configuration{"key2": Configuration{"key3": "value4"}}},
-			expected: Configuration{"key1": Configuration{"key2": Configuration{"key3": "value4"}}},
+			base:     config.Configuration{"key1": config.Configuration{"key2": config.Configuration{"key3": "value3"}}},
+			override: config.Configuration{"key1": config.Configuration{"key2": config.Configuration{"key3": "value4"}}},
+			expected: config.Configuration{"key1": config.Configuration{"key2": config.Configuration{"key3": "value4"}}},
 		},
 		{
 			name:     "override nested sub map multiple levels",
-			base:     Configuration{"key1": Configuration{"key2": Configuration{"key3": "value3"}}},
-			override: Configuration{"key1": Configuration{"key2": Configuration{"key4": "value4"}}, "key5": "value5"},
-			expected: Configuration{"key1": Configuration{"key2": Configuration{"key3": "value3", "key4": "value4"}}, "key5": "value5"},
+			base:     config.Configuration{"key1": config.Configuration{"key2": config.Configuration{"key3": "value3"}}},
+			override: config.Configuration{"key1": config.Configuration{"key2": config.Configuration{"key4": "value4"}}, "key5": "value5"},
+			expected: config.Configuration{"key1": config.Configuration{"key2": config.Configuration{"key3": "value3", "key4": "value4"}}, "key5": "value5"},
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := MergeConfiguration(tc.base, tc.override)
+			result := config.MergeConfiguration(tc.base, tc.override)
 			assert.Equal(t, tc.expected, result)
 		})
 	}
 
 }
 
-func TestLoadSchemaURL(t *testing.T) {
-	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if _, err := fmt.Fprintln(w, "{\"type\": \"object\"}"); err != nil {
-			log.Printf("failed to write response: %v", err)
-		}
-	}))
-	defer testServer.Close()
-
-	configProvider := configProviderImpl{}
-	configProvider.schema = testServer.URL
-
-	schema, err := configProvider.loadSchema()
-	assert.Nil(t, err)
-	assert.NotNil(t, schema)
-	assert.Equal(t, map[string]any{"type": "object"}, schema)
-}
-
-func TestLoadSchema(t *testing.T) {
-	testDirs := t.TempDir()
-
-	err := os.WriteFile(testDirs+"/schema.json", []byte(`{"type": "object"}`), 0644)
-	assert.Nil(t, err)
-
-	configProvider := configProviderImpl{}
-	configProvider.schema = testDirs + "/schema.json"
-
-	schema, err := configProvider.loadSchema()
-	assert.Nil(t, err)
-	assert.NotNil(t, schema)
-	assert.Equal(t, map[string]any{"type": "object"}, schema)
-}
-
-func TestLoadSchemaError(t *testing.T) {
-	testDirs := t.TempDir()
-
-	err := os.WriteFile(testDirs+"/schma.json", []byte(`{"type": "object"}`), 0644)
-	assert.Nil(t, err)
-
-	configProvider := configProviderImpl{}
-	configProvider.schema = testDirs + "/schema.json"
-	_, err = configProvider.loadSchema()
-	assert.NotNil(t, err)
-}
-
-func TestValidateSchema(t *testing.T) {
-	testSchema := `{
-	"type": "object",
-	"properties": {
-		"key1": {
-			"type": "string"
-		}
-	},
-	"additionalProperties": false
-}`
-
-	testDirs := t.TempDir()
-
-	err := os.WriteFile(testDirs+"/schema.json", []byte(testSchema), 0644)
-	assert.Nil(t, err)
-
-	configProvider := configProviderImpl{}
-	configProvider.schema = "schema.json"
-	configProvider.config = testDirs + "/config.yaml"
-
-	err = configProvider.validateSchema(map[string]any{"foo": "bar"})
-	assert.NotNil(t, err)
-	assert.ErrorContains(t, err, "additional properties 'foo' not allowed")
-
-	err = configProvider.validateSchema(map[string]any{"key1": "bar"})
-	assert.Nil(t, err)
-}
-
-func TestConvertToInterface(t *testing.T) {
-	vars := Configuration{
-		"key1": "value1",
-		"key2": Configuration{
-			"key3": "value3",
-		},
-	}
-
-	expected := map[string]any{
-		"key1": "value1",
-		"key2": map[string]any{
-			"key3": "value3",
-		},
-	}
-
-	result := convertToInterface(vars)
-	assert.Equal(t, expected, result)
-	assert.IsType(t, expected, map[string]any{})
-	assert.IsType(t, expected["key2"], map[string]any{})
-}
-
 func TestPreprocessContent(t *testing.T) {
 	fileContent, err := os.ReadFile("../../testdata/test.bicepparam")
 	assert.Nil(t, err)
 
-	processed, err := PreprocessContent(
+	processed, err := config.PreprocessContent(
 		fileContent,
 		map[string]any{
 			"regionRG": "bahamas",
@@ -341,7 +250,7 @@ func TestPreprocessContentMissingKey(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := PreprocessContent(
+			_, err := config.PreprocessContent(
 				[]byte(tc.content),
 				tc.vars,
 			)
