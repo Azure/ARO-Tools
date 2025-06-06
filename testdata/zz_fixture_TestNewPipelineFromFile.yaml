@@ -19,6 +19,10 @@ resourceGroups:
       variables:
       - name: DRY_RUN
         value: A very dry one
+      - name: FROM_EV2_REGION
+        value: "3"
+      - name: FROM_EV2_CORE
+        value: vault.azure.net
     name: dry-run
     shellIdentity:
       configRef: aroDevopsMsiId
