@@ -16,6 +16,7 @@ package types
 
 import (
 	"fmt"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 
@@ -124,12 +125,12 @@ func NewPlainPipelineFromBytes(_ string, bytes []byte) (*Pipeline, error) {
 			if err != nil {
 				return nil, err
 			}
-			switch stepMeta.Action {
-			case "Shell":
+			switch strings.ToLower(stepMeta.Action) {
+			case "shell":
 				rg.Steps[i] = &ShellStep{}
-			case "ARM":
+			case "arm":
 				rg.Steps[i] = &ARMStep{}
-			case "DelegateChildZone":
+			case "delegatechildzone":
 				rg.Steps[i] = &DNSStep{}
 			default:
 				rg.Steps[i] = &GenericStep{}
