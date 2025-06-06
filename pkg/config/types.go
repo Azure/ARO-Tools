@@ -62,18 +62,18 @@ type ConfigurationOverrides interface {
 }
 
 type configurationOverrides struct {
-	Schema   string        `yaml:"$schema"`
-	Defaults Configuration `yaml:"defaults"`
+	Schema   string        `json:"$schema"`
+	Defaults Configuration `json:"defaults"`
 	// key is the cloud alias
 	Overrides map[string]*struct {
-		Defaults Configuration `yaml:"defaults"`
+		Defaults Configuration `json:"defaults"`
 		// key is the deploy env
 		Overrides map[string]*struct {
-			Defaults Configuration `yaml:"defaults"`
+			Defaults Configuration `json:"defaults"`
 			// key is the region name
-			Overrides map[string]Configuration `yaml:"regions"`
-		} `yaml:"environments"`
-	} `yaml:"clouds"`
+			Overrides map[string]Configuration `json:"regions"`
+		} `json:"environments"`
+	} `json:"clouds"`
 }
 
 func (vo *configurationOverrides) GetSchema() string {
