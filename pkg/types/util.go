@@ -15,7 +15,6 @@
 package types
 
 import (
-	_ "embed"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -23,6 +22,8 @@ import (
 	"github.com/santhosh-tekuri/jsonschema/v6"
 
 	"sigs.k8s.io/yaml"
+
+	_ "embed"
 )
 
 //go:embed pipeline.schema.v1.json
@@ -61,7 +62,13 @@ func getSchemaForRef(schemaRef string) (*jsonschema.Schema, string, error) {
 }
 
 func getVariableRefStepProperties(pipelineSchema *jsonschema.Schema) (map[string]*jsonschema.Schema, error) {
-	stepProperties := pipelineSchema.Properties["resourceGroups"].Items.(*jsonschema.Schema).Properties["steps"].Items.(*jsonschema.Schema).Properties
+	stepProperties := map[string]*jsonschema.Schema{}
+	for _, stepDef := range pipelineSchema.Properties["resourceGroups"].Items.(*jsonschema.Schema).Properties["steps"].Items.(*jsonschema.Schema).OneOf {
+		for name, value := range stepDef.Properties {
+			stepProperties[name] = value
+		}
+	}
+
 	variableRefProperties := make(map[string]*jsonschema.Schema)
 	for propName, propValue := range stepProperties {
 		if propValue.Ref != nil && strings.HasSuffix(propValue.Ref.Location, "#/definitions/variableRef") {
@@ -78,7 +85,7 @@ func ValidatePipelineSchema(pipelineContent []byte) error {
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal pipeline YAML content: %v", err)
 	}
-	
+
 	// load pipeline schema
 	pipelineSchema, schemaRef, err := getSchemaForPipeline(pipelineMap)
 	if err != nil {
