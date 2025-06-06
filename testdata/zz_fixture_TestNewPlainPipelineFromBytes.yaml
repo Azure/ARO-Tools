@@ -46,12 +46,12 @@ resourceGroups:
           action: DelegateChildZone
           dependsOn:
             - deploy
-          childZone:
-            configRef: childZone
-            name: childZone
           parentZone:
-            configRef: parentZone
             name: parentZone
+            configRef: parentZone
+          childZone:
+            name: childZone
+            configRef: childZone
         - name: issuerTest
           action: SetCertificateIssuer
           dependsOn:
