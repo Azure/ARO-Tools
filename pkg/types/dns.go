@@ -51,7 +51,7 @@ func (s *DNSStep) WithChild(child Variable) *DNSStep {
 
 // Description
 // Returns:
-//   - A string representation of this ShellStep
+//   - A string representation of this DNSStep
 func (s *DNSStep) Description() string {
 	var details []string
 	details = append(details, fmt.Sprintf("Parent: %v", s.Parent))
