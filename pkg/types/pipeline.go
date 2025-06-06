@@ -16,6 +16,7 @@ package types
 
 import (
 	"fmt"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 
@@ -118,24 +119,13 @@ func NewPlainPipelineFromBytes(_ string, bytes []byte) (*Pipeline, error) {
 				}
 			}
 
-			// unmarshal the map into a StepMeta
-			stepMeta := &StepMeta{}
-			err := mapToStruct(rawStep, stepMeta)
+			// unmarshal the step
+			step, err := unmarshalStep(rawStep)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("failed to unmarshal step: %w", err)
 			}
-			switch stepMeta.Action {
-			case "Shell":
-				rg.Steps[i] = &ShellStep{}
-			case "ARM":
-				rg.Steps[i] = &ARMStep{}
-			default:
-				rg.Steps[i] = &GenericStep{}
-			}
-			err = mapToStruct(rawStep, rg.Steps[i])
-			if err != nil {
-				return nil, err
-			}
+			rg.Steps[i] = step
+
 		}
 	}
 
@@ -146,6 +136,32 @@ func NewPlainPipelineFromBytes(_ string, bytes []byte) (*Pipeline, error) {
 	}
 
 	return pipeline, nil
+}
+
+func unmarshalStep(rawStep map[string]any) (Step, error) {
+	stepMeta := &StepMeta{}
+	err := mapToStruct(rawStep, stepMeta)
+	if err != nil {
+		return nil, err
+	}
+	var step Step
+	switch strings.ToLower(stepMeta.Action) {
+	case "shell":
+		step = &ShellStep{}
+	case "arm":
+		step = &ARMStep{}
+	case "delegatechildzone":
+		step = &DNSStep{}
+	case "resourceproviderregistration":
+		step = &RPStep{}
+	default:
+		step = &GenericStep{}
+	}
+	err = mapToStruct(rawStep, step)
+	if err != nil {
+		return nil, err
+	}
+	return step, nil
 }
 
 // Validate checks the integrity of the pipeline and its resource groups.
