@@ -20,16 +20,16 @@ package types
 //   - ConfigRef: Use this to reference an entry in a config.Configuration.
 //   - Input: Use this to specify an output chaining input.
 type Variable struct {
-	Name      string `yaml:"name,omitempty"`
-	Value     any    `yaml:"value,omitempty"`
-	ConfigRef string `yaml:"configRef,omitempty"`
-	Input     *Input `yaml:"input,omitempty"`
+	Name      string `json:"name,omitempty"`
+	Value     any    `json:"value,omitempty"`
+	ConfigRef string `json:"configRef,omitempty"`
+	Input     *Input `json:"input,omitempty"`
 }
 
 // Input
 // Holds the values used for output chaining:
 //   - Step: Referenced step
 type Input struct {
-	Name string `yaml:"name"`
-	Step string `yaml:"step"`
+	Name string `json:"name"`
+	Step string `json:"step"`
 }

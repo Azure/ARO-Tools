@@ -15,25 +15,38 @@
 package types
 
 import (
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"gopkg.in/yaml.v3"
 
 	"github.com/Azure/ARO-Tools/internal/testutil"
+	"github.com/Azure/ARO-Tools/pkg/config"
+	"github.com/Azure/ARO-Tools/pkg/config/ev2config"
 )
 
-func TestNewPlainPipelineFromBytes(t *testing.T) {
-	pipelineBytes, err := os.ReadFile("../../testdata/zz_fixture_TestNewPlainPipelineFromBytes.yaml")
+func TestNewPipelineFromFile(t *testing.T) {
+	region := "uksouth"
+	regionShort := "uks"
+	stamp := "1"
+	cloud := "public"
+	environment := "int"
+
+	provider := config.NewConfigProvider("../../testdata/config.yaml")
+	ev2, err := ev2config.Config()
 	assert.NoError(t, err)
 
-	p, err := NewPlainPipelineFromBytes("", pipelineBytes)
+	cfg, err := provider.GetDeployEnvRegionConfiguration(cloud, environment, region, &config.ConfigReplacements{
+		RegionReplacement:      region,
+		RegionShortReplacement: regionShort,
+		StampReplacement:       stamp,
+		CloudReplacement:       cloud,
+		EnvironmentReplacement: environment,
+		Ev2Config:              ev2.ResolveRegion(cloud, "prod", region),
+	})
 	assert.NoError(t, err)
 
-	pipelineBytes, err = yaml.Marshal(p)
+	pipeline, err := NewPipelineFromFile("../../testdata/pipeline.yaml", cfg)
 	assert.NoError(t, err)
 
-	testutil.CompareWithFixture(t, pipelineBytes, testutil.WithExtension(".yaml"))
-
+	testutil.CompareWithFixture(t, pipeline, testutil.WithExtension(".yaml"))
 }
