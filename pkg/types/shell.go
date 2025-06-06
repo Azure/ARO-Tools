@@ -19,23 +19,23 @@ import "fmt"
 // ShellStep represents a shell step
 // This struct supports fluent interface With... methods.
 type ShellStep struct {
-	StepMeta      `yaml:",inline"`
-	AKSCluster    string      `yaml:"aksCluster,omitempty"`
-	Command       string      `yaml:"command,omitempty"`
-	Variables     []Variable  `yaml:"variables,omitempty"`
-	DryRun        DryRun      `yaml:"dryRun,omitempty"`
-	References    []Reference `yaml:"references,omitempty"`
-	SubnetId      string      `yaml:"subnetId,omitempty"`
-	ShellIdentity Variable    `yaml:"shellIdentity,omitempty"`
+	StepMeta      `json:",inline"`
+	AKSCluster    string      `json:"aksCluster,omitempty"`
+	Command       string      `json:"command,omitempty"`
+	Variables     []Variable  `json:"variables,omitempty"`
+	DryRun        DryRun      `json:"dryRun,omitempty"`
+	References    []Reference `json:"references,omitempty"`
+	SubnetId      string      `json:"subnetId,omitempty"`
+	ShellIdentity Variable    `json:"shellIdentity,omitempty"`
 }
 
 // Reference represents a configurable reference
 type Reference struct {
 	// Environment variable name
-	Name string `yaml:"name"`
+	Name string `json:"name"`
 
 	// The path to a file.
-	FilePath string `yaml:"filepath"`
+	FilePath string `json:"filepath"`
 }
 
 // NewShellStep creates a new Shell step with the given parameters.
