@@ -25,9 +25,9 @@ type Step interface {
 
 // StepMeta contains metadata for a steps.
 type StepMeta struct {
-	Name      string   `yaml:"name"`
-	Action    string   `yaml:"action"`
-	DependsOn []string `yaml:"dependsOn,omitempty"`
+	Name      string   `json:"name"`
+	Action    string   `json:"action"`
+	DependsOn []string `json:"dependsOn,omitempty"`
 }
 
 func (m *StepMeta) StepName() string {
@@ -43,8 +43,7 @@ func (m *StepMeta) Dependencies() []string {
 }
 
 type GenericStep struct {
-	StepMeta `yaml:",inline"`
-	Body     map[string]any `yaml:",inline"`
+	StepMeta `json:",inline"`
 }
 
 func (s *GenericStep) Description() string {
@@ -52,6 +51,7 @@ func (s *GenericStep) Description() string {
 }
 
 type DryRun struct {
-	Variables []Variable `yaml:"variables,omitempty"`
-	Command   string     `yaml:"command,omitempty"`
+	Variables []Variable `json:"variables,omitempty"`
+	Command   string     `json:"command,omitempty"`
 }
+

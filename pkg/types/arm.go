@@ -22,14 +22,14 @@ import (
 // ARMStep represents an ARM deployment step.
 // This struct supports fluent interface With... methods.
 type ARMStep struct {
-	StepMeta        `yaml:",inline"`
-	Command         string     `yaml:"command,omitempty"`
-	Variables       []Variable `yaml:"variables,omitempty"`
-	Template        string     `yaml:"template,omitempty"`
-	Parameters      string     `yaml:"parameters,omitempty"`
-	DeploymentLevel string     `yaml:"deploymentLevel,omitempty"`
-	OutputOnly      bool       `yaml:"outputOnly,omitempty"`
-	DeploymentMode  string     `yaml:"deploymentMode,omitempty"`
+	StepMeta        `json:",inline"`
+	Command         string     `json:"command,omitempty"`
+	Variables       []Variable `json:"variables,omitempty"`
+	Template        string     `json:"template,omitempty"`
+	Parameters      string     `json:"parameters,omitempty"`
+	DeploymentLevel string     `json:"deploymentLevel,omitempty"`
+	OutputOnly      bool       `json:"outputOnly,omitempty"`
+	DeploymentMode  string     `json:"deploymentMode,omitempty"`
 }
 
 // NewARMStep creates a new ARM deployment step with the given parameters.

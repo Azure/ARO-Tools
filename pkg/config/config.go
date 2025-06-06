@@ -26,7 +26,8 @@ import (
 	"text/template"
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
-	"gopkg.in/yaml.v3"
+
+	"sigs.k8s.io/yaml"
 )
 
 // DefaultConfigReplacements has no replacements configured

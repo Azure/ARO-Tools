@@ -15,14 +15,14 @@
 package types
 
 import (
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"strings"
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
-	"gopkg.in/yaml.v3"
 
-	_ "embed"
+	"sigs.k8s.io/yaml"
 )
 
 //go:embed pipeline.schema.v1.json
@@ -78,7 +78,7 @@ func ValidatePipelineSchema(pipelineContent []byte) error {
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal pipeline YAML content: %v", err)
 	}
-
+	
 	// load pipeline schema
 	pipelineSchema, schemaRef, err := getSchemaForPipeline(pipelineMap)
 	if err != nil {
