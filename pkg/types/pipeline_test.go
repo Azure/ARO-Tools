@@ -37,3 +37,56 @@ func TestNewPlainPipelineFromBytes(t *testing.T) {
 	testutil.CompareWithFixture(t, pipelineBytes, testutil.WithExtension(".yaml"))
 
 }
+
+func TestUnmarshalStep(t *testing.T) {
+	tests := []struct {
+		name     string
+		rawStep  map[string]interface{}
+		expected Step
+	}{
+		{
+			name: "Test Shell Step",
+			rawStep: map[string]interface{}{
+				"action":  "Shell",
+				"name":    "test",
+				"command": "bash",
+			},
+			expected: NewShellStep("test", "bash"),
+		},
+		{
+			name: "Test ARM Step",
+			rawStep: map[string]interface{}{
+				"action":          "ARM",
+				"name":            "test",
+				"template":        "foo.bicep",
+				"parameters":      "foo.bicepparam",
+				"deploymentLevel": "Subscription",
+			},
+			expected: NewARMStep("test", "foo.bicep", "foo.bicepparam", "Subscription"),
+		},
+		{
+			name: "Test DNS Step",
+			rawStep: map[string]interface{}{
+				"action": "DelegateChildZone",
+				"name":   "test",
+			},
+			expected: NewDNSStep("test"),
+		},
+		{
+			name: "Test RP Step",
+			rawStep: map[string]interface{}{
+				"action": "ResourceProviderRegistration",
+				"name":   "test",
+			},
+			expected: NewRPStep("test"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			step, err := unmarshalStep(tt.rawStep)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expected, step)
+		})
+	}
+}
