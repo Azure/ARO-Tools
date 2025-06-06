@@ -15,27 +15,36 @@
 package types
 
 import (
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"gopkg.in/yaml.v3"
 
 	"github.com/Azure/ARO-Tools/internal/testutil"
+	"github.com/Azure/ARO-Tools/pkg/config"
 )
 
 func TestNewPlainPipelineFromBytes(t *testing.T) {
-	pipelineBytes, err := os.ReadFile("../../testdata/zz_fixture_TestNewPlainPipelineFromBytes.yaml")
+	region := "uksouth"
+	regionShort := "uks"
+	stamp := "1"
+	cloud := "public"
+	environment := "int"
+
+	provider := config.NewConfigProvider("../../testdata/config.yaml")
+
+	cfg, err := provider.GetDeployEnvRegionConfiguration(cloud, environment, region, &config.ConfigReplacements{
+		RegionReplacement:      region,
+		RegionShortReplacement: regionShort,
+		StampReplacement:       stamp,
+		CloudReplacement:       cloud,
+		EnvironmentReplacement: environment,
+	})
 	assert.NoError(t, err)
 
-	p, err := NewPlainPipelineFromBytes("", pipelineBytes)
+	pipeline, err := NewPipelineFromFile("../../testdata/pipeline.yaml", cfg)
 	assert.NoError(t, err)
 
-	pipelineBytes, err = yaml.Marshal(p)
-	assert.NoError(t, err)
-
-	testutil.CompareWithFixture(t, pipelineBytes, testutil.WithExtension(".yaml"))
-
+	testutil.CompareWithFixture(t, pipeline, testutil.WithExtension(".yaml"))
 }
 
 func TestUnmarshalStep(t *testing.T) {
