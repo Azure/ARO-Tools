@@ -23,6 +23,12 @@ type Service struct {
 	// ServiceGroup is the identifier for this service.
 	ServiceGroup string `json:"serviceGroup"`
 
+	// Purpose records a short human-readable blurb on the purpose of this pipeline.
+	Purpose string `json:"purpose"`
+
+	// PipelinePath holds the relative path from this topology record to the pipeline definition.
+	PipelinePath string `json:"pipelinePath"`
+
 	// Children holds any dependent services.
 	Children []Service `json:"children,omitempty"`
 
@@ -63,7 +69,9 @@ type validator struct {
 
 func (v *validator) validate(t *Topology) error {
 	for _, root := range t.Services {
-		v.walk(root)
+		if err := v.walk(root); err != nil {
+			return err
+		}
 	}
 
 	var messages []string
@@ -84,14 +92,44 @@ func (v *validator) validate(t *Topology) error {
 	return nil
 }
 
-func (v *validator) walk(s Service) {
+func (v *validator) walk(s Service) error {
 	if v.seen.Has(s.ServiceGroup) {
 		v.duplicates.Insert(s.ServiceGroup)
 	}
 	v.seen.Insert(s.ServiceGroup)
-	for _, child := range s.Children {
-		v.walk(child)
+
+	if err := defaultUsingMetadata(&s.Purpose, s.Metadata, "purpose"); err != nil {
+		return fmt.Errorf("failed to default purpose: %w", err)
 	}
+	if err := defaultUsingMetadata(&s.PipelinePath, s.Metadata, "pipeline"); err != nil {
+		return fmt.Errorf("failed to default pipeline: %w", err)
+	}
+
+	for _, child := range s.Children {
+		if err := v.walk(child); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func defaultUsingMetadata(into *string, from map[string]string, key string) error {
+	if into == nil {
+		panic("programmer error: passed nil 'into' to defaultUsingMetadata")
+	}
+	if *into != "" {
+		// no defaulting needed
+		return nil
+	}
+	if from == nil {
+		return fmt.Errorf("field unset and no metadata present, can't default using %q", key)
+	}
+	value, ok := from[key]
+	if !ok || value == "" {
+		return fmt.Errorf("field unset and metadata key %q missing or empty", key)
+	}
+	*into = value
+	return nil
 }
 
 // ServiceNotFoundError denotes a failure in Lookup() when the requested service group is not in the tree.
