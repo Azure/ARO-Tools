@@ -25,9 +25,9 @@ type Step interface {
 
 // StepMeta contains metadata for a steps.
 type StepMeta struct {
-	Name      string   `yaml:"name"`
-	Action    string   `yaml:"action"`
-	DependsOn []string `yaml:"dependsOn,omitempty"`
+	Name      string   `json:"name"`
+	Action    string   `json:"action"`
+	DependsOn []string `json:"dependsOn,omitempty"`
 }
 
 func (m *StepMeta) StepName() string {
@@ -43,8 +43,7 @@ func (m *StepMeta) Dependencies() []string {
 }
 
 type GenericStep struct {
-	StepMeta `yaml:",inline"`
-	Body     map[string]any `yaml:",inline"`
+	StepMeta `json:",inline"`
 }
 
 func (s *GenericStep) Description() string {
@@ -52,6 +51,66 @@ func (s *GenericStep) Description() string {
 }
 
 type DryRun struct {
-	Variables []Variable `yaml:"variables,omitempty"`
-	Command   string     `yaml:"command,omitempty"`
+	Variables []Variable `json:"variables,omitempty"`
+	Command   string     `json:"command,omitempty"`
+}
+
+type DelegateChildZoneStep struct {
+	StepMeta   `json:",inline"`
+	ParentZone Variable `json:"parentZone,omitempty"`
+	ChildZone  Variable `json:"childZone,omitempty"`
+}
+
+func (s *DelegateChildZoneStep) Description() string {
+	return fmt.Sprintf("Step %s\n Kind: %s\n", s.Name, s.Action)
+}
+
+type SetCertificateIssuerStep struct {
+	StepMeta     `json:",inline"`
+	VaultBaseUrl Variable `json:"vaultBaseUrl,omitempty"`
+	Issuer       Variable `json:"issuer,omitempty"`
+}
+
+func (s *SetCertificateIssuerStep) Description() string {
+	return fmt.Sprintf("Step %s\n Kind: %s\n", s.Name, s.Action)
+}
+
+type CreateCertificateStep struct {
+	StepMeta        `json:",inline"`
+	VaultBaseUrl    Variable `json:"vaultBaseUrl,omitempty"`
+	CertificateName Variable `json:"certificateName,omitempty"`
+	ContentType     Variable `json:"contentType,omitempty"`
+	SAN             Variable `json:"san,omitempty"`
+	Issuer          Variable `json:"issuer,omitempty"`
+}
+
+func (s *CreateCertificateStep) Description() string {
+	return fmt.Sprintf("Step %s\n Kind: %s\n", s.Name, s.Action)
+}
+
+type ResourceProviderRegistrationStep struct {
+	StepMeta                   `json:",inline"`
+	ResourceProviderNamespaces Variable `json:"resourceProviderNamespaces,omitempty"`
+}
+
+func (s *ResourceProviderRegistrationStep) Description() string {
+	return fmt.Sprintf("Step %s\n Kind: %s\n", s.Name, s.Action)
+}
+
+type LogsStep struct {
+	StepMeta        `json:",inline"`
+	SubscriptionId  Variable   `json:"subscriptionId,omitempty"`
+	Namespace       Variable   `json:"namespace,omitempty"`
+	CertSAN         Variable   `json:"certsan,omitempty"`
+	CertDescription Variable   `json:"certdescription,omitempty"`
+	ConfigVersion   Variable   `json:"configVersion,omitempty"`
+	Events          LogsEvents `json:"events,omitempty"`
+}
+
+type LogsEvents struct {
+	AKSKubeSystem string `json:"akskubesystem,omitempty"`
+}
+
+func (s *LogsStep) Description() string {
+	return fmt.Sprintf("Step %s\n Kind: %s\n", s.Name, s.Action)
 }
