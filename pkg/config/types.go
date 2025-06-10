@@ -16,6 +16,7 @@ package config
 
 import (
 	"fmt"
+	"log/slog"
 	"strings"
 )
 
@@ -53,7 +54,9 @@ type ConfigurationOverrides interface {
 	GetDefaults() Configuration
 	GetCloudOverrides(cloud string) Configuration
 	GetDeployEnvOverrides(cloud, deployEnv string) Configuration
+	ResolveEnvironment(cloud, environment string) Configuration
 	GetRegionOverrides(cloud, deployEnv, region string) Configuration
+	ResolveRegion(cloud, environment, region string) Configuration
 	GetRegions(cloud, deployEnv string) []string
 	GetSchema() string
 	HasSchema() bool
@@ -143,11 +146,27 @@ func (vo *configurationOverrides) getAllDeployEnvRegionOverrides(cloud, deployEn
 func (vo *configurationOverrides) GetRegionOverrides(cloud, deployEnv, region string) Configuration {
 	regionOverrides, err := vo.getAllDeployEnvRegionOverrides(cloud, deployEnv)
 	if err != nil {
+		slog.Warn("Failed to get region overrides", "err", err)
 		return Configuration{}
 	}
 	if regionOverrides, ok := regionOverrides[region]; ok {
 		return regionOverrides
 	} else {
+		slog.Warn("Failed to find region in config", "region", region)
 		return Configuration{}
 	}
+}
+
+func (vo *configurationOverrides) ResolveEnvironment(cloud, environment string) Configuration {
+	mergedConfig := Configuration{}
+	MergeConfiguration(mergedConfig, vo.GetDefaults())
+	MergeConfiguration(mergedConfig, vo.GetCloudOverrides(cloud))
+	MergeConfiguration(mergedConfig, vo.GetDeployEnvOverrides(cloud, environment))
+	return mergedConfig
+}
+
+func (vo *configurationOverrides) ResolveRegion(cloud, environment, region string) Configuration {
+	mergedConfig := vo.ResolveEnvironment(cloud, environment)
+	MergeConfiguration(mergedConfig, vo.GetRegionOverrides(cloud, environment, region))
+	return mergedConfig
 }

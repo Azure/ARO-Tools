@@ -1,5 +1,6 @@
 $schema: schema.json
 defaults:
+  aroDevopsMsiId: '/subscriptions/9a53d80e-dae0-4c8a-af90-30575d253127/resourceGroups/global-shared-resources/providers/Microsoft.ManagedIdentity/userAssignedIdentities/global-ev2-identity'
   region: '{{ .ctx.region  }}'
   serviceClusterSubscription: hcp-{{ .ctx.region }}
   managementClusterSubscription: hcp-{{ .ctx.region }}
@@ -17,6 +18,8 @@ defaults:
   vaultBaseUrl: myvault.azure.com
   provider: Self
   cloudEnv: '{{ .ctx.cloud }}-{{ .ctx.environment }}'
+  vaultDomainSuffix: '{{ .ev2.keyVault.domainNameSuffix }}'
+  availabilityZoneCount: '{{ .ev2.availabilityZoneCount }}'
   enableOptionalStep: false
 clouds:
   fairfax:
