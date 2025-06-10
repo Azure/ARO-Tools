@@ -20,12 +20,22 @@ func TestValidate(t *testing.T) {
 - identifier: a.b.c
 services:
 - serviceGroup: a.b
+  pipelinePath: foo
+  purpose: stuff
   children:
   - serviceGroup: a.b.c
+    pipelinePath: foo
+    purpose: stuff
     children:
     - serviceGroup: a.b.c.d
+      pipelinePath: foo
+      purpose: stuff
   - serviceGroup: a.b.C
-- serviceGroup: A.B`,
+    pipelinePath: foo
+    purpose: stuff
+- serviceGroup: A.B
+  pipelinePath: foo
+  purpose: stuff`,
 			err: false,
 		},
 		{
@@ -34,12 +44,22 @@ services:
 - identifier: a.b.c
 services:
 - serviceGroup: a.b
+  pipelinePath: foo
+  purpose: stuff
   children:
   - serviceGroup: a.b.c
+    pipelinePath: foo
+    purpose: stuff
     children:
     - serviceGroup: a.b.c.d
+      pipelinePath: foo
+      purpose: stuff
   - serviceGroup: a.b.c.d
-- serviceGroup: A.B`,
+    pipelinePath: foo
+    purpose: stuff
+- serviceGroup: A.B
+  pipelinePath: foo
+  purpose: stuff`,
 			err: true,
 		},
 		{
@@ -48,12 +68,22 @@ services:
 - identifier: a.b.c.d.e
 services:
 - serviceGroup: a.b
+  pipelinePath: foo
+  purpose: stuff
   children:
   - serviceGroup: a.b.c
+    pipelinePath: foo
+    purpose: stuff
     children:
     - serviceGroup: a.b.c.d
+      pipelinePath: foo
+      purpose: stuff
   - serviceGroup: a.b.c.d
-- serviceGroup: A.B`,
+    pipelinePath: foo
+    purpose: stuff
+- serviceGroup: A.B
+  pipelinePath: foo
+  purpose: stuff`,
 			err: true,
 		},
 		{
@@ -62,13 +92,73 @@ services:
 - identifier: ''
 services:
 - serviceGroup: a.b
+  pipelinePath: foo
+  purpose: stuff
   children:
   - serviceGroup: a.b.c
+    pipelinePath: foo
+    purpose: stuff
     children:
     - serviceGroup: a.b.c.d
+      pipelinePath: foo
+      purpose: stuff
   - serviceGroup: a.b.c.d
-- serviceGroup: A.B`,
+    pipelinePath: foo
+    purpose: stuff
+- serviceGroup: A.B
+  pipelinePath: foo
+  purpose: stuff`,
 			err: true,
+		},
+		{
+			name: "empty purpose, no metadata",
+			input: `services:
+- serviceGroup: a.b
+  pipelinePath: foo`,
+			err: true,
+		},
+		{
+			name: "empty purpose, empty key in metadata",
+			input: `services:
+- serviceGroup: a.b
+  pipelinePath: foo
+  metadata:
+    purpose: ''`,
+			err: true,
+		},
+		{
+			name: "empty purpose, defaults from metadata",
+			input: `services:
+- serviceGroup: a.b
+  pipelinePath: foo
+  metadata:
+    purpose: stuff`,
+			err: false,
+		},
+		{
+			name: "empty pipeline, no metadata",
+			input: `services:
+- serviceGroup: a.b
+  purpose: stuff`,
+			err: true,
+		},
+		{
+			name: "empty pipeline, empty key in metadata",
+			input: `services:
+- serviceGroup: a.b
+  purpose: stuff
+  metadata:
+    pipeline: ''`,
+			err: true,
+		},
+		{
+			name: "empty pipeline, defaults from metadata",
+			input: `services:
+- serviceGroup: a.b
+  purpose: stuff
+  metadata:
+    pipeline: foo`,
+			err: false,
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
