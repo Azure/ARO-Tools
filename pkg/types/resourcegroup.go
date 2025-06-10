@@ -18,11 +18,11 @@ import "fmt"
 
 // ResourceGroup represents the resourcegroup containing all steps
 type ResourceGroup struct {
-	Name         string `yaml:"name"`
-	Subscription string `yaml:"subscription"`
+	Name         string `json:"name"`
+	Subscription string `json:"subscription"`
 	// Deprecated: AKSCluster to be removed
-	AKSCluster string `yaml:"aksCluster,omitempty"`
-	Steps      []Step `yaml:"steps"`
+	AKSCluster string `json:"aksCluster,omitempty"`
+	Steps      []Step `json:"steps"`
 }
 
 func (rg *ResourceGroup) Validate() error {

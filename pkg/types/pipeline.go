@@ -17,16 +17,16 @@ package types
 import (
 	"fmt"
 
-	"gopkg.in/yaml.v3"
+	"sigs.k8s.io/yaml"
 
 	"github.com/Azure/ARO-Tools/pkg/config"
 )
 
 type Pipeline struct {
-	schema         string           `yaml:"$schema,omitempty"`
-	ServiceGroup   string           `yaml:"serviceGroup"`
-	RolloutName    string           `yaml:"rolloutName"`
-	ResourceGroups []*ResourceGroup `yaml:"resourceGroups"`
+	Schema         string           `json:"$schema,omitempty"`
+	ServiceGroup   string           `json:"serviceGroup"`
+	RolloutName    string           `json:"rolloutName"`
+	ResourceGroups []*ResourceGroup `json:"resourceGroups"`
 }
 
 // NewPipelineFromFile prepocesses and creates a new Pipeline instance from a file.
@@ -43,11 +43,6 @@ func NewPipelineFromFile(pipelineFilePath string, cfg config.Configuration) (*Pi
 	bytes, err := config.PreprocessFile(pipelineFilePath, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to preprocess pipeline file: %w", err)
-	}
-
-	err = ValidatePipelineSchema(bytes)
-	if err != nil {
-		return nil, fmt.Errorf("failed to validate pipeline schema: %w", err)
 	}
 
 	pipeline, err := NewPlainPipelineFromBytes("", bytes)
@@ -70,16 +65,16 @@ func NewPipelineFromFile(pipelineFilePath string, cfg config.Configuration) (*Pi
 //   - A pointer to a new PlainPipeline instance, or an error if the input is invalid.
 func NewPlainPipelineFromBytes(_ string, bytes []byte) (*Pipeline, error) {
 	rawPipeline := &struct {
-		Schema         string `yaml:"$schema,omitempty"`
-		ServiceGroup   string `yaml:"serviceGroup"`
-		RolloutName    string `yaml:"rolloutName"`
+		Schema         string `json:"$schema,omitempty"`
+		ServiceGroup   string `json:"serviceGroup"`
+		RolloutName    string `json:"rolloutName"`
 		ResourceGroups []struct {
-			Name         string `yaml:"name"`
-			Subscription string `yaml:"subscription"`
+			Name         string `json:"name"`
+			Subscription string `json:"subscription"`
 			// Deprecated: AKSCluster to be removed
-			AKSCluster string           `yaml:"aksCluster,omitempty"`
-			Steps      []map[string]any `yaml:"steps"`
-		} `yaml:"resourceGroups"`
+			AKSCluster string           `json:"aksCluster,omitempty"`
+			Steps      []map[string]any `json:"steps"`
+		} `json:"resourceGroups"`
 	}{}
 	err := yaml.Unmarshal(bytes, rawPipeline)
 	if err != nil {
@@ -97,7 +92,7 @@ func NewPlainPipelineFromBytes(_ string, bytes []byte) (*Pipeline, error) {
 	}
 
 	pipeline := &Pipeline{
-		schema:         rawPipeline.Schema,
+		Schema:         rawPipeline.Schema,
 		ServiceGroup:   rawPipeline.ServiceGroup,
 		RolloutName:    rawPipeline.RolloutName,
 		ResourceGroups: make([]*ResourceGroup, len(rawPipeline.ResourceGroups)),
@@ -129,6 +124,16 @@ func NewPlainPipelineFromBytes(_ string, bytes []byte) (*Pipeline, error) {
 				rg.Steps[i] = &ShellStep{}
 			case "ARM":
 				rg.Steps[i] = &ARMStep{}
+			case "DelegateChildZone":
+				rg.Steps[i] = &DelegateChildZoneStep{}
+			case "SetCertificateIssuer":
+				rg.Steps[i] = &SetCertificateIssuerStep{}
+			case "CreateCertificate":
+				rg.Steps[i] = &CreateCertificateStep{}
+			case "ResourceProviderRegistration":
+				rg.Steps[i] = &ResourceProviderRegistrationStep{}
+			case "RPLogsAccount", "ClusterLogsAccount":
+				rg.Steps[i] = &LogsStep{}
 			default:
 				rg.Steps[i] = &GenericStep{}
 			}
