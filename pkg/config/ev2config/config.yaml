@@ -3,271 +3,267 @@ clouds:
     defaults:
       keyVault:
         domainNameSuffix: vault.usgovcloudapi.net
-    environments:
-      prod:
-        regions:
-          usdodcentral:
-            availabilityZoneCount: 0
-            regionShortName: dd
-          usdodeast:
-            availabilityZoneCount: 1
-            regionShortName: bd
-          usdodsouthcentral:
-            availabilityZoneCount: 0
-            regionShortName: usdsc
-          usdodsouthwest:
-            availabilityZoneCount: 0
-            regionShortName: phxd
-          usdodwestcentral:
-            availabilityZoneCount: 0
-            regionShortName: usdwc
-          usgovarizona:
-            availabilityZoneCount: 3
-            regionShortName: phx
-          usgovtexas:
-            availabilityZoneCount: 0
-            regionShortName: sn
-          usgovvirginia:
-            availabilityZoneCount: 3
-            regionShortName: bn
-          usgovwyoming:
-            availabilityZoneCount: 0
-            regionShortName: cy
+    regions:
+      usdodcentral:
+        availabilityZoneCount: 0
+        regionShortName: dd
+      usdodeast:
+        availabilityZoneCount: 1
+        regionShortName: bd
+      usdodsouthcentral:
+        availabilityZoneCount: 0
+        regionShortName: usdsc
+      usdodsouthwest:
+        availabilityZoneCount: 0
+        regionShortName: phxd
+      usdodwestcentral:
+        availabilityZoneCount: 0
+        regionShortName: usdwc
+      usgovarizona:
+        availabilityZoneCount: 3
+        regionShortName: phx
+      usgovtexas:
+        availabilityZoneCount: 0
+        regionShortName: sn
+      usgovvirginia:
+        availabilityZoneCount: 3
+        regionShortName: bn
+      usgovwyoming:
+        availabilityZoneCount: 0
+        regionShortName: cy
   public:
     defaults:
       keyVault:
         domainNameSuffix: vault.azure.net
-    environments:
-      prod:
-        regions:
-          apacsoutheast2:
-            availabilityZoneCount: 0
-            regionShortName: kul
-          australiacentral:
-            availabilityZoneCount: 1
-            regionShortName: cbr
-          australiacentral2:
-            availabilityZoneCount: 1
-            regionShortName: cbr2
-          australiaeast:
-            availabilityZoneCount: 3
-            regionShortName: sy
-          australiasoutheast:
-            availabilityZoneCount: 2
-            regionShortName: ml
-          austriaeast:
-            availabilityZoneCount: 3
-            regionShortName: ate
-          belgiumcentral:
-            availabilityZoneCount: 3
-            regionShortName: bec
-          brazilnortheast:
-            availabilityZoneCount: 0
-            regionShortName: brne
-          brazilsouth:
-            availabilityZoneCount: 3
-            regionShortName: cq
-          brazilsoutheast:
-            availabilityZoneCount: 1
-            regionShortName: brse
-          canadacentral:
-            availabilityZoneCount: 3
-            regionShortName: yt
-          canadaeast:
-            availabilityZoneCount: 1
-            regionShortName: yq
-          centralindia:
-            availabilityZoneCount: 3
-            regionShortName: pn
-          centralus:
-            availabilityZoneCount: 3
-            regionShortName: dm
-          centraluseuap:
-            availabilityZoneCount: 1
-            regionShortName: cdm
-          chilecentral:
-            availabilityZoneCount: 3
-            regionShortName: clc
-          denmarkeast:
-            availabilityZoneCount: 3
-            regionShortName: dke
-          eastasia:
-            availabilityZoneCount: 3
-            regionShortName: hk
-          eastus:
-            availabilityZoneCount: 3
-            regionShortName: bl
-          eastus2:
-            availabilityZoneCount: 4
-            regionShortName: bn
-          eastus2euap:
-            availabilityZoneCount: 4
-            regionShortName: cbn
-          eastus3:
-            availabilityZoneCount: 1
-            regionShortName: use3
-          eastusslv:
-            availabilityZoneCount: 1
-            regionShortName: use
-          eastusstg:
-            availabilityZoneCount: 2
-            regionShortName: uste
-          francecentral:
-            availabilityZoneCount: 3
-            regionShortName: par
-          francesouth:
-            availabilityZoneCount: 1
-            regionShortName: mrs
-          germanynorth:
-            availabilityZoneCount: 1
-            regionShortName: den
-          germanywestcentral:
-            availabilityZoneCount: 3
-            regionShortName: dewc
-          indonesiacentral:
-            availabilityZoneCount: 3
-            regionShortName: idc
-          israelcentral:
-            availabilityZoneCount: 3
-            regionShortName: ilc
-          israelnorthwest:
-            availabilityZoneCount: 1
-            regionShortName: ilnw
-          italynorth:
-            availabilityZoneCount: 3
-            regionShortName: itn
-          japaneast:
-            availabilityZoneCount: 3
-            regionShortName: ty
-          japanwest:
-            availabilityZoneCount: 3
-            regionShortName: os
-          jioindiacentral:
-            availabilityZoneCount: 1
-            regionShortName: jinc
-          jioindiawest:
-            availabilityZoneCount: 1
-            regionShortName: jinw
-          koreacentral:
-            availabilityZoneCount: 3
-            regionShortName: se
-          koreasouth:
-            availabilityZoneCount: 1
-            regionShortName: ps
-          koreasouth2:
-            availabilityZoneCount: 0
-            regionShortName: krs2
-          malaysiasouth:
-            availabilityZoneCount: 1
-            regionShortName: mys
-          malaysiawest:
-            availabilityZoneCount: 3
-            regionShortName: myw
-          mexicocentral:
-            availabilityZoneCount: 3
-            regionShortName: mxc
-          newzealandnorth:
-            availabilityZoneCount: 3
-            regionShortName: nzn
-          northcentralus:
-            availabilityZoneCount: 3
-            regionShortName: ch
-          northeurope:
-            availabilityZoneCount: 3
-            regionShortName: db
-          norwayeast:
-            availabilityZoneCount: 3
-            regionShortName: noe
-          norwaywest:
-            availabilityZoneCount: 1
-            regionShortName: now
-          polandcentral:
-            availabilityZoneCount: 3
-            regionShortName: plc
-          qatarcentral:
-            availabilityZoneCount: 3
-            regionShortName: qac
-          southafricanorth:
-            availabilityZoneCount: 3
-            regionShortName: jnb
-          southafricawest:
-            availabilityZoneCount: 1
-            regionShortName: cpt
-          southcentralus:
-            availabilityZoneCount: 3
-            regionShortName: sn
-          southcentralus2:
-            availabilityZoneCount: 1
-            regionShortName: ussc2
-          southcentralusstg:
-            availabilityZoneCount: 1
-            regionShortName: ustsc
-          southeastasia:
-            availabilityZoneCount: 3
-            regionShortName: sg
-          southeastus:
-            availabilityZoneCount: 1
-            regionShortName: usse1
-          southeastus3:
-            availabilityZoneCount: 1
-            regionShortName: usse3
-          southeastus5:
-            availabilityZoneCount: 1
-            regionShortName: usse5
-          southindia:
-            availabilityZoneCount: 1
-            regionShortName: ma
-          southwestus:
-            availabilityZoneCount: 1
-            regionShortName: ussw1
-          spaincentral:
-            availabilityZoneCount: 3
-            regionShortName: esc
-          swedencentral:
-            availabilityZoneCount: 3
-            regionShortName: sec
-          swedensouth:
-            availabilityZoneCount: 1
-            regionShortName: ses
-          switzerlandnorth:
-            availabilityZoneCount: 3
-            regionShortName: chn
-          switzerlandwest:
-            availabilityZoneCount: 1
-            regionShortName: chw
-          taiwannorth:
-            availabilityZoneCount: 1
-            regionShortName: twn
-          taiwannorthwest:
-            availabilityZoneCount: 1
-            regionShortName: twnw
-          uaecentral:
-            availabilityZoneCount: 2
-            regionShortName: auh
-          uaenorth:
-            availabilityZoneCount: 3
-            regionShortName: dxb
-          uksouth:
-            availabilityZoneCount: 3
-            regionShortName: ln
-          ukwest:
-            availabilityZoneCount: 1
-            regionShortName: cw
-          westcentralus:
-            availabilityZoneCount: 3
-            regionShortName: cy
-          westeurope:
-            availabilityZoneCount: 3
-            regionShortName: am
-          westindia:
-            availabilityZoneCount: 1
-            regionShortName: bm
-          westus:
-            availabilityZoneCount: 2
-            regionShortName: by
-          westus2:
-            availabilityZoneCount: 3
-            regionShortName: mwh
-          westus3:
-            availabilityZoneCount: 3
-            regionShortName: usw3
+    regions:
+      apacsoutheast2:
+        availabilityZoneCount: 0
+        regionShortName: kul
+      australiacentral:
+        availabilityZoneCount: 1
+        regionShortName: cbr
+      australiacentral2:
+        availabilityZoneCount: 1
+        regionShortName: cbr2
+      australiaeast:
+        availabilityZoneCount: 3
+        regionShortName: sy
+      australiasoutheast:
+        availabilityZoneCount: 2
+        regionShortName: ml
+      austriaeast:
+        availabilityZoneCount: 3
+        regionShortName: ate
+      belgiumcentral:
+        availabilityZoneCount: 3
+        regionShortName: bec
+      brazilnortheast:
+        availabilityZoneCount: 0
+        regionShortName: brne
+      brazilsouth:
+        availabilityZoneCount: 3
+        regionShortName: cq
+      brazilsoutheast:
+        availabilityZoneCount: 1
+        regionShortName: brse
+      canadacentral:
+        availabilityZoneCount: 3
+        regionShortName: yt
+      canadaeast:
+        availabilityZoneCount: 1
+        regionShortName: yq
+      centralindia:
+        availabilityZoneCount: 3
+        regionShortName: pn
+      centralus:
+        availabilityZoneCount: 3
+        regionShortName: dm
+      centraluseuap:
+        availabilityZoneCount: 1
+        regionShortName: cdm
+      chilecentral:
+        availabilityZoneCount: 3
+        regionShortName: clc
+      denmarkeast:
+        availabilityZoneCount: 3
+        regionShortName: dke
+      eastasia:
+        availabilityZoneCount: 3
+        regionShortName: hk
+      eastus:
+        availabilityZoneCount: 3
+        regionShortName: bl
+      eastus2:
+        availabilityZoneCount: 4
+        regionShortName: bn
+      eastus2euap:
+        availabilityZoneCount: 4
+        regionShortName: cbn
+      eastus3:
+        availabilityZoneCount: 1
+        regionShortName: use3
+      eastusslv:
+        availabilityZoneCount: 1
+        regionShortName: use
+      eastusstg:
+        availabilityZoneCount: 2
+        regionShortName: uste
+      francecentral:
+        availabilityZoneCount: 3
+        regionShortName: par
+      francesouth:
+        availabilityZoneCount: 1
+        regionShortName: mrs
+      germanynorth:
+        availabilityZoneCount: 1
+        regionShortName: den
+      germanywestcentral:
+        availabilityZoneCount: 3
+        regionShortName: dewc
+      indonesiacentral:
+        availabilityZoneCount: 3
+        regionShortName: idc
+      israelcentral:
+        availabilityZoneCount: 3
+        regionShortName: ilc
+      israelnorthwest:
+        availabilityZoneCount: 1
+        regionShortName: ilnw
+      italynorth:
+        availabilityZoneCount: 3
+        regionShortName: itn
+      japaneast:
+        availabilityZoneCount: 3
+        regionShortName: ty
+      japanwest:
+        availabilityZoneCount: 3
+        regionShortName: os
+      jioindiacentral:
+        availabilityZoneCount: 1
+        regionShortName: jinc
+      jioindiawest:
+        availabilityZoneCount: 1
+        regionShortName: jinw
+      koreacentral:
+        availabilityZoneCount: 3
+        regionShortName: se
+      koreasouth:
+        availabilityZoneCount: 1
+        regionShortName: ps
+      koreasouth2:
+        availabilityZoneCount: 0
+        regionShortName: krs2
+      malaysiasouth:
+        availabilityZoneCount: 1
+        regionShortName: mys
+      malaysiawest:
+        availabilityZoneCount: 3
+        regionShortName: myw
+      mexicocentral:
+        availabilityZoneCount: 3
+        regionShortName: mxc
+      newzealandnorth:
+        availabilityZoneCount: 3
+        regionShortName: nzn
+      northcentralus:
+        availabilityZoneCount: 3
+        regionShortName: ch
+      northeurope:
+        availabilityZoneCount: 3
+        regionShortName: db
+      norwayeast:
+        availabilityZoneCount: 3
+        regionShortName: noe
+      norwaywest:
+        availabilityZoneCount: 1
+        regionShortName: now
+      polandcentral:
+        availabilityZoneCount: 3
+        regionShortName: plc
+      qatarcentral:
+        availabilityZoneCount: 3
+        regionShortName: qac
+      southafricanorth:
+        availabilityZoneCount: 3
+        regionShortName: jnb
+      southafricawest:
+        availabilityZoneCount: 1
+        regionShortName: cpt
+      southcentralus:
+        availabilityZoneCount: 3
+        regionShortName: sn
+      southcentralus2:
+        availabilityZoneCount: 1
+        regionShortName: ussc2
+      southcentralusstg:
+        availabilityZoneCount: 1
+        regionShortName: ustsc
+      southeastasia:
+        availabilityZoneCount: 3
+        regionShortName: sg
+      southeastus:
+        availabilityZoneCount: 1
+        regionShortName: usse1
+      southeastus3:
+        availabilityZoneCount: 1
+        regionShortName: usse3
+      southeastus5:
+        availabilityZoneCount: 1
+        regionShortName: usse5
+      southindia:
+        availabilityZoneCount: 1
+        regionShortName: ma
+      southwestus:
+        availabilityZoneCount: 1
+        regionShortName: ussw1
+      spaincentral:
+        availabilityZoneCount: 3
+        regionShortName: esc
+      swedencentral:
+        availabilityZoneCount: 3
+        regionShortName: sec
+      swedensouth:
+        availabilityZoneCount: 1
+        regionShortName: ses
+      switzerlandnorth:
+        availabilityZoneCount: 3
+        regionShortName: chn
+      switzerlandwest:
+        availabilityZoneCount: 1
+        regionShortName: chw
+      taiwannorth:
+        availabilityZoneCount: 1
+        regionShortName: twn
+      taiwannorthwest:
+        availabilityZoneCount: 1
+        regionShortName: twnw
+      uaecentral:
+        availabilityZoneCount: 2
+        regionShortName: auh
+      uaenorth:
+        availabilityZoneCount: 3
+        regionShortName: dxb
+      uksouth:
+        availabilityZoneCount: 3
+        regionShortName: ln
+      ukwest:
+        availabilityZoneCount: 1
+        regionShortName: cw
+      westcentralus:
+        availabilityZoneCount: 3
+        regionShortName: cy
+      westeurope:
+        availabilityZoneCount: 3
+        regionShortName: am
+      westindia:
+        availabilityZoneCount: 1
+        regionShortName: bm
+      westus:
+        availabilityZoneCount: 2
+        regionShortName: by
+      westus2:
+        availabilityZoneCount: 3
+        regionShortName: mwh
+      westus3:
+        availabilityZoneCount: 3
+        regionShortName: usw3
