@@ -15,7 +15,6 @@
 package config_test
 
 import (
-	"fmt"
 	"os"
 	"testing"
 
@@ -48,20 +47,7 @@ func TestConfigProvider(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, cfg)
 
-	// key is not in the config file
-	assert.Nil(t, cfg["svc_resourcegroup"])
-
-	// key is in the config file, region constant value
-	assert.Equal(t, "uksouth", cfg["test"])
-
-	// key is in the config file, default in INT, constant value
-	assert.Equal(t, "aro-hcp-int.azurecr.io/maestro-server:the-stable-one", cfg["maestro_image"])
-
-	// key is in the config file, default, varaible value
-	assert.Equal(t, fmt.Sprintf("hcp-underlay-%s", regionShort), cfg["regionRG"])
-
-	// key is in the config file, varaible value
-	assert.Equal(t, fmt.Sprintf("%s-%s", cloud, environment), cfg["cloudEnv"])
+	testutil.CompareWithFixture(t, cfg)
 }
 
 func TestInterfaceToConfiguration(t *testing.T) {
