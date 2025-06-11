@@ -72,6 +72,12 @@ func (s *ARMStep) WithOutputOnly() *ARMStep {
 	return s
 }
 
+// WithDeploymentMode fluent method that sets OutputOnly
+func (s *ARMStep) WithDeploymentMode(deploymentMode string) *ARMStep {
+	s.DeploymentMode = deploymentMode
+	return s
+}
+
 // Description
 // Returns:
 //   - A string representation of this ShellStep
