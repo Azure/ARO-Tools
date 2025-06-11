@@ -32,18 +32,21 @@ func TestNewPipelineFromFile(t *testing.T) {
 	cloud := "public"
 	environment := "int"
 
-	provider := config.NewConfigProvider("../../testdata/config.yaml")
-	ev2, err := ev2config.Config()
+	ev2, err := ev2config.ResolveConfig(cloud, region)
 	require.NoError(t, err)
-
-	cfg, err := provider.GetDeployEnvRegionConfiguration(cloud, environment, region, &config.ConfigReplacements{
+	provider, err := config.NewConfigProvider("../../testdata/config.yaml")
+	require.NoError(t, err)
+	resolver, err := provider.GetResolver(&config.ConfigReplacements{
 		RegionReplacement:      region,
 		RegionShortReplacement: regionShort,
 		StampReplacement:       stamp,
 		CloudReplacement:       cloud,
 		EnvironmentReplacement: environment,
-		Ev2Config:              ev2.ResolveRegion(cloud, "prod", region),
+		Ev2Config:              ev2,
 	})
+	require.NoError(t, err)
+
+	cfg, err := resolver.GetRegionConfiguration(region)
 	assert.NoError(t, err)
 
 	pipeline, err := NewPipelineFromFile("../../testdata/pipeline.yaml", cfg)

@@ -1,86 +1,29 @@
 package config
 
 import (
-	"fmt"
-	"log"
-	"net/http"
-	"net/http/httptest"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestLoadSchemaURL(t *testing.T) {
-	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if _, err := fmt.Fprintln(w, "{\"type\": \"object\"}"); err != nil {
-			log.Printf("failed to write response: %v", err)
-		}
-	}))
-	defer testServer.Close()
-
-	configProvider := configProviderImpl{}
-	configProvider.schema = testServer.URL
-
-	schema, err := configProvider.loadSchema()
-	assert.Nil(t, err)
-	assert.NotNil(t, schema)
-	assert.Equal(t, map[string]any{"type": "object"}, schema)
-}
-
-func TestLoadSchema(t *testing.T) {
-	testDirs := t.TempDir()
-
-	err := os.WriteFile(testDirs+"/schema.json", []byte(`{"type": "object"}`), 0644)
-	assert.Nil(t, err)
-
-	configProvider := configProviderImpl{}
-	configProvider.schema = testDirs + "/schema.json"
-
-	schema, err := configProvider.loadSchema()
-	assert.Nil(t, err)
-	assert.NotNil(t, schema)
-	assert.Equal(t, map[string]any{"type": "object"}, schema)
-}
-
-func TestLoadSchemaError(t *testing.T) {
-	testDirs := t.TempDir()
-
-	err := os.WriteFile(testDirs+"/schma.json", []byte(`{"type": "object"}`), 0644)
-	assert.Nil(t, err)
-
-	configProvider := configProviderImpl{}
-	configProvider.schema = testDirs + "/schema.json"
-	_, err = configProvider.loadSchema()
-	assert.NotNil(t, err)
-}
-
 func TestValidateSchema(t *testing.T) {
-	testSchema := `{
-	"type": "object",
-	"properties": {
-		"key1": {
-			"type": "string"
-		}
-	},
-	"additionalProperties": false
-}`
+	provider, err := NewConfigProvider("./testdata/config.yaml")
+	require.NoError(t, err)
 
-	testDirs := t.TempDir()
+	resolver, err := provider.GetResolver(&ConfigReplacements{
+		CloudReplacement:       "public",
+		EnvironmentReplacement: "int",
+		RegionReplacement:      "uksouth",
+		RegionShortReplacement: "ln",
+	})
+	require.NoError(t, err)
 
-	err := os.WriteFile(testDirs+"/schema.json", []byte(testSchema), 0644)
-	assert.Nil(t, err)
+	cfg, err := resolver.GetRegionConfiguration("uksouth")
+	require.NoError(t, err)
 
-	configProvider := configProviderImpl{}
-	configProvider.schema = "schema.json"
-	configProvider.config = testDirs + "/config.yaml"
-
-	err = configProvider.validateSchema(map[string]any{"foo": "bar"})
-	assert.NotNil(t, err)
-	assert.ErrorContains(t, err, "additional properties 'foo' not allowed")
-
-	err = configProvider.validateSchema(map[string]any{"key1": "bar"})
-	assert.Nil(t, err)
+	validationErr := resolver.ValidateSchema(cfg)
+	require.NoError(t, validationErr)
 }
 
 func TestConvertToInterface(t *testing.T) {

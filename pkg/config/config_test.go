@@ -32,18 +32,22 @@ func TestConfigProvider(t *testing.T) {
 	cloud := "public"
 	environment := "int"
 
-	configProvider := config.NewConfigProvider("../../testdata/config.yaml")
-	ev2, err := ev2config.Config()
+	ev2, err := ev2config.ResolveConfig(cloud, region)
 	assert.NoError(t, err)
 
-	cfg, err := configProvider.GetDeployEnvRegionConfiguration(cloud, environment, region, &config.ConfigReplacements{
+	configProvider, err := config.NewConfigProvider("../../testdata/config.yaml")
+	assert.NoError(t, err)
+	configResolver, err := configProvider.GetResolver(&config.ConfigReplacements{
 		RegionReplacement:      region,
 		RegionShortReplacement: regionShort,
 		StampReplacement:       stamp,
 		CloudReplacement:       cloud,
 		EnvironmentReplacement: environment,
-		Ev2Config:              ev2.ResolveRegion(cloud, "prod", region),
+		Ev2Config:              ev2,
 	})
+	assert.NoError(t, err)
+
+	cfg, err := configResolver.GetRegionConfiguration(region)
 	assert.NoError(t, err)
 	assert.NotNil(t, cfg)
 
@@ -114,7 +118,7 @@ func TestMergeConfiguration(t *testing.T) {
 	}{
 		{
 			name:     "nil base",
-			expected: nil,
+			expected: config.Configuration{},
 		},
 		{
 			name:     "empty base and override",

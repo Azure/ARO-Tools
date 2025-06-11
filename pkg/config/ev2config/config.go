@@ -11,12 +11,23 @@ import (
 )
 
 //go:embed config.yaml
-var config []byte
+var rawConfig []byte
 
-func Config() (coreconfig.ConfigurationOverrides, error) {
-	ev2Config := coreconfig.NewConfigurationOverrides()
-	if err := yaml.Unmarshal(config, &ev2Config); err != nil {
+func ResolveConfig(cloud, region string) (coreconfig.Configuration, error) {
+	ev2Config := config{}
+	if err := yaml.Unmarshal(rawConfig, &ev2Config); err != nil {
 		return nil, fmt.Errorf("failed to parse embedded Ev2 config: %w", err)
 	}
-	return ev2Config, nil
+	cfg := coreconfig.Configuration{}
+	cloudCfg, hasCloud := ev2Config.Clouds[cloud]
+	if !hasCloud {
+		return nil, fmt.Errorf("failed to find cloud %s", cloud)
+	}
+	coreconfig.MergeConfiguration(cfg, cloudCfg.Defaults)
+	regionCfg, hasRegion := cloudCfg.Regions[region]
+	if !hasRegion {
+		return nil, fmt.Errorf("failed to find region %s in cloud %s", region, cloud)
+	}
+	coreconfig.MergeConfiguration(cfg, regionCfg)
+	return cfg, nil
 }

@@ -6,10 +6,6 @@ type SanitizedConfig struct {
 
 type SanitizedCloudConfig struct {
 	Defaults SanitizedCloudConfigValues       `json:"defaults"`
-	Environments  map[string]SanitizedEnvironmentConfig `json:"environments"`
-}
-
-type SanitizedEnvironmentConfig struct {
 	Regions  map[string]SanitizedRegionConfig `json:"regions"`
 }
 
