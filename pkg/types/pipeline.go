@@ -113,34 +113,13 @@ func NewPlainPipelineFromBytes(_ string, bytes []byte) (*Pipeline, error) {
 				}
 			}
 
-			// unmarshal the map into a StepMeta
-			stepMeta := &StepMeta{}
-			err := mapToStruct(rawStep, stepMeta)
+			// unmarshal the step
+			step, err := unmarshalStep(rawStep)
 			if err != nil {
-				return nil, err
+
+				return nil, fmt.Errorf("failed to unmarshal step: %w", err)
 			}
-			switch stepMeta.Action {
-			case "Shell":
-				rg.Steps[i] = &ShellStep{}
-			case "ARM":
-				rg.Steps[i] = &ARMStep{}
-			case "DelegateChildZone":
-				rg.Steps[i] = &DelegateChildZoneStep{}
-			case "SetCertificateIssuer":
-				rg.Steps[i] = &SetCertificateIssuerStep{}
-			case "CreateCertificate":
-				rg.Steps[i] = &CreateCertificateStep{}
-			case "ResourceProviderRegistration":
-				rg.Steps[i] = &ResourceProviderRegistrationStep{}
-			case "RPLogsAccount", "ClusterLogsAccount":
-				rg.Steps[i] = &LogsStep{}
-			default:
-				rg.Steps[i] = &GenericStep{}
-			}
-			err = mapToStruct(rawStep, rg.Steps[i])
-			if err != nil {
-				return nil, err
-			}
+			rg.Steps[i] = step
 		}
 	}
 
@@ -151,6 +130,39 @@ func NewPlainPipelineFromBytes(_ string, bytes []byte) (*Pipeline, error) {
 	}
 
 	return pipeline, nil
+}
+
+func unmarshalStep(rawStep map[string]any) (Step, error) {
+	stepMeta := &StepMeta{}
+	err := mapToStruct(rawStep, stepMeta)
+	if err != nil {
+		return nil, err
+	}
+	var step Step
+
+	switch stepMeta.Action {
+	case "Shell":
+		step = &ShellStep{}
+	case "ARM":
+		step = &ARMStep{}
+	case "DelegateChildZone":
+		step = &DelegateChildZoneStep{}
+	case "SetCertificateIssuer":
+		step = &SetCertificateIssuerStep{}
+	case "CreateCertificate":
+		step = &CreateCertificateStep{}
+	case "ResourceProviderRegistration":
+		step = &ResourceProviderRegistrationStep{}
+	case "RPLogsAccount", "ClusterLogsAccount":
+		step = &LogsStep{}
+	default:
+		step = &GenericStep{}
+	}
+	err = mapToStruct(rawStep, step)
+	if err != nil {
+		return nil, err
+	}
+	return step, nil
 }
 
 // Validate checks the integrity of the pipeline and its resource groups.
