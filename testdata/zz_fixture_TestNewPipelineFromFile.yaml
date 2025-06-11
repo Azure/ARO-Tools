@@ -127,6 +127,29 @@ resourceGroups:
     subscriptionId:
       name: subscriptionId
       value: sub
+  - action: ImageMirror
+    digest:
+      name: digest
+      value: digest
+    name: image-mirror
+    pullSecretKeyVault:
+      name: pullSecretKeyVault
+      value: pullSecretKeyVault
+    pullSecretName:
+      name: pullSecretName
+      value: pullSecretName
+    repository:
+      name: repository
+      value: repository
+    shellIdentity:
+      name: shellIdentity
+      value: shellIdentity
+    sourceRegistry:
+      name: sourceRegistry
+      value: sourceRegistry
+    targetACR:
+      name: targetACR
+      value: targetACR
   subscription: hcp-uksouth
 rolloutName: Test Rollout
 serviceGroup: Microsoft.Azure.ARO.Test

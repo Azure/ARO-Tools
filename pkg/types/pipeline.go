@@ -132,6 +132,8 @@ func NewPlainPipelineFromBytes(_ string, bytes []byte) (*Pipeline, error) {
 				rg.Steps[i] = &CreateCertificateStep{}
 			case "ResourceProviderRegistration":
 				rg.Steps[i] = &ResourceProviderRegistrationStep{}
+			case "ImageMirror":
+				rg.Steps[i] = &ImageMirrorStep{}
 			case "RPLogsAccount", "ClusterLogsAccount":
 				rg.Steps[i] = &LogsStep{}
 			default:

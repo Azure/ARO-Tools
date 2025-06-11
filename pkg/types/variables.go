@@ -14,6 +14,8 @@
 
 package types
 
+import "fmt"
+
 // Variable
 // Use this to pass in values to pipeline steps. Values can come from various sources:
 //   - Value: Use the value field to "hardcode" a value.
@@ -24,6 +26,19 @@ type Variable struct {
 	Value     any    `json:"value,omitempty"`
 	ConfigRef string `json:"configRef,omitempty"`
 	Input     *Input `json:"input,omitempty"`
+}
+
+func (v *Variable) String() string {
+	if v.Value != nil {
+		return fmt.Sprintf("%v", v.Value)
+	}
+	if v.ConfigRef != "" {
+		return fmt.Sprintf("{{ %v }}", v.ConfigRef)
+	}
+	if v.Input != nil {
+		return fmt.Sprintf("{{ inputs %s.%v }{", v.Input.Name, v.Input.Step)
+	}
+	return "unknown"
 }
 
 // Input

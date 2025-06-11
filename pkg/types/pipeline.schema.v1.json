@@ -415,6 +415,53 @@
                                         "configVersion",
                                         "events"
                                     ]
+                                },
+                                {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                        "name": {
+                                            "type": "string"
+                                        },
+                                        "action": {
+                                            "const": "ImageMirror"
+                                        },
+                                        "targetACR" : {
+                                            "$ref": "#/definitions/variableRef"
+                                        },
+                                        "sourceRegistry" : {
+                                            "$ref":  "#/definitions/variableRef"
+                                        },
+                                        "repository" :  {
+                                            "$ref":  "#/definitions/variableRef"
+                                        },
+                                        "digest" : {
+                                            "$ref":  "#/definitions/variableRef"
+                                        },
+                                        "pullSecretKeyVault" :  {
+                                            "$ref":  "#/definitions/variableRef"
+                                        },
+                                        "pullSecretName" : {
+                                            "$ref":  "#/definitions/variableRef"
+                                        },
+                                        "shellIdentity" :  {
+                                            "$ref":  "#/definitions/variableRef"
+                                        },
+                                        "dependsOn": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "targetACR",
+                                        "sourceRegistry",
+                                        "repository",
+                                        "digest",
+                                        "pullSecretKeyVault",
+                                        "pullSecretName",
+                                        "shellIdentity"
+                                    ]
                                 }
                             ],
                             "required": [
