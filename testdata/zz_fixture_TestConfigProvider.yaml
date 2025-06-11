@@ -1,0 +1,24 @@
+aksName: aro-hcp-aks
+aroDevopsMsiId: /subscriptions/9a53d80e-dae0-4c8a-af90-30575d253127/resourceGroups/global-shared-resources/providers/Microsoft.ManagedIdentity/userAssignedIdentities/global-ev2-identity
+availabilityZoneCount: "3"
+childZone: child.example.com
+cloudEnv: public-int
+clustersService:
+  imageTag: abcdef
+  replicas: 3
+enableOptionalStep: false
+globalRG: global
+imageSyncRG: hcp-underlay-uks-imagesync
+maestro_helm_chart: oci://aro-hcp-int.azurecr.io/helm/server
+maestro_image: aro-hcp-int.azurecr.io/maestro-server:the-stable-one
+managementClusterRG: hcp-underlay-uks-mgmt-1
+managementClusterSubscription: hcp-uksouth
+parentZone: example.com
+provider: Self
+region: uksouth
+regionRG: hcp-underlay-uks
+serviceClusterRG: hcp-underlay-uks-svc
+serviceClusterSubscription: hcp-uksouth
+test: uksouth
+vaultBaseUrl: myvault.azure.com
+vaultDomainSuffix: vault.azure.net
