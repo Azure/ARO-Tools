@@ -15,7 +15,6 @@
 package config_test
 
 import (
-	"fmt"
 	"os"
 	"testing"
 
@@ -33,35 +32,26 @@ func TestConfigProvider(t *testing.T) {
 	cloud := "public"
 	environment := "int"
 
-	configProvider := config.NewConfigProvider("../../testdata/config.yaml")
-	ev2, err := ev2config.Config()
+	ev2, err := ev2config.ResolveConfig(cloud, region)
 	assert.NoError(t, err)
 
-	cfg, err := configProvider.GetDeployEnvRegionConfiguration(cloud, environment, region, &config.ConfigReplacements{
+	configProvider, err := config.NewConfigProvider("../../testdata/config.yaml")
+	assert.NoError(t, err)
+	configResolver, err := configProvider.GetResolver(&config.ConfigReplacements{
 		RegionReplacement:      region,
 		RegionShortReplacement: regionShort,
 		StampReplacement:       stamp,
 		CloudReplacement:       cloud,
 		EnvironmentReplacement: environment,
-		Ev2Config:              ev2.ResolveRegion(cloud, "prod", region),
+		Ev2Config:              ev2,
 	})
+	assert.NoError(t, err)
+
+	cfg, err := configResolver.GetRegionConfiguration(region)
 	assert.NoError(t, err)
 	assert.NotNil(t, cfg)
 
-	// key is not in the config file
-	assert.Nil(t, cfg["svc_resourcegroup"])
-
-	// key is in the config file, region constant value
-	assert.Equal(t, "uksouth", cfg["test"])
-
-	// key is in the config file, default in INT, constant value
-	assert.Equal(t, "aro-hcp-int.azurecr.io/maestro-server:the-stable-one", cfg["maestro_image"])
-
-	// key is in the config file, default, varaible value
-	assert.Equal(t, fmt.Sprintf("hcp-underlay-%s", regionShort), cfg["regionRG"])
-
-	// key is in the config file, varaible value
-	assert.Equal(t, fmt.Sprintf("%s-%s", cloud, environment), cfg["cloudEnv"])
+	testutil.CompareWithFixture(t, cfg)
 }
 
 func TestInterfaceToConfiguration(t *testing.T) {
@@ -128,7 +118,7 @@ func TestMergeConfiguration(t *testing.T) {
 	}{
 		{
 			name:     "nil base",
-			expected: nil,
+			expected: config.Configuration{},
 		},
 		{
 			name:     "empty base and override",

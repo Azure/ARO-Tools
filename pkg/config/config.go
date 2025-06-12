@@ -18,8 +18,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -29,11 +27,6 @@ import (
 
 	"sigs.k8s.io/yaml"
 )
-
-// DefaultConfigReplacements has no replacements configured
-func DefaultConfigReplacements() *ConfigReplacements {
-	return &ConfigReplacements{}
-}
 
 // ConfigReplacements holds replacement values
 type ConfigReplacements struct {
@@ -61,19 +54,103 @@ func (c *ConfigReplacements) AsMap() map[string]interface{} {
 	return m
 }
 
-// ConfigProvider resolves service configuration for specific environments and clouds using a base configuration file.
+// ConfigProvider provides service configuration using a base configuration file.
 type ConfigProvider interface {
-	Validate(cloud, deployEnv string, configReplacements *ConfigReplacements) error
-	GetDeployEnvRegionConfiguration(cloud, deployEnv, region string, configReplacements *ConfigReplacements) (Configuration, error)
-	GetDeployEnvConfiguration(cloud, deployEnv string, configReplacements *ConfigReplacements) (Configuration, error)
-	GetRegions(cloud, deployEnv string, configReplacements *ConfigReplacements) ([]string, error)
-	GetRegionOverrides(cloud, deployEnv, region string, configReplacements *ConfigReplacements) (Configuration, error)
+	// AllContexts determines all the clouds, environments, and regions that this provider has explicit records for.
+	AllContexts() map[string]map[string][]string
+	// GetResolver consumes the configuration replacements to create a configuration resolver.
+	// The cloud and environment provided in the replacements must be literal values, used to
+	// constrain the resolver further and ensure that configurations it resolves are correct.
+	GetResolver(configReplacements *ConfigReplacements) (ConfigResolver, error)
 }
 
-func NewConfigProvider(config string) ConfigProvider {
-	return &configProviderImpl{
-		config: config,
+// ConfigResolver resolves service configuration for a specific environment and cloud using a processed configuration file.
+type ConfigResolver interface {
+	// ValidateSchema validates a fully resolved configuration created by this provider.
+	ValidateSchema(config Configuration) error
+	// GetConfiguration resolves the configuration for the cloud and environment.
+	GetConfiguration() (Configuration, error)
+	// GetRegionConfiguration resolves the configuration for a region in the cloud and environment.
+	GetRegionConfiguration(region string) (Configuration, error)
+	// GetRegionOverrides fetches the overrides specific to a region, if any exist.
+	GetRegionOverrides(region string) (Configuration, error)
+}
+
+func NewConfigProvider(config string) (ConfigProvider, error) {
+	cp := configProvider{
+		path: config,
 	}
+
+	raw, err := os.ReadFile(config)
+	if err != nil {
+		return nil, err
+	}
+	if err := yaml.Unmarshal(raw, &cp.raw); err != nil {
+		return nil, err
+	}
+
+	return &cp, nil
+}
+
+type configProvider struct {
+	// schema can be a relative path to this file, so we need to keep track of it
+	path string
+	raw  configurationOverrides
+}
+
+// AllContexts returns all clouds, environments and regions in the configuration.
+func (cp *configProvider) AllContexts() map[string]map[string][]string {
+	contexts := map[string]map[string][]string{}
+	for cloud, cloudCfg := range cp.raw.Overrides {
+		contexts[cloud] = map[string][]string{}
+		for environment, envCfg := range cloudCfg.Overrides {
+			contexts[cloud][environment] = []string{}
+			for region := range envCfg.Overrides {
+				contexts[cloud][environment] = append(contexts[cloud][environment], region)
+			}
+		}
+	}
+	return contexts
+}
+
+func (cp *configProvider) GetResolver(configReplacements *ConfigReplacements) (ConfigResolver, error) {
+	for description, value := range map[string]*string{
+		"cloud":       &configReplacements.CloudReplacement,
+		"environment": &configReplacements.EnvironmentReplacement,
+	} {
+		if value == nil || *value == "" {
+			return nil, fmt.Errorf("%q override is required", description)
+		}
+	}
+
+	// TODO validate that field names are unique regardless of casing
+	// parse, execute and unmarshal the config file as a template to generate the final config file
+	encoded, err := yaml.Marshal(cp.raw)
+	if err != nil {
+		return nil, err
+	}
+
+	rawContent, err := PreprocessContent(encoded, configReplacements.AsMap())
+	if err != nil {
+		return nil, err
+	}
+
+	currentVariableOverrides := configurationOverrides{}
+	if err := yaml.Unmarshal(rawContent, &currentVariableOverrides); err != nil {
+		return nil, err
+	}
+	return &configResolver{
+		cloud:       configReplacements.CloudReplacement,
+		environment: configReplacements.EnvironmentReplacement,
+		cfg:         currentVariableOverrides,
+		path:        cp.path,
+	}, nil
+}
+
+type configResolver struct {
+	cloud, environment string
+	cfg                configurationOverrides
+	path               string
 }
 
 // InterfaceToConfiguration, pass in an interface of map[string]any and get (Configuration, true) back
@@ -102,6 +179,12 @@ func InterfaceToConfiguration(i interface{}) (Configuration, bool) {
 // However the return value is only used for recursive updates on the map
 // The actual merged Configuration are updated in the base map
 func MergeConfiguration(base, override Configuration) Configuration {
+	if base == nil {
+		base = Configuration{}
+	}
+	if override == nil {
+		override = Configuration{}
+	}
 	for k, newValue := range override {
 		if baseValue, exists := base[k]; exists {
 			srcMap, srcMapOk := InterfaceToConfiguration(newValue)
@@ -130,57 +213,21 @@ func convertToInterface(config Configuration) map[string]any {
 	return m
 }
 
-func isUrl(str string) bool {
-	u, err := url.Parse(str)
-	return err == nil && u.Scheme != "" && u.Host != ""
-}
-
-func (cp *configProviderImpl) loadSchema() (any, error) {
-	schemaPath := cp.schema
-
-	var reader io.Reader
-	var err error
-
-	if isUrl(schemaPath) {
-		resp, err := http.Get(schemaPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get schema file: %v", err)
-		}
-		if resp.StatusCode != http.StatusOK {
-			return nil, fmt.Errorf("faild to get schema file, statuscode %v", resp.StatusCode)
-		}
-		reader = resp.Body
-	} else {
-		if !filepath.IsAbs(schemaPath) {
-			schemaPath = filepath.Join(filepath.Dir(cp.config), schemaPath)
-		}
-		reader, err = os.Open(schemaPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to open schema file: %v", err)
-		}
+func (cr *configResolver) ValidateSchema(config Configuration) error {
+	loader := jsonschema.SchemeURLLoader{
+		"file": jsonschema.FileLoader{},
 	}
-
-	schema, err := jsonschema.UnmarshalJSON(reader)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal schema: %v", err)
-	}
-
-	return schema, nil
-}
-
-func (cp *configProviderImpl) validateSchema(config Configuration) error {
 	c := jsonschema.NewCompiler()
-
-	schema, err := cp.loadSchema()
-	if err != nil {
-		return fmt.Errorf("failed to load schema: %v", err)
+	c.UseLoader(loader)
+	path := cr.cfg.Schema
+	if !filepath.IsAbs(path) {
+		absPath, err := filepath.Abs(filepath.Join(filepath.Dir(cr.path), path))
+		if err != nil {
+			return fmt.Errorf("failed to create absolute path to schema %q: %w", path, err)
+		}
+		path = absPath
 	}
-
-	err = c.AddResource(cp.schema, schema)
-	if err != nil {
-		return fmt.Errorf("failed to add schema resource: %v", err)
-	}
-	sch, err := c.Compile(cp.schema)
+	sch, err := c.Compile(path)
 	if err != nil {
 		return fmt.Errorf("failed to compile schema: %v", err)
 	}
@@ -192,103 +239,61 @@ func (cp *configProviderImpl) validateSchema(config Configuration) error {
 	return nil
 }
 
-// GetDeployEnvRegionConfiguration reads, processes, validates and returns the configuration
-// It uses GetDeployEnvConfiguration and will in addition merge region overrides
-func (cp *configProviderImpl) GetDeployEnvRegionConfiguration(cloud, deployEnv, region string, configReplacements *ConfigReplacements) (Configuration, error) {
-	config, err := cp.GetDeployEnvConfiguration(cloud, deployEnv, configReplacements)
-	if err != nil {
-		return nil, err
+// GetRegionConfiguration merges values to resolve the configuration for a region.
+func (cr *configResolver) GetRegionConfiguration(region string) (Configuration, error) {
+	cfg := cr.cfg.Defaults
+	cloudCfg, hasCloud := cr.cfg.Overrides[cr.cloud]
+	if !hasCloud {
+		return nil, fmt.Errorf("the cloud %s is not found in the config", cr.cloud)
 	}
-
-	// region overrides
-	regionOverrides, err := cp.GetRegionOverrides(cloud, deployEnv, region, configReplacements)
-	if err != nil {
-		return nil, err
+	MergeConfiguration(cfg, cloudCfg.Defaults)
+	envCfg, hasEnv := cloudCfg.Overrides[cr.environment]
+	if !hasEnv {
+		return nil, fmt.Errorf("the deployment env %s is not found under cloud %s", cr.environment, cr.cloud)
 	}
-	MergeConfiguration(config, regionOverrides)
-
-	// validate schema
-	err = cp.validateSchema(config)
-	if err != nil {
-		return nil, err
+	MergeConfiguration(cfg, envCfg.Defaults)
+	regionCfg, hasRegion := envCfg.Overrides[region]
+	if !hasRegion {
+		// a missing region just means we use default values
+		regionCfg = Configuration{}
 	}
-	return config, nil
+	MergeConfiguration(cfg, regionCfg)
+	return cfg, nil
 }
 
-// Validate basic validation
-func (cp *configProviderImpl) Validate(cloud, deployEnv string, configReplacements *ConfigReplacements) error {
-	config, err := cp.loadConfig(configReplacements)
-	if err != nil {
-		return err
+// GetConfiguration merges values to resolve the configuration for this cloud and environment.
+func (cr *configResolver) GetConfiguration() (Configuration, error) {
+	cfg := cr.cfg.Defaults
+	cloudCfg, hasCloud := cr.cfg.Overrides[cr.cloud]
+	if !hasCloud {
+		return nil, fmt.Errorf("the cloud %s is not found in the config", cr.cloud)
 	}
-	if ok := config.HasCloud(cloud); !ok {
-		return fmt.Errorf("the cloud %s is not found in the config", cloud)
+	MergeConfiguration(cfg, cloudCfg.Defaults)
+	envCfg, hasEnv := cloudCfg.Overrides[cr.environment]
+	if !hasEnv {
+		return nil, fmt.Errorf("the deployment env %s is not found under cloud %s", cr.environment, cr.cloud)
 	}
+	MergeConfiguration(cfg, envCfg.Defaults)
 
-	if ok := config.HasDeployEnv(cloud, deployEnv); !ok {
-		return fmt.Errorf("the deployment env %s is not found under cloud %s", deployEnv, cloud)
-	}
-
-	if !config.HasSchema() {
-		return fmt.Errorf("$schema not found in config")
-	}
-	return nil
+	return cfg, nil
 }
 
-// GetDeployEnvConfiguration load and merge the configuration
-// todo: this is called in HCP, so it should use schema validation as well.
-func (cp *configProviderImpl) GetDeployEnvConfiguration(cloud, deployEnv string, configReplacements *ConfigReplacements) (Configuration, error) {
-	config, err := cp.loadConfig(configReplacements)
-	if err != nil {
-		return nil, err
+// GetRegionOverrides resolves the overrides for a region.
+func (cr *configResolver) GetRegionOverrides(region string) (Configuration, error) {
+	cloudCfg, hasCloud := cr.cfg.Overrides[cr.cloud]
+	if !hasCloud {
+		return nil, fmt.Errorf("the cloud %s is not found in the config", cr.cloud)
 	}
-	err = cp.Validate(cloud, deployEnv, configReplacements)
-	if err != nil {
-		return nil, err
+	envCfg, hasEnv := cloudCfg.Overrides[cr.environment]
+	if !hasEnv {
+		return nil, fmt.Errorf("the deployment env %s is not found under cloud %s", cr.environment, cr.cloud)
 	}
-
-	cp.schema = config.GetSchema()
-
-	return config.ResolveEnvironment(cloud, deployEnv), nil
-}
-
-// GetRegions returns the list of configured regions
-func (cp *configProviderImpl) GetRegions(cloud, deployEnv string, configReplacements *ConfigReplacements) ([]string, error) {
-	config, err := cp.loadConfig(configReplacements)
-	if err != nil {
-		return nil, err
+	regionCfg, hasRegion := envCfg.Overrides[region]
+	if !hasRegion {
+		// a missing region just means we use default values
+		regionCfg = Configuration{}
 	}
-	err = cp.Validate(cloud, deployEnv, configReplacements)
-	if err != nil {
-		return nil, err
-	}
-	regions := config.GetRegions(cloud, deployEnv)
-	return regions, nil
-}
-
-// GetRegionOverrides retun a configuration where region overrides have been applied
-func (cp *configProviderImpl) GetRegionOverrides(cloud, deployEnv, region string, configReplacements *ConfigReplacements) (Configuration, error) {
-	config, err := cp.loadConfig(configReplacements)
-	if err != nil {
-		return nil, err
-	}
-	return config.GetRegionOverrides(cloud, deployEnv, region), nil
-}
-
-func (cp *configProviderImpl) loadConfig(configReplacements *ConfigReplacements) (ConfigurationOverrides, error) {
-	// TODO validate that field names are unique regardless of casing
-	// parse, execute and unmarshal the config file as a template to generate the final config file
-	rawContent, err := PreprocessFile(cp.config, configReplacements.AsMap())
-	if err != nil {
-		return nil, err
-	}
-
-	currentVariableOverrides := NewConfigurationOverrides()
-	if err := yaml.Unmarshal(rawContent, currentVariableOverrides); err == nil {
-		return currentVariableOverrides, nil
-	} else {
-		return nil, err
-	}
+	return regionCfg, nil
 }
 
 // PreprocessFile reads and processes a gotemplate

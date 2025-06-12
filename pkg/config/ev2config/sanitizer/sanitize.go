@@ -20,11 +20,7 @@ func Sanitize(inputs map[string]CentralConfig) SanitizedConfig {
 					DomainNameSuffix: cfg.Settings.KeyVault.DomainNameSuffix,
 				},
 			},
-			Environments: map[string]SanitizedEnvironmentConfig{
-				"prod": { // we never have differences per environment, but need this level of nesting to match the core config
-					Regions: regions,
-				},
-			},
+			Regions: regions,
 		}
 	}
 	return output
