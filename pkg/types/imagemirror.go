@@ -28,13 +28,13 @@ var OnDemandSyncScript []byte
 type ImageMirrorStep struct {
 	StepMeta `json:",inline"`
 
-	TargetACR          Variable `json:"targetACR,omitempty"`
-	SourceRegistry     Variable `json:"sourceRegistry,omitempty"`
-	Repository         Variable `json:"repository,omitempty"`
-	Digest             Variable `json:"digest,omitempty"`
-	PullSecretKeyVault Variable `json:"pullSecretKeyVault,omitempty"`
-	PullSecretName     Variable `json:"pullSecretName,omitempty"`
-	ShellIdentity      Variable `json:"shellIdentity,omitempty"`
+	TargetACR          Value `json:"targetACR,omitempty"`
+	SourceRegistry     Value `json:"sourceRegistry,omitempty"`
+	Repository         Value `json:"repository,omitempty"`
+	Digest             Value `json:"digest,omitempty"`
+	PullSecretKeyVault Value `json:"pullSecretKeyVault,omitempty"`
+	PullSecretName     Value `json:"pullSecretName,omitempty"`
+	ShellIdentity      Value `json:"shellIdentity,omitempty"`
 }
 
 func (s *ImageMirrorStep) Description() string {
@@ -61,20 +61,24 @@ func ResolveImageMirrorStep(input ImageMirrorStep, scriptFile string) (*ShellSte
 		},
 		DryRun: DryRun{
 			Variables: []Variable{{
-				Name:  "DRY_RUN",
-				Value: "true",
+				Name: "DRY_RUN",
+				Value: Value{
+					Value: "true",
+				},
 			}},
 		},
 		ShellIdentity: input.ShellIdentity,
 	}, nil
 }
 
-func namedVariable(name string, variable Variable) Variable {
+func namedVariable(name string, value Value) Variable {
 	return Variable{
-		Name:      name,
-		Value:     variable.Value,
-		ConfigRef: variable.ConfigRef,
-		Input:     variable.Input,
+		Name: name,
+		Value: Value{
+			Value:     value.Value,
+			ConfigRef: value.ConfigRef,
+			Input:     value.Input,
+		},
 	}
 }
 
@@ -89,43 +93,43 @@ func NewImageMirrorStep() *ImageMirrorStep {
 }
 
 // WithTargetACR fluent method that sets TargetACR.
-func (s *ImageMirrorStep) WithTargetACR(targetACR Variable) *ImageMirrorStep {
+func (s *ImageMirrorStep) WithTargetACR(targetACR Value) *ImageMirrorStep {
 	s.TargetACR = targetACR
 	return s
 }
 
 // WithSourceRegistry fluent method that sets SourceRegistry.
-func (s *ImageMirrorStep) WithSourceRegistry(sourceRegistry Variable) *ImageMirrorStep {
+func (s *ImageMirrorStep) WithSourceRegistry(sourceRegistry Value) *ImageMirrorStep {
 	s.SourceRegistry = sourceRegistry
 	return s
 }
 
 // WithRepository fluent method that sets Repository.
-func (s *ImageMirrorStep) WithRepository(repository Variable) *ImageMirrorStep {
+func (s *ImageMirrorStep) WithRepository(repository Value) *ImageMirrorStep {
 	s.Repository = repository
 	return s
 }
 
 // WithDigest fluent method that sets Digest.
-func (s *ImageMirrorStep) WithDigest(digest Variable) *ImageMirrorStep {
+func (s *ImageMirrorStep) WithDigest(digest Value) *ImageMirrorStep {
 	s.Digest = digest
 	return s
 }
 
 // WithPullSecretKeyVault fluent method that sets PullSecretKeyVault.
-func (s *ImageMirrorStep) WithPullSecretKeyVault(pullSecretKeyVault Variable) *ImageMirrorStep {
+func (s *ImageMirrorStep) WithPullSecretKeyVault(pullSecretKeyVault Value) *ImageMirrorStep {
 	s.PullSecretKeyVault = pullSecretKeyVault
 	return s
 }
 
 // WithPullSecretName fluent method that sets PullSecretName.
-func (s *ImageMirrorStep) WithPullSecretName(pullSecretName Variable) *ImageMirrorStep {
+func (s *ImageMirrorStep) WithPullSecretName(pullSecretName Value) *ImageMirrorStep {
 	s.PullSecretName = pullSecretName
 	return s
 }
 
 // WithShellIdentity fluent method that sets ShellIdentity.
-func (s *ImageMirrorStep) WithShellIdentity(shellIdentity Variable) *ImageMirrorStep {
+func (s *ImageMirrorStep) WithShellIdentity(shellIdentity Value) *ImageMirrorStep {
 	s.ShellIdentity = shellIdentity
 	return s
 }

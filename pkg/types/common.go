@@ -57,8 +57,8 @@ type DryRun struct {
 
 type DelegateChildZoneStep struct {
 	StepMeta   `json:",inline"`
-	ParentZone Variable `json:"parentZone,omitempty"`
-	ChildZone  Variable `json:"childZone,omitempty"`
+	ParentZone Value `json:"parentZone,omitempty"`
+	ChildZone  Value `json:"childZone,omitempty"`
 }
 
 func (s *DelegateChildZoneStep) Description() string {
@@ -67,8 +67,8 @@ func (s *DelegateChildZoneStep) Description() string {
 
 type SetCertificateIssuerStep struct {
 	StepMeta     `json:",inline"`
-	VaultBaseUrl Variable `json:"vaultBaseUrl,omitempty"`
-	Issuer       Variable `json:"issuer,omitempty"`
+	VaultBaseUrl Value `json:"vaultBaseUrl,omitempty"`
+	Issuer       Value `json:"issuer,omitempty"`
 }
 
 func (s *SetCertificateIssuerStep) Description() string {
@@ -77,11 +77,11 @@ func (s *SetCertificateIssuerStep) Description() string {
 
 type CreateCertificateStep struct {
 	StepMeta        `json:",inline"`
-	VaultBaseUrl    Variable `json:"vaultBaseUrl,omitempty"`
-	CertificateName Variable `json:"certificateName,omitempty"`
-	ContentType     Variable `json:"contentType,omitempty"`
-	SAN             Variable `json:"san,omitempty"`
-	Issuer          Variable `json:"issuer,omitempty"`
+	VaultBaseUrl    Value `json:"vaultBaseUrl,omitempty"`
+	CertificateName Value `json:"certificateName,omitempty"`
+	ContentType     Value `json:"contentType,omitempty"`
+	SAN             Value `json:"san,omitempty"`
+	Issuer          Value `json:"issuer,omitempty"`
 }
 
 func (s *CreateCertificateStep) Description() string {
@@ -90,7 +90,7 @@ func (s *CreateCertificateStep) Description() string {
 
 type ResourceProviderRegistrationStep struct {
 	StepMeta                   `json:",inline"`
-	ResourceProviderNamespaces Variable `json:"resourceProviderNamespaces,omitempty"`
+	ResourceProviderNamespaces Value `json:"resourceProviderNamespaces,omitempty"`
 }
 
 func (s *ResourceProviderRegistrationStep) Description() string {
@@ -99,11 +99,11 @@ func (s *ResourceProviderRegistrationStep) Description() string {
 
 type LogsStep struct {
 	StepMeta        `json:",inline"`
-	SubscriptionId  Variable   `json:"subscriptionId,omitempty"`
-	Namespace       Variable   `json:"namespace,omitempty"`
-	CertSAN         Variable   `json:"certsan,omitempty"`
-	CertDescription Variable   `json:"certdescription,omitempty"`
-	ConfigVersion   Variable   `json:"configVersion,omitempty"`
+	SubscriptionId  Value      `json:"subscriptionId,omitempty"`
+	Namespace       Value      `json:"namespace,omitempty"`
+	CertSAN         Value      `json:"certsan,omitempty"`
+	CertDescription Value      `json:"certdescription,omitempty"`
+	ConfigVersion   Value      `json:"configVersion,omitempty"`
 	Events          LogsEvents `json:"events,omitempty"`
 }
 
