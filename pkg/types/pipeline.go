@@ -81,16 +81,6 @@ func NewPlainPipelineFromBytes(_ string, bytes []byte) (*Pipeline, error) {
 		return nil, fmt.Errorf("failed to unmarshal pipeline: %w", err)
 	}
 
-	// find step properties that are variableRefs
-	pipelineSchema, _, err := getSchemaForRef(rawPipeline.Schema)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get schema for pipeline: %w", err)
-	}
-	variableRefStepProperties, err := getVariableRefStepProperties(pipelineSchema)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get variableRef step properties: %w", err)
-	}
-
 	pipeline := &Pipeline{
 		Schema:         rawPipeline.Schema,
 		ServiceGroup:   rawPipeline.ServiceGroup,
@@ -105,14 +95,6 @@ func NewPlainPipelineFromBytes(_ string, bytes []byte) (*Pipeline, error) {
 		rg.Subscription = rawRg.Subscription
 		rg.Steps = make([]Step, len(rawRg.Steps))
 		for i, rawStep := range rawRg.Steps {
-			// preprocess variableRef step properties
-			for propName := range rawStep {
-				if _, ok := variableRefStepProperties[propName]; ok {
-					variableRef := rawStep[propName].(map[string]any)
-					variableRef["name"] = propName
-				}
-			}
-
 			// unmarshal the map into a StepMeta
 			stepMeta := &StepMeta{}
 			err := mapToStruct(rawStep, stepMeta)
