@@ -1,6 +1,7 @@
 clouds:
   ff:
     defaults:
+      cloudName: Fairfax
       keyVault:
         domainNameSuffix: vault.usgovcloudapi.net
     regions:
@@ -33,6 +34,7 @@ clouds:
         regionShortName: cy
   public:
     defaults:
+      cloudName: Public
       keyVault:
         domainNameSuffix: vault.azure.net
     regions:

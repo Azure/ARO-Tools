@@ -16,6 +16,7 @@ func Sanitize(inputs map[string]CentralConfig) SanitizedConfig {
 		}
 		output.Clouds[cloud] = SanitizedCloudConfig{
 			Defaults: SanitizedCloudConfigValues{
+				CloudName: cfg.Settings.CloudName,
 				KeyVault: KeyVaultValues{
 					DomainNameSuffix: cfg.Settings.KeyVault.DomainNameSuffix,
 				},
