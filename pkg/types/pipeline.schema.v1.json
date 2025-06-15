@@ -16,13 +16,10 @@
                 }
             ]
         },
-        "variableRef": {
+        "value": {
             "type": "object",
             "additionalProperties": false,
             "properties": {
-                "name": {
-                    "type": "string"
-                },
                 "input": {
                     "type": "object",
                     "additionalProperties": false,
@@ -219,7 +216,7 @@
                                             "type": "string"
                                         },
                                         "shellIdentity": {
-                                            "$ref": "#/definitions/variableRef"
+                                            "$ref": "#/definitions/value"
                                         },
                                         "dependsOn": {
                                             "type": "array",
@@ -257,10 +254,10 @@
                                             "const": "DelegateChildZone"
                                         },
                                         "parentZone": {
-                                            "$ref": "#/definitions/variableRef"
+                                            "$ref": "#/definitions/value"
                                         },
                                         "childZone": {
-                                            "$ref": "#/definitions/variableRef"
+                                            "$ref": "#/definitions/value"
                                         },
                                         "dependsOn": {
                                             "type": "array",
@@ -284,10 +281,10 @@
                                             "const": "SetCertificateIssuer"
                                         },
                                         "vaultBaseUrl": {
-                                            "$ref": "#/definitions/variableRef"
+                                            "$ref": "#/definitions/value"
                                         },
                                         "issuer": {
-                                            "$ref": "#/definitions/variableRef"
+                                            "$ref": "#/definitions/value"
                                         },
                                         "dependsOn": {
                                             "type": "array",
@@ -311,19 +308,19 @@
                                             "const": "CreateCertificate"
                                         },
                                         "vaultBaseUrl": {
-                                            "$ref": "#/definitions/variableRef"
+                                            "$ref": "#/definitions/value"
                                         },
                                         "certificateName": {
-                                            "$ref": "#/definitions/variableRef"
+                                            "$ref": "#/definitions/value"
                                         },
                                         "contentType": {
-                                            "$ref": "#/definitions/variableRef"
+                                            "$ref": "#/definitions/value"
                                         },
                                         "san": {
-                                            "$ref": "#/definitions/variableRef"
+                                            "$ref": "#/definitions/value"
                                         },
                                         "issuer": {
-                                            "$ref": "#/definitions/variableRef"
+                                            "$ref": "#/definitions/value"
                                         },
                                         "dependsOn": {
                                             "type": "array",
@@ -350,7 +347,7 @@
                                             "const": "ResourceProviderRegistration"
                                         },
                                         "resourceProviderNamespaces": {
-                                            "$ref": "#/definitions/variableRef"
+                                            "$ref": "#/definitions/value"
                                         },
                                         "dependsOn": {
                                             "type": "array",
@@ -374,19 +371,19 @@
                                             "enum": ["RPLogsAccount", "ClusterLogsAccount"]
                                         },
                                         "subscriptionId": {
-                                            "$ref": "#/definitions/variableRef"
+                                            "$ref": "#/definitions/value"
                                         },
                                         "namespace": {
-                                            "$ref": "#/definitions/variableRef"
+                                            "$ref": "#/definitions/value"
                                         },
                                         "certsan": {
-                                            "$ref": "#/definitions/variableRef"
+                                            "$ref": "#/definitions/value"
                                         },
                                         "certdescription": {
-                                            "$ref": "#/definitions/variableRef"
+                                            "$ref": "#/definitions/value"
                                         },
                                         "configVersion": {
-                                            "$ref": "#/definitions/variableRef"
+                                            "$ref": "#/definitions/value"
                                         },
                                         "events": {
                                             "type": "object",
@@ -426,25 +423,25 @@
                                             "const": "ImageMirror"
                                         },
                                         "targetACR" : {
-                                            "$ref": "#/definitions/variableRef"
+                                            "$ref": "#/definitions/value"
                                         },
                                         "sourceRegistry" : {
-                                            "$ref":  "#/definitions/variableRef"
+                                            "$ref":  "#/definitions/value"
                                         },
                                         "repository" :  {
-                                            "$ref":  "#/definitions/variableRef"
+                                            "$ref":  "#/definitions/value"
                                         },
                                         "digest" : {
-                                            "$ref":  "#/definitions/variableRef"
+                                            "$ref":  "#/definitions/value"
                                         },
                                         "pullSecretKeyVault" :  {
-                                            "$ref":  "#/definitions/variableRef"
+                                            "$ref":  "#/definitions/value"
                                         },
                                         "pullSecretName" : {
-                                            "$ref":  "#/definitions/variableRef"
+                                            "$ref":  "#/definitions/value"
                                         },
                                         "shellIdentity" :  {
-                                            "$ref":  "#/definitions/variableRef"
+                                            "$ref":  "#/definitions/value"
                                         },
                                         "dependsOn": {
                                             "type": "array",

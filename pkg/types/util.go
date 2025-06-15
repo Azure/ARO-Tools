@@ -17,7 +17,6 @@ package types
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
 
@@ -59,23 +58,6 @@ func getSchemaForRef(schemaRef string) (*jsonschema.Schema, string, error) {
 	default:
 		return nil, "", fmt.Errorf("unsupported schema reference: %s", schemaRef)
 	}
-}
-
-func getVariableRefStepProperties(pipelineSchema *jsonschema.Schema) (map[string]*jsonschema.Schema, error) {
-	stepProperties := map[string]*jsonschema.Schema{}
-	for _, stepDef := range pipelineSchema.Properties["resourceGroups"].Items.(*jsonschema.Schema).Properties["steps"].Items.(*jsonschema.Schema).OneOf {
-		for name, value := range stepDef.Properties {
-			stepProperties[name] = value
-		}
-	}
-
-	variableRefProperties := make(map[string]*jsonschema.Schema)
-	for propName, propValue := range stepProperties {
-		if propValue.Ref != nil && strings.HasSuffix(propValue.Ref.Location, "#/definitions/variableRef") {
-			variableRefProperties[propName] = propValue
-		}
-	}
-	return variableRefProperties, nil
 }
 
 func ValidatePipelineSchema(pipelineContent []byte) error {
