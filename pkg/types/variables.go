@@ -17,18 +17,28 @@ package types
 import "fmt"
 
 // Variable
+// Use this to pass in values to shell steps. Pairs a value with the environment variable name.
+type Variable struct {
+	Name  string `json:"name,omitempty"`
+	Value `json:",inline"`
+}
+
+func (v *Variable) String() string {
+	return fmt.Sprintf("$%s=%s", v.Name, v.Value.String())
+}
+
+// Value
 // Use this to pass in values to pipeline steps. Values can come from various sources:
 //   - Value: Use the value field to "hardcode" a value.
 //   - ConfigRef: Use this to reference an entry in a config.Configuration.
 //   - Input: Use this to specify an output chaining input.
-type Variable struct {
-	Name      string `json:"name,omitempty"`
+type Value struct {
 	Value     any    `json:"value,omitempty"`
 	ConfigRef string `json:"configRef,omitempty"`
 	Input     *Input `json:"input,omitempty"`
 }
 
-func (v *Variable) String() string {
+func (v *Value) String() string {
 	if v.Value != nil {
 		return fmt.Sprintf("%v", v.Value)
 	}
@@ -36,7 +46,7 @@ func (v *Variable) String() string {
 		return fmt.Sprintf("{{ %v }}", v.ConfigRef)
 	}
 	if v.Input != nil {
-		return fmt.Sprintf("{{ inputs %s.%v }{", v.Input.Name, v.Input.Step)
+		return fmt.Sprintf("{{ inputs %s.%v }}", v.Input.Name, v.Input.Step)
 	}
 	return "unknown"
 }
