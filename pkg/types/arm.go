@@ -23,13 +23,13 @@ import (
 // This struct supports fluent interface With... methods.
 type ARMStep struct {
 	StepMeta        `json:",inline"`
-	Command         string  `json:"command,omitempty"`
-	Variables       []Value `json:"variables,omitempty"`
-	Template        string  `json:"template,omitempty"`
-	Parameters      string  `json:"parameters,omitempty"`
-	DeploymentLevel string  `json:"deploymentLevel,omitempty"`
-	OutputOnly      bool    `json:"outputOnly,omitempty"`
-	DeploymentMode  string  `json:"deploymentMode,omitempty"`
+	Command         string     `json:"command,omitempty"`
+	Variables       []Variable `json:"variables,omitempty"`
+	Template        string     `json:"template,omitempty"`
+	Parameters      string     `json:"parameters,omitempty"`
+	DeploymentLevel string     `json:"deploymentLevel,omitempty"`
+	OutputOnly      bool       `json:"outputOnly,omitempty"`
+	DeploymentMode  string     `json:"deploymentMode,omitempty"`
 }
 
 // NewARMStep creates a new ARM deployment step with the given parameters.
@@ -60,9 +60,9 @@ func (s *ARMStep) WithDependsOn(dependsOn ...string) *ARMStep {
 	return s
 }
 
-// WithValues fluent method that sets Values
-func (s *ARMStep) WithValues(values ...Value) *ARMStep {
-	s.Variables = values
+// WithVariables fluent method that sets Variables
+func (s *ARMStep) WithVariables(variables ...Variable) *ARMStep {
+	s.Variables = variables
 	return s
 }
 
