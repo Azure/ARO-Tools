@@ -30,6 +30,11 @@ resourceGroups:
     name: svc
     parameters: test.bicepparam
     template: templates/svc-cluster.bicep
+    variables:
+    - input:
+        name: whatever
+        step: deploy
+      name: MAESTRO_IMAGE
   - action: DelegateChildZone
     childZone:
       configRef: childZone
