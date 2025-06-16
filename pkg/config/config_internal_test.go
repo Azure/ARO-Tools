@@ -5,6 +5,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/Azure/ARO-Tools/pkg/config/types"
 )
 
 func TestValidateSchema(t *testing.T) {
@@ -27,9 +29,9 @@ func TestValidateSchema(t *testing.T) {
 }
 
 func TestConvertToInterface(t *testing.T) {
-	vars := Configuration{
+	vars := types.Configuration{
 		"key1": "value1",
-		"key2": Configuration{
+		"key2": types.Configuration{
 			"key3": "value3",
 		},
 	}
