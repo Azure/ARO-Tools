@@ -19,7 +19,7 @@ defaults:
   provider: Self
   cloudEnv: '{{ .ctx.cloud }}-{{ .ctx.environment }}'
   vaultDomainSuffix: '{{ .ev2.keyVault.domainNameSuffix }}'
-  availabilityZoneCount: '{{ .ev2.availabilityZoneCount }}'
+  availabilityZoneCount: {{ .ev2.availabilityZoneCount }}
   enableOptionalStep: false
 clouds:
   fairfax:

@@ -1,6 +1,6 @@
 aksName: aro-hcp-aks
 aroDevopsMsiId: /subscriptions/9a53d80e-dae0-4c8a-af90-30575d253127/resourceGroups/global-shared-resources/providers/Microsoft.ManagedIdentity/userAssignedIdentities/global-ev2-identity
-availabilityZoneCount: "3"
+availabilityZoneCount: 3
 childZone: child.example.com
 cloudEnv: public-int
 clustersService:

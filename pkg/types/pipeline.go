@@ -20,6 +20,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/Azure/ARO-Tools/pkg/config"
+	types2 "github.com/Azure/ARO-Tools/pkg/config/types"
 )
 
 type Pipeline struct {
@@ -39,7 +40,7 @@ type Pipeline struct {
 //   - A pointer to a new Pipeline instance if successful.
 //   - An error if there was a problem preprocessing the file, validating the schema,
 //     unmarshaling the pipeline, or validating the pipeline instance.
-func NewPipelineFromFile(pipelineFilePath string, cfg config.Configuration) (*Pipeline, error) {
+func NewPipelineFromFile(pipelineFilePath string, cfg types2.Configuration) (*Pipeline, error) {
 	bytes, err := config.PreprocessFile(pipelineFilePath, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to preprocess pipeline file: %w", err)
