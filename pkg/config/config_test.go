@@ -23,6 +23,7 @@ import (
 	"github.com/Azure/ARO-Tools/internal/testutil"
 	"github.com/Azure/ARO-Tools/pkg/config"
 	"github.com/Azure/ARO-Tools/pkg/config/ev2config"
+	"github.com/Azure/ARO-Tools/pkg/config/types"
 )
 
 func TestConfigProvider(t *testing.T) {
@@ -59,18 +60,18 @@ func TestInterfaceToConfiguration(t *testing.T) {
 		name                   string
 		i                      interface{}
 		ok                     bool
-		expecetedConfiguration config.Configuration
+		expecetedConfiguration types.Configuration
 	}{
 		{
 			name:                   "empty interface",
 			ok:                     false,
-			expecetedConfiguration: config.Configuration{},
+			expecetedConfiguration: types.Configuration{},
 		},
 		{
 			name:                   "empty map",
 			i:                      map[string]interface{}{},
 			ok:                     true,
-			expecetedConfiguration: config.Configuration{},
+			expecetedConfiguration: types.Configuration{},
 		},
 		{
 			name: "map",
@@ -79,7 +80,7 @@ func TestInterfaceToConfiguration(t *testing.T) {
 				"key2": "value2",
 			},
 			ok: true,
-			expecetedConfiguration: config.Configuration{
+			expecetedConfiguration: types.Configuration{
 				"key1": "value1",
 				"key2": "value2",
 			},
@@ -92,8 +93,8 @@ func TestInterfaceToConfiguration(t *testing.T) {
 				},
 			},
 			ok: true,
-			expecetedConfiguration: config.Configuration{
-				"key1": config.Configuration{
+			expecetedConfiguration: types.Configuration{
+				"key1": types.Configuration{
 					"key2": "value2",
 				},
 			},
@@ -102,7 +103,7 @@ func TestInterfaceToConfiguration(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			vars, ok := config.InterfaceToConfiguration(tc.i)
+			vars, ok := types.InterfaceToConfiguration(tc.i)
 			assert.Equal(t, tc.ok, ok)
 			assert.Equal(t, tc.expecetedConfiguration, vars)
 		})
@@ -112,66 +113,66 @@ func TestInterfaceToConfiguration(t *testing.T) {
 func TestMergeConfiguration(t *testing.T) {
 	testCases := []struct {
 		name     string
-		base     config.Configuration
-		override config.Configuration
-		expected config.Configuration
+		base     types.Configuration
+		override types.Configuration
+		expected types.Configuration
 	}{
 		{
 			name:     "nil base",
-			expected: config.Configuration{},
+			expected: types.Configuration{},
 		},
 		{
 			name:     "empty base and override",
-			base:     config.Configuration{},
-			expected: config.Configuration{},
+			base:     types.Configuration{},
+			expected: types.Configuration{},
 		},
 		{
 			name:     "merge into empty base",
-			base:     config.Configuration{},
-			override: config.Configuration{"key1": "value1"},
-			expected: config.Configuration{"key1": "value1"},
+			base:     types.Configuration{},
+			override: types.Configuration{"key1": "value1"},
+			expected: types.Configuration{"key1": "value1"},
 		},
 		{
 			name:     "merge into base",
-			base:     config.Configuration{"key1": "value1"},
-			override: config.Configuration{"key2": "value2"},
-			expected: config.Configuration{"key1": "value1", "key2": "value2"},
+			base:     types.Configuration{"key1": "value1"},
+			override: types.Configuration{"key2": "value2"},
+			expected: types.Configuration{"key1": "value1", "key2": "value2"},
 		},
 		{
 			name:     "override base, change schema",
-			base:     config.Configuration{"key1": config.Configuration{"key2": "value2"}},
-			override: config.Configuration{"key1": "value1"},
-			expected: config.Configuration{"key1": "value1"},
+			base:     types.Configuration{"key1": types.Configuration{"key2": "value2"}},
+			override: types.Configuration{"key1": "value1"},
+			expected: types.Configuration{"key1": "value1"},
 		},
 		{
 			name:     "merge into sub map",
-			base:     config.Configuration{"key1": config.Configuration{"key2": "value2"}},
-			override: config.Configuration{"key1": config.Configuration{"key3": "value3"}},
-			expected: config.Configuration{"key1": config.Configuration{"key2": "value2", "key3": "value3"}},
+			base:     types.Configuration{"key1": types.Configuration{"key2": "value2"}},
+			override: types.Configuration{"key1": types.Configuration{"key3": "value3"}},
+			expected: types.Configuration{"key1": types.Configuration{"key2": "value2", "key3": "value3"}},
 		},
 		{
 			name:     "override sub map value",
-			base:     config.Configuration{"key1": config.Configuration{"key2": "value2"}},
-			override: config.Configuration{"key1": config.Configuration{"key2": "value3"}},
-			expected: config.Configuration{"key1": config.Configuration{"key2": "value3"}},
+			base:     types.Configuration{"key1": types.Configuration{"key2": "value2"}},
+			override: types.Configuration{"key1": types.Configuration{"key2": "value3"}},
+			expected: types.Configuration{"key1": types.Configuration{"key2": "value3"}},
 		},
 		{
 			name:     "override nested sub map",
-			base:     config.Configuration{"key1": config.Configuration{"key2": config.Configuration{"key3": "value3"}}},
-			override: config.Configuration{"key1": config.Configuration{"key2": config.Configuration{"key3": "value4"}}},
-			expected: config.Configuration{"key1": config.Configuration{"key2": config.Configuration{"key3": "value4"}}},
+			base:     types.Configuration{"key1": types.Configuration{"key2": types.Configuration{"key3": "value3"}}},
+			override: types.Configuration{"key1": types.Configuration{"key2": types.Configuration{"key3": "value4"}}},
+			expected: types.Configuration{"key1": types.Configuration{"key2": types.Configuration{"key3": "value4"}}},
 		},
 		{
 			name:     "override nested sub map multiple levels",
-			base:     config.Configuration{"key1": config.Configuration{"key2": config.Configuration{"key3": "value3"}}},
-			override: config.Configuration{"key1": config.Configuration{"key2": config.Configuration{"key4": "value4"}}, "key5": "value5"},
-			expected: config.Configuration{"key1": config.Configuration{"key2": config.Configuration{"key3": "value3", "key4": "value4"}}, "key5": "value5"},
+			base:     types.Configuration{"key1": types.Configuration{"key2": types.Configuration{"key3": "value3"}}},
+			override: types.Configuration{"key1": types.Configuration{"key2": types.Configuration{"key4": "value4"}}, "key5": "value5"},
+			expected: types.Configuration{"key1": types.Configuration{"key2": types.Configuration{"key3": "value3", "key4": "value4"}}, "key5": "value5"},
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := config.MergeConfiguration(tc.base, tc.override)
+			result := types.MergeConfiguration(tc.base, tc.override)
 			assert.Equal(t, tc.expected, result)
 		})
 	}
@@ -189,6 +190,7 @@ func TestPreprocessContent(t *testing.T) {
 			"clustersService": map[string]any{
 				"imageTag": "cs-image",
 			},
+			"availabilityZoneCount": 3,
 		},
 	)
 	assert.Nil(t, err)

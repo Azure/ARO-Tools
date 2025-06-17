@@ -14,19 +14,23 @@
 
 package config
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/Azure/ARO-Tools/pkg/config/types"
+)
 
 func TestGetByPath(t *testing.T) {
 	tests := []struct {
 		name  string
-		vars  Configuration
+		vars  types.Configuration
 		path  string
 		want  any
 		found bool
 	}{
 		{
 			name: "simple",
-			vars: Configuration{
+			vars: types.Configuration{
 				"key": "value",
 			},
 			path:  "key",
@@ -35,8 +39,8 @@ func TestGetByPath(t *testing.T) {
 		},
 		{
 			name: "nested",
-			vars: Configuration{
-				"key": Configuration{
+			vars: types.Configuration{
+				"key": types.Configuration{
 					"key": "value",
 				},
 			},

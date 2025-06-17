@@ -5,7 +5,7 @@ import (
 
 	"sigs.k8s.io/yaml"
 
-	coreconfig "github.com/Azure/ARO-Tools/pkg/config"
+	"github.com/Azure/ARO-Tools/pkg/config/types"
 
 	_ "embed"
 )
@@ -28,21 +28,21 @@ func AllContexts() (map[string][]string, error) {
 	return contexts, nil
 }
 
-func ResolveConfig(cloud, region string) (coreconfig.Configuration, error) {
+func ResolveConfig(cloud, region string) (types.Configuration, error) {
 	ev2Config := config{}
 	if err := yaml.Unmarshal(rawConfig, &ev2Config); err != nil {
 		return nil, fmt.Errorf("failed to parse embedded Ev2 config: %w", err)
 	}
-	cfg := coreconfig.Configuration{}
+	cfg := types.Configuration{}
 	cloudCfg, hasCloud := ev2Config.Clouds[cloud]
 	if !hasCloud {
 		return nil, fmt.Errorf("failed to find cloud %s", cloud)
 	}
-	coreconfig.MergeConfiguration(cfg, cloudCfg.Defaults)
+	types.MergeConfiguration(cfg, cloudCfg.Defaults)
 	regionCfg, hasRegion := cloudCfg.Regions[region]
 	if !hasRegion {
 		return nil, fmt.Errorf("failed to find region %s in cloud %s", region, cloud)
 	}
-	coreconfig.MergeConfiguration(cfg, regionCfg)
+	types.MergeConfiguration(cfg, regionCfg)
 	return cfg, nil
 }
