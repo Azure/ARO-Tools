@@ -70,6 +70,8 @@ type ConfigProvider interface {
 type ConfigResolver interface {
 	// ValidateSchema validates a fully resolved configuration created by this provider.
 	ValidateSchema(config types.Configuration) error
+	// SchemaPath returns the absolute path to the JSONSchema file that this config is registered as using.
+	SchemaPath() (string, error)
 	// GetConfiguration resolves the configuration for the cloud and environment.
 	GetConfiguration() (types.Configuration, error)
 	// GetRegionConfiguration resolves the configuration for a region in the cloud and environment.
@@ -211,13 +213,9 @@ func (cr *configResolver) ValidateSchema(config types.Configuration) error {
 	}
 	c := jsonschema.NewCompiler()
 	c.UseLoader(loader)
-	path := cr.cfg.Schema
-	if !filepath.IsAbs(path) {
-		absPath, err := filepath.Abs(filepath.Join(filepath.Dir(cr.path), path))
-		if err != nil {
-			return fmt.Errorf("failed to create absolute path to schema %q: %w", path, err)
-		}
-		path = absPath
+	path, err := cr.SchemaPath()
+	if err != nil {
+		return err
 	}
 	sch, err := c.Compile(path)
 	if err != nil {
@@ -229,6 +227,18 @@ func (cr *configResolver) ValidateSchema(config types.Configuration) error {
 		return fmt.Errorf("failed to validate schema: %v", err)
 	}
 	return nil
+}
+
+func (cr *configResolver) SchemaPath() (string, error) {
+	path := cr.cfg.Schema
+	if !filepath.IsAbs(path) {
+		absPath, err := filepath.Abs(filepath.Join(filepath.Dir(cr.path), path))
+		if err != nil {
+			return "", fmt.Errorf("failed to create absolute path to schema %q: %w", path, err)
+		}
+		path = absPath
+	}
+	return path, nil
 }
 
 // GetRegionConfiguration merges values to resolve the configuration for a region.
