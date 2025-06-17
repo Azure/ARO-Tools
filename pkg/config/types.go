@@ -15,43 +15,25 @@
 package config
 
 import (
-	"strings"
+	"github.com/Azure/ARO-Tools/pkg/config/types"
 )
 
-// Configuration is the top-level container for all values for all services. See an example at: https://github.com/Azure/ARO-HCP/blob/main/config/config.yaml
-type Configuration map[string]any
-
-func (v Configuration) GetByPath(path string) (any, bool) {
-	keys := strings.Split(path, ".")
-	var current any = v
-
-	for _, key := range keys {
-		if m, ok := current.(Configuration); ok {
-			current, ok = m[key]
-			if !ok {
-				return nil, false
-			}
-		} else {
-			return nil, false
-		}
-	}
-
-	return current, true
-}
+// DEPRECATED: use the exported type from types package instead
+type Configuration = types.Configuration
 
 // configurationOverrides is the internal representation for config stored on disk - we do not export it as we
 // require that users pre-process it first, which the ConfigProvider.GetResolver() will do for them.
 type configurationOverrides struct {
-	Schema   string        `json:"$schema"`
-	Defaults Configuration `json:"defaults"`
+	Schema   string              `json:"$schema"`
+	Defaults types.Configuration `json:"defaults"`
 	// key is the cloud alias
 	Overrides map[string]*struct {
-		Defaults Configuration `json:"defaults"`
+		Defaults types.Configuration `json:"defaults"`
 		// key is the deploy env
 		Overrides map[string]*struct {
-			Defaults Configuration `json:"defaults"`
+			Defaults types.Configuration `json:"defaults"`
 			// key is the region name
-			Overrides map[string]Configuration `json:"regions"`
+			Overrides map[string]types.Configuration `json:"regions"`
 		} `json:"environments"`
 	} `json:"clouds"`
 }

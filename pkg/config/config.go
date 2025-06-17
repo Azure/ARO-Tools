@@ -20,12 +20,14 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"reflect"
 	"text/template"
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
 
 	"sigs.k8s.io/yaml"
+
+	"github.com/Azure/ARO-Tools/pkg/config/ev2config"
+	"github.com/Azure/ARO-Tools/pkg/config/types"
 )
 
 // ConfigReplacements holds replacement values
@@ -40,7 +42,7 @@ type ConfigReplacements struct {
 }
 
 // AsMap returns a map[string]interface{} representation of this ConfigReplacement instance
-func (c *ConfigReplacements) AsMap() map[string]interface{} {
+func (c ConfigReplacements) AsMap() map[string]interface{} {
 	m := map[string]interface{}{
 		"ctx": map[string]interface{}{
 			"region":      c.RegionReplacement,
@@ -67,15 +69,24 @@ type ConfigProvider interface {
 // ConfigResolver resolves service configuration for a specific environment and cloud using a processed configuration file.
 type ConfigResolver interface {
 	// ValidateSchema validates a fully resolved configuration created by this provider.
-	ValidateSchema(config Configuration) error
+	ValidateSchema(config types.Configuration) error
 	// GetConfiguration resolves the configuration for the cloud and environment.
-	GetConfiguration() (Configuration, error)
+	GetConfiguration() (types.Configuration, error)
 	// GetRegionConfiguration resolves the configuration for a region in the cloud and environment.
-	GetRegionConfiguration(region string) (Configuration, error)
+	GetRegionConfiguration(region string) (types.Configuration, error)
 	// GetRegionOverrides fetches the overrides specific to a region, if any exist.
-	GetRegionOverrides(region string) (Configuration, error)
+	GetRegionOverrides(region string) (types.Configuration, error)
 }
 
+// NewConfigProvider creates a configuration provider by knowing the path to the configuration file.
+// Configuration files are not valid YAML - they are text templates that, when provided with the correct set of inputs
+// and run through the Go template engine, become valid YAML. We want to be able to load the whole config file before
+// the user knows what cloud/env/region they want, since we have a lot of cases where we want to operate over all the
+// cloud/env/regions in the config. Previously, we had said that the whole config file needs to parse as valid YAML
+// before templating, but this unfortunately means you cannot use templates for non-string values, which is a non-starter.
+//
+// We instead run the file through a dummy template step that replaces values with some cloud/env/region and - since
+// this ConfigProvider can't do anything except for divulge the contexts - we can just do the correct templating later.
 func NewConfigProvider(config string) (ConfigProvider, error) {
 	cp := configProvider{
 		path: config,
@@ -85,7 +96,26 @@ func NewConfigProvider(config string) (ConfigProvider, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := yaml.Unmarshal(raw, &cp.raw); err != nil {
+	cp.raw = raw
+
+	ev2Cfg, err := ev2config.ResolveConfig("public", "uksouth")
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve ev2 configuration: %w", err)
+	}
+
+	rawContent, err := PreprocessContent(cp.raw, ConfigReplacements{
+		CloudReplacement:       "public",
+		EnvironmentReplacement: "int",
+		RegionReplacement:      "uksouth",
+		RegionShortReplacement: "ln",
+		StampReplacement:       "1",
+		Ev2Config:              ev2Cfg,
+	}.AsMap())
+	if err != nil {
+		return nil, err
+	}
+
+	if err := yaml.Unmarshal(rawContent, &cp.withFakeReplacements); err != nil {
 		return nil, err
 	}
 
@@ -94,14 +124,15 @@ func NewConfigProvider(config string) (ConfigProvider, error) {
 
 type configProvider struct {
 	// schema can be a relative path to this file, so we need to keep track of it
-	path string
-	raw  configurationOverrides
+	path                 string
+	raw                  []byte
+	withFakeReplacements configurationOverrides
 }
 
 // AllContexts returns all clouds, environments and regions in the configuration.
 func (cp *configProvider) AllContexts() map[string]map[string][]string {
 	contexts := map[string]map[string][]string{}
-	for cloud, cloudCfg := range cp.raw.Overrides {
+	for cloud, cloudCfg := range cp.withFakeReplacements.Overrides {
 		contexts[cloud] = map[string][]string{}
 		for environment, envCfg := range cloudCfg.Overrides {
 			contexts[cloud][environment] = []string{}
@@ -125,12 +156,7 @@ func (cp *configProvider) GetResolver(configReplacements *ConfigReplacements) (C
 
 	// TODO validate that field names are unique regardless of casing
 	// parse, execute and unmarshal the config file as a template to generate the final config file
-	encoded, err := yaml.Marshal(cp.raw)
-	if err != nil {
-		return nil, err
-	}
-
-	rawContent, err := PreprocessContent(encoded, configReplacements.AsMap())
+	rawContent, err := PreprocessContent(cp.raw, configReplacements.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -154,57 +180,23 @@ type configResolver struct {
 }
 
 // InterfaceToConfiguration, pass in an interface of map[string]any and get (Configuration, true) back
-// This is also converting nested maps, making it easier to iterate over the configuration.
-// If type does not match, second return value will be false
+// DEPRECATED: use the exported function from types package instead
 func InterfaceToConfiguration(i interface{}) (Configuration, bool) {
-	// Helper, that reduces need for reflection calls, i.e. MapIndex
-	// from: https://github.com/peterbourgon/mergemap/blob/master/mergemap.go
-	value := reflect.ValueOf(i)
-	if value.Kind() == reflect.Map {
-		m := Configuration{}
-		for _, k := range value.MapKeys() {
-			v := value.MapIndex(k).Interface()
-			if nestedMap, ok := InterfaceToConfiguration(v); ok {
-				m[k.String()] = nestedMap
-			} else {
-				m[k.String()] = v
-			}
-		}
-		return m, true
-	}
-	return Configuration{}, false
+	return types.InterfaceToConfiguration(i)
 }
 
 // Merges Configuration, returns merged Configuration
-// However the return value is only used for recursive updates on the map
-// The actual merged Configuration are updated in the base map
+// DEPRECATED: use the exported function from types package instead
 func MergeConfiguration(base, override Configuration) Configuration {
-	if base == nil {
-		base = Configuration{}
-	}
-	if override == nil {
-		override = Configuration{}
-	}
-	for k, newValue := range override {
-		if baseValue, exists := base[k]; exists {
-			srcMap, srcMapOk := InterfaceToConfiguration(newValue)
-			dstMap, dstMapOk := InterfaceToConfiguration(baseValue)
-			if srcMapOk && dstMapOk {
-				newValue = MergeConfiguration(dstMap, srcMap)
-			}
-		}
-		base[k] = newValue
-	}
-
-	return base
+	return types.MergeConfiguration(base, override)
 }
 
 // Needed to convert Configuration to map[string]interface{} for jsonschema validation
 // see: https://github.com/santhosh-tekuri/jsonschema/blob/boon/schema.go#L124
-func convertToInterface(config Configuration) map[string]any {
+func convertToInterface(config types.Configuration) map[string]any {
 	m := map[string]any{}
 	for k, v := range config {
-		if subMap, ok := v.(Configuration); ok {
+		if subMap, ok := v.(types.Configuration); ok {
 			m[k] = convertToInterface(subMap)
 		} else {
 			m[k] = v
@@ -213,7 +205,7 @@ func convertToInterface(config Configuration) map[string]any {
 	return m
 }
 
-func (cr *configResolver) ValidateSchema(config Configuration) error {
+func (cr *configResolver) ValidateSchema(config types.Configuration) error {
 	loader := jsonschema.SchemeURLLoader{
 		"file": jsonschema.FileLoader{},
 	}
@@ -240,46 +232,46 @@ func (cr *configResolver) ValidateSchema(config Configuration) error {
 }
 
 // GetRegionConfiguration merges values to resolve the configuration for a region.
-func (cr *configResolver) GetRegionConfiguration(region string) (Configuration, error) {
+func (cr *configResolver) GetRegionConfiguration(region string) (types.Configuration, error) {
 	cfg := cr.cfg.Defaults
 	cloudCfg, hasCloud := cr.cfg.Overrides[cr.cloud]
 	if !hasCloud {
 		return nil, fmt.Errorf("the cloud %s is not found in the config", cr.cloud)
 	}
-	MergeConfiguration(cfg, cloudCfg.Defaults)
+	types.MergeConfiguration(cfg, cloudCfg.Defaults)
 	envCfg, hasEnv := cloudCfg.Overrides[cr.environment]
 	if !hasEnv {
 		return nil, fmt.Errorf("the deployment env %s is not found under cloud %s", cr.environment, cr.cloud)
 	}
-	MergeConfiguration(cfg, envCfg.Defaults)
+	types.MergeConfiguration(cfg, envCfg.Defaults)
 	regionCfg, hasRegion := envCfg.Overrides[region]
 	if !hasRegion {
 		// a missing region just means we use default values
-		regionCfg = Configuration{}
+		regionCfg = types.Configuration{}
 	}
-	MergeConfiguration(cfg, regionCfg)
+	types.MergeConfiguration(cfg, regionCfg)
 	return cfg, nil
 }
 
 // GetConfiguration merges values to resolve the configuration for this cloud and environment.
-func (cr *configResolver) GetConfiguration() (Configuration, error) {
+func (cr *configResolver) GetConfiguration() (types.Configuration, error) {
 	cfg := cr.cfg.Defaults
 	cloudCfg, hasCloud := cr.cfg.Overrides[cr.cloud]
 	if !hasCloud {
 		return nil, fmt.Errorf("the cloud %s is not found in the config", cr.cloud)
 	}
-	MergeConfiguration(cfg, cloudCfg.Defaults)
+	types.MergeConfiguration(cfg, cloudCfg.Defaults)
 	envCfg, hasEnv := cloudCfg.Overrides[cr.environment]
 	if !hasEnv {
 		return nil, fmt.Errorf("the deployment env %s is not found under cloud %s", cr.environment, cr.cloud)
 	}
-	MergeConfiguration(cfg, envCfg.Defaults)
+	types.MergeConfiguration(cfg, envCfg.Defaults)
 
 	return cfg, nil
 }
 
 // GetRegionOverrides resolves the overrides for a region.
-func (cr *configResolver) GetRegionOverrides(region string) (Configuration, error) {
+func (cr *configResolver) GetRegionOverrides(region string) (types.Configuration, error) {
 	cloudCfg, hasCloud := cr.cfg.Overrides[cr.cloud]
 	if !hasCloud {
 		return nil, fmt.Errorf("the cloud %s is not found in the config", cr.cloud)
@@ -291,7 +283,7 @@ func (cr *configResolver) GetRegionOverrides(region string) (Configuration, erro
 	regionCfg, hasRegion := envCfg.Overrides[region]
 	if !hasRegion {
 		// a missing region just means we use default values
-		regionCfg = Configuration{}
+		regionCfg = types.Configuration{}
 	}
 	return regionCfg, nil
 }

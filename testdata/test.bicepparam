@@ -8,3 +8,5 @@ param baseDNSZoneResourceGroup = 'global'
 // CS
 param csImage = '{{ .clustersService.imageTag }}'
 param regionRG = '{{ .regionRG }}'
+
+param azCount = {{ .availabilityZoneCount }}

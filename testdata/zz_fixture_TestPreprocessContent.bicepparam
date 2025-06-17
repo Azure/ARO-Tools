@@ -8,3 +8,5 @@ param baseDNSZoneResourceGroup = 'global'
 // CS
 param csImage = 'cs-image'
 param regionRG = 'bahamas'
+
+param azCount = 3
