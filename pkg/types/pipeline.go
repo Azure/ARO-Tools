@@ -46,96 +46,19 @@ func NewPipelineFromFile(pipelineFilePath string, cfg types2.Configuration) (*Pi
 		return nil, fmt.Errorf("failed to preprocess pipeline file: %w", err)
 	}
 
-	pipeline, err := NewPlainPipelineFromBytes("", bytes)
-	if err != nil {
+	var pipeline Pipeline
+	if err := yaml.Unmarshal(bytes, &pipeline); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal pipeline file: %w", err)
 	}
-	err = pipeline.Validate()
-	if err != nil {
+
+	if err = pipeline.Validate(); err != nil {
 		return nil, fmt.Errorf("pipeline file failed validation: %w", err)
 	}
-	return pipeline, nil
-}
 
-// NewPlainPipelineFromBytes creates a new PlainPipeline instance from a YAML-encoded byte slice.
-//
-// Parameters:
-//   - bytes: A byte slice containing YAML-encoded data representing a pipeline.
-//
-// Returns:
-//   - A pointer to a new PlainPipeline instance, or an error if the input is invalid.
-func NewPlainPipelineFromBytes(_ string, bytes []byte) (*Pipeline, error) {
-	rawPipeline := &struct {
-		Schema         string `json:"$schema,omitempty"`
-		ServiceGroup   string `json:"serviceGroup"`
-		RolloutName    string `json:"rolloutName"`
-		ResourceGroups []struct {
-			Name         string `json:"name"`
-			Subscription string `json:"subscription"`
-			// Deprecated: AKSCluster to be removed
-			AKSCluster string           `json:"aksCluster,omitempty"`
-			Steps      []map[string]any `json:"steps"`
-		} `json:"resourceGroups"`
-	}{}
-	err := yaml.Unmarshal(bytes, rawPipeline)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal pipeline: %w", err)
-	}
-
-	pipeline := &Pipeline{
-		Schema:         rawPipeline.Schema,
-		ServiceGroup:   rawPipeline.ServiceGroup,
-		RolloutName:    rawPipeline.RolloutName,
-		ResourceGroups: make([]*ResourceGroup, len(rawPipeline.ResourceGroups)),
-	}
-
-	for i, rawRg := range rawPipeline.ResourceGroups {
-		rg := &ResourceGroup{}
-		pipeline.ResourceGroups[i] = rg
-		rg.Name = rawRg.Name
-		rg.Subscription = rawRg.Subscription
-		rg.Steps = make([]Step, len(rawRg.Steps))
-		for i, rawStep := range rawRg.Steps {
-			// unmarshal the map into a StepMeta
-			stepMeta := &StepMeta{}
-			err := mapToStruct(rawStep, stepMeta)
-			if err != nil {
-				return nil, err
-			}
-			switch stepMeta.Action {
-			case "Shell":
-				rg.Steps[i] = &ShellStep{}
-			case "ARM":
-				rg.Steps[i] = &ARMStep{}
-			case "DelegateChildZone":
-				rg.Steps[i] = &DelegateChildZoneStep{}
-			case "SetCertificateIssuer":
-				rg.Steps[i] = &SetCertificateIssuerStep{}
-			case "CreateCertificate":
-				rg.Steps[i] = &CreateCertificateStep{}
-			case "ResourceProviderRegistration":
-				rg.Steps[i] = &ResourceProviderRegistrationStep{}
-			case "ImageMirror":
-				rg.Steps[i] = &ImageMirrorStep{}
-			case "RPLogsAccount", "ClusterLogsAccount":
-				rg.Steps[i] = &LogsStep{}
-			default:
-				rg.Steps[i] = &GenericStep{}
-			}
-			err = mapToStruct(rawStep, rg.Steps[i])
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
-
-	// another round of validation after postprocessing
-	err = ValidatePipelineSchemaForStruct(pipeline)
-	if err != nil {
+	if err = ValidatePipelineSchemaForStruct(&pipeline); err != nil {
 		return nil, fmt.Errorf("pipeline schema validation failed after postprocessing: %w", err)
 	}
-
-	return pipeline, nil
+	return &pipeline, nil
 }
 
 // Validate checks the integrity of the pipeline and its resource groups.
