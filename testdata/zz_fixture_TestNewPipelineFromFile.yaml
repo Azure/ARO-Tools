@@ -44,24 +44,34 @@ resourceGroups:
     parentZone:
       configRef: parentZone
   - action: SetCertificateIssuer
+    applicationId:
+      configRef: ev2.assistedId.applicationId
     dependsOn:
     - deploy
     issuer:
       configRef: provider
     name: issuerTest
+    secretId:
+      configRef: ev2.assistedId.certificate
     vaultBaseUrl:
       configRef: vaultBaseUrl
   - action: SetCertificateIssuer
+    applicationId:
+      configRef: ev2.assistedId.applicationId
     dependsOn:
     - deploy
     issuer:
       value: provider
     name: issuerTestOutputChaining
+    secretId:
+      configRef: ev2.assistedId.certificate
     vaultBaseUrl:
       input:
         name: kvUrl
         step: deploy
   - action: CreateCertificate
+    applicationId:
+      configRef: ev2.assistedId.applicationId
     certificateName:
       value: hcp-mdsd
     contentType:
@@ -71,6 +81,8 @@ resourceGroups:
     name: cert
     san:
       value: hcp-mdsd.geneva.keyvault.aro-int.azure.com
+    secretId:
+      configRef: ev2.assistedId.certificate
     vaultBaseUrl:
       value: https://arohcp-svc-ln.vault.azure.net
   - action: ResourceProviderRegistration

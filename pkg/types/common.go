@@ -68,9 +68,11 @@ func (s *DelegateChildZoneStep) Description() string {
 }
 
 type SetCertificateIssuerStep struct {
-	StepMeta     `json:",inline"`
-	VaultBaseUrl Value `json:"vaultBaseUrl,omitempty"`
-	Issuer       Value `json:"issuer,omitempty"`
+	StepMeta      `json:",inline"`
+	VaultBaseUrl  Value `json:"vaultBaseUrl,omitempty"`
+	Issuer        Value `json:"issuer,omitempty"`
+	SecretId      Value `json:"secretId,omitempty"`
+	ApplicationId Value `json:"applicationId,omitempty"`
 }
 
 func (s *SetCertificateIssuerStep) Description() string {
@@ -84,6 +86,8 @@ type CreateCertificateStep struct {
 	ContentType     Value `json:"contentType,omitempty"`
 	SAN             Value `json:"san,omitempty"`
 	Issuer          Value `json:"issuer,omitempty"`
+	SecretId        Value `json:"secretId,omitempty"`
+	ApplicationId   Value `json:"applicationId,omitempty"`
 }
 
 func (s *CreateCertificateStep) Description() string {
