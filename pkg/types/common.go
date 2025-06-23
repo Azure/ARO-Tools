@@ -14,7 +14,9 @@
 
 package types
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type Step interface {
 	StepName() string

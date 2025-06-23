@@ -18,8 +18,8 @@ import "fmt"
 
 // ResourceGroup represents the resourcegroup containing all steps
 type ResourceGroup struct {
-	Name         string               `json:"name"`
-	Subscription string `json:"subscription"`
+	Name                     string                    `json:"name"`
+	Subscription             string                    `json:"subscription"`
 	SubscriptionProvisioning *SubscriptionProvisioning `json:"subscriptionProvisioning,omitempty"`
 	// Deprecated: AKSCluster to be removed
 	AKSCluster string `json:"aksCluster,omitempty"`
