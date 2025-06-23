@@ -80,34 +80,62 @@ resourceGroups:
       - Microsoft.Storage
       - Microsoft.EventHub
       - Microsoft.Insights
-  - action: RPLogsAccount
+  - accountName:
+      configRef: geneva.logs.rp.accountName
+    action: RPLogsAccount
+    adminAlias:
+      configRef: geneva.logs.administrators.alias
+    adminGroup:
+      configRef: geneva.logs.administrators.securityGroup
     certdescription:
       value: HCP Service Cluster
     certsan:
       value: san
     configVersion:
       value: version
+    environment:
+      configRef: geneva.logs.environment
     events:
       akskubesystem: kubesystem
+    metricsAccount:
+      configRef: geneva.metrics.rp.account
     name: rpAccount
     namespace:
       value: ns
+    secretId:
+      configRef: geneva.logs.rp.accountCert
     subscriptionId:
       value: sub
-  - action: ClusterLogsAccount
+    typeName:
+      configRef: geneva.logs.typeName
+  - accountName:
+      configRef: geneva.logs.cluster.accountName
+    action: ClusterLogsAccount
+    adminAlias:
+      configRef: geneva.logs.administrators.alias
+    adminGroup:
+      configRef: geneva.logs.administrators.securityGroup
     certdescription:
       value: HCP Management Cluster
     certsan:
       value: san
     configVersion:
       value: version
+    environment:
+      configRef: geneva.logs.environment
     events:
       akskubesystem: kubesystem
+    metricsAccount:
+      configRef: geneva.metrics.cluster.account
     name: clusterAccount
     namespace:
       value: ns
+    secretId:
+      configRef: geneva.logs.cluster.accountCert
     subscriptionId:
       value: sub
+    typeName:
+      configRef: geneva.logs.typeName
   - action: ImageMirror
     digest:
       value: digest

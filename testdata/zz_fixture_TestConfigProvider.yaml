@@ -7,8 +7,29 @@ clustersService:
   imageTag: abcdef
   replicas: 3
 enableOptionalStep: false
+geneva:
+  logs:
+    administrators:
+      alias: AME\WEINONGW
+      securityGroup: AME\TM-AzureRedHatOpenShift-Leads
+    cluster:
+      accountCert: clusterLogsCert
+      accountName: clusterLogsAccount
+    environment: firstpartyprod
+    rp:
+      accountCert: rpLogsCert
+      accountName: rpLogsAccount
+    typeName: whatever
+  metrics:
+    cluster:
+      account: clusterMetricsAccount
+    rp:
+      account: rpMetricsAccount
 globalRG: global
 imageSyncRG: hcp-underlay-uks-imagesync
+kusto:
+  cluster: aroINT
+  resourceGroup: aro-kusto-public-int-us
 maestro_helm_chart: oci://aro-hcp-int.azurecr.io/helm/server
 maestro_image: aro-hcp-int.azurecr.io/maestro-server:the-stable-one
 managementClusterRG: hcp-underlay-uks-mgmt-1

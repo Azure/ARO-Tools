@@ -91,6 +91,20 @@ resourceGroups:
       - Microsoft.Insights
   - name: rpAccount
     action: RPLogsAccount
+    typeName:
+      configRef: geneva.logs.typeName
+    secretId:
+      configRef: geneva.logs.rp.accountCert
+    environment:
+      configRef: geneva.logs.environment
+    accountName:
+      configRef: geneva.logs.rp.accountName
+    metricsAccount:
+      configRef: geneva.metrics.rp.account
+    adminAlias:
+      configRef: geneva.logs.administrators.alias
+    adminGroup:
+      configRef: geneva.logs.administrators.securityGroup
     subscriptionId:
       value: sub
     namespace:
@@ -105,6 +119,20 @@ resourceGroups:
       akskubesystem: kubesystem
   - name: clusterAccount
     action: ClusterLogsAccount
+    typeName:
+      configRef: geneva.logs.typeName
+    secretId:
+      configRef: geneva.logs.cluster.accountCert
+    environment:
+      configRef: geneva.logs.environment
+    accountName:
+      configRef: geneva.logs.cluster.accountName
+    metricsAccount:
+      configRef: geneva.metrics.cluster.account
+    adminAlias:
+      configRef: geneva.logs.administrators.alias
+    adminGroup:
+      configRef: geneva.logs.administrators.securityGroup
     subscriptionId:
       value: sub
     namespace:
