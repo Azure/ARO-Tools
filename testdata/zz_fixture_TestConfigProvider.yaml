@@ -19,6 +19,14 @@ region: uksouth
 regionRG: hcp-underlay-uks
 serviceClusterRG: hcp-underlay-uks-svc
 serviceClusterSubscription: hcp-uksouth
+svc:
+  subscription:
+    airsRegisteredUserPrincipalId: some-uuid
+    certificateDomains:
+    - '*.aro-hcp.app.io'
+    - something-else
+    displayName: 'Red Hat OpenShift HCP Service - int: uksouth'
+    key: hcp-int-svc-uksouth
 test: uksouth
 vaultBaseUrl: myvault.azure.com
 vaultDomainSuffix: vault.azure.net

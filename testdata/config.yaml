@@ -3,6 +3,14 @@ defaults:
   aroDevopsMsiId: '/subscriptions/9a53d80e-dae0-4c8a-af90-30575d253127/resourceGroups/global-shared-resources/providers/Microsoft.ManagedIdentity/userAssignedIdentities/global-ev2-identity'
   region: '{{ .ctx.region  }}'
   serviceClusterSubscription: hcp-{{ .ctx.region }}
+  svc:
+    subscription:
+      key: "hcp-{{ .ctx.environment }}-svc-{{ .ctx.region }}"
+      displayName: "Red Hat OpenShift HCP Service - {{ .ctx.environment }}: {{ .ctx.region }}"
+      airsRegisteredUserPrincipalId: some-uuid
+      certificateDomains:
+        - "*.aro-hcp.app.io"
+        - "something-else"
   managementClusterSubscription: hcp-{{ .ctx.region }}
   globalRG: global
   regionRG: hcp-underlay-{{ .ctx.regionShort }}

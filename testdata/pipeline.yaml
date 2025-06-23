@@ -3,7 +3,14 @@ serviceGroup: Microsoft.Azure.ARO.Test
 rolloutName: Test Rollout
 resourceGroups:
 - name: '{{ .regionRG  }}'
-  subscription: '{{ .serviceClusterSubscription  }}'
+  subscription: '{{ .svc.subscription.key }}'
+  subscriptionProvisioning:
+    displayName:
+      configRef: .svc.subscription.displayName
+    airsRegisteredUserPrincipalId:
+      configRef: .svc.subscription.airsRegisteredUserPrincipalId
+    certificateDomains:
+      configRef: .svc.subscription.certificateDomains
   steps:
   - name: deploy
     action: Shell
@@ -126,3 +133,25 @@ resourceGroups:
       value: pullSecretName
     shellIdentity:
       value: shellIdentity
+- name: '{{ .globalRG  }}'
+  subscription: '{{ .managementClusterSubscription }}'
+  subscriptionProvisioning:
+    displayName:
+      configRef: .svc.subscription.displayName
+  steps:
+    - name: image-mirror-ii
+      action: ImageMirror
+      targetACR:
+        value: targetACR
+      sourceRegistry:
+        value: sourceRegistry
+      repository:
+        value: repository
+      digest:
+        value: digest
+      pullSecretKeyVault:
+        value: pullSecretKeyVault
+      pullSecretName:
+        value: pullSecretName
+      shellIdentity:
+        value: shellIdentity
