@@ -304,6 +304,12 @@
                                         "issuer": {
                                             "$ref": "#/definitions/value"
                                         },
+                                        "secretId": {
+                                            "$ref": "#/definitions/value"
+                                        },
+                                        "applicationId": {
+                                            "$ref": "#/definitions/value"
+                                        },
                                         "dependsOn": {
                                             "type": "array",
                                             "items": {
@@ -313,7 +319,9 @@
                                     },
                                     "required": [
                                         "vaultBaseUrl",
-                                        "issuer"
+                                        "issuer",
+                                        "secretId",
+                                        "applicationId"
                                     ]
                                 },
                                 {
@@ -340,6 +348,12 @@
                                         "issuer": {
                                             "$ref": "#/definitions/value"
                                         },
+                                        "secretId": {
+                                            "$ref": "#/definitions/value"
+                                        },
+                                        "applicationId": {
+                                            "$ref": "#/definitions/value"
+                                        },
                                         "dependsOn": {
                                             "type": "array",
                                             "items": {
@@ -352,7 +366,9 @@
                                         "certificateName",
                                         "contentType",
                                         "san",
-                                        "issuer"
+                                        "issuer",
+                                        "secretId",
+                                        "applicationId"
                                     ]
                                 },
                                 {
