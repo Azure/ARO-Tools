@@ -124,6 +124,35 @@ resourceGroups:
       value: sourceRegistry
     targetACR:
       value: targetACR
+  subscription: hcp-int-svc-uksouth
+  subscriptionProvisioning:
+    airsRegisteredUserPrincipalId:
+      configRef: .svc.subscription.airsRegisteredUserPrincipalId
+    certificateDomains:
+      configRef: .svc.subscription.certificateDomains
+    displayName:
+      configRef: .svc.subscription.displayName
+- name: global
+  steps:
+  - action: ImageMirror
+    digest:
+      value: digest
+    name: image-mirror-ii
+    pullSecretKeyVault:
+      value: pullSecretKeyVault
+    pullSecretName:
+      value: pullSecretName
+    repository:
+      value: repository
+    shellIdentity:
+      value: shellIdentity
+    sourceRegistry:
+      value: sourceRegistry
+    targetACR:
+      value: targetACR
   subscription: hcp-uksouth
+  subscriptionProvisioning:
+    displayName:
+      configRef: .svc.subscription.displayName
 rolloutName: Test Rollout
 serviceGroup: Microsoft.Azure.ARO.Test

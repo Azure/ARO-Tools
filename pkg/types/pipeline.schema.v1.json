@@ -135,6 +135,24 @@
                     "subscription": {
                         "type": "string"
                     },
+                    "subscriptionProvisioning": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                            "displayName": {
+                                "$ref": "#/definitions/value"
+                            },
+                            "airsRegisteredUserPrincipalId": {
+                                "$ref": "#/definitions/value"
+                            },
+                            "certificateDomains": {
+                                "$ref": "#/definitions/value"
+                            }
+                        },
+                        "required": [
+                            "displayName"
+                        ]
+                    },
                     "steps": {
                         "type": "array",
                         "items": {
