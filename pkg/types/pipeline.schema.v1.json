@@ -388,6 +388,27 @@
                                             "type": "string",
                                             "enum": ["RPLogsAccount", "ClusterLogsAccount"]
                                         },
+                                        "typeName":  {
+                                            "$ref": "#/definitions/value"
+                                        },
+                                        "secretId":  {
+                                            "$ref":  "#/definitions/value"
+                                        },
+                                        "environment":  {
+                                            "$ref":  "#/definitions/value"
+                                        },
+                                        "accountName":  {
+                                            "$ref":  "#/definitions/value"
+                                        },
+                                        "metricsAccount":  {
+                                            "$ref":  "#/definitions/value"
+                                        },
+                                        "adminAlias":  {
+                                            "$ref":  "#/definitions/value"
+                                        },
+                                        "adminGroup":  {
+                                            "$ref":  "#/definitions/value"
+                                        },
                                         "subscriptionId": {
                                             "$ref": "#/definitions/value"
                                         },
@@ -423,6 +444,13 @@
                                         }
                                     },
                                     "required": [
+                                        "typeName",
+                                        "secretId",
+                                        "environment",
+                                        "accountName",
+                                        "metricsAccount",
+                                        "adminAlias",
+                                        "adminGroup",
                                         "subscriptionId",
                                         "namespace",
                                         "certsan",
