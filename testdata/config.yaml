@@ -3,6 +3,14 @@ defaults:
   aroDevopsMsiId: '/subscriptions/9a53d80e-dae0-4c8a-af90-30575d253127/resourceGroups/global-shared-resources/providers/Microsoft.ManagedIdentity/userAssignedIdentities/global-ev2-identity'
   region: '{{ .ctx.region  }}'
   serviceClusterSubscription: hcp-{{ .ctx.region }}
+  svc:
+    subscription:
+      key: "hcp-{{ .ctx.environment }}-svc-{{ .ctx.region }}"
+      displayName: "Red Hat OpenShift HCP Service - {{ .ctx.environment }}: {{ .ctx.region }}"
+      airsRegisteredUserPrincipalId: some-uuid
+      certificateDomains:
+        - "*.aro-hcp.app.io"
+        - "something-else"
   managementClusterSubscription: hcp-{{ .ctx.region }}
   globalRG: global
   regionRG: hcp-underlay-{{ .ctx.regionShort }}
@@ -21,6 +29,31 @@ defaults:
   vaultDomainSuffix: '{{ .ev2.keyVault.domainNameSuffix }}'
   availabilityZoneCount: {{ .ev2.availabilityZoneCount }}
   enableOptionalStep: false
+  ev2:
+    assistedId:
+      certificate: https://aro-ev2-admin-int-kv.vault.azure.net/secrets/aro-ev2-admin-int-cert
+      applicationId: 0cfe7b03-3a43-4f68-84a0-2a4d9227d5ee
+  geneva:
+    logs:
+      administrators:
+        alias: AME\WEINONGW
+        securityGroup: AME\TM-AzureRedHatOpenShift-Leads
+      typeName: whatever
+      environment: firstpartyprod
+      rp:
+        accountName: rpLogsAccount
+        accountCert: rpLogsCert
+      cluster:
+        accountName: clusterLogsAccount
+        accountCert: clusterLogsCert
+    metrics:
+      rp:
+        account: rpMetricsAccount
+      cluster:
+        account: clusterMetricsAccount
+  kusto:
+    resourceGroup: aro-kusto-public-int-us
+    cluster: aroINT
 clouds:
   fairfax:
     defaults:

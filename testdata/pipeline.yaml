@@ -3,7 +3,14 @@ serviceGroup: Microsoft.Azure.ARO.Test
 rolloutName: Test Rollout
 resourceGroups:
 - name: '{{ .regionRG  }}'
-  subscription: '{{ .serviceClusterSubscription  }}'
+  subscription: '{{ .svc.subscription.key }}'
+  subscriptionProvisioning:
+    displayName:
+      configRef: .svc.subscription.displayName
+    airsRegisteredUserPrincipalId:
+      configRef: .svc.subscription.airsRegisteredUserPrincipalId
+    certificateDomains:
+      configRef: .svc.subscription.certificateDomains
   steps:
   - name: deploy
     action: Shell
@@ -47,6 +54,10 @@ resourceGroups:
     - deploy
   - name: issuerTest
     action: SetCertificateIssuer
+    secretId:
+      configRef: ev2.assistedId.certificate
+    applicationId:
+      configRef: ev2.assistedId.applicationId
     vaultBaseUrl:
       configRef: vaultBaseUrl
     issuer:
@@ -55,6 +66,10 @@ resourceGroups:
     - deploy
   - name: issuerTestOutputChaining
     action: SetCertificateIssuer
+    secretId:
+      configRef: ev2.assistedId.certificate
+    applicationId:
+      configRef: ev2.assistedId.applicationId
     vaultBaseUrl:
       input:
         name: kvUrl
@@ -65,6 +80,10 @@ resourceGroups:
     - deploy
   - name: cert
     action: CreateCertificate
+    secretId:
+      configRef: ev2.assistedId.certificate
+    applicationId:
+      configRef: ev2.assistedId.applicationId
     vaultBaseUrl:
       value: https://arohcp-svc-ln.vault.azure.net
     certificateName:
@@ -84,6 +103,20 @@ resourceGroups:
       - Microsoft.Insights
   - name: rpAccount
     action: RPLogsAccount
+    typeName:
+      configRef: geneva.logs.typeName
+    secretId:
+      configRef: geneva.logs.rp.accountCert
+    environment:
+      configRef: geneva.logs.environment
+    accountName:
+      configRef: geneva.logs.rp.accountName
+    metricsAccount:
+      configRef: geneva.metrics.rp.account
+    adminAlias:
+      configRef: geneva.logs.administrators.alias
+    adminGroup:
+      configRef: geneva.logs.administrators.securityGroup
     subscriptionId:
       value: sub
     namespace:
@@ -98,6 +131,20 @@ resourceGroups:
       akskubesystem: kubesystem
   - name: clusterAccount
     action: ClusterLogsAccount
+    typeName:
+      configRef: geneva.logs.typeName
+    secretId:
+      configRef: geneva.logs.cluster.accountCert
+    environment:
+      configRef: geneva.logs.environment
+    accountName:
+      configRef: geneva.logs.cluster.accountName
+    metricsAccount:
+      configRef: geneva.metrics.cluster.account
+    adminAlias:
+      configRef: geneva.logs.administrators.alias
+    adminGroup:
+      configRef: geneva.logs.administrators.securityGroup
     subscriptionId:
       value: sub
     namespace:
@@ -126,3 +173,25 @@ resourceGroups:
       value: pullSecretName
     shellIdentity:
       value: shellIdentity
+- name: '{{ .globalRG  }}'
+  subscription: '{{ .managementClusterSubscription }}'
+  subscriptionProvisioning:
+    displayName:
+      configRef: .svc.subscription.displayName
+  steps:
+    - name: image-mirror-ii
+      action: ImageMirror
+      targetACR:
+        value: targetACR
+      sourceRegistry:
+        value: sourceRegistry
+      repository:
+        value: repository
+      digest:
+        value: digest
+      pullSecretKeyVault:
+        value: pullSecretKeyVault
+      pullSecretName:
+        value: pullSecretName
+      shellIdentity:
+        value: shellIdentity

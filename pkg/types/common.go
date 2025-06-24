@@ -14,7 +14,9 @@
 
 package types
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type Step interface {
 	StepName() string
@@ -66,9 +68,11 @@ func (s *DelegateChildZoneStep) Description() string {
 }
 
 type SetCertificateIssuerStep struct {
-	StepMeta     `json:",inline"`
-	VaultBaseUrl Value `json:"vaultBaseUrl,omitempty"`
-	Issuer       Value `json:"issuer,omitempty"`
+	StepMeta      `json:",inline"`
+	VaultBaseUrl  Value `json:"vaultBaseUrl,omitempty"`
+	Issuer        Value `json:"issuer,omitempty"`
+	SecretId      Value `json:"secretId,omitempty"`
+	ApplicationId Value `json:"applicationId,omitempty"`
 }
 
 func (s *SetCertificateIssuerStep) Description() string {
@@ -82,6 +86,8 @@ type CreateCertificateStep struct {
 	ContentType     Value `json:"contentType,omitempty"`
 	SAN             Value `json:"san,omitempty"`
 	Issuer          Value `json:"issuer,omitempty"`
+	SecretId        Value `json:"secretId,omitempty"`
+	ApplicationId   Value `json:"applicationId,omitempty"`
 }
 
 func (s *CreateCertificateStep) Description() string {
@@ -99,16 +105,19 @@ func (s *ResourceProviderRegistrationStep) Description() string {
 
 type LogsStep struct {
 	StepMeta        `json:",inline"`
-	SubscriptionId  Value      `json:"subscriptionId,omitempty"`
-	Namespace       Value      `json:"namespace,omitempty"`
-	CertSAN         Value      `json:"certsan,omitempty"`
-	CertDescription Value      `json:"certdescription,omitempty"`
-	ConfigVersion   Value      `json:"configVersion,omitempty"`
-	Events          LogsEvents `json:"events,omitempty"`
-}
-
-type LogsEvents struct {
-	AKSKubeSystem string `json:"akskubesystem,omitempty"`
+	TypeName        Value             `json:"typeName"`
+	SecretId        Value             `json:"secretId"`
+	Environment     Value             `json:"environment"`
+	AccountName     Value             `json:"accountName"`
+	MetricsAccount  Value             `json:"metricsAccount"`
+	AdminAlias      Value             `json:"adminAlias"`
+	AdminGroup      Value             `json:"adminGroup"`
+	SubscriptionId  Value             `json:"subscriptionId,omitempty"`
+	Namespace       Value             `json:"namespace,omitempty"`
+	CertSAN         Value             `json:"certsan,omitempty"`
+	CertDescription Value             `json:"certdescription,omitempty"`
+	ConfigVersion   Value             `json:"configVersion,omitempty"`
+	Events          map[string]string `json:"events,omitempty"`
 }
 
 func (s *LogsStep) Description() string {

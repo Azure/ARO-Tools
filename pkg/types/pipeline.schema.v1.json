@@ -135,6 +135,24 @@
                     "subscription": {
                         "type": "string"
                     },
+                    "subscriptionProvisioning": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                            "displayName": {
+                                "$ref": "#/definitions/value"
+                            },
+                            "airsRegisteredUserPrincipalId": {
+                                "$ref": "#/definitions/value"
+                            },
+                            "certificateDomains": {
+                                "$ref": "#/definitions/value"
+                            }
+                        },
+                        "required": [
+                            "displayName"
+                        ]
+                    },
                     "steps": {
                         "type": "array",
                         "items": {
@@ -286,6 +304,12 @@
                                         "issuer": {
                                             "$ref": "#/definitions/value"
                                         },
+                                        "secretId": {
+                                            "$ref": "#/definitions/value"
+                                        },
+                                        "applicationId": {
+                                            "$ref": "#/definitions/value"
+                                        },
                                         "dependsOn": {
                                             "type": "array",
                                             "items": {
@@ -295,7 +319,9 @@
                                     },
                                     "required": [
                                         "vaultBaseUrl",
-                                        "issuer"
+                                        "issuer",
+                                        "secretId",
+                                        "applicationId"
                                     ]
                                 },
                                 {
@@ -322,6 +348,12 @@
                                         "issuer": {
                                             "$ref": "#/definitions/value"
                                         },
+                                        "secretId": {
+                                            "$ref": "#/definitions/value"
+                                        },
+                                        "applicationId": {
+                                            "$ref": "#/definitions/value"
+                                        },
                                         "dependsOn": {
                                             "type": "array",
                                             "items": {
@@ -334,7 +366,9 @@
                                         "certificateName",
                                         "contentType",
                                         "san",
-                                        "issuer"
+                                        "issuer",
+                                        "secretId",
+                                        "applicationId"
                                     ]
                                 },
                                 {
@@ -369,6 +403,27 @@
                                         "action": {
                                             "type": "string",
                                             "enum": ["RPLogsAccount", "ClusterLogsAccount"]
+                                        },
+                                        "typeName":  {
+                                            "$ref": "#/definitions/value"
+                                        },
+                                        "secretId":  {
+                                            "$ref":  "#/definitions/value"
+                                        },
+                                        "environment":  {
+                                            "$ref":  "#/definitions/value"
+                                        },
+                                        "accountName":  {
+                                            "$ref":  "#/definitions/value"
+                                        },
+                                        "metricsAccount":  {
+                                            "$ref":  "#/definitions/value"
+                                        },
+                                        "adminAlias":  {
+                                            "$ref":  "#/definitions/value"
+                                        },
+                                        "adminGroup":  {
+                                            "$ref":  "#/definitions/value"
                                         },
                                         "subscriptionId": {
                                             "$ref": "#/definitions/value"
@@ -405,6 +460,13 @@
                                         }
                                     },
                                     "required": [
+                                        "typeName",
+                                        "secretId",
+                                        "environment",
+                                        "accountName",
+                                        "metricsAccount",
+                                        "adminAlias",
+                                        "adminGroup",
                                         "subscriptionId",
                                         "namespace",
                                         "certsan",

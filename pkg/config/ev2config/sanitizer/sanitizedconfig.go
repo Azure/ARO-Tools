@@ -10,8 +10,8 @@ type SanitizedCloudConfig struct {
 }
 
 type SanitizedCloudConfigValues struct {
-	CloudName string `json:"cloudName"`
-	KeyVault KeyVaultValues `json:"keyVault"`
+	CloudName string         `json:"cloudName"`
+	KeyVault  KeyVaultValues `json:"keyVault"`
 }
 
 type KeyVaultValues struct {
