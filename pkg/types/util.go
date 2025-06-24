@@ -30,18 +30,6 @@ var pipelineSchemaV1Content []byte
 var pipelineSchemaV1Ref = "pipeline.schema.v1"
 var defaultSchemaRef = pipelineSchemaV1Ref
 
-func mapToStruct(m any, s interface{}) error {
-	bytes, err := yaml.Marshal(m)
-	if err != nil {
-		return err
-	}
-	if err := yaml.Unmarshal(bytes, s); err != nil {
-		return err
-
-	}
-	return nil
-}
-
 func getSchemaForPipeline(pipelineMap map[string]interface{}) (pipelineSchema *jsonschema.Schema, schemaRef string, err error) {
 	schemaRef, _ = pipelineMap["$schema"].(string)
 	return getSchemaForRef(schemaRef)

@@ -14,15 +14,21 @@
 
 package types
 
-import "fmt"
+import (
+	"encoding/json"
+	"fmt"
+
+	"sigs.k8s.io/yaml"
+)
 
 // ResourceGroup represents the resourcegroup containing all steps
 type ResourceGroup struct {
-	Name         string `json:"name"`
-	Subscription string `json:"subscription"`
+	Name                     string                    `json:"name"`
+	Subscription             string                    `json:"subscription"`
+	SubscriptionProvisioning *SubscriptionProvisioning `json:"subscriptionProvisioning,omitempty"`
 	// Deprecated: AKSCluster to be removed
 	AKSCluster string `json:"aksCluster,omitempty"`
-	Steps      []Step `json:"steps"`
+	Steps      Steps  `json:"steps"`
 }
 
 func (rg *ResourceGroup) Validate() error {
@@ -32,5 +38,50 @@ func (rg *ResourceGroup) Validate() error {
 	if rg.Subscription == "" {
 		return fmt.Errorf("subscription is required")
 	}
+	return nil
+}
+
+type Steps []Step
+
+func (s *Steps) UnmarshalJSON(data []byte) error {
+	var raw []json.RawMessage
+	if err := yaml.Unmarshal(data, &raw); err != nil {
+		return fmt.Errorf("failed to unmarshal %v into array of json.RawMessage: %w", string(data), err)
+	}
+
+	steps := make([]Step, 0, len(raw))
+	for i, rawStep := range raw {
+		stepMeta := &StepMeta{}
+		if err := yaml.Unmarshal(rawStep, stepMeta); err != nil {
+			return fmt.Errorf("steps[%d]: failed to unmarshal step metadata from raw json: %w", i, err)
+		}
+
+		var step Step
+		switch stepMeta.Action {
+		case "Shell":
+			step = &ShellStep{}
+		case "ARM":
+			step = &ARMStep{}
+		case "DelegateChildZone":
+			step = &DelegateChildZoneStep{}
+		case "SetCertificateIssuer":
+			step = &SetCertificateIssuerStep{}
+		case "CreateCertificate":
+			step = &CreateCertificateStep{}
+		case "ResourceProviderRegistration":
+			step = &ResourceProviderRegistrationStep{}
+		case "ImageMirror":
+			step = &ImageMirrorStep{}
+		case "RPLogsAccount", "ClusterLogsAccount":
+			step = &LogsStep{}
+		default:
+			step = &GenericStep{}
+		}
+		if err := yaml.Unmarshal(rawStep, step); err != nil {
+			return fmt.Errorf("steps[%d]: failed to unmarshal step from metadata remainder: %w", i, err)
+		}
+		steps = append(steps, step)
+	}
+	*s = steps
 	return nil
 }

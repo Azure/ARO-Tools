@@ -2,6 +2,7 @@ version: "2"
 formatters:
   enable:
     - gci
+    - gofmt
   settings:
     gci:
       custom-order: true

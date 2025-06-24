@@ -7,8 +7,33 @@ clustersService:
   imageTag: abcdef
   replicas: 3
 enableOptionalStep: false
+ev2:
+  assistedId:
+    applicationId: 0cfe7b03-3a43-4f68-84a0-2a4d9227d5ee
+    certificate: https://aro-ev2-admin-int-kv.vault.azure.net/secrets/aro-ev2-admin-int-cert
+geneva:
+  logs:
+    administrators:
+      alias: AME\WEINONGW
+      securityGroup: AME\TM-AzureRedHatOpenShift-Leads
+    cluster:
+      accountCert: clusterLogsCert
+      accountName: clusterLogsAccount
+    environment: firstpartyprod
+    rp:
+      accountCert: rpLogsCert
+      accountName: rpLogsAccount
+    typeName: whatever
+  metrics:
+    cluster:
+      account: clusterMetricsAccount
+    rp:
+      account: rpMetricsAccount
 globalRG: global
 imageSyncRG: hcp-underlay-uks-imagesync
+kusto:
+  cluster: aroINT
+  resourceGroup: aro-kusto-public-int-us
 maestro_helm_chart: oci://aro-hcp-int.azurecr.io/helm/server
 maestro_image: aro-hcp-int.azurecr.io/maestro-server:the-stable-one
 managementClusterRG: hcp-underlay-uks-mgmt-1
@@ -19,6 +44,14 @@ region: uksouth
 regionRG: hcp-underlay-uks
 serviceClusterRG: hcp-underlay-uks-svc
 serviceClusterSubscription: hcp-uksouth
+svc:
+  subscription:
+    airsRegisteredUserPrincipalId: some-uuid
+    certificateDomains:
+    - '*.aro-hcp.app.io'
+    - something-else
+    displayName: 'Red Hat OpenShift HCP Service - int: uksouth'
+    key: hcp-int-svc-uksouth
 test: uksouth
 vaultBaseUrl: myvault.azure.com
 vaultDomainSuffix: vault.azure.net
