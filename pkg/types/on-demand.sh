@@ -11,6 +11,13 @@ for VAR in "${REQUIRED_VARS[@]}"; do
     fi
 done
 
+# shortcut mirroring if the source registry is the same as the target ACR
+ACR_DOMAIN_SUFFIX="$(az cloud show --query "suffixes.acrLoginServerEndpoint" --output tsv)"
+if [[ "${SOURCE_REGISTRY}" == "${TARGET_ACR}${ACR_DOMAIN_SUFFIX}" ]]; then
+    echo "Source and target registry are the same. No mirroring needed."
+    exit 0
+fi
+
 # create temporary FS structure
 TMP_DIR="$(mktemp -d)"
 CONTAINERS_DIR="${TMP_DIR}/containers"
