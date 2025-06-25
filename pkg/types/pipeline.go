@@ -28,6 +28,17 @@ type Pipeline struct {
 	ServiceGroup   string           `json:"serviceGroup"`
 	RolloutName    string           `json:"rolloutName"`
 	ResourceGroups []*ResourceGroup `json:"resourceGroups"`
+	BuildStep      *BuildStep       `json:"buildStep,omitempty"`
+}
+
+// BuildStep describes how artifacts should be built before any shell steps are run. The command specified here
+// will run with the working directory set to the directory holding this pipeline specification.
+type BuildStep struct {
+	// Command is the command to run for the build step.
+	Command string `json:"command"`
+
+	// Args are the command-line arguments to pass to the build step.
+	Args []string `json:"args"`
 }
 
 // NewPipelineFromFile prepocesses and creates a new Pipeline instance from a file.
