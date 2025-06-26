@@ -2,21 +2,28 @@
 
 set -euo pipefail
 
+# shortcut mirroring if the source registry is the same as the target ACR
+REQUIRED_REGISTRY_VARS=("TARGET_ACR" "SOURCE_REGISTRY")
+for VAR in "${REQUIRED_REGISTRY_VARS[@]}"; do
+    if [ -z "${!VAR}" ]; then
+        echo "Error: Environment variable $VAR is not set."
+        exit 1
+    fi
+done
+ACR_DOMAIN_SUFFIX="$(az cloud show --query "suffixes.acrLoginServerEndpoint" --output tsv)"
+if [[ "${SOURCE_REGISTRY}" == "${TARGET_ACR}${ACR_DOMAIN_SUFFIX}" ]]; then
+    echo "Source and target registry are the same. No mirroring needed."
+    exit 0
+fi
+
 # validate
-REQUIRED_VARS=("PULL_SECRET_KV" "PULL_SECRET" "TARGET_ACR" "SOURCE_REGISTRY" "REPOSITORY" "DIGEST")
+REQUIRED_VARS=("PULL_SECRET_KV" "PULL_SECRET" "REPOSITORY" "DIGEST")
 for VAR in "${REQUIRED_VARS[@]}"; do
     if [ -z "${!VAR}" ]; then
         echo "Error: Environment variable $VAR is not set."
         exit 1
     fi
 done
-
-# shortcut mirroring if the source registry is the same as the target ACR
-ACR_DOMAIN_SUFFIX="$(az cloud show --query "suffixes.acrLoginServerEndpoint" --output tsv)"
-if [[ "${SOURCE_REGISTRY}" == "${TARGET_ACR}${ACR_DOMAIN_SUFFIX}" ]]; then
-    echo "Source and target registry are the same. No mirroring needed."
-    exit 0
-fi
 
 # create temporary FS structure
 TMP_DIR="$(mktemp -d)"
