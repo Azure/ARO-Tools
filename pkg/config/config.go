@@ -74,6 +74,8 @@ type ConfigResolver interface {
 	SchemaPath() (string, error)
 	// GetConfiguration resolves the configuration for the cloud and environment.
 	GetConfiguration() (types.Configuration, error)
+	// GetRegions divulges the regions for which overrides are registered.
+	GetRegions() ([]string, error)
 	// GetRegionConfiguration resolves the configuration for a region in the cloud and environment.
 	GetRegionConfiguration(region string) (types.Configuration, error)
 	// GetRegionOverrides fetches the overrides specific to a region, if any exist.
@@ -239,6 +241,23 @@ func (cr *configResolver) SchemaPath() (string, error) {
 		path = absPath
 	}
 	return path, nil
+}
+
+func (cr *configResolver) GetRegions() ([]string, error) {
+	cloudCfg, hasCloud := cr.cfg.Overrides[cr.cloud]
+	if !hasCloud {
+		return nil, fmt.Errorf("the cloud %s is not found in the config", cr.cloud)
+	}
+	envCfg, hasEnv := cloudCfg.Overrides[cr.environment]
+	if !hasEnv {
+		return nil, fmt.Errorf("the deployment env %s is not found under cloud %s", cr.environment, cr.cloud)
+	}
+
+	var regions []string
+	for region := range envCfg.Overrides {
+		regions = append(regions, region)
+	}
+	return regions, nil
 }
 
 // GetRegionConfiguration merges values to resolve the configuration for a region.
