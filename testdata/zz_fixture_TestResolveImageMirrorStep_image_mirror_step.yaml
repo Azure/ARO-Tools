@@ -1,0 +1,22 @@
+action: Shell
+command: /path/to/script.sh
+dryRun:
+  variables:
+  - name: DRY_RUN
+    value: "true"
+name: image-mirror-step
+shellIdentity:
+  value: my-identity
+variables:
+- name: TARGET_ACR
+  value: myacr.azurecr.io
+- name: SOURCE_REGISTRY
+  value: docker.io
+- name: REPOSITORY
+  value: nginx
+- name: DIGEST
+  value: sha256:123456
+- name: PULL_SECRET_KV
+  value: my-keyvault
+- name: PULL_SECRET
+  value: my-pull-secret

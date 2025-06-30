@@ -47,7 +47,7 @@ func (s *ImageMirrorStep) Description() string {
 func ResolveImageMirrorStep(input ImageMirrorStep, scriptFile string) (*ShellStep, error) {
 	return &ShellStep{
 		StepMeta: StepMeta{
-			Name:   "image-mirror",
+			Name:   input.Name,
 			Action: "Shell",
 		},
 		Command: scriptFile,
@@ -83,10 +83,10 @@ func namedVariable(name string, value Value) Variable {
 }
 
 // NewImageMirrorStep creates a new image mirror step.
-func NewImageMirrorStep() *ImageMirrorStep {
+func NewImageMirrorStep(name string) *ImageMirrorStep {
 	return &ImageMirrorStep{
 		StepMeta: StepMeta{
-			Name:   "image-mirror",
+			Name:   name,
 			Action: "ImageMirror",
 		},
 	}
