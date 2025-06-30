@@ -27,6 +27,7 @@ type ShellStep struct {
 	References    []Reference `json:"references,omitempty"`
 	SubnetId      string      `json:"subnetId,omitempty"`
 	ShellIdentity Value       `json:"shellIdentity,omitempty"`
+	AcrLogin      bool        `json:"acrLogin,omitempty"`
 }
 
 // Reference represents a configurable reference
