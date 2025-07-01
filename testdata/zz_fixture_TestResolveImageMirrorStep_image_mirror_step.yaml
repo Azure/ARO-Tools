@@ -1,5 +1,5 @@
 action: Shell
-command: /path/to/script.sh
+command: /bin/bash /path/to/script.sh
 dryRun:
   variables:
   - name: DRY_RUN
