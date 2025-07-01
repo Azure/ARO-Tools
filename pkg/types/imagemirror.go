@@ -50,7 +50,7 @@ func ResolveImageMirrorStep(input ImageMirrorStep, scriptFile string) (*ShellSte
 			Name:   input.Name,
 			Action: "Shell",
 		},
-		Command: scriptFile,
+		Command: fmt.Sprintf("/bin/bash %s", scriptFile),
 		Variables: []Variable{
 			namedVariable("TARGET_ACR", input.TargetACR),
 			namedVariable("SOURCE_REGISTRY", input.SourceRegistry),
