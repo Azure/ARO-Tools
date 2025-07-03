@@ -183,30 +183,10 @@ type configResolver struct {
 	path               string
 }
 
-// InterfaceToConfiguration, pass in an interface of map[string]any and get (Configuration, true) back
-// DEPRECATED: use the exported function from types package instead
-func InterfaceToConfiguration(i interface{}) (Configuration, bool) {
-	return types.InterfaceToConfiguration(i)
-}
-
 // Merges Configuration, returns merged Configuration
 // DEPRECATED: use the exported function from types package instead
 func MergeConfiguration(base, override Configuration) Configuration {
 	return types.MergeConfiguration(base, override)
-}
-
-// Needed to convert Configuration to map[string]interface{} for jsonschema validation
-// see: https://github.com/santhosh-tekuri/jsonschema/blob/boon/schema.go#L124
-func convertToInterface(config types.Configuration) map[string]any {
-	m := map[string]any{}
-	for k, v := range config {
-		if subMap, ok := v.(types.Configuration); ok {
-			m[k] = convertToInterface(subMap)
-		} else {
-			m[k] = v
-		}
-	}
-	return m
 }
 
 func (cr *configResolver) ValidateSchema(config types.Configuration) error {
@@ -224,7 +204,7 @@ func (cr *configResolver) ValidateSchema(config types.Configuration) error {
 		return fmt.Errorf("failed to compile schema: %v", err)
 	}
 
-	err = sch.Validate(convertToInterface(config))
+	err = sch.Validate(map[string]any(config))
 	if err != nil {
 		return fmt.Errorf("failed to validate schema: %v", err)
 	}
