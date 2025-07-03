@@ -1,57 +1,37 @@
 package types
 
 import (
-	"reflect"
+	"fmt"
 	"strings"
 )
 
 // Configuration is the top-level container for all values for all services. See an example at: https://github.com/Azure/ARO-HCP/blob/main/config/config.yaml
 type Configuration map[string]any
 
-func (v Configuration) GetByPath(path string) (any, bool) {
+func (v Configuration) GetByPath(path string) (any, error) {
 	keys := strings.Split(path, ".")
-	var current any = v
+	var current any = map[string]any(v)
+	var currentPath string
 
 	for _, key := range keys {
-		if m, ok := current.(Configuration); ok {
+		if m, ok := current.(map[string]any); ok {
 			current, ok = m[key]
 			if !ok {
-				return nil, false
+				return nil, fmt.Errorf("configuration%s: key %s not found", currentPath, key)
 			}
 		} else {
-			return nil, false
+			return nil, fmt.Errorf("configuration%s: expected nested map, found %T; cannot index with %s", currentPath, current, key)
 		}
+		currentPath += "[" + key + "]"
 	}
 
-	return current, true
-}
-
-// InterfaceToConfiguration, pass in an interface of map[string]any and get (Configuration, true) back
-// This is also converting nested maps, making it easier to iterate over the configuration.
-// If type does not match, second return value will be false
-func InterfaceToConfiguration(i interface{}) (Configuration, bool) {
-	// Helper, that reduces need for reflection calls, i.e. MapIndex
-	// from: https://github.com/peterbourgon/mergemap/blob/master/mergemap.go
-	value := reflect.ValueOf(i)
-	if value.Kind() == reflect.Map {
-		m := Configuration{}
-		for _, k := range value.MapKeys() {
-			v := value.MapIndex(k).Interface()
-			if nestedMap, ok := InterfaceToConfiguration(v); ok {
-				m[k.String()] = nestedMap
-			} else {
-				m[k.String()] = v
-			}
-		}
-		return m, true
-	}
-	return Configuration{}, false
+	return current, nil
 }
 
 // Merges Configuration, returns merged Configuration
 // However the return value is only used for recursive updates on the map
 // The actual merged Configuration are updated in the base map
-func MergeConfiguration(base, override Configuration) Configuration {
+func MergeConfiguration(base, override Configuration) map[string]any {
 	if base == nil {
 		base = Configuration{}
 	}
@@ -60,8 +40,8 @@ func MergeConfiguration(base, override Configuration) Configuration {
 	}
 	for k, newValue := range override {
 		if baseValue, exists := base[k]; exists {
-			srcMap, srcMapOk := InterfaceToConfiguration(newValue)
-			dstMap, dstMapOk := InterfaceToConfiguration(baseValue)
+			srcMap, srcMapOk := newValue.(map[string]any)
+			dstMap, dstMapOk := baseValue.(map[string]any)
 			if srcMapOk && dstMapOk {
 				newValue = MergeConfiguration(dstMap, srcMap)
 			}

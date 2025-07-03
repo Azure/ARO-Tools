@@ -18,6 +18,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/Azure/ARO-Tools/internal/testutil"
@@ -55,61 +56,6 @@ func TestConfigProvider(t *testing.T) {
 	testutil.CompareWithFixture(t, cfg)
 }
 
-func TestInterfaceToConfiguration(t *testing.T) {
-	testCases := []struct {
-		name                   string
-		i                      interface{}
-		ok                     bool
-		expecetedConfiguration types.Configuration
-	}{
-		{
-			name:                   "empty interface",
-			ok:                     false,
-			expecetedConfiguration: types.Configuration{},
-		},
-		{
-			name:                   "empty map",
-			i:                      map[string]interface{}{},
-			ok:                     true,
-			expecetedConfiguration: types.Configuration{},
-		},
-		{
-			name: "map",
-			i: map[string]interface{}{
-				"key1": "value1",
-				"key2": "value2",
-			},
-			ok: true,
-			expecetedConfiguration: types.Configuration{
-				"key1": "value1",
-				"key2": "value2",
-			},
-		},
-		{
-			name: "nested map",
-			i: map[string]interface{}{
-				"key1": map[string]interface{}{
-					"key2": "value2",
-				},
-			},
-			ok: true,
-			expecetedConfiguration: types.Configuration{
-				"key1": types.Configuration{
-					"key2": "value2",
-				},
-			},
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			vars, ok := types.InterfaceToConfiguration(tc.i)
-			assert.Equal(t, tc.ok, ok)
-			assert.Equal(t, tc.expecetedConfiguration, vars)
-		})
-	}
-}
-
 func TestMergeConfiguration(t *testing.T) {
 	testCases := []struct {
 		name     string
@@ -117,10 +63,6 @@ func TestMergeConfiguration(t *testing.T) {
 		override types.Configuration
 		expected types.Configuration
 	}{
-		{
-			name:     "nil base",
-			expected: types.Configuration{},
-		},
 		{
 			name:     "empty base and override",
 			base:     types.Configuration{},
@@ -140,40 +82,46 @@ func TestMergeConfiguration(t *testing.T) {
 		},
 		{
 			name:     "override base, change schema",
-			base:     types.Configuration{"key1": types.Configuration{"key2": "value2"}},
+			base:     types.Configuration{"key1": map[string]any{"key2": "value2"}},
 			override: types.Configuration{"key1": "value1"},
 			expected: types.Configuration{"key1": "value1"},
 		},
 		{
 			name:     "merge into sub map",
-			base:     types.Configuration{"key1": types.Configuration{"key2": "value2"}},
-			override: types.Configuration{"key1": types.Configuration{"key3": "value3"}},
-			expected: types.Configuration{"key1": types.Configuration{"key2": "value2", "key3": "value3"}},
+			base:     types.Configuration{"key1": map[string]any{"key2": "value2"}},
+			override: types.Configuration{"key1": map[string]any{"key3": "value3"}},
+			expected: types.Configuration{"key1": map[string]any{"key2": "value2", "key3": "value3"}},
 		},
 		{
 			name:     "override sub map value",
-			base:     types.Configuration{"key1": types.Configuration{"key2": "value2"}},
-			override: types.Configuration{"key1": types.Configuration{"key2": "value3"}},
-			expected: types.Configuration{"key1": types.Configuration{"key2": "value3"}},
+			base:     types.Configuration{"key1": map[string]any{"key2": "value2"}},
+			override: types.Configuration{"key1": map[string]any{"key2": "value3"}},
+			expected: types.Configuration{"key1": map[string]any{"key2": "value3"}},
 		},
 		{
 			name:     "override nested sub map",
-			base:     types.Configuration{"key1": types.Configuration{"key2": types.Configuration{"key3": "value3"}}},
-			override: types.Configuration{"key1": types.Configuration{"key2": types.Configuration{"key3": "value4"}}},
-			expected: types.Configuration{"key1": types.Configuration{"key2": types.Configuration{"key3": "value4"}}},
+			base:     types.Configuration{"key1": map[string]any{"key2": map[string]any{"key3": "value3"}}},
+			override: types.Configuration{"key1": map[string]any{"key2": map[string]any{"key3": "value4"}}},
+			expected: types.Configuration{"key1": map[string]any{"key2": map[string]any{"key3": "value4"}}},
 		},
 		{
 			name:     "override nested sub map multiple levels",
-			base:     types.Configuration{"key1": types.Configuration{"key2": types.Configuration{"key3": "value3"}}},
-			override: types.Configuration{"key1": types.Configuration{"key2": types.Configuration{"key4": "value4"}}, "key5": "value5"},
-			expected: types.Configuration{"key1": types.Configuration{"key2": types.Configuration{"key3": "value3", "key4": "value4"}}, "key5": "value5"},
+			base:     types.Configuration{"key1": map[string]any{"key2": map[string]any{"key3": "value3"}}},
+			override: types.Configuration{"key1": map[string]any{"key2": map[string]any{"key4": "value4"}}, "key5": "value5"},
+			expected: types.Configuration{"key1": map[string]any{"key2": map[string]any{"key3": "value3", "key4": "value4"}}, "key5": "value5"},
+		},
+		{
+			name:     "non-string-key maps get overridden, not merged",
+			base:     types.Configuration{"key1": map[int]any{1: map[string]any{"key3": "value3"}}},
+			override: types.Configuration{"key1": map[int]any{2: map[string]any{"key4": "value4"}}, "key5": "value5"},
+			expected: types.Configuration{"key1": map[int]any{2: map[string]any{"key4": "value4"}}, "key5": "value5"},
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := types.MergeConfiguration(tc.base, tc.override)
-			assert.Equal(t, tc.expected, result)
+			types.MergeConfiguration(tc.base, tc.override)
+			assert.Empty(t, cmp.Diff(tc.expected, tc.base))
 		})
 	}
 
