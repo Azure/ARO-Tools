@@ -22,41 +22,59 @@ import (
 
 func TestGetByPath(t *testing.T) {
 	tests := []struct {
-		name  string
-		vars  types.Configuration
-		path  string
-		want  any
-		found bool
+		name string
+		vars types.Configuration
+		path string
+		want any
+		err  string
 	}{
 		{
 			name: "simple",
 			vars: types.Configuration{
 				"key": "value",
 			},
-			path:  "key",
-			want:  "value",
-			found: true,
+			path: "key",
+			want: "value",
 		},
 		{
 			name: "nested",
 			vars: types.Configuration{
-				"key": types.Configuration{
+				"parent": map[string]any{
 					"key": "value",
 				},
 			},
-			path:  "key.key",
-			want:  "value",
-			found: true,
+			path: "parent.key",
+			want: "value",
+		},
+		{
+			name: "missing",
+			vars: types.Configuration{
+				"parent": map[string]any{
+					"key": "value",
+				},
+			},
+			path: "parent.key2",
+			err:  "configuration[parent]: key key2 not found",
+		},
+		{
+			name: "invalid type",
+			vars: types.Configuration{
+				"parent": map[string]any{
+					"key": "value",
+				},
+			},
+			path: "parent.key.nested",
+			err:  "configuration[parent][key]: expected nested map, found string; cannot index with nested",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, found := tt.vars.GetByPath(tt.path)
+			got, err := tt.vars.GetByPath(tt.path)
 			if got != tt.want {
-				t.Errorf("Configuration.GetByPath() got = %v, want %v", got, tt.want)
+				t.Errorf("got = %v, want %v", got, tt.want)
 			}
-			if found != tt.found {
-				t.Errorf("Configuration.GetByPath() found = %v, want %v", found, tt.found)
+			if err != nil && err.Error() != tt.err || err == nil && tt.err != "" {
+				t.Errorf("expected error %s, got %s", tt.err, err)
 			}
 		})
 	}
