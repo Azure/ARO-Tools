@@ -55,6 +55,80 @@ func TestConfigProvider(t *testing.T) {
 	testutil.CompareWithFixture(t, cfg)
 }
 
+func TestConfigProviderTypeConsistency(t *testing.T) {
+	testCases := []struct {
+		name                   string
+		getConfigFunc          func(resolver config.ConfigResolver) (types.Configuration, error)
+		expectedSpecificFields []string // specific fields we expect to exist as Configuration types
+	}{
+		{
+			name: "cloud and environment configuration",
+			getConfigFunc: func(resolver config.ConfigResolver) (types.Configuration, error) {
+				return resolver.GetConfiguration()
+			},
+			expectedSpecificFields: []string{"clustersService"},
+		},
+		{
+			name: "region-specific configuration",
+			getConfigFunc: func(resolver config.ConfigResolver) (types.Configuration, error) {
+				return resolver.GetRegionConfiguration("uksouth")
+			},
+			expectedSpecificFields: []string{"svc", "geneva"},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Define inline helper function
+			var verifyNoMapStringInterface func(path string, v interface{}, inconsistentPaths *[]string)
+			verifyNoMapStringInterface = func(path string, v interface{}, inconsistentPaths *[]string) {
+				switch val := v.(type) {
+				case types.Configuration:
+					for k, nested := range val {
+						verifyNoMapStringInterface(path+"."+k, nested, inconsistentPaths)
+					}
+				case map[string]interface{}:
+					*inconsistentPaths = append(*inconsistentPaths, path)
+					for k, nested := range val {
+						verifyNoMapStringInterface(path+"."+k, nested, inconsistentPaths)
+					}
+				}
+			}
+
+			configProvider, err := config.NewConfigProvider("../../testdata/config.yaml")
+			assert.NoError(t, err)
+
+			resolver, err := configProvider.GetResolver(&config.ConfigReplacements{
+				CloudReplacement:       "public",
+				EnvironmentReplacement: "int",
+				RegionReplacement:      "uksouth",
+				RegionShortReplacement: "uks",
+				StampReplacement:       "1",
+				Ev2Config: map[string]interface{}{
+					"keyVault": map[string]interface{}{
+						"domainNameSuffix": ".vault.azure.net",
+					},
+					"availabilityZoneCount": 3,
+				},
+			})
+			assert.NoError(t, err)
+
+			cfg, err := tc.getConfigFunc(resolver)
+			assert.NoError(t, err)
+
+			// Comprehensive type consistency check using shared helper
+			inconsistentPaths := []string{}
+			verifyNoMapStringInterface("root", cfg, &inconsistentPaths)
+			assert.Empty(t, inconsistentPaths, "Found map[string]interface{} at paths: %v (should be types.Configuration)", inconsistentPaths)
+
+			// Verify that expected fields exist (the validator already checked their types)
+			for _, fieldName := range tc.expectedSpecificFields {
+				assert.Contains(t, cfg, fieldName, "Expected field %s should exist in configuration", fieldName)
+			}
+		})
+	}
+}
+
 func TestInterfaceToConfiguration(t *testing.T) {
 	testCases := []struct {
 		name                   string

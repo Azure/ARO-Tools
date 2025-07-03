@@ -26,6 +26,26 @@ func (v Configuration) GetByPath(path string) (any, bool) {
 	return current, true
 }
 
+// NormalizeNestedMaps ensures all nested map[string]interface{} are converted to Configuration
+// This fixes the issue where YAML unmarshaling creates inconsistent types in nested structures
+// This method mutates the Configuration in-place.
+func (c Configuration) NormalizeNestedMaps() {
+	for k, v := range c {
+		switch val := v.(type) {
+		case map[string]interface{}:
+			// Convert map[string]interface{} to Configuration and recurse
+			if cfg, ok := InterfaceToConfiguration(val); ok {
+				cfg.NormalizeNestedMaps()
+				c[k] = cfg
+			}
+		case Configuration:
+			// Already correct type, but normalize nested levels
+			val.NormalizeNestedMaps()
+		}
+		// Non-map types pass through unchanged
+	}
+}
+
 // InterfaceToConfiguration, pass in an interface of map[string]any and get (Configuration, true) back
 // This is also converting nested maps, making it easier to iterate over the configuration.
 // If type does not match, second return value will be false

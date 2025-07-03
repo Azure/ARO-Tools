@@ -123,6 +123,10 @@ func NewConfigProvider(config string) (ConfigProvider, error) {
 		return nil, err
 	}
 
+	// Normalize all Configuration fields to ensure consistent nested types
+	cp.withFakeReplacements.Defaults.NormalizeNestedMaps()
+	normalizeConfigurationOverrides(&cp.withFakeReplacements)
+
 	return &cp, nil
 }
 
@@ -169,6 +173,10 @@ func (cp *configProvider) GetResolver(configReplacements *ConfigReplacements) (C
 	if err := yaml.Unmarshal(rawContent, &currentVariableOverrides); err != nil {
 		return nil, err
 	}
+
+	// Normalize all Configuration fields to ensure consistent nested types
+	currentVariableOverrides.Defaults.NormalizeNestedMaps()
+	normalizeConfigurationOverrides(&currentVariableOverrides)
 	return &configResolver{
 		cloud:       configReplacements.CloudReplacement,
 		environment: configReplacements.EnvironmentReplacement,
@@ -181,6 +189,32 @@ type configResolver struct {
 	cloud, environment string
 	cfg                configurationOverrides
 	path               string
+}
+
+// normalizeConfigurationOverrides normalizes all Configuration fields in the overrides structure
+func normalizeConfigurationOverrides(cfg *configurationOverrides) {
+	// Normalize the top-level defaults
+	cfg.Defaults.NormalizeNestedMaps()
+
+	if cfg.Overrides != nil {
+		for _, cloudCfg := range cfg.Overrides {
+			if cloudCfg != nil {
+				cloudCfg.Defaults.NormalizeNestedMaps()
+				if cloudCfg.Overrides != nil {
+					for _, envCfg := range cloudCfg.Overrides {
+						if envCfg != nil {
+							envCfg.Defaults.NormalizeNestedMaps()
+							if envCfg.Overrides != nil {
+								for _, regionCfg := range envCfg.Overrides {
+									regionCfg.NormalizeNestedMaps()
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
 }
 
 // InterfaceToConfiguration, pass in an interface of map[string]any and get (Configuration, true) back
