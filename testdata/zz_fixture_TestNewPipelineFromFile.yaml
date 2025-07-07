@@ -176,6 +176,7 @@ resourceGroups:
       configRef: .svc.subscription.certificateDomains
     displayName:
       configRef: .svc.subscription.displayName
+    roleAssignment: test.bicepparam
 - name: global
   steps:
   - action: ImageMirror
@@ -198,5 +199,6 @@ resourceGroups:
   subscriptionProvisioning:
     displayName:
       configRef: .svc.subscription.displayName
+    roleAssignment: test.bicepparam
 rolloutName: Test Rollout
 serviceGroup: Microsoft.Azure.ARO.Test
