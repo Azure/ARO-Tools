@@ -92,7 +92,28 @@ func (v *validator) validate(t *Topology) error {
 	return nil
 }
 
+type InvalidServiceGroupError struct {
+	ServiceGroup string
+}
+
+func (e *InvalidServiceGroupError) Error() string {
+	return fmt.Sprintf("invalid service group %s, must be of form Microsoft.Azure.ARO.{Classic|HCP}.Component(.Subcomponent)?", e.ServiceGroup)
+}
+
 func (v *validator) walk(s Service) error {
+	if !strings.HasPrefix(s.ServiceGroup, "Microsoft.Azure.ARO.") {
+		return &InvalidServiceGroupError{ServiceGroup: s.ServiceGroup}
+	}
+
+	parts := strings.Split(s.ServiceGroup, ".")
+	if len(parts) < 4 || len(parts) > 6 {
+		return &InvalidServiceGroupError{ServiceGroup: s.ServiceGroup}
+	}
+
+	if parts[3] != "Classic" && parts[3] != "HCP" {
+		return &InvalidServiceGroupError{ServiceGroup: s.ServiceGroup}
+	}
+
 	if v.seen.Has(s.ServiceGroup) {
 		v.duplicates.Insert(s.ServiceGroup)
 	}
