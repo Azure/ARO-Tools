@@ -15,6 +15,7 @@ resourceGroups:
       configRef: .svc.subscription.airsRegisteredUserPrincipalId
     certificateDomains:
       configRef: .svc.subscription.certificateDomains
+    roleAssignment: 'test.bicepparam'
   steps:
   - name: deploy
     action: Shell
@@ -182,6 +183,7 @@ resourceGroups:
   subscriptionProvisioning:
     displayName:
       configRef: .svc.subscription.displayName
+    roleAssignment: 'test.bicepparam'
   steps:
     - name: image-mirror-ii
       action: ImageMirror

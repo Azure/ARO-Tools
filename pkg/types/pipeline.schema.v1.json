@@ -147,10 +147,14 @@
                             },
                             "certificateDomains": {
                                 "$ref": "#/definitions/value"
+                            },
+                            "roleAssignment": {
+                                "type": "string"
                             }
                         },
                         "required": [
-                            "displayName"
+                            "displayName",
+                            "roleAssignment"
                         ]
                     },
                     "steps": {
