@@ -17,23 +17,23 @@ func TestValidate(t *testing.T) {
 		{
 			name: "happy path",
 			input: `entrypoints:
-- identifier: a.b.c
+- identifier: Microsoft.Azure.ARO.HCP.Whatever.Child
 services:
-- serviceGroup: a.b
+- serviceGroup: Microsoft.Azure.ARO.HCP
   pipelinePath: foo
   purpose: stuff
   children:
-  - serviceGroup: a.b.c
+  - serviceGroup: Microsoft.Azure.ARO.HCP.Whatever
     pipelinePath: foo
     purpose: stuff
     children:
-    - serviceGroup: a.b.c.d
+    - serviceGroup: Microsoft.Azure.ARO.HCP.Whatever.Child
       pipelinePath: foo
       purpose: stuff
-  - serviceGroup: a.b.C
+  - serviceGroup: Microsoft.Azure.ARO.HCP.Other
     pipelinePath: foo
     purpose: stuff
-- serviceGroup: A.B
+- serviceGroup: Microsoft.Azure.ARO.Classic.Thing
   pipelinePath: foo
   purpose: stuff`,
 			err: false,
@@ -41,23 +41,23 @@ services:
 		{
 			name: "duplicate service group",
 			input: `entrypoints:
-- identifier: a.b.c
+- identifier: Microsoft.Azure.ARO.HCP.Whatever.Child
 services:
-- serviceGroup: a.b
+- serviceGroup: Microsoft.Azure.ARO.HCP
   pipelinePath: foo
   purpose: stuff
   children:
-  - serviceGroup: a.b.c
+  - serviceGroup: Microsoft.Azure.ARO.HCP.Whatever
     pipelinePath: foo
     purpose: stuff
     children:
-    - serviceGroup: a.b.c.d
+    - serviceGroup: Microsoft.Azure.ARO.HCP.Whatever.Child
       pipelinePath: foo
       purpose: stuff
-  - serviceGroup: a.b.c.d
+  - serviceGroup: Microsoft.Azure.ARO.HCP.Whatever
     pipelinePath: foo
     purpose: stuff
-- serviceGroup: A.B
+- serviceGroup: Microsoft.Azure.ARO.HCP.Classic.Thing
   pipelinePath: foo
   purpose: stuff`,
 			err: true,
@@ -65,23 +65,23 @@ services:
 		{
 			name: "missing entrypoint",
 			input: `entrypoints:
-- identifier: a.b.c.d.e
+- identifier: Microsoft.Azure.ARO.HCP.Whatever.Missing
 services:
-- serviceGroup: a.b
+- serviceGroup: Microsoft.Azure.ARO.HCP
   pipelinePath: foo
   purpose: stuff
   children:
-  - serviceGroup: a.b.c
+  - serviceGroup: Microsoft.Azure.ARO.HCP.Whatever
     pipelinePath: foo
     purpose: stuff
     children:
-    - serviceGroup: a.b.c.d
+    - serviceGroup: Microsoft.Azure.ARO.HCP.Whatever.Child
       pipelinePath: foo
       purpose: stuff
-  - serviceGroup: a.b.c.d
+  - serviceGroup: Microsoft.Azure.ARO.HCP.Other
     pipelinePath: foo
     purpose: stuff
-- serviceGroup: A.B
+- serviceGroup: Microsoft.Azure.ARO.HCP.Classic.Thing
   pipelinePath: foo
   purpose: stuff`,
 			err: true,
@@ -91,21 +91,21 @@ services:
 			input: `entrypoints:
 - identifier: ''
 services:
-- serviceGroup: a.b
+- serviceGroup: Microsoft.Azure.ARO.HCP
   pipelinePath: foo
   purpose: stuff
   children:
-  - serviceGroup: a.b.c
+  - serviceGroup: Microsoft.Azure.ARO.HCP.Whatever
     pipelinePath: foo
     purpose: stuff
     children:
-    - serviceGroup: a.b.c.d
+    - serviceGroup: Microsoft.Azure.ARO.HCP.Whatever.Child
       pipelinePath: foo
       purpose: stuff
-  - serviceGroup: a.b.c.d
+  - serviceGroup: Microsoft.Azure.ARO.HCP.Other
     pipelinePath: foo
     purpose: stuff
-- serviceGroup: A.B
+- serviceGroup: Microsoft.Azure.ARO.Classic.Thing
   pipelinePath: foo
   purpose: stuff`,
 			err: true,
@@ -113,14 +113,14 @@ services:
 		{
 			name: "empty purpose, no metadata",
 			input: `services:
-- serviceGroup: a.b
+- serviceGroup: Microsoft.Azure
   pipelinePath: foo`,
 			err: true,
 		},
 		{
 			name: "empty purpose, empty key in metadata",
 			input: `services:
-- serviceGroup: a.b
+- serviceGroup: Microsoft.Azure.ARO.HCP.Whatever
   pipelinePath: foo
   metadata:
     purpose: ''`,
@@ -129,7 +129,7 @@ services:
 		{
 			name: "empty purpose, defaults from metadata",
 			input: `services:
-- serviceGroup: a.b
+- serviceGroup: Microsoft.Azure.ARO.HCP.Whatever
   pipelinePath: foo
   metadata:
     purpose: stuff`,
@@ -138,14 +138,14 @@ services:
 		{
 			name: "empty pipeline, no metadata",
 			input: `services:
-- serviceGroup: a.b
+- serviceGroup: Microsoft.Azure.ARO.HCP.Whatever
   purpose: stuff`,
 			err: true,
 		},
 		{
 			name: "empty pipeline, empty key in metadata",
 			input: `services:
-- serviceGroup: a.b
+- serviceGroup: Microsoft.Azure.ARO.HCP.Whatever
   purpose: stuff
   metadata:
     pipeline: ''`,
@@ -154,11 +154,47 @@ services:
 		{
 			name: "empty pipeline, defaults from metadata",
 			input: `services:
-- serviceGroup: a.b
+- serviceGroup: Microsoft.Azure.ARO.HCP.Whatever
   purpose: stuff
   metadata:
     pipeline: foo`,
 			err: false,
+		},
+		{
+			name: "invalid service group prefix",
+			input: `services:
+- serviceGroup: Microsoft.Azure.ContainerService.Something.Other
+  purpose: stuff
+  metadata:
+    pipeline: foo`,
+			err: true,
+		},
+		{
+			name: "invalid service group component",
+			input: `services:
+- serviceGroup: Microsoft.Azure.ARO.Oops.Doops.Troops
+  purpose: stuff
+  metadata:
+    pipeline: foo`,
+			err: true,
+		},
+		{
+			name: "missing service group component",
+			input: `services:
+- serviceGroup: Microsoft.Azure.ARO.
+  purpose: stuff
+  metadata:
+    pipeline: foo`,
+			err: true,
+		},
+		{
+			name: "too many nested service group components",
+			input: `services:
+- serviceGroup: Microsoft.Azure.ARO.HCP.Whatever.Child.Thing
+  purpose: stuff
+  metadata:
+    pipeline: foo`,
+			err: true,
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -189,12 +225,12 @@ func TestDependency_Lookup(t *testing.T) {
 		{
 			name: "missing",
 			input: `services:
-- serviceGroup: a.b
+- serviceGroup: Microsoft.Azure
   children:
-  - serviceGroup: a.b.c
+  - serviceGroup: Microsoft.Azure.ARO
     children:
-    - serviceGroup: a.b.c.d
-  - serviceGroup: a.b.C
+    - serviceGroup: Microsoft.Azure.ARO.HCP
+  - serviceGroup: Microsoft.Azure.C
 - serviceGroup: A.B`,
 			identifier: "1.2.3",
 			err:        true,
@@ -203,27 +239,27 @@ func TestDependency_Lookup(t *testing.T) {
 		{
 			name: "top-level",
 			input: `services:
-- serviceGroup: a.b
+- serviceGroup: Microsoft.Azure
   children:
-  - serviceGroup: a.b.c
+  - serviceGroup: Microsoft.Azure.ARO
     children:
-    - serviceGroup: a.b.c.d
-  - serviceGroup: a.b.C
+    - serviceGroup: Microsoft.Azure.ARO.HCP
+  - serviceGroup: Microsoft.Azure.C
 - serviceGroup: A.B`,
-			identifier: "a.b",
+			identifier: "Microsoft.Azure",
 			expected: &Service{
-				ServiceGroup: "a.b",
+				ServiceGroup: "Microsoft.Azure",
 				Children: []Service{
 					{
-						ServiceGroup: "a.b.c",
+						ServiceGroup: "Microsoft.Azure.ARO",
 						Children: []Service{
 							{
-								ServiceGroup: "a.b.c.d",
+								ServiceGroup: "Microsoft.Azure.ARO.HCP",
 							},
 						},
 					},
 					{
-						ServiceGroup: "a.b.C",
+						ServiceGroup: "Microsoft.Azure.C",
 					},
 				},
 			},
@@ -231,19 +267,19 @@ func TestDependency_Lookup(t *testing.T) {
 		{
 			name: "mid-level",
 			input: `services:
-- serviceGroup: a.b
+- serviceGroup: Microsoft.Azure
   children:
-  - serviceGroup: a.b.c
+  - serviceGroup: Microsoft.Azure.ARO
     children:
-    - serviceGroup: a.b.c.d
-  - serviceGroup: a.b.C
+    - serviceGroup: Microsoft.Azure.ARO.HCP
+  - serviceGroup: Microsoft.Azure.C
 - serviceGroup: A.B`,
-			identifier: "a.b.c",
+			identifier: "Microsoft.Azure.ARO",
 			expected: &Service{
-				ServiceGroup: "a.b.c",
+				ServiceGroup: "Microsoft.Azure.ARO",
 				Children: []Service{
 					{
-						ServiceGroup: "a.b.c.d",
+						ServiceGroup: "Microsoft.Azure.ARO.HCP",
 					},
 				},
 			},
@@ -251,16 +287,16 @@ func TestDependency_Lookup(t *testing.T) {
 		{
 			name: "leaf",
 			input: `services:
-- serviceGroup: a.b
+- serviceGroup: Microsoft.Azure
   children:
-  - serviceGroup: a.b.c
+  - serviceGroup: Microsoft.Azure.ARO
     children:
-    - serviceGroup: a.b.c.d
-  - serviceGroup: a.b.C
+    - serviceGroup: Microsoft.Azure.ARO.HCP
+  - serviceGroup: Microsoft.Azure.C
 - serviceGroup: A.B`,
-			identifier: "a.b.c.d",
+			identifier: "Microsoft.Azure.ARO.HCP",
 			expected: &Service{
-				ServiceGroup: "a.b.c.d",
+				ServiceGroup: "Microsoft.Azure.ARO.HCP",
 			},
 		},
 	} {
