@@ -2,6 +2,7 @@
     "$schema": "http://json-schema.org/draft-07/schema#",
     "title": "pipeline.schema.v1",
     "type": "object",
+    "additionalProperties": false,
     "definitions": {
         "staticVariableValue": {
             "oneOf": [
@@ -117,6 +118,9 @@
         }
     },
     "properties": {
+        "$schema": {
+            "type": "string"
+        },
         "serviceGroup": {
             "type": "string"
         },
@@ -543,6 +547,21 @@
                     "subscription",
                     "steps"
                 ]
+            }
+        },
+        "buildStep": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "command": {
+                    "type": "string"
+                },
+                "args": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
             }
         }
     },
