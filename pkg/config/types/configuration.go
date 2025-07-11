@@ -8,6 +8,15 @@ import (
 // Configuration is the top-level container for all values for all services. See an example at: https://github.com/Azure/ARO-HCP/blob/main/config/config.yaml
 type Configuration map[string]any
 
+type MissingKeyError struct {
+	Path string
+	Key  string
+}
+
+func (e MissingKeyError) Error() string {
+	return fmt.Sprintf("configuration%s: key %s not found", e.Path, e.Key)
+}
+
 func (v Configuration) GetByPath(path string) (any, error) {
 	keys := strings.Split(path, ".")
 	var current any = map[string]any(v)
@@ -17,7 +26,7 @@ func (v Configuration) GetByPath(path string) (any, error) {
 		if m, ok := current.(map[string]any); ok {
 			current, ok = m[key]
 			if !ok {
-				return nil, fmt.Errorf("configuration%s: key %s not found", currentPath, key)
+				return nil, &MissingKeyError{Path: currentPath, Key: key}
 			}
 		} else {
 			return nil, fmt.Errorf("configuration%s: expected nested map, found %T; cannot index with %s", currentPath, current, key)
