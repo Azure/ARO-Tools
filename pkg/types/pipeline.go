@@ -57,8 +57,6 @@ func NewPipelineFromFile(pipelineFilePath string, cfg types2.Configuration) (*Pi
 		return nil, fmt.Errorf("failed to preprocess pipeline file: %w", err)
 	}
 
-	fmt.Println(string(bytes))
-
 	var pipeline Pipeline
 	if err := yaml.Unmarshal(bytes, &pipeline); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal pipeline file: %w", err)
