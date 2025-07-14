@@ -55,8 +55,10 @@ resourceGroups:
     issuer:
       configRef: provider
     name: issuerTest
-    secretId:
-      configRef: ev2.assistedId.certificate
+    secretKeyVault:
+      configRef: ev2.assistedId.certificate.keyVault
+    secretName:
+      configRef: ev2.assistedId.certificate.name
     vaultBaseUrl:
       configRef: vaultBaseUrl
   - action: SetCertificateIssuer
@@ -67,8 +69,10 @@ resourceGroups:
     issuer:
       value: provider
     name: issuerTestOutputChaining
-    secretId:
-      configRef: ev2.assistedId.certificate
+    secretKeyVault:
+      configRef: ev2.assistedId.certificate.keyVault
+    secretName:
+      configRef: ev2.assistedId.certificate.name
     vaultBaseUrl:
       input:
         name: kvUrl
@@ -85,8 +89,10 @@ resourceGroups:
     name: cert
     san:
       value: hcp-mdsd.geneva.keyvault.aro-int.azure.com
-    secretId:
-      configRef: ev2.assistedId.certificate
+    secretKeyVault:
+      configRef: ev2.assistedId.certificate.keyVault
+    secretName:
+      configRef: ev2.assistedId.certificate.name
     vaultBaseUrl:
       value: https://arohcp-svc-ln.vault.azure.net
   - action: ResourceProviderRegistration
@@ -118,8 +124,10 @@ resourceGroups:
     name: rpAccount
     namespace:
       value: ns
-    secretId:
-      configRef: geneva.logs.rp.accountCert
+    secretKeyVault:
+      configRef: ev2.assistedId.certificate.keyVault
+    secretName:
+      configRef: ev2.assistedId.certificate.name
     subscriptionId:
       value: sub
     typeName:
@@ -146,8 +154,10 @@ resourceGroups:
     name: clusterAccount
     namespace:
       value: ns
-    secretId:
-      configRef: geneva.logs.cluster.accountCert
+    secretKeyVault:
+      configRef: ev2.assistedId.certificate.keyVault
+    secretName:
+      configRef: ev2.assistedId.certificate.name
     subscriptionId:
       value: sub
     typeName:
@@ -183,6 +193,10 @@ resourceGroups:
     featureFlags:
       configRef: svc.subscription.afecFlags
     name: register-afec-flags
+    secretKeyVault:
+      configRef: ev2.assistedId.certificate.keyVault
+    secretName:
+      configRef: ev2.assistedId.certificate.name
   - action: ImageMirror
     digest:
       value: digest

@@ -68,11 +68,12 @@ func (s *DelegateChildZoneStep) Description() string {
 }
 
 type SetCertificateIssuerStep struct {
-	StepMeta      `json:",inline"`
-	VaultBaseUrl  Value `json:"vaultBaseUrl,omitempty"`
-	Issuer        Value `json:"issuer,omitempty"`
-	SecretId      Value `json:"secretId,omitempty"`
-	ApplicationId Value `json:"applicationId,omitempty"`
+	StepMeta       `json:",inline"`
+	VaultBaseUrl   Value `json:"vaultBaseUrl,omitempty"`
+	Issuer         Value `json:"issuer,omitempty"`
+	SecretKeyVault Value `json:"secretKeyVault,omitempty"`
+	SecretName     Value `json:"secretName,omitempty"`
+	ApplicationId  Value `json:"applicationId,omitempty"`
 }
 
 func (s *SetCertificateIssuerStep) Description() string {
@@ -86,7 +87,8 @@ type CreateCertificateStep struct {
 	ContentType     Value `json:"contentType,omitempty"`
 	SAN             Value `json:"san,omitempty"`
 	Issuer          Value `json:"issuer,omitempty"`
-	SecretId        Value `json:"secretId,omitempty"`
+	SecretKeyVault  Value `json:"secretKeyVault,omitempty"`
+	SecretName      Value `json:"secretName,omitempty"`
 	ApplicationId   Value `json:"applicationId,omitempty"`
 }
 
@@ -106,7 +108,8 @@ func (s *ResourceProviderRegistrationStep) Description() string {
 type LogsStep struct {
 	StepMeta        `json:",inline"`
 	TypeName        Value             `json:"typeName"`
-	SecretId        Value             `json:"secretId"`
+	SecretKeyVault  Value             `json:"secretKeyVault,omitempty"`
+	SecretName      Value             `json:"secretName,omitempty"`
 	Environment     Value             `json:"environment"`
 	AccountName     Value             `json:"accountName"`
 	MetricsAccount  Value             `json:"metricsAccount"`
@@ -125,8 +128,10 @@ func (s *LogsStep) Description() string {
 }
 
 type FeatureRegistrationStep struct {
-	StepMeta     `json:",inline"`
-	FeatureFlags Value `json:"featureFlags,omitempty"`
+	StepMeta       `json:",inline"`
+	SecretKeyVault Value `json:"secretKeyVault,omitempty"`
+	SecretName     Value `json:"secretName,omitempty"`
+	FeatureFlags   Value `json:"featureFlags,omitempty"`
 }
 
 func (s *FeatureRegistrationStep) Description() string {
