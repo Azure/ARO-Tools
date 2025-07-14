@@ -529,6 +529,29 @@
                                         "pullSecretName",
                                         "shellIdentity"
                                     ]
+                                },
+                                {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                        "name": {
+                                            "type": "string"
+                                        },
+                                        "action": {
+                                            "const": "FeatureRegistration"
+                                        },
+                                        "featureFlags" : {
+                                            "$ref": "#/definitions/value"
+                                        },
+                                        "dependsOn": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "featureFlags"
+                                    ]
                                 }
                             ],
                             "required": [
