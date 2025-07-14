@@ -11,6 +11,10 @@ defaults:
       certificateDomains:
         - "*.aro-hcp.app.io"
         - "something-else"
+      afecFlags:
+        - a
+        - b
+        - c
   managementClusterSubscription: hcp-{{ .ctx.region }}
   globalRG: global
   regionRG: hcp-underlay-{{ .ctx.regionShort }}

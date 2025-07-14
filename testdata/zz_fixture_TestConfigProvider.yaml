@@ -46,6 +46,10 @@ serviceClusterRG: hcp-underlay-uks-svc
 serviceClusterSubscription: hcp-uksouth
 svc:
   subscription:
+    afecFlags:
+    - a
+    - b
+    - c
     airsRegisteredUserPrincipalId: some-uuid
     certificateDomains:
     - '*.aro-hcp.app.io'
