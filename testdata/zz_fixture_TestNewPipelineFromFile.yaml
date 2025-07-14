@@ -179,6 +179,10 @@ resourceGroups:
     roleAssignment: test.bicepparam
 - name: global
   steps:
+  - action: FeatureRegistration
+    featureFlags:
+      configRef: svc.subscription.afecFlags
+    name: register-afec-flags
   - action: ImageMirror
     digest:
       value: digest

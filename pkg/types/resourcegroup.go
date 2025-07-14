@@ -74,6 +74,8 @@ func (s *Steps) UnmarshalJSON(data []byte) error {
 			step = &ImageMirrorStep{}
 		case "RPLogsAccount", "ClusterLogsAccount":
 			step = &LogsStep{}
+		case "FeatureRegistration":
+			step = &FeatureRegistrationStep{}
 		default:
 			step = &GenericStep{}
 		}
