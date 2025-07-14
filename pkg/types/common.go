@@ -123,3 +123,12 @@ type LogsStep struct {
 func (s *LogsStep) Description() string {
 	return fmt.Sprintf("Step %s\n Kind: %s\n", s.Name, s.Action)
 }
+
+type FeatureRegistrationStep struct {
+	StepMeta     `json:",inline"`
+	FeatureFlags Value `json:"featureFlags,omitempty"`
+}
+
+func (s *FeatureRegistrationStep) Description() string {
+	return fmt.Sprintf("Step %s\n Kind: %s\n", s.Name, s.Action)
+}

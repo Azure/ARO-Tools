@@ -185,6 +185,10 @@ resourceGroups:
       configRef: .svc.subscription.displayName
     roleAssignment: 'test.bicepparam'
   steps:
+    - name: register-afec-flags
+      action: FeatureRegistration
+      featureFlags:
+        configRef: svc.subscription.afecFlags
     - name: image-mirror-ii
       action: ImageMirror
       targetACR:
