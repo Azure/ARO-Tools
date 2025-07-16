@@ -137,3 +137,15 @@ type FeatureRegistrationStep struct {
 func (s *FeatureRegistrationStep) Description() string {
 	return fmt.Sprintf("Step %s\n Kind: %s\n", s.Name, s.Action)
 }
+
+type KustoStep struct {
+	StepMeta         `json:",inline"`
+	SecretId         Value `json:"secretId,omitempty"`
+	ApplicationId    Value `json:"applicationId,omitempty"`
+	ConnectionString Value `json:"connectionString,omitempty"`
+	Command          Value `json:"command,omitempty"`
+}
+
+func (s *KustoStep) Description() string {
+	return fmt.Sprintf("Step %s\n Kind: %s\n", s.Name, s.Action)
+}
