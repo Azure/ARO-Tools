@@ -1,5 +1,9 @@
 $schema: schema.json
 defaults:
+  global:
+    subscriptionId: 5299e6b7-b23b-46c8-8277-dc1147807117
+    rg: global-shared-resources
+    globalMSIName: global-ev2-identity
   aroDevopsMsiId: '/subscriptions/9a53d80e-dae0-4c8a-af90-30575d253127/resourceGroups/global-shared-resources/providers/Microsoft.ManagedIdentity/userAssignedIdentities/global-ev2-identity'
   region: '{{ .ctx.region  }}'
   serviceClusterSubscription: hcp-{{ .ctx.region }}

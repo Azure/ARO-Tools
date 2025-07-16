@@ -22,16 +22,20 @@ resourceGroups:
     command: make deploy
     aksCluster: '{{ .aksName  }}'
     subnetName: '{{ .subnetName }}'
-    shellIdentity:
-      configRef: aroDevopsMsiId
+    identity:
+      subscription: "{{ .global.subscriptionId }}"
+      resourceGroup: "{{ .global.rg }}"
+      name: "{{ .global.globalMSIName }}"
     variables:
     - name: MAESTRO_IMAGE
       configRef: maestro_image
   - name: dry-run
     action: Shell
     command: make deploy
-    shellIdentity:
-      configRef: aroDevopsMsiId
+    identity:
+      subscription: "{{ .global.subscriptionId }}"
+      resourceGroup: "{{ .global.rg }}"
+      name: "{{ .global.globalMSIName }}"
     dryRun:
       variables:
       - name: DRY_RUN
@@ -187,8 +191,10 @@ resourceGroups:
       value: pullSecretKeyVault
     pullSecretName:
       value: pullSecretName
-    shellIdentity:
-      value: shellIdentity
+    identity:
+      subscription: "{{ .global.subscriptionId }}"
+      resourceGroup: "{{ .global.rg }}"
+      name: "{{ .global.globalMSIName }}"
 - name: '{{ .globalRG  }}'
   subscription: '{{ .managementClusterSubscription }}'
   subscriptionProvisioning:
@@ -218,5 +224,7 @@ resourceGroups:
         value: pullSecretKeyVault
       pullSecretName:
         value: pullSecretName
-      shellIdentity:
-        value: shellIdentity
+      identity:
+        subscription: "{{ .global.subscriptionId }}"
+        resourceGroup: "{{ .global.rg }}"
+        name: "{{ .global.globalMSIName }}"

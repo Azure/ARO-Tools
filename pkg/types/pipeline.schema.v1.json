@@ -17,6 +17,26 @@
                 }
             ]
         },
+        "identityReference": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "subscription": {
+                    "type": "string"
+                },
+                "resourceGroup": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "subscription",
+                "resourceGroup",
+                "name"
+            ]
+        },
         "value": {
             "type": "object",
             "additionalProperties": false,
@@ -241,8 +261,8 @@
                                         "subnetName": {
                                             "type": "string"
                                         },
-                                        "shellIdentity": {
-                                            "$ref": "#/definitions/value"
+                                        "identity": {
+                                            "$ref": "#/definitions/identityReference"
                                         },
                                         "dependsOn": {
                                             "type": "array",
@@ -522,8 +542,8 @@
                                         "pullSecretName" : {
                                             "$ref":  "#/definitions/value"
                                         },
-                                        "shellIdentity" :  {
-                                            "$ref":  "#/definitions/value"
+                                        "identity" :  {
+                                            "$ref": "#/definitions/identityReference"
                                         },
                                         "dependsOn": {
                                             "type": "array",
@@ -539,7 +559,7 @@
                                         "digest",
                                         "pullSecretKeyVault",
                                         "pullSecretName",
-                                        "shellIdentity"
+                                        "identity"
                                     ]
                                 },
                                 {
