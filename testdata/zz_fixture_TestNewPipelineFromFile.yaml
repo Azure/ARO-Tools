@@ -13,6 +13,7 @@ resourceGroups:
     name: deploy
     shellIdentity:
       configRef: aroDevopsMsiId
+    subnetName: subnet
     variables:
     - configRef: maestro_image
       name: MAESTRO_IMAGE

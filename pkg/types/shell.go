@@ -25,7 +25,7 @@ type ShellStep struct {
 	Variables     []Variable  `json:"variables,omitempty"`
 	DryRun        DryRun      `json:"dryRun,omitempty"`
 	References    []Reference `json:"references,omitempty"`
-	SubnetId      string      `json:"subnetId,omitempty"`
+	SubnetName    string      `json:"subnetName,omitempty"`
 	ShellIdentity Value       `json:"shellIdentity,omitempty"`
 }
 

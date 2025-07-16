@@ -22,6 +22,7 @@ defaults:
   managementClusterRG: hcp-underlay-{{ .ctx.regionShort }}-mgmt-{{ .ctx.stamp }}
   imageSyncRG: hcp-underlay-{{ .ctx.regionShort }}-imagesync
   aksName: aro-hcp-aks
+  subnetName: subnet
   clustersService:
     imageTag: abcdef
     replicas: 3
