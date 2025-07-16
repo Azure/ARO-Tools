@@ -21,6 +21,7 @@ resourceGroups:
     action: Shell
     command: make deploy
     aksCluster: '{{ .aksName  }}'
+    subnetName: '{{ .subnetName }}'
     shellIdentity:
       configRef: aroDevopsMsiId
     variables:
