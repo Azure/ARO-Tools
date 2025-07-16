@@ -46,6 +46,7 @@ region: uksouth
 regionRG: hcp-underlay-uks
 serviceClusterRG: hcp-underlay-uks-svc
 serviceClusterSubscription: hcp-uksouth
+subnetName: subnet
 svc:
   subscription:
     afecFlags:

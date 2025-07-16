@@ -238,7 +238,7 @@
                                                 "$ref": "#/definitions/variable"
                                             }
                                         },
-                                        "subnetId": {
+                                        "subnetName": {
                                             "type": "string"
                                         },
                                         "shellIdentity": {
