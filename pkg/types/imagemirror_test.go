@@ -39,11 +39,7 @@ func TestResolveImageMirrorStep(t *testing.T) {
 				Digest:             Value{Value: "sha256:123456"},
 				PullSecretKeyVault: Value{Value: "my-keyvault"},
 				PullSecretName:     Value{Value: "my-pull-secret"},
-				ShellIdentity: Identity{
-					Subscription:  "uuid",
-					ResourceGroup: "rg",
-					Name:          "my-identity",
-				},
+				ShellIdentity:      Value{Value: "my-identity"},
 			},
 			scriptFile: "/path/to/script.sh",
 		},
