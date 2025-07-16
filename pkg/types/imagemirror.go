@@ -28,13 +28,13 @@ var OnDemandSyncScript []byte
 type ImageMirrorStep struct {
 	StepMeta `json:",inline"`
 
-	TargetACR          Value    `json:"targetACR,omitempty"`
-	SourceRegistry     Value    `json:"sourceRegistry,omitempty"`
-	Repository         Value    `json:"repository,omitempty"`
-	Digest             Value    `json:"digest,omitempty"`
-	PullSecretKeyVault Value    `json:"pullSecretKeyVault,omitempty"`
-	PullSecretName     Value    `json:"pullSecretName,omitempty"`
-	ShellIdentity      Identity `json:"identity,omitempty"`
+	TargetACR          Value `json:"targetACR,omitempty"`
+	SourceRegistry     Value `json:"sourceRegistry,omitempty"`
+	Repository         Value `json:"repository,omitempty"`
+	Digest             Value `json:"digest,omitempty"`
+	PullSecretKeyVault Value `json:"pullSecretKeyVault,omitempty"`
+	PullSecretName     Value `json:"pullSecretName,omitempty"`
+	ShellIdentity      Value `json:"shellIdentity,omitempty"`
 }
 
 func (s *ImageMirrorStep) Description() string {
@@ -129,7 +129,7 @@ func (s *ImageMirrorStep) WithPullSecretName(pullSecretName Value) *ImageMirrorS
 }
 
 // WithShellIdentity fluent method that sets ShellIdentity.
-func (s *ImageMirrorStep) WithShellIdentity(shellIdentity Identity) *ImageMirrorStep {
+func (s *ImageMirrorStep) WithShellIdentity(shellIdentity Value) *ImageMirrorStep {
 	s.ShellIdentity = shellIdentity
 	return s
 }
