@@ -26,7 +26,13 @@ type ShellStep struct {
 	DryRun        DryRun      `json:"dryRun,omitempty"`
 	References    []Reference `json:"references,omitempty"`
 	SubnetName    string      `json:"subnetName,omitempty"`
-	ShellIdentity Value       `json:"shellIdentity,omitempty"`
+	ShellIdentity Identity    `json:"identity,omitempty"`
+}
+
+type Identity struct {
+	Subscription  string `json:"subscription,omitempty"`
+	ResourceGroup string `json:"resourceGroup,omitempty"`
+	Name          string `json:"name,omitempty"`
 }
 
 // Reference represents a configurable reference
