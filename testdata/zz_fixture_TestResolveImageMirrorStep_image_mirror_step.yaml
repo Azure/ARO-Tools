@@ -4,11 +4,9 @@ dryRun:
   variables:
   - name: DRY_RUN
     value: "true"
-identity:
-  name: my-identity
-  resourceGroup: rg
-  subscription: uuid
 name: image-mirror-step
+shellIdentity:
+  value: my-identity
 variables:
 - name: TARGET_ACR
   value: myacr.azurecr.io
