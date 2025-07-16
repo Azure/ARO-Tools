@@ -10,11 +10,9 @@ resourceGroups:
     aksCluster: aro-hcp-aks
     command: make deploy
     dryRun: {}
-    identity:
-      name: global-ev2-identity
-      resourceGroup: global-shared-resources
-      subscription: 5299e6b7-b23b-46c8-8277-dc1147807117
     name: deploy
+    shellIdentity:
+      configRef: aroDevopsMsiId
     subnetName: subnet
     variables:
     - configRef: maestro_image
@@ -29,11 +27,9 @@ resourceGroups:
         value: "3"
       - name: FROM_EV2_CORE
         value: vault.azure.net
-    identity:
-      name: global-ev2-identity
-      resourceGroup: global-shared-resources
-      subscription: 5299e6b7-b23b-46c8-8277-dc1147807117
     name: dry-run
+    shellIdentity:
+      configRef: aroDevopsMsiId
   - action: ARM
     deploymentLevel: ResourceGroup
     name: svc
@@ -170,10 +166,6 @@ resourceGroups:
   - action: ImageMirror
     digest:
       value: digest
-    identity:
-      name: global-ev2-identity
-      resourceGroup: global-shared-resources
-      subscription: 5299e6b7-b23b-46c8-8277-dc1147807117
     name: image-mirror
     pullSecretKeyVault:
       value: pullSecretKeyVault
@@ -181,6 +173,8 @@ resourceGroups:
       value: pullSecretName
     repository:
       value: repository
+    shellIdentity:
+      value: shellIdentity
     sourceRegistry:
       value: sourceRegistry
     targetACR:
@@ -207,10 +201,6 @@ resourceGroups:
   - action: ImageMirror
     digest:
       value: digest
-    identity:
-      name: global-ev2-identity
-      resourceGroup: global-shared-resources
-      subscription: 5299e6b7-b23b-46c8-8277-dc1147807117
     name: image-mirror-ii
     pullSecretKeyVault:
       value: pullSecretKeyVault
@@ -218,6 +208,8 @@ resourceGroups:
       value: pullSecretName
     repository:
       value: repository
+    shellIdentity:
+      value: shellIdentity
     sourceRegistry:
       value: sourceRegistry
     targetACR:
