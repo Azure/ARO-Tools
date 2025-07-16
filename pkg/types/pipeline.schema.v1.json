@@ -422,6 +422,111 @@
                                             "type": "string"
                                         },
                                         "action": {
+                                            "const": "Kusto"
+                                        },
+                                        "secretKeyVault": {
+                                            "$ref": "#/definitions/value"
+                                        },
+                                        "secretName": {
+                                            "$ref": "#/definitions/value"
+                                        },                                    
+                                        "applicationId": {
+                                            "$ref": "#/definitions/value"
+                                        },
+                                        "connectionString": {
+                                            "$ref": "#/definitions/value"
+                                        },
+                                        "command": {
+                                            "$ref": "#/definitions/value"
+                                        },                                                                                                                                                             
+                                        "dependsOn": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "secretKeyVault",
+                                        "secretName",
+                                        "applicationId",
+                                        "connectionString",
+                                        "command"
+                                    ]
+                                },    
+                                {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                        "name": {
+                                            "type": "string"
+                                        },
+                                        "action": {
+                                            "const": "Pav2ManageAppId"
+                                        },
+                                        "secretKeyVault": {
+                                            "$ref": "#/definitions/value"
+                                        },
+                                        "secretName": {
+                                            "$ref": "#/definitions/value"
+                                        },                                    
+                                        "smeAppidParameter": {
+                                            "$ref": "#/definitions/value"
+                                        },                                                                                                                                                       
+                                        "dependsOn": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "secretKeyVault",
+                                        "secretName",
+                                        "smeAppidParameter"
+                                    ]
+                                },
+                                {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                        "name": {
+                                            "type": "string"
+                                        },
+                                        "action": {
+                                            "const": "Pav2AddAccount"
+                                        },
+                                        "secretKeyVault": {
+                                            "$ref": "#/definitions/value"
+                                        },
+                                        "secretName": {
+                                            "$ref": "#/definitions/value"
+                                        },
+                                        "storageAccount": {
+                                            "$ref": "#/definitions/value"
+                                        },
+                                        "smeEndpointSuffixParameter": {
+                                            "$ref": "#/definitions/value"
+                                        },                                                                                                                                                    
+                                        "dependsOn": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "secretKeyVault",
+                                        "secretName",
+                                        "storageAccount",
+                                        "smeEndpointSuffixParameter"
+                                    ]
+                                },                                                             
+                                {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                        "name": {
+                                            "type": "string"
+                                        },
+                                        "action": {
                                             "type": "string",
                                             "enum": ["RPLogsAccount", "ClusterLogsAccount"]
                                         },

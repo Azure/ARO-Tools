@@ -64,6 +64,9 @@ defaults:
   kusto:
     resourceGroup: aro-kusto-public-int-us
     cluster: aroINT
+  storage:
+    accountName: arotestaccount
+    storageSuffix: aro-int
 clouds:
   fairfax:
     defaults:
