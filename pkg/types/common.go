@@ -137,3 +137,13 @@ type FeatureRegistrationStep struct {
 func (s *FeatureRegistrationStep) Description() string {
 	return fmt.Sprintf("Step %s\n Kind: %s\n", s.Name, s.Action)
 }
+
+type ProviderFeatureRegistrationStep struct {
+	StepMeta          `json:",inline"`
+	ProviderConfigRef string `json:"providerConfigRef,omitempty"`
+	IdentityFrom      Input  `json:"identityFrom,omitempty"`
+}
+
+func (s *ProviderFeatureRegistrationStep) Description() string {
+	return fmt.Sprintf("Step %s\n Kind: %s\n", s.Name, s.Action)
+}
