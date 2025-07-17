@@ -47,8 +47,9 @@ func (s *ImageMirrorStep) Description() string {
 func ResolveImageMirrorStep(input ImageMirrorStep, scriptFile string) (*ShellStep, error) {
 	return &ShellStep{
 		StepMeta: StepMeta{
-			Name:   input.Name,
-			Action: "Shell",
+			Name:      input.Name,
+			Action:    "Shell",
+			DependsOn: input.DependsOn,
 		},
 		Command: fmt.Sprintf("/bin/bash %s", scriptFile),
 		Variables: []Variable{
