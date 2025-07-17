@@ -417,6 +417,41 @@
                                             "type": "string"
                                         },
                                         "action": {
+                                            "const": "Kusto"
+                                        },
+                                        "secretId": {
+                                            "$ref": "#/definitions/value"
+                                        },
+                                        "applicationId": {
+                                            "$ref": "#/definitions/value"
+                                        },
+                                        "connectionString": {
+                                            "$ref": "#/definitions/value"
+                                        },
+                                        "command": {
+                                            "$ref": "#/definitions/value"
+                                        },                                                                                                                                                             
+                                        "dependsOn": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "secretId",
+                                        "applicationId",
+                                        "connectionString",
+                                        "command"
+                                    ]
+                                },                                
+                                {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                        "name": {
+                                            "type": "string"
+                                        },
+                                        "action": {
                                             "type": "string",
                                             "enum": ["RPLogsAccount", "ClusterLogsAccount"]
                                         },

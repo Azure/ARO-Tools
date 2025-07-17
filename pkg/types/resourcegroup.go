@@ -76,6 +76,8 @@ func (s *Steps) UnmarshalJSON(data []byte) error {
 			step = &LogsStep{}
 		case "FeatureRegistration":
 			step = &FeatureRegistrationStep{}
+		case "Kusto":
+			step = &KustoStep{}
 		default:
 			step = &GenericStep{}
 		}
