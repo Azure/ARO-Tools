@@ -19,6 +19,8 @@ import (
 	"os"
 	"regexp"
 	"strings"
+
+	"sigs.k8s.io/yaml"
 )
 
 const (
@@ -143,7 +145,16 @@ func WrapYAML(data []byte) ([]byte, error) {
 		}
 	}
 
-	return []byte(strings.Join(lines, "\n")), nil
+	result := []byte(strings.Join(lines, "\n"))
+
+	// Validate that the wrapped output is valid YAML
+	var unmarshalTarget any
+	err := yaml.Unmarshal(result, &unmarshalTarget)
+	if err != nil {
+		return nil, fmt.Errorf("wrapped result is not valid YAML: %w", err)
+	}
+
+	return result, nil
 }
 
 func UnwrapYAML(data []byte) ([]byte, error) {
@@ -210,7 +221,8 @@ func UnwrapYAML(data []byte) ([]byte, error) {
 		}
 	}
 
-	return []byte(strings.Join(lines, "\n")), nil
+	result := []byte(strings.Join(lines, "\n"))
+	return result, nil
 }
 
 // isQuoted checks if a string is surrounded by quotes
