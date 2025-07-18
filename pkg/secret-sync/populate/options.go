@@ -107,19 +107,9 @@ func (o *ValidatedOptions) Complete() (*Options, error) {
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
 
-	keyVaultCfg, exists := cfg.KeyVaults[o.KeyVault]
-	if !exists {
-		return nil, fmt.Errorf("populate %s does not exist in encryption config", o.KeyVault)
-	}
-
 	completed, err := o.ValidatedOptions.Complete()
 	if err != nil {
 		return nil, err
-	}
-
-	creds, err := cmdutils.GetAzureTokenCredentials()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create azure credentials: %w", err)
 	}
 
 	ev2Cfg, err := ev2config.ResolveConfig(string(completed.Cloud), "uksouth") // n.b. region is not important
@@ -138,6 +128,16 @@ func (o *ValidatedOptions) Complete() (*Options, error) {
 	}
 
 	keyVaultURI := fmt.Sprintf("https://%s.%s", o.KeyVault, keyVaultDNSSuffix)
+
+	keyVaultCfg, exists := cfg.KeyVaults[keyVaultURI]
+	if !exists {
+		return nil, fmt.Errorf("keyvault %s does not exist in encryption config", keyVaultURI)
+	}
+
+	creds, err := cmdutils.GetAzureTokenCredentials()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create azure credentials: %w", err)
+	}
 
 	clientOpts := azcore.ClientOptions{
 		Cloud: completed.Configuration,
