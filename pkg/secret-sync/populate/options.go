@@ -15,7 +15,6 @@ import (
 	"github.com/Azure/ARO-Tools/pkg/secret-sync/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azkeys"
 	"github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azsecrets"
 )
@@ -116,7 +115,7 @@ func (o *ValidatedOptions) Complete() (*Options, error) {
 		return nil, err
 	}
 
-	creds, err := azidentity.NewDefaultAzureCredential(nil)
+	creds, err := cmdutils.GetAzureTokenCredentials()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create azure credentials: %w", err)
 	}
