@@ -112,9 +112,14 @@ func (o *ValidatedOptions) Complete() (*Options, error) {
 		return nil, err
 	}
 
-	ev2Cfg, err := ev2config.ResolveConfig(string(completed.Cloud), "uksouth") // n.b. region is not important
+	ev2Cloud := completed.Cloud
+	if ev2Cloud == cmdutils.RolloutCloudDev {
+		ev2Cloud = cmdutils.RolloutCloudPublic
+	}
+
+	ev2Cfg, err := ev2config.ResolveConfig(string(ev2Cloud), "uksouth") // n.b. region is not important
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve ev2 config for %s: %w", completed.Cloud, err)
+		return nil, fmt.Errorf("failed to resolve ev2 config for %s: %w", ev2Cloud, err)
 	}
 
 	rawKeyVaultDNSSuffix, err := ev2Cfg.GetByPath("keyVault.domainNameSuffix")
