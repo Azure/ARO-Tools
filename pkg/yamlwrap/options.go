@@ -24,15 +24,13 @@ import (
 
 func DefaultOptions() *RawOptions {
 	return &RawOptions{
-		InPlace:       true,
 		ReplaceOutput: false,
 	}
 }
 
 func BindOptions(opts *RawOptions, cmd *cobra.Command) error {
-	cmd.Flags().BoolVar(&opts.InPlace, "in-place", opts.InPlace, "Process the file in place.")
 	cmd.Flags().StringVar(&opts.InputPath, "input", opts.InputPath, "Path to the input file.")
-	cmd.Flags().StringVar(&opts.OutputPath, "output", opts.OutputPath, "Path to the output file.")
+	cmd.Flags().StringVar(&opts.OutputPath, "output", opts.OutputPath, "Path to the output file (defaults to input file).")
 	cmd.Flags().BoolVar(&opts.ReplaceOutput, "replace-output", opts.ReplaceOutput, "Replace the output file if it exists.")
 	for _, flag := range []string{
 		"input",
@@ -49,7 +47,6 @@ func BindOptions(opts *RawOptions, cmd *cobra.Command) error {
 type RawOptions struct {
 	InputPath     string
 	OutputPath    string
-	InPlace       bool
 	ReplaceOutput bool
 }
 
@@ -86,32 +83,15 @@ func (o *RawOptions) Validate() (*ValidatedOptions, error) {
 		return nil, fmt.Errorf("input file %q does not exist: %w", o.InputPath, err)
 	}
 
-	// check that either output path or in-place is specified, but not both
-	if o.OutputPath != "" && o.InPlace {
-		return nil, fmt.Errorf("--output and --in-place are mutually exclusive, specify only one")
-	}
-
-	// check that at least one is specified
-	if o.OutputPath == "" && !o.InPlace {
-		return nil, fmt.Errorf("either --output or --in-place must be specified")
-	}
-
-	var outputPath string
-	if o.InPlace {
+	// default output to input if not specified
+	outputPath := o.OutputPath
+	if outputPath == "" {
 		outputPath = o.InputPath
-	} else {
-		outputPath = o.OutputPath
+	}
 
-		if stat, err := os.Stat(outputPath); err == nil {
-			if !o.ReplaceOutput {
-				return nil, fmt.Errorf("output file %q already exists, use --replace-output to overwrite", outputPath)
-			}
-			if stat.IsDir() {
-				return nil, fmt.Errorf("output path %q is a directory, cannot overwrite", outputPath)
-			}
-		} else if !os.IsNotExist(err) {
-			return nil, fmt.Errorf("failed to check output file %q: %w", outputPath, err)
-		}
+	// check if output file exists and handle replacement
+	if _, err := os.Stat(outputPath); err == nil && !o.ReplaceOutput {
+		return nil, fmt.Errorf("output file %q already exists, use --replace-output to overwrite", outputPath)
 	}
 
 	return &ValidatedOptions{
