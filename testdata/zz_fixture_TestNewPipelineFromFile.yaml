@@ -190,14 +190,20 @@ resourceGroups:
     roleAssignment: test.bicepparam
 - name: global
   steps:
-  - action: FeatureRegistration
-    featureFlags:
-      configRef: svc.subscription.afecFlags
-    name: register-afec-flags
-    secretKeyVault:
-      configRef: ev2.assistedId.certificate.keyVault
-    secretName:
-      configRef: ev2.assistedId.certificate.name
+  - action: ProviderFeatureRegistration
+    identityFrom:
+      name: whatever
+      step: deploy
+    name: register-providers-afec-flags
+    providerConfigRef: svc.subscription.displayName
+  - action: SecretSync
+    configurationFile: data/encryptedsecrets/config.yaml
+    encryptionKey: secretSyncKey
+    identityFrom:
+      name: whatever
+      step: deploy
+    keyVault: arohcpint-global
+    name: sync-secrets
   - action: ImageMirror
     digest:
       value: digest

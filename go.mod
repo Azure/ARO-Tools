@@ -3,6 +3,13 @@ module github.com/Azure/ARO-Tools
 go 1.24.0
 
 require (
+	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.18.1
+	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.10.1
+	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armfeatures v1.2.0
+	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources/v3 v3.0.0
+	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azkeys v1.4.0
+	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azsecrets v1.4.0
+	github.com/go-logr/logr v1.4.2
 	github.com/google/go-cmp v0.7.0
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.1
 	github.com/spf13/cobra v1.9.1
@@ -20,6 +27,9 @@ require (
 	github.com/Antonboom/errname v1.1.0 // indirect
 	github.com/Antonboom/nilnil v1.1.0 // indirect
 	github.com/Antonboom/testifylint v1.6.0 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/internal v1.11.1 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/internal v1.2.0 // indirect
+	github.com/AzureAD/microsoft-authentication-library-for-go v1.4.2 // indirect
 	github.com/BurntSushi/toml v1.5.0 // indirect
 	github.com/Crocmagnon/fatcontext v0.7.1 // indirect
 	github.com/Djarvur/go-err113 v0.0.0-20210108212216-aea10b59be24 // indirect
@@ -77,6 +87,7 @@ require (
 	github.com/go-xmlfmt/xmlfmt v1.1.3 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gofrs/flock v0.12.1 // indirect
+	github.com/golang-jwt/jwt/v5 v5.2.3 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/golangci/dupl v0.0.0-20250308024227-f665c8d69b32 // indirect
 	github.com/golangci/go-printf-func-name v0.1.0 // indirect
@@ -87,6 +98,7 @@ require (
 	github.com/golangci/plugin-module-register v0.1.1 // indirect
 	github.com/golangci/revgrep v0.8.0 // indirect
 	github.com/golangci/unconvert v0.0.0-20240309020433-c5143eacb3ed // indirect
+	github.com/google/uuid v1.6.0 // indirect
 	github.com/gordonklaus/ineffassign v0.1.0 // indirect
 	github.com/gostaticanalysis/analysisutil v0.7.1 // indirect
 	github.com/gostaticanalysis/comment v1.5.0 // indirect
@@ -107,6 +119,7 @@ require (
 	github.com/kkHAIKE/contextcheck v1.1.6 // indirect
 	github.com/kulti/thelper v0.6.3 // indirect
 	github.com/kunwardeep/paralleltest v1.0.10 // indirect
+	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/lasiar/canonicalheader v1.1.2 // indirect
 	github.com/ldez/exptostd v0.4.2 // indirect
 	github.com/ldez/gomoddirectives v0.6.1 // indirect
@@ -136,6 +149,7 @@ require (
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.3 // indirect
+	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/polyfloyd/go-errorlint v1.7.1 // indirect
 	github.com/prometheus/client_golang v1.12.1 // indirect
@@ -191,12 +205,14 @@ require (
 	go.uber.org/automaxprocs v1.6.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.24.0 // indirect
+	golang.org/x/crypto v0.40.0 // indirect
 	golang.org/x/exp/typeparams v0.0.0-20250210185358-939b2ce775ac // indirect
-	golang.org/x/mod v0.24.0 // indirect
-	golang.org/x/sync v0.14.0 // indirect
-	golang.org/x/sys v0.31.0 // indirect
-	golang.org/x/text v0.25.0 // indirect
-	golang.org/x/tools v0.31.0 // indirect
+	golang.org/x/mod v0.25.0 // indirect
+	golang.org/x/net v0.42.0 // indirect
+	golang.org/x/sync v0.16.0 // indirect
+	golang.org/x/sys v0.34.0 // indirect
+	golang.org/x/text v0.27.0 // indirect
+	golang.org/x/tools v0.34.0 // indirect
 	google.golang.org/protobuf v1.36.5 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
