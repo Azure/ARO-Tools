@@ -17,25 +17,28 @@
                 }
             ]
         },
+        "input": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "step": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "step",
+                "name"
+            ]
+        },
         "value": {
             "type": "object",
             "additionalProperties": false,
             "properties": {
                 "input": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "properties": {
-                        "step": {
-                            "type": "string"
-                        },
-                        "name": {
-                            "type": "string"
-                        }
-                    },
-                    "required": [
-                        "step",
-                        "name"
-                    ]
+                    "$ref": "#/definitions/input"
                 },
                 "configRef": {
                     "type": "string"
@@ -571,6 +574,68 @@
                                         "secretKeyVault",
                                         "secretName",
                                         "featureFlags"
+                                    ]
+                                },
+                                {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                        "name": {
+                                            "type": "string"
+                                        },
+                                        "action": {
+                                            "const": "ProviderFeatureRegistration"
+                                        },
+                                        "providerConfigRef" : {
+                                            "type": "string"
+                                        },
+                                        "identityFrom" : {
+                                            "$ref": "#/definitions/input"
+                                        },
+                                        "dependsOn": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "providerConfigRef",
+                                        "identityFrom"
+                                    ]
+                                },
+                                {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                        "name": {
+                                            "type": "string"
+                                        },
+                                        "action": {
+                                            "const": "SecretSync"
+                                        },
+                                        "configurationFile" : {
+                                            "type": "string"
+                                        },
+                                        "encryptionKey" : {
+                                            "type": "string"
+                                        },
+                                        "keyVault" : {
+                                            "type": "string"
+                                        },
+                                        "identityFrom" : {
+                                            "$ref": "#/definitions/input"
+                                        },
+                                        "dependsOn": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "configurationFile",
+                                        "encryptionKey",
+                                        "keyVault",
+                                        "identityFrom"
                                     ]
                                 }
                             ],

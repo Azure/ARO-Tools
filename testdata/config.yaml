@@ -16,6 +16,9 @@ defaults:
         - b
         - c
   managementClusterSubscription: hcp-{{ .ctx.region }}
+  global:
+    keyVault:
+      name: 'arohcp{{ .ctx.environment }}-global'
   globalRG: global
   regionRG: hcp-underlay-{{ .ctx.regionShort }}
   serviceClusterRG: hcp-underlay-{{ .ctx.regionShort }}-svc
