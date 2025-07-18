@@ -2,6 +2,8 @@ package populate
 
 import (
 	"context"
+	"crypto/aes"
+	"crypto/cipher"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -28,7 +30,7 @@ func DefaultOptions() *RawOptions {
 func BindOptions(opts *RawOptions, cmd *cobra.Command) error {
 	cmd.Flags().StringVar(&opts.ConfigFile, "config-file", opts.ConfigFile, "Configuration for what to register, encoded as a JSON string.")
 	cmd.Flags().StringVar(&opts.KeyVault, "keyvault", opts.KeyVault, "KeyVault URI into which we will populate secrets.")
-	cmd.Flags().StringVar(&opts.EncryptionKey, "encryption-key", opts.EncryptionKey, "Name of encryption key to use in KeyVault.")
+	cmd.Flags().StringVar(&opts.KeyEncryptionKey, "key-encryption-key", opts.KeyEncryptionKey, "Name of key encryption key in KeyVault.")
 	for _, flag := range []string{"config-file"} {
 		if err := cmd.MarkFlagFilename(flag); err != nil {
 			return fmt.Errorf("failed to mark flag %q as a file: %w", flag, err)
@@ -40,9 +42,9 @@ func BindOptions(opts *RawOptions, cmd *cobra.Command) error {
 // RawOptions holds input values.
 type RawOptions struct {
 	*cmdutils.RawOptions
-	KeyVault      string
-	EncryptionKey string
-	ConfigFile    string
+	KeyVault         string
+	KeyEncryptionKey string
+	ConfigFile       string
 }
 
 // validatedOptions is a private wrapper that enforces a call of Validate() before Complete() can be invoked.
@@ -58,9 +60,9 @@ type ValidatedOptions struct {
 
 // completedOptions is a private wrapper that enforces a call of Complete() before Config generation can be invoked.
 type completedOptions struct {
-	KeyVaultURI   string
-	Config        config.KeyVault
-	EncryptionKey string
+	KeyVaultURI      string
+	Config           config.KeyVault
+	KeyEncryptionKey string
 
 	SecretsClient *azsecrets.Client
 	KeysClient    *azkeys.Client
@@ -79,7 +81,7 @@ func (o *RawOptions) Validate() (*ValidatedOptions, error) {
 	}{
 		{flag: "config-file", name: "configuration file", value: &o.ConfigFile},
 		{flag: "keyvault", name: "Azure KeyVault URI", value: &o.KeyVault},
-		{flag: "encryption-key", name: "Azure KeyVault encryption key name", value: &o.EncryptionKey},
+		{flag: "key-encryption-key", name: "Azure KeyVault key encryption key name", value: &o.KeyEncryptionKey},
 	} {
 		if item.value == nil || *item.value == "" {
 			return nil, fmt.Errorf("the %s must be provided with --%s", item.name, item.flag)
@@ -93,7 +95,7 @@ func (o *RawOptions) Validate() (*ValidatedOptions, error) {
 
 	return &ValidatedOptions{
 		validatedOptions: &validatedOptions{
-			RawOptions: o,
+			RawOptions:       o,
 			ValidatedOptions: validated,
 		},
 	}, nil
@@ -152,11 +154,11 @@ func (o *ValidatedOptions) Complete() (*Options, error) {
 
 	return &Options{
 		completedOptions: &completedOptions{
-			KeyVaultURI:   keyVaultURI,
-			Config:        keyVaultCfg,
-			EncryptionKey: o.EncryptionKey,
-			SecretsClient: secretsClient,
-			KeysClient:    keysClient,
+			KeyVaultURI:      keyVaultURI,
+			Config:           keyVaultCfg,
+			KeyEncryptionKey: o.KeyEncryptionKey,
+			SecretsClient:    secretsClient,
+			KeysClient:       keysClient,
 		},
 	}, nil
 }
@@ -167,27 +169,49 @@ func (opts *Options) Populate(ctx context.Context) error {
 		return fmt.Errorf("failed to create logger: %w", err)
 	}
 
-	logger = logger.WithValues("keyvault", opts.KeyVaultURI, "encryptionKey", opts.EncryptionKey)
+	logger = logger.WithValues("keyvault", opts.KeyVaultURI, "encryptionKey", opts.KeyEncryptionKey)
 	logger.Info("Populating secrets.")
 
-	for name, data := range opts.Config.EncryptedSecrets {
+	for name, secret := range opts.Config.EncryptedSecrets {
 		secretLogger := logger.WithValues("secret", name)
 
-		secretLogger.Info("Decrypting secret.")
-		rawData, err := base64.StdEncoding.DecodeString(data)
+		secretLogger.Info("Decrypting data encryption key.")
+		secretCiphertext, err := base64.StdEncoding.DecodeString(secret.Data)
 		if err != nil {
 			return fmt.Errorf("failed to decode raw data: %w", err)
 		}
 
-		decrypted, err := opts.KeysClient.Decrypt(ctx, opts.EncryptionKey, "",
+		dataEncryptionKeyCiphertext, err := base64.StdEncoding.DecodeString(secret.DataEncryptionKey)
+		if err != nil {
+			return fmt.Errorf("failed to decode raw data: %w", err)
+		}
+
+		dataEncryptionKey, err := opts.KeysClient.Decrypt(ctx, opts.KeyEncryptionKey, "",
 			azkeys.KeyOperationParameters{
 				Algorithm: to.Ptr(azkeys.EncryptionAlgorithmRSAOAEP256),
-				Value:     rawData,
+				Value:     dataEncryptionKeyCiphertext,
 			},
 			&azkeys.DecryptOptions{},
 		)
 		if err != nil {
-			return fmt.Errorf("failed to decrypt %s: %w", name, err)
+			return fmt.Errorf("failed to decrypt data encryption key %s: %w", name, err)
+		}
+
+		secretLogger.Info("Decrypting secret data.")
+
+		dataEncryptionBlock, err := aes.NewCipher(dataEncryptionKey.Result)
+		if err != nil {
+			return fmt.Errorf("failed to create AES cipher from data encryption key: %w", err)
+		}
+
+		aesgcm, err := cipher.NewGCMWithRandomNonce(dataEncryptionBlock)
+		if err != nil {
+			return fmt.Errorf("failed to create GCM cipher: %w", err)
+		}
+
+		secretPlaintext, err := aesgcm.Open(nil, nil, secretCiphertext, nil)
+		if err != nil {
+			return fmt.Errorf("failed to decrypt data: %w", err)
 		}
 
 		currentSecret, err := opts.SecretsClient.GetSecret(ctx, name, "", nil)
@@ -196,14 +220,14 @@ func (opts *Options) Populate(ctx context.Context) error {
 			return fmt.Errorf("failed to get secret %s: %w", name, err)
 		}
 
-		if currentSecret.Value != nil && *currentSecret.Value == string(decrypted.Result) {
+		if currentSecret.Value != nil && *currentSecret.Value == string(secretPlaintext) {
 			secretLogger.Info("Secret value up-to-date.")
 			continue
 		}
 
 		secretLogger.Info("Populating secret.")
 		if _, err := opts.SecretsClient.SetSecret(ctx, name, azsecrets.SetSecretParameters{
-			Value: to.Ptr(string(decrypted.Result)),
+			Value: to.Ptr(string(secretPlaintext)),
 		}, nil); err != nil {
 			return fmt.Errorf("failed to set secret %s: %w", name, err)
 		}

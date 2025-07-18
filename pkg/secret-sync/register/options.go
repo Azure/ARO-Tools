@@ -2,6 +2,8 @@ package register
 
 import (
 	"context"
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
@@ -118,7 +120,7 @@ func (o *ValidatedOptions) Complete() (*Options, error) {
 		return nil, fmt.Errorf("keyvault %s does not exist in encryption config and no public key file specified to bootstrap it", o.KeyVault)
 	}
 
-	if keyVaultCfg.PublicKeyData == "" && o.PublicKeyFile == "" {
+	if keyVaultCfg.KeyEncryptionKey == "" && o.PublicKeyFile == "" {
 		return nil, fmt.Errorf("no public key recorded for key vault in encryption config and no public key file specified")
 	}
 
@@ -173,48 +175,67 @@ func (opts *Options) Register(ctx context.Context) error {
 		logger.Info("Adding KeyVault to encryption config.")
 	}
 
-	if keyVault.PublicKeyData == "" {
+	if keyVault.KeyEncryptionKey == "" {
 		rawData, err := os.ReadFile(opts.PublicKeyFile)
 		if err != nil {
 			return fmt.Errorf("failed to read public key file %s: %w", opts.PublicKeyFile, err)
 		}
-		keyVault.PublicKeyData = string(rawData)
+		keyVault.KeyEncryptionKey = string(rawData)
 		logger.Info("Updated public key.")
 	}
 
-	block, _ := pem.Decode([]byte(keyVault.PublicKeyData))
-	if block == nil {
+	keyEncryptionBlock, _ := pem.Decode([]byte(keyVault.KeyEncryptionKey))
+	if keyEncryptionBlock == nil {
 		return fmt.Errorf("decoding public key yielded a nil block")
 	}
-	if block.Type != "PUBLIC KEY" {
-		return fmt.Errorf("decoding public key yielded a %s block, expected a PUBLIC KEY", block.Type)
+	if keyEncryptionBlock.Type != "PUBLIC KEY" {
+		return fmt.Errorf("decoding public key yielded a %s block, expected a PUBLIC KEY", keyEncryptionBlock.Type)
 	}
 
-	pkix, err := x509.ParsePKIXPublicKey(block.Bytes)
+	pkix, err := x509.ParsePKIXPublicKey(keyEncryptionBlock.Bytes)
 	if err != nil {
 		return fmt.Errorf("error while parsing public key: %w", err)
 	}
 
-	publicKey, ok := pkix.(*rsa.PublicKey)
+	keyEncryptionKey, ok := pkix.(*rsa.PublicKey)
 	if !ok {
 		return fmt.Errorf("expected an RSA public key, got %T", pkix)
 	}
 
-	label := []byte{}
-	rng := rand.Reader
+	dataEncryptionKey := make([]byte, 32)
+	if _, err = rand.Read(dataEncryptionKey); err != nil {
+		return fmt.Errorf("failed to read entropy when generating data encryption key: %w", err)
+	}
 
-	encrypted, err := rsa.EncryptOAEP(sha256.New(), rng, publicKey, opts.Secret, label)
+	dataEncryptionBlock, err := aes.NewCipher(dataEncryptionKey)
+	if err != nil {
+		return fmt.Errorf("failed to create AES cipher from data encryption key: %w", err)
+	}
+
+	aesgcm, err := cipher.NewGCMWithRandomNonce(dataEncryptionBlock)
+	if err != nil {
+		return fmt.Errorf("failed to create GCM cipher: %w", err)
+	}
+
+	secretCiphertext := aesgcm.Seal(nil, nil, opts.Secret, nil)
+	encodedSecretCiphertext := make([]byte, base64.StdEncoding.EncodedLen(len(secretCiphertext)))
+	base64.StdEncoding.Encode(encodedSecretCiphertext, secretCiphertext)
+
+	dataEncryptionKeyCiphertext, err := rsa.EncryptOAEP(sha256.New(), rand.Reader, keyEncryptionKey, dataEncryptionKey, nil)
 	if err != nil {
 		return fmt.Errorf("error while encrypting data: %w", err)
 	}
 
-	encodedChunk := make([]byte, base64.StdEncoding.EncodedLen(len(encrypted)))
-	base64.StdEncoding.Encode(encodedChunk, encrypted)
+	encodedDataEncryptionKeyCiphertext := make([]byte, base64.StdEncoding.EncodedLen(len(dataEncryptionKeyCiphertext)))
+	base64.StdEncoding.Encode(encodedDataEncryptionKeyCiphertext, dataEncryptionKeyCiphertext)
 
 	if keyVault.EncryptedSecrets == nil {
-		keyVault.EncryptedSecrets = map[string]string{}
+		keyVault.EncryptedSecrets = map[string]config.EncryptedSecret{}
 	}
-	keyVault.EncryptedSecrets[opts.SecretName] = string(encodedChunk)
+	keyVault.EncryptedSecrets[opts.SecretName] = config.EncryptedSecret{
+		DataEncryptionKey: string(encodedDataEncryptionKeyCiphertext),
+		Data:              string(encodedSecretCiphertext),
+	}
 
 	if opts.Config.KeyVaults == nil {
 		opts.Config.KeyVaults = map[string]config.KeyVault{}
