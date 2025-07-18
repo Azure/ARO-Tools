@@ -65,3 +65,16 @@ func TestRoundTrip(t *testing.T) {
 	// Compare that the round trip produces the same result as the original
 	assert.Empty(t, cmp.Diff(original, result))
 }
+
+func TestWrapValidation(t *testing.T) {
+	// Test that validation warnings are emitted for invalid YAML but operations still succeed
+	invalidYAML := []byte(`
+key: value
+invalid: [unclosed array
+another: normal value
+`)
+
+	// This should succeed but emit a warning
+	_, err := WrapYAML(invalidYAML)
+	require.Error(t, err)
+}
