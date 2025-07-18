@@ -196,6 +196,11 @@ resourceGroups:
       step: deploy
     name: register-providers-afec-flags
     providerConfigRef: svc.subscription.displayName
+  - action: SecretSync
+    configurationFile: data/encryptedsecrets/config.yaml
+    encryptionKey: secretSyncKey
+    keyVault: arohcpint-global
+    name: sync-secrets
   - action: ImageMirror
     digest:
       value: digest

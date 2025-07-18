@@ -202,6 +202,11 @@ resourceGroups:
         step: deploy
         name: whatever
       providerConfigRef: svc.subscription.displayName
+    - name: sync-secrets
+      action: SecretSync
+      keyVault: '{{ .global.keyVault.name }}'
+      configurationFile: 'data/encryptedsecrets/config.yaml'
+      encryptionKey: 'secretSyncKey'
     - name: image-mirror-ii
       action: ImageMirror
       targetACR:

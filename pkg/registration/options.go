@@ -33,7 +33,7 @@ type Feature struct {
 
 func DefaultOptions() *RawOptions {
 	return &RawOptions{
-		RawOptions: &cmdutils.RawOptions{},
+		RawOptions:    &cmdutils.RawOptions{},
 		PollFrequency: 10 * time.Second,
 		PollDuration:  5 * time.Minute,
 	}
