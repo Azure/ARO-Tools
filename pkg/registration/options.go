@@ -14,7 +14,6 @@ import (
 	"github.com/Azure/ARO-Tools/pkg/cmdutils"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
-	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armfeatures"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources/v3"
 )
@@ -121,7 +120,7 @@ func (o *ValidatedOptions) Complete() (*Options, error) {
 		return nil, err
 	}
 
-	creds, err := azidentity.NewDefaultAzureCredential(nil)
+	creds, err := cmdutils.GetAzureTokenCredentials()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create azure credentials: %w", err)
 	}
