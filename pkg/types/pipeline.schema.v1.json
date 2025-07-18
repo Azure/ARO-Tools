@@ -621,6 +621,9 @@
                                         "keyVault" : {
                                             "type": "string"
                                         },
+                                        "identityFrom" : {
+                                            "$ref": "#/definitions/input"
+                                        },
                                         "dependsOn": {
                                             "type": "array",
                                             "items": {
@@ -631,7 +634,8 @@
                                     "required": [
                                         "configurationFile",
                                         "encryptionKey",
-                                        "keyVault"
+                                        "keyVault",
+                                        "identityFrom"
                                     ]
                                 }
                             ],

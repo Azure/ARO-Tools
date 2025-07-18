@@ -199,6 +199,9 @@ resourceGroups:
   - action: SecretSync
     configurationFile: data/encryptedsecrets/config.yaml
     encryptionKey: secretSyncKey
+    identityFrom:
+      name: whatever
+      step: deploy
     keyVault: arohcpint-global
     name: sync-secrets
   - action: ImageMirror

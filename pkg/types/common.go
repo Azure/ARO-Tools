@@ -153,6 +153,7 @@ type SecretSyncStep struct {
 	ConfigurationFile string `json:"configurationFile,omitempty"`
 	KeyVault          string `json:"keyVault,omitempty"`
 	EncryptionKey     string `json:"encryptionKey,omitempty"`
+	IdentityFrom      Input  `json:"identityFrom,omitempty"`
 }
 
 func (s *SecretSyncStep) Description() string {
