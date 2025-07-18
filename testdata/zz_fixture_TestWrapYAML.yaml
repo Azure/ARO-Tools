@@ -7,6 +7,29 @@ singleQuotedStringWithComment: 'quoted string string with comment' # comment
 quotedStringWithHash: "string # don't confuse this for a comment"
 quotedStringWithHashAndComment: "string # don't confuse this for a comment" # comment
 
+# special yaml quoting
+blockLiteral: |
+  This is a block literal.
+  It can span multiple lines.
+  {{ .blockLiteralTemplate }}
+blockFolded: >
+  This is a folded block.
+  It also supports templates like {{ .blockFoldedTemplate }}.
+blockLiteralWithTemplate: |
+  Some text before
+  {{ .blockLiteralWithTemplate }}
+  Some text after
+blockFoldedWithTemplate: >
+  Some text before
+  {{ .blockFoldedWithTemplate }}
+  Some text after
+blockLiteralWithComment: | # comment about block literal
+  Block with comment
+  {{ .blockLiteralWithComment }}
+blockFoldedWithComment: > # comment about block folded
+  Folded with comment
+  {{ .blockFoldedWithComment }}
+
 # int
 integer: 123
 integerComment: 123 # comment
