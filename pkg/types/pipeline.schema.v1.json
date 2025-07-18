@@ -602,6 +602,37 @@
                                         "providerConfigRef",
                                         "identityFrom"
                                     ]
+                                },
+                                {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                        "name": {
+                                            "type": "string"
+                                        },
+                                        "action": {
+                                            "const": "SecretSync"
+                                        },
+                                        "configurationFile" : {
+                                            "type": "string"
+                                        },
+                                        "encryptionKey" : {
+                                            "type": "string"
+                                        },
+                                        "keyVault" : {
+                                            "type": "string"
+                                        },
+                                        "dependsOn": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "configurationFile",
+                                        "encryptionKey",
+                                        "keyVault"
+                                    ]
                                 }
                             ],
                             "required": [

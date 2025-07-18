@@ -147,3 +147,14 @@ type ProviderFeatureRegistrationStep struct {
 func (s *ProviderFeatureRegistrationStep) Description() string {
 	return fmt.Sprintf("Step %s\n Kind: %s\n", s.Name, s.Action)
 }
+
+type SecretSyncStep struct {
+	StepMeta          `json:",inline"`
+	ConfigurationFile string `json:"configurationFile,omitempty"`
+	KeyVault          string `json:"keyVault,omitempty"`
+	EncryptionKey     string `json:"encryptionKey,omitempty"`
+}
+
+func (s *SecretSyncStep) Description() string {
+	return fmt.Sprintf("Step %s\n Kind: %s\n", s.Name, s.Action)
+}

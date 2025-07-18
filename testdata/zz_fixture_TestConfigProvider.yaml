@@ -31,6 +31,9 @@ geneva:
       account: clusterMetricsAccount
     rp:
       account: rpMetricsAccount
+global:
+  keyVault:
+    name: arohcpint-global
 globalRG: global
 imageSyncRG: hcp-underlay-uks-imagesync
 kusto:
