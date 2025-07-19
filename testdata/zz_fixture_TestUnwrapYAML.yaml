@@ -45,6 +45,10 @@ array:
 - item-with-tmpl-{{ .value }}
 - item-with-colon-and-template:{{ .Values.metricsPort }}
 
+objectArray:
+- port: {{ .name }}-http
+  targetPort: {{ .port }}
+
 # templates
 unquotedTemplate: {{ .value }}
 unquotedTemplateWithComment: {{ .value }} # comment

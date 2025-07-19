@@ -32,13 +32,13 @@ var (
 	// templatePattern matches Go template expressions like {{ .foo.bar }}
 	// Examples: {{ .value }}, {{.Values.name}}, {{ range .items }}
 	templatePattern = regexp.MustCompile(`{{\s*[^}]+\s*}}`)
-	// yamlLinePattern matches YAML field assignments or array items
-	// Captures the prefix (including : or -) and the value after it
-	// Examples: "key: value" -> captures "key:" and "value"
-	//           "- item" -> captures "-" and "item"
-	//           "  nested: {{ .template }}" -> captures "  nested:" and "{{ .template }}"
-	// Note: Array items are matched first (just the dash) to handle cases like "- item:value"
-	yamlLinePattern = regexp.MustCompile(`^(\s*-|\s*[^:]+:)\s*(.*)$`)
+
+	// yamlLinePattern inspired by the sed approach (:|-) but enhanced for complex values
+	// Captures YAML structure markers and the content that follows
+	// Examples: "key: value" -> captures "key: " and "value"
+	//           "  - item" -> captures "  - " and "item"
+	//           "- key: value" -> captures "- key: " and "value"
+	yamlLinePattern = regexp.MustCompile(`^(\s*[^:\-\s]+:\s|\s*-\s+[^:\s]+:\s|\s*-\s)(.*)$`)
 )
 
 func WrapFile(inputPath string, outputPath string) error {
@@ -94,7 +94,7 @@ func WrapYAML(data []byte) ([]byte, error) {
 			continue
 		}
 
-		// Match YAML field assignments or array items
+		// match YAML field assignments or array items
 		match := yamlLinePattern.FindStringSubmatch(line)
 		if len(match) < 3 {
 			continue
@@ -103,7 +103,7 @@ func WrapYAML(data []byte) ([]byte, error) {
 		prefix := match[1] // "key:" or "-"
 		value := match[2]  // everything after the colon or dash
 
-		// Check if the value contains templates
+		// check if the value contains templates
 		if !templatePattern.MatchString(value) {
 			continue
 		}
@@ -124,11 +124,11 @@ func WrapYAML(data []byte) ([]byte, error) {
 			// Wrap the unquoted value
 			wrappedValue := "\"" + valueContent + "\""
 
-			// Add wrapper marker
+			// Add wrapper marker (prefix already includes space)
 			if comment != "" {
-				lines[i] = prefix + " " + wrappedValue + " " + comment + " " + WrapperMarker
+				lines[i] = prefix + wrappedValue + " " + comment + " " + WrapperMarker
 			} else {
-				lines[i] = prefix + " " + wrappedValue + " # " + WrapperMarker
+				lines[i] = prefix + wrappedValue + " # " + WrapperMarker
 			}
 		}
 	}
@@ -164,12 +164,12 @@ func UnwrapYAML(data []byte) ([]byte, error) {
 		prefix := match[1] // "key:" or "-"
 		value := match[2]  // everything after the colon or dash
 
-		// Remove the wrapper marker from the line
+		// remove the wrapper marker from the line
 		cleanValue := strings.Replace(value, " "+WrapperMarker, "", 1)
 		cleanValue = strings.Replace(cleanValue, WrapperMarker, "", 1)
 		cleanValue = strings.TrimSpace(cleanValue)
 
-		// Check if there's a comment
+		// check if there's a comment
 		commentPos := strings.Index(cleanValue, "#")
 		var valueContent, comment string
 		if commentPos != -1 {
@@ -180,9 +180,9 @@ func UnwrapYAML(data []byte) ([]byte, error) {
 			comment = ""
 		}
 
-		// Remove quotes if the value is quoted (since we only wrap unquoted values)
+		// remove quotes if the value is quoted (since we only wrap unquoted values)
 		if isQuoted(valueContent) {
-			// Remove outer quotes
+			// remove outer quotes
 			valueContent = strings.TrimSpace(valueContent)
 			if strings.HasPrefix(valueContent, "\"") && strings.HasSuffix(valueContent, "\"") {
 				valueContent = valueContent[1 : len(valueContent)-1]
@@ -191,11 +191,11 @@ func UnwrapYAML(data []byte) ([]byte, error) {
 			}
 		}
 
-		// Reconstruct the line
+		// reconstruct the line (prefix already includes space)
 		if comment != "" && strings.TrimSpace(comment) != "#" {
-			lines[i] = prefix + " " + valueContent + " " + comment
+			lines[i] = prefix + valueContent + " " + comment
 		} else {
-			lines[i] = prefix + " " + valueContent
+			lines[i] = prefix + valueContent
 		}
 	}
 

@@ -45,6 +45,10 @@ array:
 - "item-with-tmpl-{{ .value }}" # __WRAPPED_TEMPLATE__
 - "item-with-colon-and-template:{{ .Values.metricsPort }}" # __WRAPPED_TEMPLATE__
 
+objectArray:
+- port: "{{ .name }}-http" # __WRAPPED_TEMPLATE__
+  targetPort: "{{ .port }}" # __WRAPPED_TEMPLATE__
+
 # templates
 unquotedTemplate: "{{ .value }}" # __WRAPPED_TEMPLATE__
 unquotedTemplateWithComment: "{{ .value }}" # comment __WRAPPED_TEMPLATE__
