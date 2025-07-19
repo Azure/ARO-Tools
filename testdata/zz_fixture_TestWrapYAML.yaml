@@ -43,7 +43,7 @@ array:
 - item1
 - item2
 - "item-with-tmpl-{{ .value }}" # __WRAPPED_TEMPLATE__
-- "item-with-colon-and-template:{{ .Values.metricsPort }}" # __WRAPPED_TEMPLATE__
+- item-with-colon-and-template:"{{ .Values.metricsPort }}" # __WRAPPED_TEMPLATE__
 
 objectArray:
 - port: "{{ .name }}-http" # __WRAPPED_TEMPLATE__
@@ -76,7 +76,7 @@ arrayWithTemplates:
 - "{{ .value }}" # __WRAPPED_TEMPLATE__
 - regular_value
 - "{{ .value }}"
-- "item-with-colon-and-template:{{ .value }}" # __WRAPPED_TEMPLATE__
+- item-with-colon-and-template:"{{ .value }}" # __WRAPPED_TEMPLATE__
 
 # indented array
 indentedArray:
@@ -84,7 +84,7 @@ indentedArray:
   - "{{ .value }}" # __WRAPPED_TEMPLATE__
   - regular_value
   - "{{ .value }}"
-  - "item-with-colon-and-template:{{ .value }}" # __WRAPPED_TEMPLATE__
+  - item-with-colon-and-template:"{{ .value }}" # __WRAPPED_TEMPLATE__
 
 # nested
 nested:
@@ -108,7 +108,7 @@ nested:
   - item1
   - item2
   - "item-with-tmpl-{{ .value }}" # __WRAPPED_TEMPLATE__
-  - "item-with-colon-and-template:{{ .Values.metricsPort }}" # __WRAPPED_TEMPLATE__
+  - item-with-colon-and-template:"{{ .Values.metricsPort }}" # __WRAPPED_TEMPLATE__
 
   # templates
   unquotedTemplate: "{{ .value }}" # __WRAPPED_TEMPLATE__
@@ -137,7 +137,7 @@ nested:
   - "{{ .value }}" # __WRAPPED_TEMPLATE__
   - regular_value
   - "{{ .value }}"
-  - "item-with-colon-and-template:{{ .value }}" # __WRAPPED_TEMPLATE__
+  - item-with-colon-and-template:"{{ .value }}" # __WRAPPED_TEMPLATE__
 
   # indented array
   indentedArray:
@@ -145,4 +145,4 @@ nested:
     - "{{ .value }}" # __WRAPPED_TEMPLATE__
     - regular_value
     - "{{ .value }}"
-    - "item-with-colon-and-template:{{ .value }}" # __WRAPPED_TEMPLATE__
+    - item-with-colon-and-template:"{{ .value }}" # __WRAPPED_TEMPLATE__

@@ -33,12 +33,10 @@ var (
 	// Examples: {{ .value }}, {{.Values.name}}, {{ range .items }}
 	templatePattern = regexp.MustCompile(`{{[^}]+}}`)
 
-	// yamlLinePattern inspired by the sed approach (:|-) but enhanced for complex values
-	// Captures YAML structure markers and the content that follows
-	// Examples: "key: value" -> captures "key: " and "value"
-	//           "  - item" -> captures "  - " and "item"
-	//           "- key: value" -> captures "- key: " and "value"
-	yamlLinePattern = regexp.MustCompile(`^(\s*[^:\-\s]+:\s|\s*-\s+[^:\s]+:\s|\s*-\s)(.*)$`)
+	// yamlLinePattern matches YAML key-value pairs and array items
+	// Captures: prefix (key: or - or - key:) and the rest of the line
+	// Examples: "key: value", "- item", "- key: value"
+	yamlLinePattern = regexp.MustCompile(`^(\s*(?:[^:\s]+:\s*|-\s+(?:[^:\s]+:\s*)?))(.*)$`)
 )
 
 func WrapFile(inputPath string, outputPath string, validateResult bool) error {
@@ -80,66 +78,51 @@ func UnwrapFile(inputPath string, outputPath string) error {
 }
 
 func WrapYAML(data []byte, validateResult bool) ([]byte, error) {
-	text := string(data)
+	lines := strings.Split(string(data), "\n")
 
-	lines := strings.Split(text, "\n")
 	for i, line := range lines {
-		// skip if already wrapped
+		// Skip if already wrapped
 		if strings.Contains(line, WrapperMarker) {
 			continue
 		}
 
-		// ... or if there is no template in the line
-		if !templatePattern.MatchString(line) {
-			continue
-		}
-
-		// match YAML field assignments or array items
+		// Match YAML structure
 		match := yamlLinePattern.FindStringSubmatch(line)
-		if len(match) < 3 {
+		if match == nil {
 			continue
 		}
 
-		prefix := match[1] // "key:" or "-"
-		value := match[2]  // everything after the colon or dash
+		prefix := match[1]
+		value := match[2]
 
-		// check if the value contains templates
-		if !templatePattern.MatchString(value) {
-			continue
-		}
-
-		// Parse the existing comment if any
-		commentPos := strings.Index(value, "#")
+		// Split value and comment
+		commentIdx := strings.Index(value, "#")
 		var valueContent, comment string
-		if commentPos != -1 {
-			valueContent = strings.TrimSpace(value[:commentPos])
-			comment = value[commentPos:]
+		if commentIdx >= 0 {
+			valueContent = strings.TrimSpace(value[:commentIdx])
+			comment = value[commentIdx:]
 		} else {
 			valueContent = strings.TrimSpace(value)
-			comment = ""
 		}
 
-		// Only wrap if the value contains templates and is not already quoted
-		if templatePattern.MatchString(valueContent) && !isQuoted(valueContent) {
-			// Wrap the unquoted value
-			wrappedValue := "\"" + valueContent + "\""
+		// Only process if value has template and is not quoted
+		if valueContent != "" && templatePattern.MatchString(valueContent) && !isQuoted(valueContent) {
+			wrappedValue := fmt.Sprintf(`"%s"`, valueContent)
 
-			// Add wrapper marker (prefix already includes space)
 			if comment != "" {
-				lines[i] = prefix + wrappedValue + " " + comment + " " + WrapperMarker
+				lines[i] = fmt.Sprintf("%s%s %s %s", prefix, wrappedValue, comment, WrapperMarker)
 			} else {
-				lines[i] = prefix + wrappedValue + " # " + WrapperMarker
+				lines[i] = fmt.Sprintf("%s%s # %s", prefix, wrappedValue, WrapperMarker)
 			}
 		}
 	}
 
 	result := []byte(strings.Join(lines, "\n"))
 
-	// Validate that the wrapped output is valid YAML if requested
+	// Validate if requested
 	if validateResult {
 		var unmarshalTarget any
-		err := yaml.Unmarshal(result, &unmarshalTarget)
-		if err != nil {
+		if err := yaml.Unmarshal(result, &unmarshalTarget); err != nil {
 			return nil, fmt.Errorf("wrapped result is not valid YAML: %w", err)
 		}
 	}
@@ -148,61 +131,51 @@ func WrapYAML(data []byte, validateResult bool) ([]byte, error) {
 }
 
 func UnwrapYAML(data []byte) ([]byte, error) {
-	text := string(data)
+	lines := strings.Split(string(data), "\n")
 
-	lines := strings.Split(text, "\n")
 	for i, line := range lines {
-		// skip lines that don't contain wrapper markers
+		// Skip lines without wrapper markers
 		if !strings.Contains(line, WrapperMarker) {
 			continue
 		}
 
-		// Match YAML field assignments or array items
+		// Match YAML structure
 		match := yamlLinePattern.FindStringSubmatch(line)
-		if len(match) < 3 {
+		if match == nil {
 			continue
 		}
 
-		prefix := match[1] // "key:" or "-"
-		value := match[2]  // everything after the colon or dash
+		prefix := match[1]
+		value := match[2]
 
-		// remove the wrapper marker from the line
-		cleanValue := strings.Replace(value, " "+WrapperMarker, "", 1)
-		cleanValue = strings.Replace(cleanValue, WrapperMarker, "", 1)
-		cleanValue = strings.TrimSpace(cleanValue)
+		// Remove wrapper marker
+		value = strings.Replace(value, " "+WrapperMarker, "", 1)
+		value = strings.Replace(value, WrapperMarker, "", 1)
 
-		// check if there's a comment
-		commentPos := strings.Index(cleanValue, "#")
+		// Split value and comment
+		commentIdx := strings.Index(value, "#")
 		var valueContent, comment string
-		if commentPos != -1 {
-			valueContent = strings.TrimSpace(cleanValue[:commentPos])
-			comment = cleanValue[commentPos:]
+		if commentIdx >= 0 {
+			valueContent = strings.TrimSpace(value[:commentIdx])
+			comment = value[commentIdx:]
 		} else {
-			valueContent = strings.TrimSpace(cleanValue)
-			comment = ""
+			valueContent = strings.TrimSpace(value)
 		}
 
-		// remove quotes if the value is quoted (since we only wrap unquoted values)
+		// Remove quotes if present
 		if isQuoted(valueContent) {
-			// remove outer quotes
-			valueContent = strings.TrimSpace(valueContent)
-			if strings.HasPrefix(valueContent, "\"") && strings.HasSuffix(valueContent, "\"") {
-				valueContent = valueContent[1 : len(valueContent)-1]
-			} else if strings.HasPrefix(valueContent, "'") && strings.HasSuffix(valueContent, "'") {
-				valueContent = valueContent[1 : len(valueContent)-1]
-			}
+			valueContent = valueContent[1 : len(valueContent)-1]
 		}
 
-		// reconstruct the line (prefix already includes space)
+		// Reconstruct line
 		if comment != "" && strings.TrimSpace(comment) != "#" {
-			lines[i] = prefix + valueContent + " " + comment
+			lines[i] = fmt.Sprintf("%s%s %s", prefix, valueContent, comment)
 		} else {
 			lines[i] = prefix + valueContent
 		}
 	}
 
-	result := []byte(strings.Join(lines, "\n"))
-	return result, nil
+	return []byte(strings.Join(lines, "\n")), nil
 }
 
 // isQuoted checks if a string is surrounded by quotes
