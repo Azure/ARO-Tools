@@ -41,13 +41,13 @@ var (
 	yamlLinePattern = regexp.MustCompile(`^(\s*[^:\-\s]+:\s|\s*-\s+[^:\s]+:\s|\s*-\s)(.*)$`)
 )
 
-func WrapFile(inputPath string, outputPath string) error {
+func WrapFile(inputPath string, outputPath string, validateResult bool) error {
 	data, err := os.ReadFile(inputPath)
 	if err != nil {
 		return fmt.Errorf("failed to read file %s: %w", inputPath, err)
 	}
 
-	wrapped, err := WrapYAML(data)
+	wrapped, err := WrapYAML(data, validateResult)
 	if err != nil {
 		return fmt.Errorf("failed to wrap YAML: %w", err)
 	}
@@ -79,7 +79,7 @@ func UnwrapFile(inputPath string, outputPath string) error {
 	return nil
 }
 
-func WrapYAML(data []byte) ([]byte, error) {
+func WrapYAML(data []byte, validateResult bool) ([]byte, error) {
 	text := string(data)
 
 	lines := strings.Split(text, "\n")
@@ -135,11 +135,13 @@ func WrapYAML(data []byte) ([]byte, error) {
 
 	result := []byte(strings.Join(lines, "\n"))
 
-	// Validate that the wrapped output is valid YAML
-	var unmarshalTarget any
-	err := yaml.Unmarshal(result, &unmarshalTarget)
-	if err != nil {
-		return nil, fmt.Errorf("wrapped result is not valid YAML: %w", err)
+	// Validate that the wrapped output is valid YAML if requested
+	if validateResult {
+		var unmarshalTarget any
+		err := yaml.Unmarshal(result, &unmarshalTarget)
+		if err != nil {
+			return nil, fmt.Errorf("wrapped result is not valid YAML: %w", err)
+		}
 	}
 
 	return result, nil

@@ -24,7 +24,8 @@ import (
 
 func DefaultOptions() *RawOptions {
 	return &RawOptions{
-		ReplaceOutput: false,
+		ReplaceOutput:  false,
+		SkipResultValidation: false,
 	}
 }
 
@@ -32,6 +33,8 @@ func BindOptions(opts *RawOptions, cmd *cobra.Command) error {
 	cmd.Flags().StringVar(&opts.InputPath, "input", opts.InputPath, "Path to the input file.")
 	cmd.Flags().StringVar(&opts.OutputPath, "output", opts.OutputPath, "Path to the output file (defaults to input file).")
 	cmd.Flags().BoolVar(&opts.ReplaceOutput, "replace-output", opts.ReplaceOutput, "Replace the output file if it exists.")
+	cmd.Flags().BoolVar(&opts.SkipResultValidation, "no-validate-result", false, "Skip validation of the result YAML (default is to validate).")
+
 	for _, flag := range []string{
 		"input",
 		"output",
@@ -45,15 +48,17 @@ func BindOptions(opts *RawOptions, cmd *cobra.Command) error {
 
 // RawOptions holds input values.
 type RawOptions struct {
-	InputPath     string
-	OutputPath    string
-	ReplaceOutput bool
+	InputPath            string
+	OutputPath           string
+	ReplaceOutput        bool
+	SkipResultValidation bool
 }
 
 // validatedOptions is a private wrapper that enforces a call of Validate() before Complete() can be invoked.
 type validatedOptions struct {
-	InputPath  string
-	OutputPath string
+	InputPath            string
+	OutputPath     	     string
+	SkipResultValidation bool
 }
 
 type ValidatedOptions struct {
@@ -63,8 +68,9 @@ type ValidatedOptions struct {
 
 // completedOptions is a private wrapper that enforces a call of Complete() before Config generation can be invoked.
 type completedOptions struct {
-	InputPath  string
-	OutputPath string
+	InputPath            string
+	OutputPath           string
+	SkipResultValidation bool
 }
 
 type Options struct {
@@ -96,8 +102,9 @@ func (o *RawOptions) Validate() (*ValidatedOptions, error) {
 
 	return &ValidatedOptions{
 		validatedOptions: &validatedOptions{
-			InputPath:  o.InputPath,
-			OutputPath: outputPath,
+			InputPath:            o.InputPath,
+			OutputPath:           outputPath,
+			SkipResultValidation: o.SkipResultValidation,
 		},
 	}, nil
 }
@@ -105,14 +112,15 @@ func (o *RawOptions) Validate() (*ValidatedOptions, error) {
 func (o *ValidatedOptions) Complete() (*Options, error) {
 	return &Options{
 		completedOptions: &completedOptions{
-			InputPath:  o.InputPath,
-			OutputPath: o.OutputPath,
+			InputPath:            o.InputPath,
+			OutputPath:           o.OutputPath,
+			SkipResultValidation: o.SkipResultValidation,
 		},
 	}, nil
 }
 
 func (opts *Options) Wrap(ctx context.Context) error {
-	return WrapFile(opts.InputPath, opts.OutputPath)
+	return WrapFile(opts.InputPath, opts.OutputPath, !opts.SkipResultValidation)
 }
 
 func (opts *Options) Unwrap(ctx context.Context) error {

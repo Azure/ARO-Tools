@@ -31,7 +31,7 @@ func TestWrapYAML(t *testing.T) {
 	data, err := os.ReadFile(inputPath)
 	require.NoError(t, err)
 
-	result, err := WrapYAML(data)
+	result, err := WrapYAML(data, true)
 	require.NoError(t, err)
 
 	testutil.CompareWithFixture(t, result, testutil.WithExtension(".yaml"))
@@ -55,7 +55,7 @@ func TestRoundTrip(t *testing.T) {
 	require.NoError(t, err)
 
 	// wrap it in memory
-	wrapped, err := WrapYAML(original)
+	wrapped, err := WrapYAML(original, true)
 	require.NoError(t, err)
 
 	// ... then unwrap
@@ -67,14 +67,18 @@ func TestRoundTrip(t *testing.T) {
 }
 
 func TestWrapValidation(t *testing.T) {
-	// Test that validation warnings are emitted for invalid YAML but operations still succeed
+	// Test that validation errors are emitted for invalid YAML when validation is enabled
 	invalidYAML := []byte(`
 key: value
 invalid: [unclosed array
 another: normal value
 `)
 
-	// This should succeed but emit a warning
-	_, err := WrapYAML(invalidYAML)
+	// This should fail when validation is enabled
+	_, err := WrapYAML(invalidYAML, true)
 	require.Error(t, err)
+
+	// This should succeed when validation is disabled
+	_, err = WrapYAML(invalidYAML, false)
+	require.NoError(t, err)
 }
