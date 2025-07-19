@@ -31,7 +31,7 @@ const (
 var (
 	// templatePattern matches Go template expressions like {{ .foo.bar }}
 	// Examples: {{ .value }}, {{.Values.name}}, {{ range .items }}
-	templatePattern = regexp.MustCompile(`{{\s*[^}]+\s*}}`)
+	templatePattern = regexp.MustCompile(`{{[^}]+}}`)
 
 	// yamlLinePattern inspired by the sed approach (:|-) but enhanced for complex values
 	// Captures YAML structure markers and the content that follows

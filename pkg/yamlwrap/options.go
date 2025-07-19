@@ -24,7 +24,7 @@ import (
 
 func DefaultOptions() *RawOptions {
 	return &RawOptions{
-		ReplaceOutput:  false,
+		ReplaceOutput:        false,
 		SkipResultValidation: false,
 	}
 }
@@ -57,7 +57,7 @@ type RawOptions struct {
 // validatedOptions is a private wrapper that enforces a call of Validate() before Complete() can be invoked.
 type validatedOptions struct {
 	InputPath            string
-	OutputPath     	     string
+	OutputPath           string
 	SkipResultValidation bool
 }
 
