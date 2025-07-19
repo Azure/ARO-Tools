@@ -32,15 +32,13 @@ var (
 	// templatePattern matches Go template expressions like {{ .foo.bar }}
 	// Examples: {{ .value }}, {{.Values.name}}, {{ range .items }}
 	templatePattern = regexp.MustCompile(`{{\s*[^}]+\s*}}`)
-	// fieldWithTemplatePattern matches YAML field values that contain template expressions
+	// yamlLinePattern matches YAML field assignments or array items
+	// Captures the prefix (including : or -) and the value after it
 	// Examples: "key: value" -> captures "key:" and "value"
+	//           "- item" -> captures "-" and "item"
 	//           "  nested: {{ .template }}" -> captures "  nested:" and "{{ .template }}"
-	fieldWithTemplatePattern = regexp.MustCompile(`^(\s*[^:]+:)\s*(.*)$`)
-	// arrayItemPattern matches YAML array items
-	// Examples: "- item" -> captures "-" and "item"
-	//           "  - {{ .value }}" -> captures "  -" and "{{ .value }}"
-	//           "- item-with-colon:value" -> captures "-" and "item-with-colon:value"
-	arrayItemPattern = regexp.MustCompile(`^(\s*-)\s*(.*)$`)
+	// Note: Array items are matched first (just the dash) to handle cases like "- item:value"
+	yamlLinePattern = regexp.MustCompile(`^(\s*-|\s*[^:]+:)\s*(.*)$`)
 )
 
 func WrapFile(inputPath string, outputPath string) error {
@@ -96,24 +94,14 @@ func WrapYAML(data []byte) ([]byte, error) {
 			continue
 		}
 
-		var prefix, value string
-
-		// Check array items first to handle cases like "- item:value"
-		// which could match both patterns
-		arrayMatch := arrayItemPattern.FindStringSubmatch(line)
-		if len(arrayMatch) >= 3 {
-			prefix = arrayMatch[1] // "-"
-			value = arrayMatch[2]  // everything after the dash
-		} else {
-			// check if this looks like a YAML field assignment
-			fieldMatch := fieldWithTemplatePattern.FindStringSubmatch(line)
-			if len(fieldMatch) >= 3 {
-				prefix = fieldMatch[1] // "key:"
-				value = fieldMatch[2]  // everything after the colon
-			} else {
-				continue
-			}
+		// Match YAML field assignments or array items
+		match := yamlLinePattern.FindStringSubmatch(line)
+		if len(match) < 3 {
+			continue
 		}
+
+		prefix := match[1] // "key:" or "-"
+		value := match[2]  // everything after the colon or dash
 
 		// Check if the value contains templates
 		if !templatePattern.MatchString(value) {
@@ -167,24 +155,14 @@ func UnwrapYAML(data []byte) ([]byte, error) {
 			continue
 		}
 
-		var prefix, value string
-
-		// Check array items first to handle cases like "- item:value"
-		// which could match both patterns
-		arrayMatch := arrayItemPattern.FindStringSubmatch(line)
-		if len(arrayMatch) >= 3 {
-			prefix = arrayMatch[1] // "-"
-			value = arrayMatch[2]  // everything after the dash
-		} else {
-			// parse the line to find field and value
-			fieldMatch := fieldWithTemplatePattern.FindStringSubmatch(line)
-			if len(fieldMatch) >= 3 {
-				prefix = fieldMatch[1] // "key:"
-				value = fieldMatch[2]  // everything after the colon
-			} else {
-				continue
-			}
+		// Match YAML field assignments or array items
+		match := yamlLinePattern.FindStringSubmatch(line)
+		if len(match) < 3 {
+			continue
 		}
+
+		prefix := match[1] // "key:" or "-"
+		value := match[2]  // everything after the colon or dash
 
 		// Remove the wrapper marker from the line
 		cleanValue := strings.Replace(value, " "+WrapperMarker, "", 1)
