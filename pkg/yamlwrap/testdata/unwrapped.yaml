@@ -54,6 +54,7 @@ unquotedTemplate: {{ .value }}
 unquotedTemplateWithComment: {{ .value }} # comment
 quotedTemplate: "{{ .value }}"
 quotedTemplateWithComment: "{{ .value }}" # comment
+quotedTemplateWithQuotes: {{  .value | default "default" }}
 
 unquotedTemplatePrefix: prefix-{{ .value }}
 unquotedTemplatePrefixWithComment: prefix-{{ .value }} # comment

@@ -43,7 +43,7 @@ array:
 - item1
 - item2
 - item-with-tmpl-{{ .value }}
-- "item-with-colon-and-template:{{ .Values.metricsPort }}"
+- item-with-colon-and-template:{{ .Values.metricsPort }}
 
 objectArray:
 - port: {{ .name }}-http
@@ -54,6 +54,7 @@ unquotedTemplate: {{ .value }}
 unquotedTemplateWithComment: {{ .value }} # comment
 quotedTemplate: "{{ .value }}"
 quotedTemplateWithComment: "{{ .value }}" # comment
+quotedTemplateWithQuotes: {{  .value | default "default" }}
 
 unquotedTemplatePrefix: prefix-{{ .value }}
 unquotedTemplatePrefixWithComment: prefix-{{ .value }} # comment
@@ -76,7 +77,7 @@ arrayWithTemplates:
 - {{ .value }}
 - regular_value
 - "{{ .value }}"
-- "item-with-colon-and-template:{{ .value }}"
+- item-with-colon-and-template:{{ .value }}
 
 # indented array
 indentedArray:
@@ -84,7 +85,7 @@ indentedArray:
   - {{ .value }}
   - regular_value
   - "{{ .value }}"
-  - "item-with-colon-and-template:{{ .value }}"
+  - item-with-colon-and-template:{{ .value }}
 
 # nested
 nested:
@@ -108,7 +109,7 @@ nested:
   - item1
   - item2
   - item-with-tmpl-{{ .value }}
-  - "item-with-colon-and-template:{{ .Values.metricsPort }}"
+  - item-with-colon-and-template:{{ .Values.metricsPort }}
 
   # templates
   unquotedTemplate: {{ .value }}
@@ -137,7 +138,7 @@ nested:
   - {{ .value }}
   - regular_value
   - "{{ .value }}"
-  - "item-with-colon-and-template:{{ .value }}"
+  - item-with-colon-and-template:{{ .value }}
 
   # indented array
   indentedArray:
@@ -145,4 +146,4 @@ nested:
     - {{ .value }}
     - regular_value
     - "{{ .value }}"
-    - "item-with-colon-and-template:{{ .value }}"
+    - item-with-colon-and-template:{{ .value }}

@@ -54,6 +54,7 @@ unquotedTemplate: "{{ .value }}" # __WRAPPED_TEMPLATE__
 unquotedTemplateWithComment: "{{ .value }}" # comment __WRAPPED_TEMPLATE__
 quotedTemplate: "{{ .value }}"
 quotedTemplateWithComment: "{{ .value }}" # comment
+quotedTemplateWithQuotes: "{{  .value | default \"default\" }}" # __WRAPPED_TEMPLATE__
 
 unquotedTemplatePrefix: "prefix-{{ .value }}" # __WRAPPED_TEMPLATE__
 unquotedTemplatePrefixWithComment: "prefix-{{ .value }}" # comment __WRAPPED_TEMPLATE__

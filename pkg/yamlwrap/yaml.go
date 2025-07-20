@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"sigs.k8s.io/yaml"
@@ -107,7 +108,7 @@ func WrapYAML(data []byte, validateResult bool) ([]byte, error) {
 
 		// Only process if value has template and is not quoted
 		if valueContent != "" && templatePattern.MatchString(valueContent) && !isQuoted(valueContent) {
-			wrappedValue := fmt.Sprintf(`"%s"`, valueContent)
+			wrappedValue := fmt.Sprintf("%q", valueContent)
 
 			if comment != "" {
 				lines[i] = fmt.Sprintf("%s%s %s %s", prefix, wrappedValue, comment, WrapperMarker)
@@ -150,7 +151,6 @@ func UnwrapYAML(data []byte) ([]byte, error) {
 
 		// Remove wrapper marker
 		value = strings.Replace(value, " "+WrapperMarker, "", 1)
-		value = strings.Replace(value, WrapperMarker, "", 1)
 
 		// Split value and comment
 		commentIdx := strings.Index(value, "#")
@@ -164,14 +164,21 @@ func UnwrapYAML(data []byte) ([]byte, error) {
 
 		// Remove quotes if present
 		if isQuoted(valueContent) {
-			valueContent = valueContent[1 : len(valueContent)-1]
+			// Use strconv.Unquote to properly handle escaped characters
+			unquoted, err := strconv.Unquote(valueContent)
+			if err == nil {
+				valueContent = unquoted
+			} else {
+				// Fallback to simple quote removal if unquote fails
+				valueContent = valueContent[1 : len(valueContent)-1]
+			}
 		}
 
 		// Reconstruct line
 		if comment != "" && strings.TrimSpace(comment) != "#" {
 			lines[i] = fmt.Sprintf("%s%s %s", prefix, valueContent, comment)
 		} else {
-			lines[i] = prefix + valueContent
+			lines[i] = fmt.Sprintf("%s%s", prefix, valueContent)
 		}
 	}
 

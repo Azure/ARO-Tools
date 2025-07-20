@@ -17,14 +17,12 @@ package yamlwrap
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 )
 
 func DefaultOptions() *RawOptions {
 	return &RawOptions{
-		ReplaceOutput:        false,
 		SkipResultValidation: false,
 	}
 }
@@ -32,7 +30,6 @@ func DefaultOptions() *RawOptions {
 func BindOptions(opts *RawOptions, cmd *cobra.Command) error {
 	cmd.Flags().StringVar(&opts.InputPath, "input", opts.InputPath, "Path to the input file.")
 	cmd.Flags().StringVar(&opts.OutputPath, "output", opts.OutputPath, "Path to the output file (defaults to input file).")
-	cmd.Flags().BoolVar(&opts.ReplaceOutput, "replace-output", opts.ReplaceOutput, "Replace the output file if it exists.")
 	cmd.Flags().BoolVar(&opts.SkipResultValidation, "no-validate-result", false, "Skip validation of the result YAML (default is to validate).")
 
 	for _, flag := range []string{
@@ -50,7 +47,6 @@ func BindOptions(opts *RawOptions, cmd *cobra.Command) error {
 type RawOptions struct {
 	InputPath            string
 	OutputPath           string
-	ReplaceOutput        bool
 	SkipResultValidation bool
 }
 
@@ -84,20 +80,10 @@ func (o *RawOptions) Validate() (*ValidatedOptions, error) {
 		return nil, fmt.Errorf("the file to process must be provided with --input")
 	}
 
-	// ... and must exist
-	if _, err := os.Stat(o.InputPath); err != nil {
-		return nil, fmt.Errorf("input file %q does not exist: %w", o.InputPath, err)
-	}
-
 	// default output to input if not specified
 	outputPath := o.OutputPath
 	if outputPath == "" {
 		outputPath = o.InputPath
-	}
-
-	// check if output file exists and handle replacement
-	if _, err := os.Stat(outputPath); err == nil && !o.ReplaceOutput {
-		return nil, fmt.Errorf("output file %q already exists, use --replace-output to overwrite", outputPath)
 	}
 
 	return &ValidatedOptions{
