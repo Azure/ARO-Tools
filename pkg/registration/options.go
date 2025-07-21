@@ -226,6 +226,7 @@ func (opts *Options) ensureProviderRegistered(logger logr.Logger, ctx context.Co
 		return &SkippedRegistrationWait{What: provider}
 	}
 
+	var currentStatus string
 	logger.Info("Waiting for provider to be registered.", "duration", opts.PollDuration, "frequency", opts.PollFrequency)
 	pollCtx, cancel := context.WithTimeout(ctx, opts.PollDuration)
 	defer cancel()
@@ -240,6 +241,10 @@ func (opts *Options) ensureProviderRegistered(logger logr.Logger, ctx context.Co
 			if providerRegistered(currentProviderStatus.Provider) {
 				logger.Info("Provider already registered.")
 				return nil
+			}
+			if currentProviderStatus.RegistrationState != nil && *currentProviderStatus.RegistrationState != currentStatus {
+				logger.Info("Observed provider registration state.", "state", *currentProviderStatus.RegistrationState)
+				currentStatus = *currentProviderStatus.RegistrationState
 			}
 		case <-pollCtx.Done():
 			return fmt.Errorf("timed out waiting for provider registration status to change: %w", pollCtx.Err())
@@ -288,6 +293,7 @@ func (opts *Options) ensureFeatureRegistered(logger logr.Logger, ctx context.Con
 		return &SkippedRegistrationWait{What: fmt.Sprintf("%s/%s", provider, feature.Name)}
 	}
 
+	var currentStatus string
 	logger.Info("Waiting for feature to be registered.", "duration", opts.PollDuration, "frequency", opts.PollFrequency)
 	pollCtx, cancel := context.WithTimeout(ctx, opts.PollDuration)
 	defer cancel()
@@ -302,6 +308,10 @@ func (opts *Options) ensureFeatureRegistered(logger logr.Logger, ctx context.Con
 			if isFeatureRegistered(currentFeatureStatus.FeatureResult) {
 				logger.Info("Feature already registered.")
 				return nil
+			}
+			if currentFeatureStatus.Properties.State != nil && *currentFeatureStatus.Properties.State != currentStatus {
+				logger.Info("Observed feature registration state.", "state", *currentFeatureStatus.Properties.State)
+				currentStatus = *currentFeatureStatus.Properties.State
 			}
 		case <-pollCtx.Done():
 			return fmt.Errorf("timed out waiting for feature %s/%s registration status to change: %w", provider, feature.Name, pollCtx.Err())
