@@ -117,6 +117,7 @@ type LogsStep struct {
 	AdminGroup      Value             `json:"adminGroup"`
 	SubscriptionId  Value             `json:"subscriptionId,omitempty"`
 	Namespace       Value             `json:"namespace,omitempty"`
+	Namespaces      Value             `json:"namespaces,omitempty"`
 	CertSAN         Value             `json:"certsan,omitempty"`
 	CertDescription Value             `json:"certdescription,omitempty"`
 	ConfigVersion   Value             `json:"configVersion,omitempty"`
