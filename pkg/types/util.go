@@ -70,15 +70,6 @@ func ValidatePipelineSchema(pipelineContent []byte) error {
 	return nil
 }
 
-func ValidatePipelineSchemaForStruct(pipeline *Pipeline) error {
-	pipelineBytes, err := yaml.Marshal(pipeline)
-	if err != nil {
-		return fmt.Errorf("failed to marshal pipeline: %w", err)
-	}
-
-	return ValidatePipelineSchema(pipelineBytes)
-}
-
 func compileSchema(schemaRef string, schemaBytes []byte) (*jsonschema.Schema, error) {
 	// parse schema content
 	schemaMap := make(map[string]interface{})
