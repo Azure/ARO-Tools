@@ -220,6 +220,16 @@ resourceGroups:
       value: sourceRegistry
     targetACR:
       value: targetACR
+  - action: SecretSync
+    configurationFile: data/encryptedsecrets.yaml
+    dependsOn:
+    - deploy
+    encryptionKey: secretSyncKey
+    identityFrom:
+      name: ""
+      step: ""
+    keyVault: test
+    name: decrypt-and-ingest-secrets
   subscription: hcp-uksouth
   subscriptionProvisioning:
     displayName:

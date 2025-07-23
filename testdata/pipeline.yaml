@@ -226,3 +226,12 @@ resourceGroups:
         value: pullSecretName
       shellIdentity:
         value: shellIdentity
+    - name: decrypt-and-ingest-secrets
+      action: SecretSync
+      keyVault: test
+      configurationFile: 'data/encryptedsecrets.yaml'
+      encryptionKey: 'secretSyncKey'
+      dependsOn:
+        - deploy
+      shellIdentity:
+        configRef: aroDevopsMsiId
