@@ -125,6 +125,7 @@ resourceGroups:
     name: rpAccount
     namespace:
       value: ns
+    namespaces: {}
     secretKeyVault:
       configRef: ev2.assistedId.certificate.keyVault
     secretName:
@@ -155,6 +156,7 @@ resourceGroups:
     name: clusterAccount
     namespace:
       value: ns
+    namespaces: {}
     secretKeyVault:
       configRef: ev2.assistedId.certificate.keyVault
     secretName:
