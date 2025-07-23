@@ -57,6 +57,10 @@ func NewPipelineFromFile(pipelineFilePath string, cfg types2.Configuration) (*Pi
 		return nil, fmt.Errorf("failed to preprocess pipeline file: %w", err)
 	}
 
+	if err := ValidatePipelineSchema(bytes); err != nil {
+		return nil, fmt.Errorf("failed to validate pipeline schema: %w", err)
+	}
+
 	var pipeline Pipeline
 	if err := yaml.Unmarshal(bytes, &pipeline); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal pipeline file: %w", err)
@@ -66,9 +70,6 @@ func NewPipelineFromFile(pipelineFilePath string, cfg types2.Configuration) (*Pi
 		return nil, fmt.Errorf("pipeline file failed validation: %w", err)
 	}
 
-	if err = ValidatePipelineSchemaForStruct(&pipeline); err != nil {
-		return nil, fmt.Errorf("pipeline schema validation failed after postprocessing: %w", err)
-	}
 	return &pipeline, nil
 }
 

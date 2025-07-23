@@ -4,15 +4,22 @@
     "type": "object",
     "additionalProperties": false,
     "definitions": {
+        "configRef": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "[a-zA-Z0-9]+(\\.[a-zA-Z0-9]+)*"
+        },
         "staticVariableValue": {
             "oneOf": [
                 {
-                    "type": "string"
+                    "type": "string",
+                    "minLength": 1
                 },
                 {
                     "type": "array",
                     "items": {
-                        "type": "string"
+                        "type": "string",
+                        "minLength": 1
                     }
                 }
             ]
@@ -22,10 +29,12 @@
             "additionalProperties": false,
             "properties": {
                 "step": {
-                    "type": "string"
+                    "type": "string",
+                    "minLength": 1
                 },
                 "name": {
-                    "type": "string"
+                    "type": "string",
+                    "minLength": 1
                 }
             },
             "required": [
@@ -41,7 +50,7 @@
                     "$ref": "#/definitions/input"
                 },
                 "configRef": {
-                    "type": "string"
+                    "$ref": "#/definitions/configRef"
                 },
                 "value": {
                     "$ref": "#/definitions/staticVariableValue"
@@ -70,26 +79,14 @@
             "additionalProperties": false,
             "properties": {
                 "name": {
-                    "type": "string"
+                    "type": "string",
+                    "minLength": 1
                 },
                 "input": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "properties": {
-                        "step": {
-                            "type": "string"
-                        },
-                        "name": {
-                            "type": "string"
-                        }
-                    },
-                    "required": [
-                        "step",
-                        "name"
-                    ]
+                    "$ref": "#/definitions/input"
                 },
                 "configRef": {
-                    "type": "string"
+                    "$ref": "#/definitions/configRef"
                 },
                 "value": {
                     "$ref": "#/definitions/staticVariableValue"
@@ -125,10 +122,12 @@
             "type": "string"
         },
         "serviceGroup": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1
         },
         "rolloutName": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1
         },
         "resourceGroups": {
             "type": "array",
@@ -137,10 +136,12 @@
                 "additionalProperties": false,
                 "properties": {
                     "name": {
-                        "type": "string"
+                        "type": "string",
+                        "minLength": 1
                     },
                     "subscription": {
-                        "type": "string"
+                        "type": "string",
+                        "minLength": 1
                     },
                     "subscriptionProvisioning": {
                         "type": "object",
@@ -156,7 +157,8 @@
                                 "$ref": "#/definitions/value"
                             },
                             "roleAssignment": {
-                                "type": "string"
+                                "type": "string",
+                                "minLength": 1
                             }
                         },
                         "required": [
@@ -586,7 +588,7 @@
                                             "const": "ProviderFeatureRegistration"
                                         },
                                         "providerConfigRef" : {
-                                            "type": "string"
+                                            "$ref": "#/definitions/configRef"
                                         },
                                         "identityFrom" : {
                                             "$ref": "#/definitions/input"
@@ -613,13 +615,16 @@
                                             "const": "SecretSync"
                                         },
                                         "configurationFile" : {
-                                            "type": "string"
+                                            "type": "string",
+                                            "minLength": 1
                                         },
                                         "encryptionKey" : {
-                                            "type": "string"
+                                            "type": "string",
+                                            "minLength": 1
                                         },
                                         "keyVault" : {
-                                            "type": "string"
+                                            "type": "string",
+                                            "minLength": 1
                                         },
                                         "identityFrom" : {
                                             "$ref": "#/definitions/input"
@@ -627,7 +632,8 @@
                                         "dependsOn": {
                                             "type": "array",
                                             "items": {
-                                                "type": "string"
+                                                "type": "string",
+                                                "minLength": 1
                                             }
                                         }
                                     },

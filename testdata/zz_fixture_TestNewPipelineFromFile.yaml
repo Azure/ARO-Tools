@@ -182,11 +182,11 @@ resourceGroups:
   subscription: hcp-int-svc-uksouth
   subscriptionProvisioning:
     airsRegisteredUserPrincipalId:
-      configRef: .svc.subscription.airsRegisteredUserPrincipalId
+      configRef: svc.subscription.airsRegisteredUserPrincipalId
     certificateDomains:
-      configRef: .svc.subscription.certificateDomains
+      configRef: svc.subscription.certificateDomains
     displayName:
-      configRef: .svc.subscription.displayName
+      configRef: svc.subscription.displayName
     roleAssignment: test.bicepparam
 - name: global
   steps:
@@ -223,7 +223,7 @@ resourceGroups:
   subscription: hcp-uksouth
   subscriptionProvisioning:
     displayName:
-      configRef: .svc.subscription.displayName
+      configRef: svc.subscription.displayName
     roleAssignment: test.bicepparam
 rolloutName: Test Rollout
 serviceGroup: Microsoft.Azure.ARO.Test
