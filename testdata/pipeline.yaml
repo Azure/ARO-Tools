@@ -10,11 +10,11 @@ resourceGroups:
   subscription: '{{ .svc.subscription.key }}'
   subscriptionProvisioning:
     displayName:
-      configRef: .svc.subscription.displayName
+      configRef: svc.subscription.displayName
     airsRegisteredUserPrincipalId:
-      configRef: .svc.subscription.airsRegisteredUserPrincipalId
+      configRef: svc.subscription.airsRegisteredUserPrincipalId
     certificateDomains:
-      configRef: .svc.subscription.certificateDomains
+      configRef: svc.subscription.certificateDomains
     roleAssignment: 'test.bicepparam'
   steps:
   - name: deploy
@@ -193,7 +193,7 @@ resourceGroups:
   subscription: '{{ .managementClusterSubscription }}'
   subscriptionProvisioning:
     displayName:
-      configRef: .svc.subscription.displayName
+      configRef: svc.subscription.displayName
     roleAssignment: 'test.bicepparam'
   steps:
     - name: register-providers-afec-flags
