@@ -466,15 +466,17 @@
                                         },
                                         "events": {
                                             "type": "object",
-                                            "additionalProperties": false,
+                                            "description": "A map of event configurations where keys represent the fluent bit tag and values are their corresponding Geneva table name. Refer to https://eng.ms/docs/products/geneva/collect/instrument/linux/fluentd for details",
                                             "properties": {
-                                                "akskubesystem": {
-                                                    "type": "string"
+                                                "kube.var.log.containers.example.log": {
+                                                    "type": "string",
+                                                    "description": "Geneva table name for this fluent bit tag"
                                                 }
                                             },
-                                            "required": [
-                                                "akskubesystem"
-                                            ]
+                                            "additionalProperties": {
+                                                "type": "string",
+                                                "description": "Geneva table name for the corresponding fluent bit tag"
+                                            }
                                         },
                                         "dependsOn": {
                                             "type": "array",
