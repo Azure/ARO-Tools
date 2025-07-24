@@ -1,0 +1,149 @@
+# string stuff
+string: string
+doubleQuotedString: "quoted string string"
+singleQuotedString: 'quoted string string'
+doubleQuotedStringWithComment: "quoted string string with comment" # comment
+singleQuotedStringWithComment: 'quoted string string with comment' # comment
+quotedStringWithHash: "string # don't confuse this for a comment"
+quotedStringWithHashAndComment: "string # don't confuse this for a comment" # comment
+
+# special yaml quoting
+blockLiteral: |
+  This is a block literal.
+  It can span multiple lines.
+  {{ .blockLiteralTemplate }}
+blockFolded: >
+  This is a folded block.
+  It also supports templates like {{ .blockFoldedTemplate }}.
+blockLiteralWithTemplate: |
+  Some text before
+  {{ .blockLiteralWithTemplate }}
+  Some text after
+blockFoldedWithTemplate: >
+  Some text before
+  {{ .blockFoldedWithTemplate }}
+  Some text after
+blockLiteralWithComment: | # comment about block literal
+  Block with comment
+  {{ .blockLiteralWithComment }}
+blockFoldedWithComment: > # comment about block folded
+  Folded with comment
+  {{ .blockFoldedWithComment }}
+
+# int
+integer: 123
+integerComment: 123 # comment
+
+# bool
+bool: true
+boolComment: true # comment
+
+# array
+array:
+- item1
+- item2
+- item-with-tmpl-{{ .value }}
+- item-with-colon-and-template:{{ .Values.metricsPort }}
+
+objectArray:
+- port: {{ .name }}-http
+  targetPort: {{ .port }}
+
+# templates
+unquotedTemplate: {{ .value }}
+unquotedTemplateWithComment: {{ .value }} # comment
+quotedTemplate: "{{ .value }}"
+quotedTemplateWithComment: "{{ .value }}" # comment
+quotedTemplateWithQuotes: {{  .value | default "default" }}
+
+unquotedTemplatePrefix: prefix-{{ .value }}
+unquotedTemplatePrefixWithComment: prefix-{{ .value }} # comment
+quotedTemplatePrefix: "prefix-{{ .value }}"
+quotedTemplatePrefixWithComment: "prefix-{{ .value }}" # comment
+
+unquotedTemplateSuffix: {{ .value }}-suffix
+unquotedTemplateSuffixWithComment: {{ .value }}-suffix # comment
+quotedTemplateSuffix: "{{ .value }}-suffix"
+quotedTemplateSuffixWithComment: "{{ .value }}-suffix" # comment
+
+unquotedTemplateInfix: prefix-{{ .value }}-suffix
+unquotedTemplateInfixWithComment: prefix-{{ .value }}-suffix # comment
+quotedTemplateInfix: "prefix-{{ .value }}-suffix"
+quotedTemplateInfixWithComment: "prefix-{{ .value }}-suffix" # comment
+unquotedTemplateWithColon: prefix:{{ .value }}
+
+# array templates
+arrayWithTemplates:
+- {{ .value }}
+- regular_value
+- "{{ .value }}"
+- item-with-colon-and-template:{{ .value }}
+
+# indented array
+indentedArray:
+  - item1
+  - {{ .value }}
+  - regular_value
+  - "{{ .value }}"
+  - item-with-colon-and-template:{{ .value }}
+
+# nested
+nested:
+  # string stuff
+  string: string
+  doubleQuotedString: "quoted string string"
+  singleQuotedString: 'quoted string string'
+  doubleQuotedStringWithComment: "quoted string string with comment" # comment
+  singleQuotedStringWithComment: 'quoted string string with comment' # comment
+
+  # int
+  integer: 123
+  integerComment: 123 # comment
+
+  # bool
+  bool: true
+  boolComment: true # comment
+
+  # array
+  array:
+  - item1
+  - item2
+  - item-with-tmpl-{{ .value }}
+  - item-with-colon-and-template:{{ .Values.metricsPort }}
+
+  # templates
+  unquotedTemplate: {{ .value }}
+  unquotedTemplateWithComment: {{ .value }} # comment
+  quotedTemplate: "{{ .value }}"
+  quotedTemplateWithComment: "{{ .value }}" # comment
+
+  unquotedTemplatePrefix: prefix-{{ .value }}
+  unquotedTemplatePrefixWithComment: prefix-{{ .value }} # comment
+  quotedTemplatePrefix: "prefix-{{ .value }}"
+  quotedTemplatePrefixWithComment: "prefix-{{ .value }}" # comment
+
+  unquotedTemplateSuffix: {{ .value }}-suffix
+  unquotedTemplateSuffixWithComment: {{ .value }}-suffix # comment
+  quotedTemplateSuffix: "{{ .value }}-suffix"
+  quotedTemplateSuffixWithComment: "{{ .value }}-suffix" # comment
+
+  unquotedTemplateInfix: prefix-{{ .value }}-suffix
+  unquotedTemplateInfixWithComment: prefix-{{ .value }}-suffix # comment
+  quotedTemplateInfix: "prefix-{{ .value }}-suffix"
+  quotedTemplateInfixWithComment: "prefix-{{ .value }}-suffix" # comment
+  unquotedTemplateWithColon: prefix:{{ .value }}
+
+  # array templates
+  arrayWithTemplates:
+  - {{ .value }}
+  - regular_value
+  - "{{ .value }}"
+  - item-with-colon-and-template:{{ .value }}
+
+  # indented array
+  indentedArray:
+    - item1
+    - {{ .value }}
+    - regular_value
+    - "{{ .value }}"
+    - item-with-colon-and-template:{{ .value }}

@@ -1,0 +1,149 @@
+# string stuff
+string: string
+doubleQuotedString: "quoted string string"
+singleQuotedString: 'quoted string string'
+doubleQuotedStringWithComment: "quoted string string with comment" # comment
+singleQuotedStringWithComment: 'quoted string string with comment' # comment
+quotedStringWithHash: "string # don't confuse this for a comment"
+quotedStringWithHashAndComment: "string # don't confuse this for a comment" # comment
+
+# special yaml quoting
+blockLiteral: |
+  This is a block literal.
+  It can span multiple lines.
+  {{ .blockLiteralTemplate }}
+blockFolded: >
+  This is a folded block.
+  It also supports templates like {{ .blockFoldedTemplate }}.
+blockLiteralWithTemplate: |
+  Some text before
+  {{ .blockLiteralWithTemplate }}
+  Some text after
+blockFoldedWithTemplate: >
+  Some text before
+  {{ .blockFoldedWithTemplate }}
+  Some text after
+blockLiteralWithComment: | # comment about block literal
+  Block with comment
+  {{ .blockLiteralWithComment }}
+blockFoldedWithComment: > # comment about block folded
+  Folded with comment
+  {{ .blockFoldedWithComment }}
+
+# int
+integer: 123
+integerComment: 123 # comment
+
+# bool
+bool: true
+boolComment: true # comment
+
+# array
+array:
+- item1
+- item2
+- "item-with-tmpl-{{ .value }}" # __WRAPPED_TEMPLATE__
+- item-with-colon-and-template:"{{ .Values.metricsPort }}" # __WRAPPED_TEMPLATE__
+
+objectArray:
+- port: "{{ .name }}-http" # __WRAPPED_TEMPLATE__
+  targetPort: "{{ .port }}" # __WRAPPED_TEMPLATE__
+
+# templates
+unquotedTemplate: "{{ .value }}" # __WRAPPED_TEMPLATE__
+unquotedTemplateWithComment: "{{ .value }}" # comment __WRAPPED_TEMPLATE__
+quotedTemplate: "{{ .value }}"
+quotedTemplateWithComment: "{{ .value }}" # comment
+quotedTemplateWithQuotes: "{{  .value | default \"default\" }}" # __WRAPPED_TEMPLATE__
+
+unquotedTemplatePrefix: "prefix-{{ .value }}" # __WRAPPED_TEMPLATE__
+unquotedTemplatePrefixWithComment: "prefix-{{ .value }}" # comment __WRAPPED_TEMPLATE__
+quotedTemplatePrefix: "prefix-{{ .value }}"
+quotedTemplatePrefixWithComment: "prefix-{{ .value }}" # comment
+
+unquotedTemplateSuffix: "{{ .value }}-suffix" # __WRAPPED_TEMPLATE__
+unquotedTemplateSuffixWithComment: "{{ .value }}-suffix" # comment __WRAPPED_TEMPLATE__
+quotedTemplateSuffix: "{{ .value }}-suffix"
+quotedTemplateSuffixWithComment: "{{ .value }}-suffix" # comment
+
+unquotedTemplateInfix: "prefix-{{ .value }}-suffix" # __WRAPPED_TEMPLATE__
+unquotedTemplateInfixWithComment: "prefix-{{ .value }}-suffix" # comment __WRAPPED_TEMPLATE__
+quotedTemplateInfix: "prefix-{{ .value }}-suffix"
+quotedTemplateInfixWithComment: "prefix-{{ .value }}-suffix" # comment
+unquotedTemplateWithColon: "prefix:{{ .value }}" # __WRAPPED_TEMPLATE__
+
+# array templates
+arrayWithTemplates:
+- "{{ .value }}" # __WRAPPED_TEMPLATE__
+- regular_value
+- "{{ .value }}"
+- item-with-colon-and-template:"{{ .value }}" # __WRAPPED_TEMPLATE__
+
+# indented array
+indentedArray:
+  - item1
+  - "{{ .value }}" # __WRAPPED_TEMPLATE__
+  - regular_value
+  - "{{ .value }}"
+  - item-with-colon-and-template:"{{ .value }}" # __WRAPPED_TEMPLATE__
+
+# nested
+nested:
+  # string stuff
+  string: string
+  doubleQuotedString: "quoted string string"
+  singleQuotedString: 'quoted string string'
+  doubleQuotedStringWithComment: "quoted string string with comment" # comment
+  singleQuotedStringWithComment: 'quoted string string with comment' # comment
+
+  # int
+  integer: 123
+  integerComment: 123 # comment
+
+  # bool
+  bool: true
+  boolComment: true # comment
+
+  # array
+  array:
+  - item1
+  - item2
+  - "item-with-tmpl-{{ .value }}" # __WRAPPED_TEMPLATE__
+  - item-with-colon-and-template:"{{ .Values.metricsPort }}" # __WRAPPED_TEMPLATE__
+
+  # templates
+  unquotedTemplate: "{{ .value }}" # __WRAPPED_TEMPLATE__
+  unquotedTemplateWithComment: "{{ .value }}" # comment __WRAPPED_TEMPLATE__
+  quotedTemplate: "{{ .value }}"
+  quotedTemplateWithComment: "{{ .value }}" # comment
+
+  unquotedTemplatePrefix: "prefix-{{ .value }}" # __WRAPPED_TEMPLATE__
+  unquotedTemplatePrefixWithComment: "prefix-{{ .value }}" # comment __WRAPPED_TEMPLATE__
+  quotedTemplatePrefix: "prefix-{{ .value }}"
+  quotedTemplatePrefixWithComment: "prefix-{{ .value }}" # comment
+
+  unquotedTemplateSuffix: "{{ .value }}-suffix" # __WRAPPED_TEMPLATE__
+  unquotedTemplateSuffixWithComment: "{{ .value }}-suffix" # comment __WRAPPED_TEMPLATE__
+  quotedTemplateSuffix: "{{ .value }}-suffix"
+  quotedTemplateSuffixWithComment: "{{ .value }}-suffix" # comment
+
+  unquotedTemplateInfix: "prefix-{{ .value }}-suffix" # __WRAPPED_TEMPLATE__
+  unquotedTemplateInfixWithComment: "prefix-{{ .value }}-suffix" # comment __WRAPPED_TEMPLATE__
+  quotedTemplateInfix: "prefix-{{ .value }}-suffix"
+  quotedTemplateInfixWithComment: "prefix-{{ .value }}-suffix" # comment
+  unquotedTemplateWithColon: "prefix:{{ .value }}" # __WRAPPED_TEMPLATE__
+
+  # array templates
+  arrayWithTemplates:
+  - "{{ .value }}" # __WRAPPED_TEMPLATE__
+  - regular_value
+  - "{{ .value }}"
+  - item-with-colon-and-template:"{{ .value }}" # __WRAPPED_TEMPLATE__
+
+  # indented array
+  indentedArray:
+    - item1
+    - "{{ .value }}" # __WRAPPED_TEMPLATE__
+    - regular_value
+    - "{{ .value }}"
+    - item-with-colon-and-template:"{{ .value }}" # __WRAPPED_TEMPLATE__
