@@ -455,9 +455,6 @@
                                         "namespace": {
                                             "$ref": "#/definitions/value"
                                         },
-                                        "namespaces": {
-                                            "$ref": "#/definitions/value"
-                                        },
                                         "certsan": {
                                             "$ref": "#/definitions/value"
                                         },
