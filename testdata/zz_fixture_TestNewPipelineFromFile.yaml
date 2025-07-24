@@ -196,6 +196,11 @@ resourceGroups:
       step: deploy
     name: register-providers-afec-flags
     providerConfigRef: svc.subscription.displayName
+  - action: Ev2Registration
+    identityFrom:
+      name: whatever
+      step: deploy
+    name: register-ev2-services
   - action: SecretSync
     configurationFile: data/encryptedsecrets/config.yaml
     encryptionKey: secretSyncKey
