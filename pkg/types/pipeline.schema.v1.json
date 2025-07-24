@@ -642,6 +642,30 @@
                                         "keyVault",
                                         "identityFrom"
                                     ]
+                                },
+                                {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                        "name": {
+                                            "type": "string"
+                                        },
+                                        "action": {
+                                            "const": "Ev2Registration"
+                                        },
+                                        "identityFrom" : {
+                                            "$ref": "#/definitions/input"
+                                        },
+                                        "dependsOn": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string",
+                                                "minLength": 1
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "identityFrom"
+                                    ]
                                 }
                             ],
                             "required": [

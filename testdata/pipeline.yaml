@@ -202,6 +202,11 @@ resourceGroups:
         step: deploy
         name: whatever
       providerConfigRef: svc.subscription.displayName
+    - name: register-ev2-services
+      action: Ev2Registration
+      identityFrom:
+        step: deploy
+        name: whatever
     - name: sync-secrets
       action: SecretSync
       keyVault: '{{ .global.keyVault.name }}'

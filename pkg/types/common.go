@@ -148,6 +148,15 @@ func (s *ProviderFeatureRegistrationStep) Description() string {
 	return fmt.Sprintf("Step %s\n Kind: %s\n", s.Name, s.Action)
 }
 
+type Ev2RegistrationStep struct {
+	StepMeta     `json:",inline"`
+	IdentityFrom Input `json:"identityFrom,omitempty"`
+}
+
+func (s *Ev2RegistrationStep) Description() string {
+	return fmt.Sprintf("Step %s\n Kind: %s\n", s.Name, s.Action)
+}
+
 type SecretSyncStep struct {
 	StepMeta          `json:",inline"`
 	ConfigurationFile string `json:"configurationFile,omitempty"`

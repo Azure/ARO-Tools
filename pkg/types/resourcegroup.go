@@ -78,6 +78,8 @@ func (s *Steps) UnmarshalJSON(data []byte) error {
 			step = &FeatureRegistrationStep{}
 		case "ProviderFeatureRegistration":
 			step = &ProviderFeatureRegistrationStep{}
+		case "Ev2Registration":
+			step = &Ev2RegistrationStep{}
 		case "SecretSync":
 			step = &SecretSyncStep{}
 		default:
