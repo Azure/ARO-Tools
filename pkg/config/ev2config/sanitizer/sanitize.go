@@ -11,6 +11,7 @@ func Sanitize(inputs map[string]CentralConfig) SanitizedConfig {
 				regions[region.Name] = SanitizedRegionConfig{
 					AvailabilityZoneCount: region.Settings.AvailabilityZoneCount,
 					RegionShortName:       region.Settings.RegionShortName,
+					RegionFriendlyName:    region.Settings.RegionFriendlyName,
 				}
 			}
 		}
