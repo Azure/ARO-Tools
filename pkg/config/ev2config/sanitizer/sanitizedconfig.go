@@ -21,4 +21,5 @@ type KeyVaultValues struct {
 type SanitizedRegionConfig struct {
 	AvailabilityZoneCount int    `json:"availabilityZoneCount"`
 	RegionShortName       string `json:"regionShortName"`
+	RegionFriendlyName    string `json:"regionFriendlyName"`
 }
