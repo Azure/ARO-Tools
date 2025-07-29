@@ -168,3 +168,39 @@ type SecretSyncStep struct {
 func (s *SecretSyncStep) Description() string {
 	return fmt.Sprintf("Step %s\n Kind: %s\n", s.Name, s.Action)
 }
+
+type KustoStep struct {
+	StepMeta         `json:",inline"`
+	SecretKeyVault   Value `json:"secretKeyVault,omitempty"`
+	SecretName       Value `json:"secretName,omitempty"`
+	ApplicationId    Value `json:"applicationId,omitempty"`
+	ConnectionString Value `json:"connectionString,omitempty"`
+	Command          Value `json:"command,omitempty"`
+}
+
+func (s *KustoStep) Description() string {
+	return fmt.Sprintf("Step %s\n Kind: %s\n", s.Name, s.Action)
+}
+
+type Pav2ManageAppIdStep struct {
+	StepMeta          `json:",inline"`
+	SecretKeyVault    Value `json:"secretKeyVault,omitempty"`
+	SecretName        Value `json:"secretName,omitempty"`
+	SMEAppidParameter Value `json:"smeAppidParameter,omitempty"`
+}
+
+func (s *Pav2ManageAppIdStep) Description() string {
+	return fmt.Sprintf("Step %s\n Kind: %s\n", s.Name, s.Action)
+}
+
+type Pav2AddAccountStep struct {
+	StepMeta                   `json:",inline"`
+	SecretKeyVault             Value `json:"secretKeyVault,omitempty"`
+	SecretName                 Value `json:"secretName,omitempty"`
+	StorageAccount             Value `json:"storageAccount,omitempty"`
+	SMEEndpointSuffixParameter Value `json:"smeEndpointSuffixParameter,omitempty"`
+}
+
+func (s *Pav2AddAccountStep) Description() string {
+	return fmt.Sprintf("Step %s\n Kind: %s\n", s.Name, s.Action)
+}

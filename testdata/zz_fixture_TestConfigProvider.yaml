@@ -49,6 +49,9 @@ region: uksouth
 regionRG: hcp-underlay-uks
 serviceClusterRG: hcp-underlay-uks-svc
 serviceClusterSubscription: hcp-uksouth
+storage:
+  accountName: arotestaccount
+  storageSuffix: aro-int
 subnetName: subnet
 svc:
   subscription:
