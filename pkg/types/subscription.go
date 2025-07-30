@@ -9,6 +9,8 @@ type SubscriptionProvisioning struct {
 	// for this subscription. Keep in mind that once Ev2 marks a subscription as provisioned, this will not run, so the contents
 	// of this ARM template cannot change over time as the template will not be re-executed on existing subscriptions.
 	RoleAssignmentParameters string `json:"roleAssignment,omitempty"`
+
+	BackfillSubscriptionId Value `json:"backfillSubscriptionId,omitempty"`
 }
 
 func (s *SubscriptionProvisioning) Validate() error {
