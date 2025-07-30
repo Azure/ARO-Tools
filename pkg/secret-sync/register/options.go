@@ -115,15 +115,6 @@ func (o *ValidatedOptions) Complete() (*Options, error) {
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
 
-	keyVaultCfg, exists := cfg.KeyVaults[o.KeyVault]
-	if !exists && o.PublicKeyFile == "" {
-		return nil, fmt.Errorf("keyvault %s does not exist in encryption config and no public key file specified to bootstrap it", o.KeyVault)
-	}
-
-	if keyVaultCfg.KeyEncryptionKey == "" && o.PublicKeyFile == "" {
-		return nil, fmt.Errorf("no public key recorded for key vault in encryption config and no public key file specified")
-	}
-
 	rawSecret, err := os.ReadFile(o.SecretFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read secret file %s: %w", o.SecretFile, err)
@@ -155,6 +146,15 @@ func (o *ValidatedOptions) Complete() (*Options, error) {
 	}
 
 	keyVaultURI := fmt.Sprintf("https://%s.%s", o.KeyVault, keyVaultDNSSuffix)
+
+	keyVaultCfg, exists := cfg.KeyVaults[keyVaultURI]
+	if !exists && o.PublicKeyFile == "" {
+		return nil, fmt.Errorf("keyvault %s does not exist in encryption config and no public key file specified to bootstrap it", o.KeyVault)
+	}
+
+	if keyVaultCfg.KeyEncryptionKey == "" && o.PublicKeyFile == "" {
+		return nil, fmt.Errorf("no public key recorded for key vault in encryption config and no public key file specified")
+	}
 
 	return &Options{
 		completedOptions: &completedOptions{
