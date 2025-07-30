@@ -156,6 +156,9 @@
                             "certificateDomains": {
                                 "$ref": "#/definitions/value"
                             },
+                            "backfillSubscriptionId": {
+                                "$ref": "#/definitions/value"
+                            },
                             "roleAssignment": {
                                 "type": "string",
                                 "minLength": 1

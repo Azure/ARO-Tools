@@ -183,6 +183,7 @@ resourceGroups:
   subscriptionProvisioning:
     airsRegisteredUserPrincipalId:
       configRef: svc.subscription.airsRegisteredUserPrincipalId
+    backfillSubscriptionId: {}
     certificateDomains:
       configRef: svc.subscription.certificateDomains
     displayName:
@@ -247,6 +248,7 @@ resourceGroups:
         step: deploy
   subscription: hcp-uksouth
   subscriptionProvisioning:
+    backfillSubscriptionId: {}
     displayName:
       configRef: svc.subscription.displayName
     roleAssignment: test.bicepparam
