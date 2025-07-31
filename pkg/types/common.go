@@ -23,6 +23,7 @@ type Step interface {
 	ActionType() string
 	Description() string
 	Dependencies() []string
+	ShouldRunStep() bool
 }
 
 // StepMeta contains metadata for a steps.
@@ -30,6 +31,7 @@ type StepMeta struct {
 	Name      string   `json:"name"`
 	Action    string   `json:"action"`
 	DependsOn []string `json:"dependsOn,omitempty"`
+	ShouldRun bool     `json:"shouldRun,omitempty"`
 }
 
 func (m *StepMeta) StepName() string {
@@ -42,6 +44,10 @@ func (m *StepMeta) ActionType() string {
 
 func (m *StepMeta) Dependencies() []string {
 	return m.DependsOn
+}
+
+func (m *StepMeta) ShouldRunStep() bool {
+	return m.ShouldRun
 }
 
 type GenericStep struct {
