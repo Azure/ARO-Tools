@@ -46,3 +46,28 @@ func ResolveConfig(cloud, region string) (types.Configuration, error) {
 	types.MergeConfiguration(cfg, regionCfg)
 	return cfg, nil
 }
+
+func ResolveConfigForCloud(cloud string) (types.Configuration, error) {
+	ev2Config := config{}
+	if err := yaml.Unmarshal(rawConfig, &ev2Config); err != nil {
+		return nil, fmt.Errorf("failed to parse embedded Ev2 config: %w", err)
+	}
+
+	cloudCfg, hasCloud := ev2Config.Clouds[cloud]
+	if !hasCloud {
+		return nil, fmt.Errorf("failed to find cloud %s", cloud)
+	}
+
+	if len(cloudCfg.Regions) == 0 {
+		return nil, fmt.Errorf("no regions available for cloud %s", cloud)
+	}
+
+	// Find the first region
+	var firstRegion string
+	for region := range cloudCfg.Regions {
+		firstRegion = region
+		break
+	}
+
+	return ResolveConfig(cloud, firstRegion)
+}
