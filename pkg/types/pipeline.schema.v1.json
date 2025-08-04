@@ -530,35 +530,7 @@
                       "$ref": "#/definitions/stepName"
                     },
                     "action": {
-                      "const": "Pav2ManageAppId"
-                    },
-                    "secretKeyVault": {
-                      "$ref": "#/definitions/value"
-                    },
-                    "secretName": {
-                      "$ref": "#/definitions/value"
-                    },
-                    "smeAppidParameter": {
-                      "$ref": "#/definitions/value"
-                    },
-                    "dependsOn": {
-                      "$ref":  "#/definitions/stepDependencies"
-                    }
-                  },
-                  "required": [
-                    "secretKeyVault",
-                    "secretName",
-                    "smeAppidParameter"
-                  ]
-                },
-                {
-                  "additionalProperties": false,
-                  "properties": {
-                    "name": {
-                      "$ref": "#/definitions/stepName"
-                    },
-                    "action": {
-                      "const": "Pav2AddAccount"
+                      "const": "Pav2"
                     },
                     "secretKeyVault": {
                       "$ref": "#/definitions/value"
@@ -572,6 +544,9 @@
                     "smeEndpointSuffixParameter": {
                       "$ref": "#/definitions/value"
                     },
+                    "smeAppidParameter": {
+                      "$ref": "#/definitions/value"
+                    },
                     "dependsOn": {
                       "$ref":  "#/definitions/stepDependencies"
                     }
@@ -580,7 +555,8 @@
                     "secretKeyVault",
                     "secretName",
                     "storageAccount",
-                    "smeEndpointSuffixParameter"
+                    "smeEndpointSuffixParameter",
+                    "smeAppidParameter"
                   ]
                 },
                 {

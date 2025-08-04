@@ -243,27 +243,13 @@ func TestRequiredInputs(t *testing.T) {
 			input: &KustoStep{},
 		},
 		{
-			name: "manageapp full",
-			input: &Pav2ManageAppIdStep{
-				SecretKeyVault:    Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step"}}},
-				SecretName:        Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step"}}},
-				SMEAppidParameter: Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step"}}},
-			},
-			expected: []StepDependency{
-				{ResourceGroup: "rg", Step: "step"},
-			},
-		},
-		{
-			name:  "manageapp empty",
-			input: &Pav2ManageAppIdStep{},
-		},
-		{
-			name: "addaccount full",
-			input: &Pav2AddAccountStep{
+			name: "pav2 full",
+			input: &Pav2Step{
 				SecretKeyVault:             Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step"}}},
 				SecretName:                 Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step2"}}},
 				StorageAccount:             Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step3"}}},
 				SMEEndpointSuffixParameter: Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step"}}},
+				SMEAppidParameter:          Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step"}}},
 			},
 			expected: []StepDependency{
 				{ResourceGroup: "rg", Step: "step"},
@@ -272,8 +258,8 @@ func TestRequiredInputs(t *testing.T) {
 			},
 		},
 		{
-			name:  "addaccount empty",
-			input: &Pav2AddAccountStep{},
+			name:  "pav2 empty",
+			input: &Pav2Step{},
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
