@@ -107,12 +107,8 @@ func (s *Steps) UnmarshalJSON(data []byte) error {
 			step = &Ev2RegistrationStep{}
 		case "SecretSync":
 			step = &SecretSyncStep{}
-		case "Kusto":
-			step = &KustoStep{}
-		case "Pav2ManageAppId":
-			step = &Pav2ManageAppIdStep{}
-		case "Pav2AddAccount":
-			step = &Pav2AddAccountStep{}
+		case "Pav2":
+			step = &Pav2Step{}
 		default:
 			step = &GenericStep{}
 		}
