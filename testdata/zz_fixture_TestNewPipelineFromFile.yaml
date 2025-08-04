@@ -250,18 +250,8 @@ resourceGroups:
       value: sourceRegistry
     targetACR:
       value: targetACR
-  - action: Pav2AddAccount
-    name: pav2AddAccount
-    secretKeyVault:
-      configRef: ev2.assistedId.certificate.keyVault
-    secretName:
-      configRef: ev2.assistedId.certificate.name
-    smeEndpointSuffixParameter:
-      configRef: storage.storageSuffix
-    storageAccount:
-      configRef: storage.accountName
-  - action: Pav2ManageAppId
-    name: pav2ManageAppId
+  - action: Pav2
+    name: pav2
     secretKeyVault:
       configRef: ev2.assistedId.certificate.keyVault
     secretName:
@@ -271,6 +261,10 @@ resourceGroups:
         name: kvUrl
         resourceGroup: regional
         step: deploy
+    smeEndpointSuffixParameter:
+      configRef: storage.storageSuffix
+    storageAccount:
+      configRef: storage.accountName
   subscription: hcp-uksouth
   subscriptionProvisioning:
     displayName:

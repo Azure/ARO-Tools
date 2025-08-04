@@ -300,44 +300,22 @@ func (s *KustoStep) RequiredInputs() []StepDependency {
 	return deps
 }
 
-type Pav2ManageAppIdStep struct {
-	StepMeta          `json:",inline"`
-	SecretKeyVault    Value `json:"secretKeyVault,omitempty"`
-	SecretName        Value `json:"secretName,omitempty"`
-	SMEAppidParameter Value `json:"smeAppidParameter,omitempty"`
-}
-
-func (s *Pav2ManageAppIdStep) Description() string {
-	return fmt.Sprintf("Step %s\n Kind: %s\n", s.Name, s.Action)
-}
-
-func (s *Pav2ManageAppIdStep) RequiredInputs() []StepDependency {
-	var deps []StepDependency
-	for _, val := range []Value{s.SecretKeyVault, s.SecretName, s.SMEAppidParameter} {
-		if val.Input != nil {
-			deps = append(deps, val.Input.StepDependency)
-		}
-	}
-	slices.SortFunc(deps, SortDependencies)
-	deps = slices.Compact(deps)
-	return deps
-}
-
-type Pav2AddAccountStep struct {
+type Pav2Step struct {
 	StepMeta                   `json:",inline"`
 	SecretKeyVault             Value `json:"secretKeyVault,omitempty"`
 	SecretName                 Value `json:"secretName,omitempty"`
 	StorageAccount             Value `json:"storageAccount,omitempty"`
 	SMEEndpointSuffixParameter Value `json:"smeEndpointSuffixParameter,omitempty"`
+	SMEAppidParameter          Value `json:"smeAppidParameter,omitempty"`
 }
 
-func (s *Pav2AddAccountStep) Description() string {
+func (s *Pav2Step) Description() string {
 	return fmt.Sprintf("Step %s\n Kind: %s\n", s.Name, s.Action)
 }
 
-func (s *Pav2AddAccountStep) RequiredInputs() []StepDependency {
+func (s *Pav2Step) RequiredInputs() []StepDependency {
 	var deps []StepDependency
-	for _, val := range []Value{s.SecretKeyVault, s.SecretName, s.StorageAccount, s.SMEEndpointSuffixParameter} {
+	for _, val := range []Value{s.SecretKeyVault, s.SecretName, s.StorageAccount, s.SMEEndpointSuffixParameter, s.SMEAppidParameter} {
 		if val.Input != nil {
 			deps = append(deps, val.Input.StepDependency)
 		}
