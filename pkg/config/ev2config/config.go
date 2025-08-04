@@ -5,6 +5,7 @@ import (
 
 	"sigs.k8s.io/yaml"
 
+	"github.com/Azure/ARO-Tools/pkg/cmdutils"
 	"github.com/Azure/ARO-Tools/pkg/config/types"
 
 	_ "embed"
@@ -70,4 +71,28 @@ func ResolveConfigForCloud(cloud string) (types.Configuration, error) {
 	}
 
 	return ResolveConfig(cloud, firstRegion)
+}
+
+func GetDefaultRegionForCloud(cloud cmdutils.RolloutCloud) (string, error) {
+	// Handle dev cloud mapping
+	actualCloud := cloud
+	if actualCloud == cmdutils.RolloutCloudDev {
+		actualCloud = cmdutils.RolloutCloudPublic
+	}
+
+	contexts, err := AllContexts()
+	if err != nil {
+		return "", fmt.Errorf("failed to get ev2 contexts: %w", err)
+	}
+
+	regions, exists := contexts[string(actualCloud)]
+	if !exists {
+		return "", fmt.Errorf("unsupported rollout cloud: %s", actualCloud)
+	}
+
+	if len(regions) == 0 {
+		return "", fmt.Errorf("no regions available for cloud %s", actualCloud)
+	}
+
+	return regions[0], nil
 }

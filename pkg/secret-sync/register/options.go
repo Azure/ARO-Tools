@@ -130,9 +130,9 @@ func (o *ValidatedOptions) Complete() (*Options, error) {
 		ev2Cloud = cmdutils.RolloutCloudPublic
 	}
 
-	region := "uksouth"
-	if ev2Cloud == cmdutils.RolloutCloudFairfax {
-		region = "usgovvirginia"
+	region, err := ev2config.GetDefaultRegionForCloud(ev2Cloud)
+	if err != nil {
+		return nil, err
 	}
 
 	ev2Cfg, err := ev2config.ResolveConfig(string(ev2Cloud), region)
