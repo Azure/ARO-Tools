@@ -117,7 +117,12 @@ func (o *ValidatedOptions) Complete() (*Options, error) {
 		ev2Cloud = cmdutils.RolloutCloudPublic
 	}
 
-	ev2Cfg, err := ev2config.ResolveConfig(string(ev2Cloud), "uksouth") // n.b. region is not important
+	region, err := ev2config.GetDefaultRegionForCloud(ev2Cloud)
+	if err != nil {
+		return nil, err
+	}
+
+	ev2Cfg, err := ev2config.ResolveConfig(string(ev2Cloud), region)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve ev2 config for %s: %w", ev2Cloud, err)
 	}
