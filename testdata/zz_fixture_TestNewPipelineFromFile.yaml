@@ -185,6 +185,7 @@ resourceGroups:
     typeName:
       configRef: geneva.logs.typeName
   - action: ImageMirror
+    authUsing: {}
     digest:
       value: digest
     name: image-mirror
@@ -235,6 +236,7 @@ resourceGroups:
     keyVault: arohcpint-global
     name: sync-secrets
   - action: ImageMirror
+    authUsing: {}
     digest:
       value: digest
     name: image-mirror
