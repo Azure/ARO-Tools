@@ -15,7 +15,11 @@
           "type": "string",
           "minLength": 1
         }
-      }
+      },
+      "required": [
+        "resourceGroup",
+        "step"
+      ]
     },
     "stepDependencies": {
       "type": "array",
@@ -62,6 +66,7 @@
         }
       },
       "required": [
+        "resourceGroup",
         "step",
         "name"
       ]
@@ -773,6 +778,7 @@
         },
         "required": [
           "name",
+          "resourceGroup",
           "subscription",
           "steps"
         ]
