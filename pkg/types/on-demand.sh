@@ -5,7 +5,7 @@ set -euo pipefail
 # shortcut mirroring if the source registry is the same as the target ACR
 REQUIRED_REGISTRY_VARS=("TARGET_ACR" "SOURCE_REGISTRY")
 for VAR in "${REQUIRED_REGISTRY_VARS[@]}"; do
-    if [ -z "${!VAR}" ]; then
+    if [[ -z "${!VAR}" ]]; then
         echo "Error: Environment variable $VAR is not set."
         exit 1
     fi
@@ -19,7 +19,7 @@ fi
 # validate
 REQUIRED_VARS=("REPOSITORY" "DIGEST")
 for VAR in "${REQUIRED_VARS[@]}"; do
-    if [ -z "${!VAR}" ]; then
+    if [[ -z "${!VAR}" ]]; then
         echo "Error: Environment variable $VAR is not set."
         exit 1
     fi
@@ -35,7 +35,7 @@ case "${AUTH_USING:-credential}" in
         # When using credentials, PULL_SECRET_KV and PULL_SECRET are required
         AUTH_REQUIRED_VARS=("PULL_SECRET_KV" "PULL_SECRET")
         for VAR in "${AUTH_REQUIRED_VARS[@]}"; do
-            if [ -z "${!VAR}" ]; then
+            if [[ -z "${!VAR}" ]]; then
                 echo "Error: Environment variable $VAR is required when AUTH_USING='credential'."
                 exit 1
             fi
@@ -108,7 +108,7 @@ oras login --registry-config "${AUTH_JSON}" \
 # write to the target registry.
 
 # Check for DRY_RUN
-if [ "${DRY_RUN:-false}" == "true" ]; then
+if [[ "${DRY_RUN:-false}" == "true" ]]; then
     echo "DRY_RUN is enabled. Exiting without making changes."
     exit 0
 fi
