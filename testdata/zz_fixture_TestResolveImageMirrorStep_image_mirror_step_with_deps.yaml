@@ -1,7 +1,8 @@
 action: Shell
 command: /bin/bash /path/to/script.sh
 dependsOn:
-- previous-step
+- resourceGroup: whatever
+  step: previous-step
 dryRun:
   variables:
   - name: DRY_RUN

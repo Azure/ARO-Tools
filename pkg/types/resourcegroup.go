@@ -24,6 +24,7 @@ import (
 // ResourceGroup represents the resourcegroup containing all steps
 type ResourceGroup struct {
 	Name                     string                    `json:"name"`
+	ResourceGroup            string                    `json:"resourceGroup"`
 	Subscription             string                    `json:"subscription"`
 	SubscriptionProvisioning *SubscriptionProvisioning `json:"subscriptionProvisioning,omitempty"`
 	// Deprecated: AKSCluster to be removed

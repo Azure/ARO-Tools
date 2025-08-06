@@ -4,7 +4,8 @@ buildStep:
   - build
   command: make
 resourceGroups:
-- name: hcp-underlay-uks
+- name: regional
+  resourceGroup: hcp-underlay-uks
   steps:
   - action: Shell
     aksCluster: aro-hcp-aks
@@ -38,13 +39,15 @@ resourceGroups:
     variables:
     - input:
         name: whatever
+        resourceGroup: regional
         step: deploy
       name: MAESTRO_IMAGE
   - action: DelegateChildZone
     childZone:
       configRef: childZone
     dependsOn:
-    - deploy
+    - resourceGroup: regional
+      step: deploy
     name: cxChildZone
     parentZone:
       configRef: parentZone
@@ -52,7 +55,8 @@ resourceGroups:
     applicationId:
       configRef: ev2.assistedId.applicationId
     dependsOn:
-    - deploy
+    - resourceGroup: regional
+      step: deploy
     issuer:
       configRef: provider
     name: issuerTest
@@ -66,7 +70,8 @@ resourceGroups:
     applicationId:
       configRef: ev2.assistedId.applicationId
     dependsOn:
-    - deploy
+    - resourceGroup: regional
+      step: deploy
     issuer:
       value: provider
     name: issuerTestOutputChaining
@@ -77,6 +82,7 @@ resourceGroups:
     vaultBaseUrl:
       input:
         name: kvUrl
+        resourceGroup: regional
         step: deploy
   - action: CreateCertificate
     applicationId:
@@ -189,16 +195,19 @@ resourceGroups:
       configRef: svc.subscription.displayName
     roleAssignment: test.bicepparam
 - name: global
+  resourceGroup: global
   steps:
   - action: ProviderFeatureRegistration
     identityFrom:
       name: whatever
+      resourceGroup: regional
       step: deploy
     name: register-providers-afec-flags
     providerConfigRef: svc.subscription.displayName
   - action: Ev2Registration
     identityFrom:
       name: whatever
+      resourceGroup: regional
       step: deploy
     name: register-ev2-services
   - action: SecretSync
@@ -206,13 +215,14 @@ resourceGroups:
     encryptionKey: secretSyncKey
     identityFrom:
       name: whatever
+      resourceGroup: regional
       step: deploy
     keyVault: arohcpint-global
     name: sync-secrets
   - action: ImageMirror
     digest:
       value: digest
-    name: image-mirror-ii
+    name: image-mirror
     pullSecretKeyVault:
       value: pullSecretKeyVault
     pullSecretName:
@@ -244,6 +254,7 @@ resourceGroups:
     smeAppidParameter:
       input:
         name: kvUrl
+        resourceGroup: regional
         step: deploy
   subscription: hcp-uksouth
   subscriptionProvisioning:
