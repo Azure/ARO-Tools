@@ -229,8 +229,9 @@ func TestValidatePipelineSchema(t *testing.T) {
 				"rolloutName":  "test",
 				"resourceGroups": []interface{}{
 					map[string]interface{}{
-						"name":         "rg",
-						"subscription": "sub",
+						"name":          "rg",
+						"resourceGroup": "rg",
+						"subscription":  "sub",
 						"steps": []interface{}{
 							map[string]interface{}{
 								"name":    "step",
@@ -249,9 +250,10 @@ func TestValidatePipelineSchema(t *testing.T) {
 				"rolloutName":  "test",
 				"resourceGroups": []interface{}{
 					map[string]interface{}{
-						"name":         "rg",
-						"subscription": "sub",
-						"aksCluster":   "aks",
+						"name":          "rg",
+						"resourceGroup": "rg",
+						"subscription":  "sub",
+						"aksCluster":    "aks",
 						"steps": []interface{}{
 							map[string]interface{}{
 								"name":   "step",
