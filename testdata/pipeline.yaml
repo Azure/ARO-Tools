@@ -6,7 +6,8 @@ buildStep:
   args:
     - build
 resourceGroups:
-- name: '{{ .regionRG  }}'
+- name: regional
+  resourceGroup: '{{ .regionRG  }}'
   subscription: '{{ .svc.subscription.key }}'
   subscriptionProvisioning:
     displayName:
@@ -48,6 +49,7 @@ resourceGroups:
     variables:
       - name: MAESTRO_IMAGE
         input:
+          resourceGroup: regional
           step: deploy
           name: whatever
   - name: cxChildZone
@@ -57,7 +59,8 @@ resourceGroups:
     childZone:
       configRef: childZone
     dependsOn:
-    - deploy
+    - step: deploy
+      resourceGroup: regional
   - name: issuerTest
     action: SetCertificateIssuer
     secretKeyVault:
@@ -71,7 +74,8 @@ resourceGroups:
     issuer:
       configRef: provider
     dependsOn:
-    - deploy
+    - step: deploy
+      resourceGroup: regional
   - name: issuerTestOutputChaining
     action: SetCertificateIssuer
     secretKeyVault:
@@ -82,12 +86,14 @@ resourceGroups:
       configRef: ev2.assistedId.applicationId
     vaultBaseUrl:
       input:
+        resourceGroup: regional
         name: kvUrl
         step: deploy
     issuer:
       value: provider
     dependsOn:
-    - deploy
+    - step: deploy
+      resourceGroup: regional
   - name: cert
     action: CreateCertificate
     secretKeyVault:
@@ -189,7 +195,8 @@ resourceGroups:
       value: pullSecretName
     shellIdentity:
       value: shellIdentity
-- name: '{{ .globalRG  }}'
+- name: global
+  resourceGroup: '{{ .globalRG  }}'
   subscription: '{{ .managementClusterSubscription }}'
   subscriptionProvisioning:
     displayName:
@@ -199,12 +206,14 @@ resourceGroups:
     - name: register-providers-afec-flags
       action: ProviderFeatureRegistration
       identityFrom:
+        resourceGroup: regional
         step: deploy
         name: whatever
       providerConfigRef: svc.subscription.displayName
     - name: register-ev2-services
       action: Ev2Registration
       identityFrom:
+        resourceGroup: regional
         step: deploy
         name: whatever
     - name: sync-secrets
@@ -213,9 +222,10 @@ resourceGroups:
       configurationFile: 'data/encryptedsecrets/config.yaml'
       encryptionKey: 'secretSyncKey'
       identityFrom:
+        resourceGroup: regional
         step: deploy
         name: whatever
-    - name: image-mirror-ii
+    - name: image-mirror
       action: ImageMirror
       targetACR:
         value: targetACR
@@ -249,5 +259,6 @@ resourceGroups:
         configRef: ev2.assistedId.certificate.name
       smeAppidParameter:
         input:
+          resourceGroup: regional
           name: kvUrl
           step: deploy   

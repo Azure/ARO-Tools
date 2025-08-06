@@ -4,6 +4,26 @@
   "type": "object",
   "additionalProperties": false,
   "definitions": {
+    "stepReference": {
+      "type": "object",
+      "properties": {
+        "resourceGroup": {
+          "type": "string",
+          "minLength": 1
+        },
+        "step": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "stepDependencies": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/stepReference"
+      },
+      "minLength": 1
+    },
     "configRef": {
       "type": "string",
       "minLength": 1,
@@ -28,6 +48,10 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
+        "resourceGroup": {
+          "type": "string",
+          "minLength": 1
+        },
         "step": {
           "type": "string",
           "minLength": 1
@@ -139,6 +163,10 @@
             "type": "string",
             "minLength": 1
           },
+          "resourceGroup": {
+            "type": "string",
+            "minLength": 1
+          },
           "subscription": {
             "type": "string",
             "minLength": 1
@@ -196,10 +224,7 @@
                       }
                     },
                     "dependsOn": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
+                      "$ref": "#/definitions/stepDependencies"
                     },
                     "deploymentLevel": {
                       "type": "string",
@@ -253,10 +278,7 @@
                       "$ref": "#/definitions/value"
                     },
                     "dependsOn": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
+                      "$ref":  "#/definitions/stepDependencies"
                     },
                     "dryRun": {
                       "type": "object",
@@ -294,10 +316,7 @@
                       "$ref": "#/definitions/value"
                     },
                     "dependsOn": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
+                      "$ref":  "#/definitions/stepDependencies"
                     }
                   },
                   "required": [
@@ -330,10 +349,7 @@
                       "$ref": "#/definitions/value"
                     },
                     "dependsOn": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
+                      "$ref":  "#/definitions/stepDependencies"
                     }
                   },
                   "required": [
@@ -378,10 +394,7 @@
                       "$ref": "#/definitions/value"
                     },
                     "dependsOn": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
+                      "$ref":  "#/definitions/stepDependencies"
                     }
                   },
                   "required": [
@@ -408,10 +421,7 @@
                       "$ref": "#/definitions/value"
                     },
                     "dependsOn": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
+                      "$ref":  "#/definitions/stepDependencies"
                     }
                   },
                   "required": [
@@ -443,10 +453,7 @@
                       "$ref": "#/definitions/value"
                     },
                     "dependsOn": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
+                      "$ref":  "#/definitions/stepDependencies"
                     }
                   },
                   "required": [
@@ -476,10 +483,7 @@
                       "$ref": "#/definitions/value"
                     },
                     "dependsOn": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
+                      "$ref":  "#/definitions/stepDependencies"
                     }
                   },
                   "required": [
@@ -510,10 +514,7 @@
                       "$ref": "#/definitions/value"
                     },
                     "dependsOn": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
+                      "$ref":  "#/definitions/stepDependencies"
                     }
                   },
                   "required": [
@@ -587,10 +588,7 @@
                       "additionalProperties": false
                     },
                     "dependsOn": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
+                      "$ref":  "#/definitions/stepDependencies"
                     }
                   },
                   "required": [
@@ -641,10 +639,7 @@
                       "$ref": "#/definitions/value"
                     },
                     "dependsOn": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
+                      "$ref":  "#/definitions/stepDependencies"
                     }
                   },
                   "required": [
@@ -676,10 +671,7 @@
                       "$ref": "#/definitions/value"
                     },
                     "dependsOn": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
+                      "$ref":  "#/definitions/stepDependencies"
                     }
                   },
                   "required": [
@@ -704,10 +696,7 @@
                       "$ref": "#/definitions/input"
                     },
                     "dependsOn": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
+                      "$ref":  "#/definitions/stepDependencies"
                     }
                   },
                   "required": [
@@ -740,11 +729,7 @@
                       "$ref": "#/definitions/input"
                     },
                     "dependsOn": {
-                      "type": "array",
-                      "items": {
-                        "type": "string",
-                        "minLength": 1
-                      }
+                      "$ref": "#/definitions/stepDependencies"
                     }
                   },
                   "required": [
@@ -767,11 +752,7 @@
                       "$ref": "#/definitions/input"
                     },
                     "dependsOn": {
-                      "type": "array",
-                      "items": {
-                        "type": "string",
-                        "minLength": 1
-                      }
+                      "$ref": "#/definitions/stepDependencies"
                     }
                   },
                   "required": [

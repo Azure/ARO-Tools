@@ -49,7 +49,7 @@ func TestResolveImageMirrorStep(t *testing.T) {
 				StepMeta: StepMeta{
 					Name:      "image-mirror-step",
 					Action:    "ImageMirror",
-					DependsOn: []string{"previous-step"},
+					DependsOn: []StepDependency{{ResourceGroup: "whatever", Step: "previous-step"}},
 				},
 				TargetACR:          Value{Value: "myacr.azurecr.io"},
 				SourceRegistry:     Value{Value: "docker.io"},

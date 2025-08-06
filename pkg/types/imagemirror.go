@@ -41,6 +41,16 @@ func (s *ImageMirrorStep) Description() string {
 	return fmt.Sprintf("Step %s\n  Kind: %s\n  From %v:%v@%v to %v\n", s.Name, s.Action, s.SourceRegistry, s.Repository, s.Digest, s.TargetACR)
 }
 
+func (s *ImageMirrorStep) RequiredInputs() []StepDependency {
+	var deps []StepDependency
+	for _, val := range []Value{s.TargetACR, s.SourceRegistry, s.Repository, s.Digest, s.PullSecretKeyVault, s.PullSecretName, s.ShellIdentity} {
+		if val.Input != nil {
+			deps = append(deps, val.Input.StepDependency)
+		}
+	}
+	return deps
+}
+
 // ResolveImageMirrorStep resolves an image mirror step to a shell step. It's up to the user to write the contents of
 // the OnDemandSyncScript to disk somewhere and pass the file name in as a parameter here, as we likely don't want to
 // inline 100+ lines of shell into a `bash -C "<contents>"` call and hope all the string interpolations work.

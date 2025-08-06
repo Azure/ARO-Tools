@@ -51,10 +51,10 @@ func (v *Value) String() string {
 	return "unknown"
 }
 
-// Input
-// Holds the values used for output chaining:
-//   - Step: Referenced step
+// Input describes a variable that some other step produces, which we consume.
 type Input struct {
+	// StepDependency declares from which step we are consuming the output variable.
+	StepDependency `json:",inline"`
+	// Name is the output variable we consume for input chaining.
 	Name string `json:"name"`
-	Step string `json:"step"`
 }
