@@ -55,7 +55,7 @@ func NewARMStep(name string, template string, parameters string, deploymentLevel
 }
 
 // WithDependsOn fluent method that sets DependsOn
-func (s *ARMStep) WithDependsOn(dependsOn ...string) *ARMStep {
+func (s *ARMStep) WithDependsOn(dependsOn ...StepDependency) *ARMStep {
 	s.DependsOn = dependsOn
 	return s
 }
@@ -80,4 +80,14 @@ func (s *ARMStep) Description() string {
 	details = append(details, fmt.Sprintf("Template: %s", s.Template))
 	details = append(details, fmt.Sprintf("Parameters: %s", s.Parameters))
 	return fmt.Sprintf("Step %s\n  Kind: %s\n  %s", s.Name, s.Action, strings.Join(details, "\n  "))
+}
+
+func (s *ARMStep) RequiredInputs() []StepDependency {
+	var deps []StepDependency
+	for _, val := range s.Variables {
+		if val.Input != nil {
+			deps = append(deps, val.Input.StepDependency)
+		}
+	}
+	return deps
 }

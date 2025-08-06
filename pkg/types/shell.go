@@ -63,6 +63,19 @@ func (s *ShellStep) Description() string {
 	return fmt.Sprintf("Step %s\n  Kind: %s\n  Command: %s\n", s.Name, s.Action, s.Command)
 }
 
+func (s *ShellStep) RequiredInputs() []StepDependency {
+	var deps []StepDependency
+	for _, val := range append(s.Variables, s.DryRun.Variables...) {
+		if val.Input != nil {
+			deps = append(deps, val.Input.StepDependency)
+		}
+	}
+	if s.ShellIdentity.Input != nil {
+		deps = append(deps, s.ShellIdentity.Input.StepDependency)
+	}
+	return deps
+}
+
 // WithAKSCluster fluent method that sets AKSCluster
 func (s *ShellStep) WithAKSCluster(aksCluster string) *ShellStep {
 	s.AKSCluster = aksCluster
@@ -70,7 +83,7 @@ func (s *ShellStep) WithAKSCluster(aksCluster string) *ShellStep {
 }
 
 // WithDependsOn fluent method that sets DependsOn
-func (s *ShellStep) WithDependsOn(dependsOn ...string) *ShellStep {
+func (s *ShellStep) WithDependsOn(dependsOn ...StepDependency) *ShellStep {
 	s.DependsOn = dependsOn
 	return s
 }

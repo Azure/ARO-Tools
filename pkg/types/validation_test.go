@@ -77,8 +77,9 @@ func TestPipelineValidate(t *testing.T) {
 			pipeline: &Pipeline{
 				ResourceGroups: []*ResourceGroup{
 					{
-						Name:         "rg1",
-						Subscription: "sub1",
+						Name:          "rg1",
+						ResourceGroup: "rg1",
+						Subscription:  "sub1",
 						Steps: []Step{
 							NewShellStep("step1", "echo foo"),
 						},
@@ -87,20 +88,38 @@ func TestPipelineValidate(t *testing.T) {
 						Name:         "rg2",
 						Subscription: "sub1",
 						Steps: []Step{
-							NewShellStep("step2", "echo bar").WithDependsOn("step3"),
+							NewShellStep("step2", "echo bar").WithDependsOn(StepDependency{ResourceGroup: "rg1", Step: "step3"}),
 						},
 					},
 				},
 			},
-			err: "invalid dependency on step step2: dependency step3 does not exist",
+			err: "pipeline.resourceGroups[1:rg2].steps[0:step2]: dependency rg1/step3 invalid: resource group rg1 has no step step3",
 		},
 		{
 			name: "duplicate step name",
 			pipeline: &Pipeline{
 				ResourceGroups: []*ResourceGroup{
 					{
-						Name:         "rg1",
-						Subscription: "sub1",
+						Name:          "rg1",
+						ResourceGroup: "rg1",
+						Subscription:  "sub1",
+						Steps: []Step{
+							NewShellStep("step1", "echo foo"),
+							NewShellStep("step1", "echo bar").WithDependsOn(StepDependency{ResourceGroup: "rg1", Step: "step1"}),
+						},
+					},
+				},
+			},
+			err: `pipeline.resourceGroups[0:rg1].steps[1:step1]: step name "step1" duplicated`,
+		},
+		{
+			name: "same step name across groups",
+			pipeline: &Pipeline{
+				ResourceGroups: []*ResourceGroup{
+					{
+						Name:          "rg1",
+						ResourceGroup: "rg1",
+						Subscription:  "sub1",
 						Steps: []Step{
 							NewShellStep("step1", "echo foo"),
 						},
@@ -109,29 +128,30 @@ func TestPipelineValidate(t *testing.T) {
 						Name:         "rg2",
 						Subscription: "sub1",
 						Steps: []Step{
-							NewShellStep("step1", "echo bar").WithDependsOn("step1"),
+							NewShellStep("step1", "echo bar").WithDependsOn(StepDependency{ResourceGroup: "rg1", Step: "step1"}),
 						},
 					},
 				},
 			},
-			err: "duplicate step name \"step1\"",
 		},
 		{
 			name: "valid step dependencies",
 			pipeline: &Pipeline{
 				ResourceGroups: []*ResourceGroup{
 					{
-						Name:         "rg1",
-						Subscription: "sub1",
+						Name:          "rg1",
+						ResourceGroup: "rg1",
+						Subscription:  "sub1",
 						Steps: []Step{
 							NewShellStep("step1", "echo foo"),
 						},
 					},
 					{
-						Name:         "rg2",
-						Subscription: "sub1",
+						Name:          "rg2",
+						ResourceGroup: "rg2",
+						Subscription:  "sub1",
 						Steps: []Step{
-							NewShellStep("step2", "echo bar").WithDependsOn("step1"),
+							NewShellStep("step2", "echo bar").WithDependsOn(StepDependency{ResourceGroup: "rg1", Step: "step1"}),
 						},
 					},
 				},

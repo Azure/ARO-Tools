@@ -17,6 +17,8 @@ package types
 import (
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/util/sets"
+
 	"sigs.k8s.io/yaml"
 
 	"github.com/Azure/ARO-Tools/pkg/config"
@@ -81,22 +83,34 @@ func NewPipelineFromFile(pipelineFilePath string, cfg types2.Configuration) (*Pi
 //   - An error if the pipeline or any of its resource groups are invalid.
 //   - nil if the pipeline and all its resource groups are valid.
 func (p *Pipeline) Validate() error {
-	// collect all steps from all resourcegroups and fail if there are duplicates
-	stepMap := make(map[string]Step)
-	for _, rg := range p.ResourceGroups {
-		for _, step := range rg.Steps {
-			if _, ok := stepMap[step.StepName()]; ok {
-				return fmt.Errorf("duplicate step name %q", step.StepName())
-			}
-			stepMap[step.StepName()] = step
+	groups := sets.New[string]()
+	references := map[string]sets.Set[string]{}
+	for i, rg := range p.ResourceGroups {
+		if groups.Has(rg.Name) {
+			return fmt.Errorf("pipeline.resourceGroups[%d:%s]: resource group name %q duplicated", i, rg.Name, rg.Name)
 		}
+		groups.Insert(rg.Name)
+
+		steps := sets.New[string]()
+		for j, step := range rg.Steps {
+			if steps.Has(step.StepName()) {
+				return fmt.Errorf("pipeline.resourceGroups[%d:%s].steps[%d:%s]: step name %q duplicated", i, rg.Name, j, step.StepName(), step.StepName())
+			}
+			steps.Insert(step.StepName())
+		}
+		references[rg.Name] = steps
 	}
 
-	// validate dependsOn for a step exists
-	for _, step := range stepMap {
-		for _, dep := range step.Dependencies() {
-			if _, ok := stepMap[dep]; !ok {
-				return fmt.Errorf("invalid dependency on step %s: dependency %s does not exist", step.StepName(), dep)
+	for i, rg := range p.ResourceGroups {
+		for j, step := range rg.Steps {
+			for _, dep := range append(step.Dependencies(), step.RequiredInputs()...) {
+				group, exists := references[dep.ResourceGroup]
+				if !exists {
+					return fmt.Errorf("pipeline.resourceGroups[%d:%s].steps[%d:%s]: dependency %s/%s invalid: no such resource group %s", i, rg.Name, j, step.StepName(), dep.ResourceGroup, dep.Step, dep.ResourceGroup)
+				}
+				if !group.Has(dep.Step) {
+					return fmt.Errorf("pipeline.resourceGroups[%d:%s].steps[%d:%s]: dependency %s/%s invalid: resource group %s has no step %s", i, rg.Name, j, step.StepName(), dep.ResourceGroup, dep.Step, dep.ResourceGroup, dep.Step)
+				}
 			}
 		}
 	}

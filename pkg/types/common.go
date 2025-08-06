@@ -22,14 +22,23 @@ type Step interface {
 	StepName() string
 	ActionType() string
 	Description() string
-	Dependencies() []string
+	Dependencies() []StepDependency
+	RequiredInputs() []StepDependency
 }
 
 // StepMeta contains metadata for a steps.
 type StepMeta struct {
-	Name      string   `json:"name"`
-	Action    string   `json:"action"`
-	DependsOn []string `json:"dependsOn,omitempty"`
+	Name      string           `json:"name"`
+	Action    string           `json:"action"`
+	DependsOn []StepDependency `json:"dependsOn,omitempty"`
+}
+
+// StepDependency describes a step that must run before the dependent step may begin.
+type StepDependency struct {
+	// ResourceGroup is the (semantic/display) name of the group to which the step belongs.
+	ResourceGroup string `json:"resourceGroup"`
+	// Step is the name of the step being depended on.
+	Step string `json:"step"`
 }
 
 func (m *StepMeta) StepName() string {
@@ -40,7 +49,7 @@ func (m *StepMeta) ActionType() string {
 	return m.Action
 }
 
-func (m *StepMeta) Dependencies() []string {
+func (m *StepMeta) Dependencies() []StepDependency {
 	return m.DependsOn
 }
 
@@ -50,6 +59,10 @@ type GenericStep struct {
 
 func (s *GenericStep) Description() string {
 	return fmt.Sprintf("Step %s\n  Kind: %s", s.Name, s.Action)
+}
+
+func (s *GenericStep) RequiredInputs() []StepDependency {
+	return []StepDependency{}
 }
 
 type DryRun struct {
@@ -67,6 +80,16 @@ func (s *DelegateChildZoneStep) Description() string {
 	return fmt.Sprintf("Step %s\n Kind: %s\n", s.Name, s.Action)
 }
 
+func (s *DelegateChildZoneStep) RequiredInputs() []StepDependency {
+	var deps []StepDependency
+	for _, val := range []Value{s.ParentZone, s.ChildZone} {
+		if val.Input != nil {
+			deps = append(deps, val.Input.StepDependency)
+		}
+	}
+	return deps
+}
+
 type SetCertificateIssuerStep struct {
 	StepMeta       `json:",inline"`
 	VaultBaseUrl   Value `json:"vaultBaseUrl,omitempty"`
@@ -78,6 +101,16 @@ type SetCertificateIssuerStep struct {
 
 func (s *SetCertificateIssuerStep) Description() string {
 	return fmt.Sprintf("Step %s\n Kind: %s\n", s.Name, s.Action)
+}
+
+func (s *SetCertificateIssuerStep) RequiredInputs() []StepDependency {
+	var deps []StepDependency
+	for _, val := range []Value{s.VaultBaseUrl, s.Issuer, s.SecretKeyVault, s.SecretName, s.ApplicationId} {
+		if val.Input != nil {
+			deps = append(deps, val.Input.StepDependency)
+		}
+	}
+	return deps
 }
 
 type CreateCertificateStep struct {
@@ -96,6 +129,16 @@ func (s *CreateCertificateStep) Description() string {
 	return fmt.Sprintf("Step %s\n Kind: %s\n", s.Name, s.Action)
 }
 
+func (s *CreateCertificateStep) RequiredInputs() []StepDependency {
+	var deps []StepDependency
+	for _, val := range []Value{s.VaultBaseUrl, s.CertificateName, s.ContentType, s.SAN, s.Issuer, s.SecretKeyVault, s.SecretName, s.ApplicationId} {
+		if val.Input != nil {
+			deps = append(deps, val.Input.StepDependency)
+		}
+	}
+	return deps
+}
+
 type ResourceProviderRegistrationStep struct {
 	StepMeta                   `json:",inline"`
 	ResourceProviderNamespaces Value `json:"resourceProviderNamespaces,omitempty"`
@@ -103,6 +146,16 @@ type ResourceProviderRegistrationStep struct {
 
 func (s *ResourceProviderRegistrationStep) Description() string {
 	return fmt.Sprintf("Step %s\n Kind: %s\n", s.Name, s.Action)
+}
+
+func (s *ResourceProviderRegistrationStep) RequiredInputs() []StepDependency {
+	var deps []StepDependency
+	for _, val := range []Value{s.ResourceProviderNamespaces} {
+		if val.Input != nil {
+			deps = append(deps, val.Input.StepDependency)
+		}
+	}
+	return deps
 }
 
 type LogsStep struct {
@@ -127,6 +180,16 @@ func (s *LogsStep) Description() string {
 	return fmt.Sprintf("Step %s\n Kind: %s\n", s.Name, s.Action)
 }
 
+func (s *LogsStep) RequiredInputs() []StepDependency {
+	var deps []StepDependency
+	for _, val := range []Value{s.TypeName, s.SecretKeyVault, s.SecretName, s.Environment, s.AccountName, s.MetricsAccount, s.AdminAlias, s.AdminGroup, s.SubscriptionId, s.Namespace, s.CertSAN, s.CertDescription, s.ConfigVersion} {
+		if val.Input != nil {
+			deps = append(deps, val.Input.StepDependency)
+		}
+	}
+	return deps
+}
+
 type FeatureRegistrationStep struct {
 	StepMeta       `json:",inline"`
 	SecretKeyVault Value `json:"secretKeyVault,omitempty"`
@@ -136,6 +199,16 @@ type FeatureRegistrationStep struct {
 
 func (s *FeatureRegistrationStep) Description() string {
 	return fmt.Sprintf("Step %s\n Kind: %s\n", s.Name, s.Action)
+}
+
+func (s *FeatureRegistrationStep) RequiredInputs() []StepDependency {
+	var deps []StepDependency
+	for _, val := range []Value{s.SecretKeyVault, s.SecretName, s.FeatureFlags} {
+		if val.Input != nil {
+			deps = append(deps, val.Input.StepDependency)
+		}
+	}
+	return deps
 }
 
 type ProviderFeatureRegistrationStep struct {
@@ -148,6 +221,10 @@ func (s *ProviderFeatureRegistrationStep) Description() string {
 	return fmt.Sprintf("Step %s\n Kind: %s\n", s.Name, s.Action)
 }
 
+func (s *ProviderFeatureRegistrationStep) RequiredInputs() []StepDependency {
+	return []StepDependency{s.IdentityFrom.StepDependency}
+}
+
 type Ev2RegistrationStep struct {
 	StepMeta     `json:",inline"`
 	IdentityFrom Input `json:"identityFrom,omitempty"`
@@ -155,6 +232,10 @@ type Ev2RegistrationStep struct {
 
 func (s *Ev2RegistrationStep) Description() string {
 	return fmt.Sprintf("Step %s\n Kind: %s\n", s.Name, s.Action)
+}
+
+func (s *Ev2RegistrationStep) RequiredInputs() []StepDependency {
+	return []StepDependency{s.IdentityFrom.StepDependency}
 }
 
 type SecretSyncStep struct {
@@ -167,6 +248,10 @@ type SecretSyncStep struct {
 
 func (s *SecretSyncStep) Description() string {
 	return fmt.Sprintf("Step %s\n Kind: %s\n", s.Name, s.Action)
+}
+
+func (s *SecretSyncStep) RequiredInputs() []StepDependency {
+	return []StepDependency{s.IdentityFrom.StepDependency}
 }
 
 type KustoStep struct {
@@ -182,6 +267,16 @@ func (s *KustoStep) Description() string {
 	return fmt.Sprintf("Step %s\n Kind: %s\n", s.Name, s.Action)
 }
 
+func (s *KustoStep) RequiredInputs() []StepDependency {
+	var deps []StepDependency
+	for _, val := range []Value{s.SecretKeyVault, s.SecretName, s.ApplicationId, s.ConnectionString, s.Command} {
+		if val.Input != nil {
+			deps = append(deps, val.Input.StepDependency)
+		}
+	}
+	return deps
+}
+
 type Pav2ManageAppIdStep struct {
 	StepMeta          `json:",inline"`
 	SecretKeyVault    Value `json:"secretKeyVault,omitempty"`
@@ -191,6 +286,16 @@ type Pav2ManageAppIdStep struct {
 
 func (s *Pav2ManageAppIdStep) Description() string {
 	return fmt.Sprintf("Step %s\n Kind: %s\n", s.Name, s.Action)
+}
+
+func (s *Pav2ManageAppIdStep) RequiredInputs() []StepDependency {
+	var deps []StepDependency
+	for _, val := range []Value{s.SecretKeyVault, s.SecretName, s.SMEAppidParameter} {
+		if val.Input != nil {
+			deps = append(deps, val.Input.StepDependency)
+		}
+	}
+	return deps
 }
 
 type Pav2AddAccountStep struct {
@@ -203,4 +308,14 @@ type Pav2AddAccountStep struct {
 
 func (s *Pav2AddAccountStep) Description() string {
 	return fmt.Sprintf("Step %s\n Kind: %s\n", s.Name, s.Action)
+}
+
+func (s *Pav2AddAccountStep) RequiredInputs() []StepDependency {
+	var deps []StepDependency
+	for _, val := range []Value{s.SecretKeyVault, s.SecretName, s.StorageAccount, s.SMEEndpointSuffixParameter} {
+		if val.Input != nil {
+			deps = append(deps, val.Input.StepDependency)
+		}
+	}
+	return deps
 }
