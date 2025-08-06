@@ -21,15 +21,39 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-// ResourceGroup represents the resourcegroup containing all steps
+// ResourceGroup represents a group of steps, targeting one resource group in one subscription.
 type ResourceGroup struct {
 	Name                     string                    `json:"name"`
 	ResourceGroup            string                    `json:"resourceGroup"`
 	Subscription             string                    `json:"subscription"`
 	SubscriptionProvisioning *SubscriptionProvisioning `json:"subscriptionProvisioning,omitempty"`
+
+	// ExecutionConstraints define a set of constraints on where this pipeline should be executed.
+	// If unset, the default behavior is to deploy to all clouds, environments, regions, and stamps.
+	// The set of constraints are evaluated using logical OR - adding to the list adds a set of possible
+	// deployment environments.
+	ExecutionConstraints []ExecutionConstraint `json:"executionConstraints,omitempty"`
+
 	// Deprecated: AKSCluster to be removed
 	AKSCluster string `json:"aksCluster,omitempty"`
 	Steps      Steps  `json:"steps"`
+}
+
+// ExecutionConstraint defines a set of parameters for which the pipeline should execute. For each type of parameter,
+// values are evaluated with logical OR - e.g. specifying two clouds will specify either cloud. The different types
+// of parameters are evaluated with logical AND - e.g., specifying a cloud and an environment will constrain the
+// pipeline to run in that cloud AND that environment.
+type ExecutionConstraint struct {
+	// Singleton defines this pipeline to run once - ever - in the entire history of the universe. No re-deployments
+	// will be allowed.
+	Singleton bool `json:"singleton"`
+
+	// Clouds define the clouds in which this pipeline should run. If unset, execution will be unconstrained across clouds.
+	Clouds []string `json:"clouds,omitempty"`
+	// Environments define the environments in which this pipeline should run, for the given clouds. If unset, execution will be unconstrained across environments.
+	Environments []string `json:"environments,omitempty"`
+	// Regions define the regions in which this pipeline should run, for the given clouds and environments. If unset, execution will be unconstrained across regions.
+	Regions []string `json:"regions,omitempty"`
 }
 
 func (rg *ResourceGroup) Validate() error {
