@@ -4,7 +4,22 @@ buildStep:
   - build
   command: make
 resourceGroups:
-- name: regional
+- executionConstraints:
+  - clouds:
+    - ff
+    - usnat
+    environments:
+    - int
+    - stg
+    singleton: true
+  - clouds:
+    - public
+    environments:
+    - prod
+    regions:
+    - uksouth
+    singleton: false
+  name: regional
   resourceGroup: hcp-underlay-uks
   steps:
   - action: Shell

@@ -144,6 +144,46 @@
       "required": [
         "name"
       ]
+    },
+    "executionConstraint": {
+      "type": "object",
+      "properties": {
+        "singleton": {
+          "type": "boolean"
+        },
+        "clouds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "public",
+              "ff",
+              "mc",
+              "usnat",
+              "ussec",
+              "bleu"
+            ]
+          }
+        },
+        "environments": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "int",
+              "stg",
+              "prod"
+            ]
+          }
+        },
+        "regions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
     }
   },
   "properties": {
@@ -175,6 +215,12 @@
           "subscription": {
             "type": "string",
             "minLength": 1
+          },
+          "executionConstraints": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/executionConstraint"
+            }
           },
           "subscriptionProvisioning": {
             "type": "object",

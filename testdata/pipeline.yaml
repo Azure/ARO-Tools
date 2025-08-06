@@ -9,6 +9,20 @@ resourceGroups:
 - name: regional
   resourceGroup: '{{ .regionRG  }}'
   subscription: '{{ .svc.subscription.key }}'
+  executionConstraints:
+    - singleton: true
+      clouds:
+        - ff
+        - usnat
+      environments:
+        - int
+        - stg
+    - clouds:
+        - public
+      environments:
+        - prod
+      regions:
+        - uksouth
   subscriptionProvisioning:
     displayName:
       configRef: svc.subscription.displayName
