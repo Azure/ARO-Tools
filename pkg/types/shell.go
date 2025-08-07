@@ -14,7 +14,10 @@
 
 package types
 
-import "fmt"
+import (
+	"fmt"
+	"slices"
+)
 
 // ShellStep represents a shell step
 // This struct supports fluent interface With... methods.
@@ -73,6 +76,8 @@ func (s *ShellStep) RequiredInputs() []StepDependency {
 	if s.ShellIdentity.Input != nil {
 		deps = append(deps, s.ShellIdentity.Input.StepDependency)
 	}
+	slices.SortFunc(deps, SortDependencies)
+	deps = slices.Compact(deps)
 	return deps
 }
 

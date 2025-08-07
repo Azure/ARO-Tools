@@ -16,6 +16,7 @@ package types
 
 import (
 	"fmt"
+	"slices"
 
 	_ "embed"
 )
@@ -48,6 +49,8 @@ func (s *ImageMirrorStep) RequiredInputs() []StepDependency {
 			deps = append(deps, val.Input.StepDependency)
 		}
 	}
+	slices.SortFunc(deps, SortDependencies)
+	deps = slices.Compact(deps)
 	return deps
 }
 
