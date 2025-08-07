@@ -16,6 +16,7 @@ package types
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -89,5 +90,7 @@ func (s *ARMStep) RequiredInputs() []StepDependency {
 			deps = append(deps, val.Input.StepDependency)
 		}
 	}
+	slices.SortFunc(deps, SortDependencies)
+	deps = slices.Compact(deps)
 	return deps
 }

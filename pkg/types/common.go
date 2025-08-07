@@ -16,6 +16,8 @@ package types
 
 import (
 	"fmt"
+	"slices"
+	"strings"
 )
 
 type Step interface {
@@ -39,6 +41,13 @@ type StepDependency struct {
 	ResourceGroup string `json:"resourceGroup"`
 	// Step is the name of the step being depended on.
 	Step string `json:"step"`
+}
+
+func SortDependencies(a, b StepDependency) int {
+	if cmp := strings.Compare(a.ResourceGroup, b.ResourceGroup); cmp != 0 {
+		return cmp
+	}
+	return strings.Compare(a.Step, b.Step)
 }
 
 func (m *StepMeta) StepName() string {
@@ -87,6 +96,8 @@ func (s *DelegateChildZoneStep) RequiredInputs() []StepDependency {
 			deps = append(deps, val.Input.StepDependency)
 		}
 	}
+	slices.SortFunc(deps, SortDependencies)
+	deps = slices.Compact(deps)
 	return deps
 }
 
@@ -110,6 +121,8 @@ func (s *SetCertificateIssuerStep) RequiredInputs() []StepDependency {
 			deps = append(deps, val.Input.StepDependency)
 		}
 	}
+	slices.SortFunc(deps, SortDependencies)
+	deps = slices.Compact(deps)
 	return deps
 }
 
@@ -136,6 +149,8 @@ func (s *CreateCertificateStep) RequiredInputs() []StepDependency {
 			deps = append(deps, val.Input.StepDependency)
 		}
 	}
+	slices.SortFunc(deps, SortDependencies)
+	deps = slices.Compact(deps)
 	return deps
 }
 
@@ -155,6 +170,8 @@ func (s *ResourceProviderRegistrationStep) RequiredInputs() []StepDependency {
 			deps = append(deps, val.Input.StepDependency)
 		}
 	}
+	slices.SortFunc(deps, SortDependencies)
+	deps = slices.Compact(deps)
 	return deps
 }
 
@@ -187,6 +204,8 @@ func (s *LogsStep) RequiredInputs() []StepDependency {
 			deps = append(deps, val.Input.StepDependency)
 		}
 	}
+	slices.SortFunc(deps, SortDependencies)
+	deps = slices.Compact(deps)
 	return deps
 }
 
@@ -208,6 +227,8 @@ func (s *FeatureRegistrationStep) RequiredInputs() []StepDependency {
 			deps = append(deps, val.Input.StepDependency)
 		}
 	}
+	slices.SortFunc(deps, SortDependencies)
+	deps = slices.Compact(deps)
 	return deps
 }
 
@@ -274,6 +295,8 @@ func (s *KustoStep) RequiredInputs() []StepDependency {
 			deps = append(deps, val.Input.StepDependency)
 		}
 	}
+	slices.SortFunc(deps, SortDependencies)
+	deps = slices.Compact(deps)
 	return deps
 }
 
@@ -295,6 +318,8 @@ func (s *Pav2ManageAppIdStep) RequiredInputs() []StepDependency {
 			deps = append(deps, val.Input.StepDependency)
 		}
 	}
+	slices.SortFunc(deps, SortDependencies)
+	deps = slices.Compact(deps)
 	return deps
 }
 
@@ -317,5 +342,7 @@ func (s *Pav2AddAccountStep) RequiredInputs() []StepDependency {
 			deps = append(deps, val.Input.StepDependency)
 		}
 	}
+	slices.SortFunc(deps, SortDependencies)
+	deps = slices.Compact(deps)
 	return deps
 }
