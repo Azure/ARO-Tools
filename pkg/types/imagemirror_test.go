@@ -72,7 +72,7 @@ func TestResolveImageMirrorStep(t *testing.T) {
 				SourceRegistry: Value{Value: "docker.io"},
 				Repository:     Value{Value: "nginx"},
 				Digest:         Value{Value: "sha256:123456"},
-				AuthUsing:      Value{Value: "msi"},
+				AuthUsing:      "msi",
 				ShellIdentity:  Value{Value: "my-identity"},
 			},
 			scriptFile: "/path/to/script.sh",

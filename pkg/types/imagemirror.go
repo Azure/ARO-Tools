@@ -29,14 +29,14 @@ var OnDemandSyncScript []byte
 type ImageMirrorStep struct {
 	StepMeta `json:",inline"`
 
-	TargetACR          Value `json:"targetACR,omitempty"`
-	SourceRegistry     Value `json:"sourceRegistry,omitempty"`
-	Repository         Value `json:"repository,omitempty"`
-	Digest             Value `json:"digest,omitempty"`
-	AuthUsing          Value `json:"authUsing,omitempty"`
-	PullSecretKeyVault Value `json:"pullSecretKeyVault,omitempty"`
-	PullSecretName     Value `json:"pullSecretName,omitempty"`
-	ShellIdentity      Value `json:"shellIdentity,omitempty"`
+	TargetACR          Value  `json:"targetACR,omitempty"`
+	SourceRegistry     Value  `json:"sourceRegistry,omitempty"`
+	Repository         Value  `json:"repository,omitempty"`
+	Digest             Value  `json:"digest,omitempty"`
+	AuthUsing          string `json:"authUsing,omitempty"`
+	PullSecretKeyVault Value  `json:"pullSecretKeyVault,omitempty"`
+	PullSecretName     Value  `json:"pullSecretName,omitempty"`
+	ShellIdentity      Value  `json:"shellIdentity,omitempty"`
 }
 
 func (s *ImageMirrorStep) Description() string {
@@ -45,34 +45,13 @@ func (s *ImageMirrorStep) Description() string {
 
 func (s *ImageMirrorStep) RequiredInputs() []StepDependency {
 	var deps []StepDependency
-
-	// Always required fields
-	for _, val := range []Value{s.TargetACR, s.SourceRegistry, s.Repository, s.Digest, s.ShellIdentity} {
+	for _, val := range []Value{s.TargetACR, s.SourceRegistry, s.Repository, s.Digest, s.PullSecretKeyVault, s.PullSecretName, s.ShellIdentity} {
 		if val.Input != nil {
 			deps = append(deps, val.Input.StepDependency)
 		}
 	}
 	slices.SortFunc(deps, SortDependencies)
 	deps = slices.Compact(deps)
-
-	// Conditionally required fields based on AuthUsing value
-	// Default to "credential" if not specified (for backward compatibility)
-	authUsing := "credential"
-	if s.AuthUsing.Value != nil {
-		if authStr, ok := s.AuthUsing.Value.(string); ok && authStr != "" {
-			authUsing = authStr
-		}
-	}
-
-	if authUsing == "credential" {
-		// Only include pull secret dependencies when using credential authentication
-		for _, val := range []Value{s.PullSecretKeyVault, s.PullSecretName} {
-			if val.Input != nil {
-				deps = append(deps, val.Input.StepDependency)
-			}
-		}
-	}
-
 	return deps
 }
 
@@ -87,7 +66,7 @@ func ResolveImageMirrorStep(input ImageMirrorStep, scriptFile string) (*ShellSte
 		namedVariable("DIGEST", input.Digest),
 	}
 
-	switch input.AuthUsing.Value {
+	switch input.AuthUsing {
 	case "msi":
 		// No additional variables needed for MSI
 	default:
@@ -161,7 +140,7 @@ func (s *ImageMirrorStep) WithDigest(digest Value) *ImageMirrorStep {
 }
 
 // WithAuthUsing fluent method that sets AuthUsing.
-func (s *ImageMirrorStep) WithAuthUsing(authUsing Value) *ImageMirrorStep {
+func (s *ImageMirrorStep) WithAuthUsing(authUsing string) *ImageMirrorStep {
 	s.AuthUsing = authUsing
 	return s
 }
