@@ -48,6 +48,12 @@
         }
       ]
     },
+    "stepName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 34,
+      "pattern": "[a-zA-Z0-9\\-]{1,34}"
+    },
     "input": {
       "type": "object",
       "additionalProperties": false,
@@ -206,7 +212,9 @@
         "properties": {
           "name": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "maxLength": 12,
+            "pattern": "[a-zA-Z0-9\\-]{1,12}"
           },
           "resourceGroup": {
             "type": "string",
@@ -257,7 +265,7 @@
                   "additionalProperties": false,
                   "properties": {
                     "name": {
-                      "type": "string"
+                      "$ref":"#/definitions/stepName"
                     },
                     "action": {
                       "const": "ARM"
@@ -305,7 +313,7 @@
                   "additionalProperties": false,
                   "properties": {
                     "name": {
-                      "type": "string"
+                      "$ref": "#/definitions/stepName"
                     },
                     "action": {
                       "const": "Shell"
@@ -355,7 +363,7 @@
                   "additionalProperties": false,
                   "properties": {
                     "name": {
-                      "type": "string"
+                      "$ref": "#/definitions/stepName"
                     },
                     "action": {
                       "const": "DelegateChildZone"
@@ -379,7 +387,7 @@
                   "additionalProperties": false,
                   "properties": {
                     "name": {
-                      "type": "string"
+                      "$ref": "#/definitions/stepName"
                     },
                     "action": {
                       "const": "SetCertificateIssuer"
@@ -415,7 +423,7 @@
                   "additionalProperties": false,
                   "properties": {
                     "name": {
-                      "type": "string"
+                      "$ref": "#/definitions/stepName"
                     },
                     "action": {
                       "const": "CreateCertificate"
@@ -463,7 +471,7 @@
                   "additionalProperties": false,
                   "properties": {
                     "name": {
-                      "type": "string"
+                      "$ref": "#/definitions/stepName"
                     },
                     "action": {
                       "const": "ResourceProviderRegistration"
@@ -483,7 +491,7 @@
                   "additionalProperties": false,
                   "properties": {
                     "name": {
-                      "type": "string"
+                      "$ref": "#/definitions/stepName"
                     },
                     "action": {
                       "const": "Kusto"
@@ -519,7 +527,7 @@
                   "additionalProperties": false,
                   "properties": {
                     "name": {
-                      "type": "string"
+                      "$ref": "#/definitions/stepName"
                     },
                     "action": {
                       "const": "Pav2ManageAppId"
@@ -547,7 +555,7 @@
                   "additionalProperties": false,
                   "properties": {
                     "name": {
-                      "type": "string"
+                      "$ref": "#/definitions/stepName"
                     },
                     "action": {
                       "const": "Pav2AddAccount"
@@ -579,7 +587,7 @@
                   "additionalProperties": false,
                   "properties": {
                     "name": {
-                      "type": "string"
+                      "$ref": "#/definitions/stepName"
                     },
                     "action": {
                       "type": "string",
@@ -663,7 +671,7 @@
                   "additionalProperties": false,
                   "properties": {
                     "name": {
-                      "type": "string"
+                      "$ref": "#/definitions/stepName"
                     },
                     "action": {
                       "const": "ImageMirror"
@@ -707,7 +715,7 @@
                   "additionalProperties": false,
                   "properties": {
                     "name": {
-                      "type": "string"
+                      "$ref": "#/definitions/stepName"
                     },
                     "action": {
                       "const": "FeatureRegistration"
@@ -735,7 +743,7 @@
                   "additionalProperties": false,
                   "properties": {
                     "name": {
-                      "type": "string"
+                      "$ref": "#/definitions/stepName"
                     },
                     "action": {
                       "const": "ProviderFeatureRegistration"
@@ -759,7 +767,7 @@
                   "additionalProperties": false,
                   "properties": {
                     "name": {
-                      "type": "string"
+                      "$ref": "#/definitions/stepName"
                     },
                     "action": {
                       "const": "SecretSync"
@@ -794,7 +802,7 @@
                   "additionalProperties": false,
                   "properties": {
                     "name": {
-                      "type": "string"
+                      "$ref": "#/definitions/stepName"
                     },
                     "action": {
                       "const": "Ev2Registration"
