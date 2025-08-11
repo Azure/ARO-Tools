@@ -16,6 +16,7 @@ package types
 
 import (
 	"fmt"
+	"os"
 
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -54,7 +55,16 @@ type BuildStep struct {
 //   - An error if there was a problem preprocessing the file, validating the schema,
 //     unmarshaling the pipeline, or validating the pipeline instance.
 func NewPipelineFromFile(pipelineFilePath string, cfg types2.Configuration) (*Pipeline, error) {
-	bytes, err := config.PreprocessFile(pipelineFilePath, cfg)
+	content, err := os.ReadFile(pipelineFilePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file %s: %w", pipelineFilePath, err)
+	}
+
+	return NewPipelineFromBytes(content, cfg)
+}
+
+func NewPipelineFromBytes(pipelineBytes []byte, cfg types2.Configuration) (*Pipeline, error) {
+	bytes, err := config.PreprocessContent(pipelineBytes, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to preprocess pipeline file: %w", err)
 	}
@@ -68,7 +78,7 @@ func NewPipelineFromFile(pipelineFilePath string, cfg types2.Configuration) (*Pi
 		return nil, fmt.Errorf("failed to unmarshal pipeline file: %w", err)
 	}
 
-	if err = pipeline.Validate(); err != nil {
+	if err := pipeline.Validate(); err != nil {
 		return nil, fmt.Errorf("pipeline file failed validation: %w", err)
 	}
 
