@@ -1,0 +1,14 @@
+$schema: "pipeline.schema.v1"
+serviceGroup: Microsoft.Azure.ARO.HCP.Parent
+rolloutName: Parent pipeline with global resource group targeting something invalid.
+resourceGroups:
+  - name: global
+    resourceGroup: global-rg-WRONG
+    subscription: global-sub
+    steps:
+      - name: output
+        action: ARM
+        template: templates/output-global.bicep
+        parameters: configurations/output-global.tmpl.bicepparam
+        deploymentLevel: ResourceGroup
+        outputOnly: true

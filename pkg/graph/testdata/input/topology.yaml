@@ -1,0 +1,20 @@
+entrypoints:
+  - identifier: 'Microsoft.Azure.ARO.HCP.Grandparent'
+services:
+  - serviceGroup: Microsoft.Azure.ARO.HCP.Grandparent
+    pipelinePath: grandparent.pipeline.yaml
+    purpose: Grandparent.
+    children:
+      - serviceGroup: Microsoft.Azure.ARO.HCP.Parent
+        pipelinePath: parent.pipeline.yaml
+        purpose: Parent.
+        children:
+          - serviceGroup: Microsoft.Azure.ARO.HCP.Child
+            pipelinePath: child.pipeline.yaml
+            purpose: Child.
+          - serviceGroup: Microsoft.Azure.ARO.HCP.Sibling
+            pipelinePath: sibling.pipeline.yaml
+            purpose: Sibling.
+      - serviceGroup: Microsoft.Azure.ARO.HCP.Uncle
+        pipelinePath: uncle.pipeline.yaml
+        purpose: Uncle.
