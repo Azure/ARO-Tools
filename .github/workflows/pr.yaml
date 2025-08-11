@@ -28,7 +28,10 @@ jobs:
             echo "there are some modified files, rerun 'make tidy' to update them and check the changes in"
             git status
             exit 1
-          fi          
+          fi
+      - name: 'Install graphviz'
+        run: |
+          sudo apt-get -y install graphviz
       - name: Lint
         run: make lint
       - name: Test 

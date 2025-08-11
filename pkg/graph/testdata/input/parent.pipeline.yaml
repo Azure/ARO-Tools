@@ -1,0 +1,154 @@
+$schema: "pipeline.schema.v1"
+serviceGroup: Microsoft.Azure.ARO.HCP.Parent
+rolloutName: Parent pipeline.
+resourceGroups:
+  - name: global
+    resourceGroup: global-rg
+    subscription: global-sub
+    steps:
+      # Query parameters from global deployment, e.g. DNS hzone and ACR resource IDs
+      - name: output
+        action: ARM
+        template: templates/output-global.bicep
+        parameters: configurations/output-global.tmpl.bicepparam
+        deploymentLevel: ResourceGroup
+        outputOnly: true
+      - name: ocp-acr-replication
+        action: Shell
+        command: scripts/manage-acr-replication.sh
+        dryRun:
+          variables:
+            - name: DRY_RUN
+              value: "true"
+        variables:
+          - name: ACR_NAME
+            configRef: acr.ocp.name
+          - name: REPLICATION_REGION
+            configRef: region
+        shellIdentity:
+          input:
+            resourceGroup: global
+            step: output
+            name: globalMSIId
+      - name: svc-acr-replication
+        action: Shell
+        command: scripts/manage-acr-replication.sh
+        variables:
+          - name: ACR_NAME
+            configRef: acr.svc.name
+          - name: REPLICATION_REGION
+            configRef: region
+        dryRun:
+          variables:
+            - name: DRY_RUN
+              value: "true"
+        shellIdentity:
+          input:
+            resourceGroup: global
+            step: output
+            name: globalMSIId
+      - name: add-svc-grafana-datasource
+        action: Shell
+        command: scripts/add-grafana-datasource.sh
+        variables:
+          - name: GRAFANA_RESOURCE_ID
+            input:
+              resourceGroup: global
+              step: output
+              name: grafanaResourceId
+          - name: PROM_QUERY_URL
+            input:
+              resourceGroup: regional
+              step: output
+              name: monitorPrometheusQueryEndpoint
+          - name: MONITOR_ID
+            input:
+              resourceGroup: regional
+              step: output
+              name: azureMonitoringWorkspaceId
+        shellIdentity:
+          input:
+            resourceGroup: global
+            step: output
+            name: globalMSIId
+      - name: add-hcp-grafana-datasource
+        action: Shell
+        command: scripts/add-grafana-datasource.sh
+        variables:
+          - name: GRAFANA_RESOURCE_ID
+            input:
+              resourceGroup: global
+              step: output
+              name: grafanaResourceId
+          - name: PROM_QUERY_URL
+            input:
+              resourceGroup: regional
+              step: output
+              name: hcpMonitorPrometheusQueryEndpoint
+          - name: MONITOR_ID
+            input:
+              resourceGroup: regional
+              step: output
+              name: hcpAzureMonitoringWorkspaceId
+        dependsOn:
+          - resourceGroup: global
+            step: add-svc-grafana-datasource
+        shellIdentity:
+          input:
+            resourceGroup: global
+            step: output
+            name: globalMSIId
+  - name: regional
+    resourceGroup: regional-rg
+    subscription: regional-sub
+    steps:
+      - name: rpRegistration
+        action: ProviderFeatureRegistration
+        providerConfigRef: svc.subscription.providers
+        identityFrom:
+          resourceGroup: global
+          step: output
+          name: globalMSIId
+        dependsOn:
+          - resourceGroup: global
+            step: svc-acr-replication
+          - resourceGroup: global
+            step: ocp-acr-replication
+      - name: region
+        action: ARM
+        template: templates/region.bicep
+        parameters: configurations/region.tmpl.bicepparam
+        deploymentLevel: ResourceGroup
+        variables:
+          - name: globalMSIId
+            input:
+              resourceGroup: global
+              step: output
+              name: globalMSIId
+          - name: cxParentZoneResourceId
+            input:
+              resourceGroup: global
+              step: output
+              name: cxParentZoneResourceId
+          - name: svcParentZoneResourceId
+            input:
+              resourceGroup: global
+              step: output
+              name: svcParentZoneResourceId
+          - name: grafanaResourceId
+            input:
+              resourceGroup: global
+              step: output
+              name: grafanaResourceId
+        dependsOn:
+          - resourceGroup: regional
+            step: rpRegistration
+      - name: output
+        action: ARM
+        template: templates/output-region.bicep
+        parameters: configurations/output-region.tmpl.bicepparam
+        deploymentLevel: ResourceGroup
+        outputOnly: true
+        dependsOn:
+          - resourceGroup: regional
+            step: region

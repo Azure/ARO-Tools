@@ -23,20 +23,30 @@ import (
 
 // ResourceGroup represents a group of steps, targeting one resource group in one subscription.
 type ResourceGroup struct {
-	Name                     string                    `json:"name"`
-	ResourceGroup            string                    `json:"resourceGroup"`
-	Subscription             string                    `json:"subscription"`
+	*ResourceGroupMeta `json:",inline"`
+
 	SubscriptionProvisioning *SubscriptionProvisioning `json:"subscriptionProvisioning,omitempty"`
+
+	Steps Steps `json:"steps"`
+}
+
+// ResourceGroupMeta holds metadata required to fully qualify a resource group execution context. Subscription provisioning
+// is explicitly omitted as any code in which execution context is important is necessarily a space in which it is not safe
+// to run subscription provisioning, as only one subscription provisioning block is allowed per Ev2 rollout.
+type ResourceGroupMeta struct {
+	// Name is the semantic identifier for this group of steps - it must be short and should be shared between pipelines that
+	// do work in the same Azure resource group.
+	Name string `json:"name"`
+	// ResourceGroup is the name of the Azure resource group in which work will occur.
+	ResourceGroup string `json:"resourceGroup"`
+	// Subscription is the subscription *key* in which work will occur.
+	Subscription string `json:"subscription"`
 
 	// ExecutionConstraints define a set of constraints on where this pipeline should be executed.
 	// If unset, the default behavior is to deploy to all clouds, environments, regions, and stamps.
 	// The set of constraints are evaluated using logical OR - adding to the list adds a set of possible
 	// deployment environments.
 	ExecutionConstraints []ExecutionConstraint `json:"executionConstraints,omitempty"`
-
-	// Deprecated: AKSCluster to be removed
-	AKSCluster string `json:"aksCluster,omitempty"`
-	Steps      Steps  `json:"steps"`
 }
 
 // ExecutionConstraint defines a set of parameters for which the pipeline should execute. For each type of parameter,
@@ -57,6 +67,9 @@ type ExecutionConstraint struct {
 }
 
 func (rg *ResourceGroup) Validate() error {
+	if rg.ResourceGroupMeta == nil {
+		return fmt.Errorf("resource group metadata is required")
+	}
 	if rg.Name == "" {
 		return fmt.Errorf("resource group name is required")
 	}

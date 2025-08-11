@@ -1,0 +1,33 @@
+digraph regexp { 
+ fontname="Helvetica,Arial,sans-serif"
+ node [fontname="Helvetica,Arial,sans-serif"]
+ edge [fontname="Helvetica,Arial,sans-serif"]
+ "Grandparent_global_acrs" [label="Grandparent/global/acrs"];
+ "Grandparent_global_acrs" -> "Grandparent_global_mirror-oc-mirror-image";
+ "Grandparent_global_certificates" [label="Grandparent/global/certificates"];
+ "Grandparent_global_cxChildZone" [label="Grandparent/global/cxChildZone"];
+ "Grandparent_global_decrypt-and-ingest-secrets" [label="Grandparent/global/decrypt-and-ingest-secrets"];
+ "Grandparent_global_decrypt-and-ingest-secrets" -> "Grandparent_global_mirror-oc-mirror-image";
+ "Grandparent_global_grafana-dashboards" [label="Grandparent/global/grafana-dashboards"];
+ "Grandparent_global_housekeeping" [label="Grandparent/global/housekeeping"];
+ "Grandparent_global_housekeeping" -> "Grandparent_global_grafana-dashboards";
+ "Grandparent_global_imagemirror" [label="Grandparent/global/imagemirror"];
+ "Grandparent_global_infra" [label="Grandparent/global/infra"];
+ "Grandparent_global_infra" -> "Grandparent_global_acrs";
+ "Grandparent_global_infra" -> "Grandparent_global_cxChildZone";
+ "Grandparent_global_infra" -> "Grandparent_global_decrypt-and-ingest-secrets";
+ "Grandparent_global_infra" -> "Grandparent_global_grafana-dashboards";
+ "Grandparent_global_infra" -> "Grandparent_global_onecert-private-kv-issuer";
+ "Grandparent_global_infra" -> "Grandparent_global_output";
+ "Grandparent_global_infra" -> "Grandparent_global_svcChildZone";
+ "Grandparent_global_mirror-oc-mirror-image" [label="Grandparent/global/mirror-oc-mirror-image"];
+ "Grandparent_global_mirror-oc-mirror-image" -> "Grandparent_global_imagemirror";
+ "Grandparent_global_onecert-private-kv-issuer" [label="Grandparent/global/onecert-private-kv-issuer"];
+ "Grandparent_global_onecert-private-kv-issuer" -> "Grandparent_global_certificates";
+ "Grandparent_global_output" [label="Grandparent/global/output"];
+ "Grandparent_global_output" -> "Grandparent_global_decrypt-and-ingest-secrets";
+ "Grandparent_global_output" -> "Grandparent_global_grafana-dashboards";
+ "Grandparent_global_output" -> "Grandparent_global_housekeeping";
+ "Grandparent_global_output" -> "Grandparent_global_mirror-oc-mirror-image";
+ "Grandparent_global_svcChildZone" [label="Grandparent/global/svcChildZone"];
+}

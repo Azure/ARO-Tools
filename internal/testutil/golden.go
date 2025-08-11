@@ -25,7 +25,7 @@ func CompareFileWithFixture(t *testing.T, outputFile string, opts ...option) {
 // by setting the UPDATE env var.
 // If output is not a []byte or string, it will get serialized as yaml prior to the comparison.
 // The fixtures are stored in $PWD/testdata/prefix${testName}.yaml
-func CompareWithFixture(t *testing.T, output interface{}, opts ...option) {
+func CompareWithFixture(t *testing.T, output interface{}, opts ...option) string {
 	t.Helper()
 	options := &options{
 		Extension: ".yaml",
@@ -68,6 +68,8 @@ func CompareWithFixture(t *testing.T, output interface{}, opts ...option) {
 	if diff := cmp.Diff(string(expected), string(serializedOutput)); diff != "" {
 		t.Errorf("got diff between expected and actual result:\nfile: %s\ndiff:\n%s\n\nIf this is expected, re-run the test with `UPDATE=true go test ./...` to update the fixtures.", golden, diff)
 	}
+
+	return golden
 }
 
 type options struct {
@@ -103,7 +105,7 @@ func golden(t *testing.T, opts *options) (string, error) {
 	if opts.Extension == "" {
 		opts.Extension = ".yaml"
 	}
-	return filepath.Abs(filepath.Join("../../testdata", opts.SubDir, sanitizeFilename(opts.Prefix+t.Name()+opts.Suffix)) + opts.Extension)
+	return filepath.Abs(filepath.Join("testdata", opts.SubDir, sanitizeFilename(opts.Prefix+t.Name()+opts.Suffix)) + opts.Extension)
 }
 
 func sanitizeFilename(s string) string {

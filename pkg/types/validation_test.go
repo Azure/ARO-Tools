@@ -30,12 +30,12 @@ func TestRGValidate(t *testing.T) {
 	}{
 		{
 			name: "missing name",
-			rg:   &ResourceGroup{},
+			rg:   &ResourceGroup{ResourceGroupMeta: &ResourceGroupMeta{}},
 			err:  "resource group name is required",
 		},
 		{
 			name: "missing subscription",
-			rg:   &ResourceGroup{Name: "test"},
+			rg:   &ResourceGroup{ResourceGroupMeta: &ResourceGroupMeta{Name: "test"}},
 			err:  "subscription is required",
 		},
 	}
@@ -57,7 +57,7 @@ func TestPipelineValidate(t *testing.T) {
 		{
 			name: "missing name",
 			pipeline: &Pipeline{
-				ResourceGroups: []*ResourceGroup{{}},
+				ResourceGroups: []*ResourceGroup{{ResourceGroupMeta: &ResourceGroupMeta{}}},
 			},
 			err: "resource group name is required",
 		},
@@ -66,7 +66,7 @@ func TestPipelineValidate(t *testing.T) {
 			pipeline: &Pipeline{
 				ResourceGroups: []*ResourceGroup{
 					{
-						Name: "rg",
+						ResourceGroupMeta: &ResourceGroupMeta{Name: "rg"},
 					},
 				},
 			},
@@ -77,16 +77,20 @@ func TestPipelineValidate(t *testing.T) {
 			pipeline: &Pipeline{
 				ResourceGroups: []*ResourceGroup{
 					{
-						Name:          "rg1",
-						ResourceGroup: "rg1",
-						Subscription:  "sub1",
+						ResourceGroupMeta: &ResourceGroupMeta{
+							Name:          "rg1",
+							ResourceGroup: "rg1",
+							Subscription:  "sub1",
+						},
 						Steps: []Step{
 							NewShellStep("step1", "echo foo"),
 						},
 					},
 					{
-						Name:         "rg2",
-						Subscription: "sub1",
+						ResourceGroupMeta: &ResourceGroupMeta{
+							Name:         "rg2",
+							Subscription: "sub1",
+						},
 						Steps: []Step{
 							NewShellStep("step2", "echo bar").WithDependsOn(StepDependency{ResourceGroup: "rg1", Step: "step3"}),
 						},
@@ -100,9 +104,11 @@ func TestPipelineValidate(t *testing.T) {
 			pipeline: &Pipeline{
 				ResourceGroups: []*ResourceGroup{
 					{
-						Name:          "rg1",
-						ResourceGroup: "rg1",
-						Subscription:  "sub1",
+						ResourceGroupMeta: &ResourceGroupMeta{
+							Name:          "rg1",
+							ResourceGroup: "rg1",
+							Subscription:  "sub1",
+						},
 						Steps: []Step{
 							NewShellStep("step1", "echo foo"),
 							NewShellStep("step1", "echo bar").WithDependsOn(StepDependency{ResourceGroup: "rg1", Step: "step1"}),
@@ -117,16 +123,20 @@ func TestPipelineValidate(t *testing.T) {
 			pipeline: &Pipeline{
 				ResourceGroups: []*ResourceGroup{
 					{
-						Name:          "rg1",
-						ResourceGroup: "rg1",
-						Subscription:  "sub1",
+						ResourceGroupMeta: &ResourceGroupMeta{
+							Name:          "rg1",
+							ResourceGroup: "rg1",
+							Subscription:  "sub1",
+						},
 						Steps: []Step{
 							NewShellStep("step1", "echo foo"),
 						},
 					},
 					{
-						Name:         "rg2",
-						Subscription: "sub1",
+						ResourceGroupMeta: &ResourceGroupMeta{
+							Name:         "rg2",
+							Subscription: "sub1",
+						},
 						Steps: []Step{
 							NewShellStep("step1", "echo bar").WithDependsOn(StepDependency{ResourceGroup: "rg1", Step: "step1"}),
 						},
@@ -139,17 +149,21 @@ func TestPipelineValidate(t *testing.T) {
 			pipeline: &Pipeline{
 				ResourceGroups: []*ResourceGroup{
 					{
-						Name:          "rg1",
-						ResourceGroup: "rg1",
-						Subscription:  "sub1",
+						ResourceGroupMeta: &ResourceGroupMeta{
+							Name:          "rg1",
+							ResourceGroup: "rg1",
+							Subscription:  "sub1",
+						},
 						Steps: []Step{
 							NewShellStep("step1", "echo foo"),
 						},
 					},
 					{
-						Name:          "rg2",
-						ResourceGroup: "rg2",
-						Subscription:  "sub1",
+						ResourceGroupMeta: &ResourceGroupMeta{
+							Name:          "rg2",
+							ResourceGroup: "rg2",
+							Subscription:  "sub1",
+						},
 						Steps: []Step{
 							NewShellStep("step2", "echo bar").WithDependsOn(StepDependency{ResourceGroup: "rg1", Step: "step1"}),
 						},
