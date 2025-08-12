@@ -25,12 +25,18 @@ type Dependency struct {
 // complex data, pointers to the underlying structures needed to execute the steps, etc. Such a structure helps to
 // make operations that produce or operate over these nodes easy to test and verify.
 type Node struct {
+	// This embedded Dependency defines the identifier for this node.
 	Dependency
+
+	// Children contains the direct children (not further descendants) of this node.
 	Children []Dependency
-	Parents  []Dependency
+	// Parents contains the direct parents (not further ancestors) of this node.
+	Parents []Dependency
 }
 
-type Context struct {
+// Graph holds a set of nodes, recording parent/child relationships for each, along with a set of lookup tables for
+// the services, resource groups, steps, etc. that the nodes represent.
+type Graph struct {
 	// Services is a lookup table of services by name (the service group).
 	Services map[string]*topology.Service
 
@@ -51,13 +57,13 @@ type Context struct {
 }
 
 // edge is a record of an inter-step dependency. This struct is unexported as we only use it during graph construction and do not
-// expose edges directly as part of the context.
+// expose edges directly as part of the graph.
 type edge struct {
 	from, to Dependency
 }
 
-// ForPipeline generates a graph context for one pipeline, processing all steps therein to determine dependencies between them.
-func ForPipeline(service *topology.Service, pipeline *types.Pipeline) (*Context, error) {
+// ForPipeline generates a graph for one pipeline, processing all steps therein to determine dependencies between them.
+func ForPipeline(service *topology.Service, pipeline *types.Pipeline) (*Graph, error) {
 	withoutChildren := &topology.Service{
 		ServiceGroup: service.ServiceGroup,
 		Purpose:      service.Purpose,
@@ -66,42 +72,43 @@ func ForPipeline(service *topology.Service, pipeline *types.Pipeline) (*Context,
 		Metadata:     service.Metadata,
 	}
 
-	ctx := &Context{
+	graph := &Graph{
 		Services:       map[string]*topology.Service{},
 		ResourceGroups: map[string]*types.ResourceGroupMeta{},
 		Steps:          map[string]map[string]map[string]types.Step{},
 		Nodes:          []Node{},
 	}
 
-	if err := ctx.accumulate(withoutChildren, map[string]*types.Pipeline{pipeline.ServiceGroup: pipeline}); err != nil {
+	if err := graph.accumulate(withoutChildren, map[string]*types.Pipeline{pipeline.ServiceGroup: pipeline}); err != nil {
 		return nil, err
 	}
 
-	return ctx, ctx.detectCycles()
+	return graph, graph.detectCycles()
 }
 
-// ForEntrypoint generates a graph context for all pipelines in the sub-tree of the topology identified by the entrypoint.
-func ForEntrypoint(topo *topology.Topology, entrypoint *topology.Entrypoint, pipelines map[string]*types.Pipeline) (*Context, error) {
+// ForEntrypoint generates a graph for all pipelines in the sub-tree of the topology identified by the entrypoint.
+func ForEntrypoint(topo *topology.Topology, entrypoint *topology.Entrypoint, pipelines map[string]*types.Pipeline) (*Graph, error) {
 	root, err := topo.Lookup(entrypoint.Identifier)
 	if err != nil {
 		return nil, fmt.Errorf("failed to lookup entrypoint %s: %v", entrypoint.Identifier, err)
 	}
 
-	ctx := &Context{
+	graph := &Graph{
 		Services:       map[string]*topology.Service{},
 		ResourceGroups: map[string]*types.ResourceGroupMeta{},
 		Steps:          map[string]map[string]map[string]types.Step{},
 		Nodes:          []Node{},
 	}
 
-	if err := ctx.accumulate(root, pipelines); err != nil {
+	if err := graph.accumulate(root, pipelines); err != nil {
 		return nil, err
 	}
 
-	return ctx, ctx.detectCycles()
+	return graph, graph.detectCycles()
 }
 
-func (c *Context) accumulate(service *topology.Service, pipelines map[string]*types.Pipeline) error {
+// accumulate recursively traverses the service and all children, building a graph of how steps in each service depend on each other.
+func (c *Graph) accumulate(service *topology.Service, pipelines map[string]*types.Pipeline) error {
 	if _, alreadyRecorded := c.Services[service.ServiceGroup]; alreadyRecorded {
 		return fmt.Errorf("service group %s already recorded", service.ServiceGroup)
 	}
@@ -144,19 +151,33 @@ func (c *Context) accumulate(service *topology.Service, pipelines map[string]*ty
 			return err
 		}
 
-		// parent/child relationships in the topology are coarse-grained - the best we can do is record that all roots
-		// of the child pipeline depend on all leaves of a parent
+		// The data we're using to build this graph come in two levels of granularity:
+		// - specific, intra-service step relationships defined in a pipeline
+		// - granular, inter-service relationships defined in the topology
+		// The above call to accumulate() will have build a sub-graph of step nodes for the specific child service,
+		// which we now need to decorate to record that all steps in that child depend on the parent service.
+		// There is no defined "end" to a pipeline, nor a "start", as each service may itself be a forest - having
+		// many roots and many leaves. Therefore, the simplest approach here is to record that every root node
+		// of the child depends on all the leaf nodes of the parent service, and vice versa.
+
+		// First, find the root nodes for the child service, which accumulate() will have placed in the graph.
+		// Record those roots for later use and mark them as being children of the leaves of the parent.
 		var roots []Dependency
 		for i, node := range c.Nodes {
-			// mark roots of child as needing leaves of parent
 			if node.ServiceGroup == child.ServiceGroup && len(node.Parents) == 0 {
+				// accumulate() did not divulge the list of root nodes for that specific child, but we can find them
 				roots = append(roots, node.Dependency)
+
+				// our topology allows each service to depend on one and only one parent, so we know that
+				// a) it's safe to determine that `len(node.Parents) == 0` identifies a root node for that service
+				// b) this is the only time that any actor will add parents to this root node
 				c.Nodes[i].Parents = append(c.Nodes[i].Parents, leaves...)
 			}
 		}
+
+		// Second, using the identifiers in `leaves`, find the leaf nodes in the graph and mark them as having
+		// the roots of the child service as children.
 		for i, node := range c.Nodes {
-			// mark leaves of parent as needing roots of child - we can't use `len(node.Children) == 0` to check for a leaf
-			// as previous iterations will have filled in dependencies there
 			for _, leaf := range leaves {
 				if node.ServiceGroup == leaf.ServiceGroup && node.ResourceGroup == leaf.ResourceGroup && node.Step == leaf.Step {
 					c.Nodes[i].Children = append(c.Nodes[i].Children, roots...)
@@ -168,7 +189,7 @@ func (c *Context) accumulate(service *topology.Service, pipelines map[string]*ty
 	return nil
 }
 
-// nodesFor transforms a pipeline to the list of nodes and lookup tables required in a graph context
+// nodesFor transforms a pipeline to the list of nodes and lookup tables required in a graph
 func nodesFor(pipeline *types.Pipeline) (map[string]*types.ResourceGroupMeta, map[string]*types.SubscriptionProvisioning, map[string]map[string]types.Step, []Node) {
 	// first, create a registry of steps by their identifier (resource group name, step name)
 	// and resource groups by name
@@ -302,7 +323,7 @@ func resourceGroupMetaEqual(a, b *types.ResourceGroupMeta) bool {
 }
 
 // detectCycles runs a depth-first traversal of the tree, starting at every node, to detect cycles
-func (c *Context) detectCycles() error {
+func (c *Graph) detectCycles() error {
 	for _, node := range c.Nodes {
 		seen := []Dependency{
 			node.Dependency,
