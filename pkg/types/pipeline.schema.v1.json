@@ -251,9 +251,18 @@
                 "minLength": 1
               }
             },
-            "required": [
-              "displayName",
-              "roleAssignment"
+            "oneOf": [
+              {
+                "required": [
+                  "backfillSubscriptionId"
+                ]
+              },
+              {
+                "required": [
+                  "displayName",
+                  "roleAssignment"
+                ]
+              }
             ]
           },
           "steps": {
