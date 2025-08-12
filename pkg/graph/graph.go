@@ -39,6 +39,9 @@ type Context struct {
 	// group with the same identifier are disallowed.
 	ResourceGroups map[string]*types.ResourceGroupMeta
 
+	// Subscriptions is a lookup table of subscription provisioning metadata by resource group name.
+	Subscriptions map[string]*types.SubscriptionProvisioning
+
 	// Steps is a lookup table of service group -> resource group -> step name. Steps are *not* flattened, keeping record
 	// of provenance and allowing step names to be kept short, unique only within their resource group.
 	Steps map[string]map[string]map[string]types.Step
@@ -113,13 +116,18 @@ func (c *Context) accumulate(service *topology.Service, pipelines map[string]*ty
 	if !exists {
 		return fmt.Errorf("pipeline for service %s not found", service.ServiceGroup)
 	}
-	resourceGroups, steps, nodes := nodesFor(pipeline)
-
+	resourceGroups, subscriptions, steps, nodes := nodesFor(pipeline)
 	for name, group := range resourceGroups {
 		if other, alreadyRecorded := c.ResourceGroups[name]; alreadyRecorded && !resourceGroupMetaEqual(group, other) {
 			return fmt.Errorf("resource group %s already recorded with different step meta, diff: %v", name, cmp.Diff(group, other))
 		}
 		c.ResourceGroups[name] = group
+	}
+	for name, sub := range subscriptions {
+		if _, alreadyRecorded := c.Subscriptions[name]; alreadyRecorded {
+			return fmt.Errorf("subscription %s already recorded", name)
+		}
+		c.Subscriptions[name] = sub
 	}
 	c.Steps[service.ServiceGroup] = steps
 	c.Nodes = append(c.Nodes, nodes...)
@@ -161,13 +169,17 @@ func (c *Context) accumulate(service *topology.Service, pipelines map[string]*ty
 }
 
 // nodesFor transforms a pipeline to the list of nodes and lookup tables required in a graph context
-func nodesFor(pipeline *types.Pipeline) (map[string]*types.ResourceGroupMeta, map[string]map[string]types.Step, []Node) {
+func nodesFor(pipeline *types.Pipeline) (map[string]*types.ResourceGroupMeta, map[string]*types.SubscriptionProvisioning, map[string]map[string]types.Step, []Node) {
 	// first, create a registry of steps by their identifier (resource group name, step name)
 	// and resource groups by name
 	stepsByResourceGroupAndName := map[string]map[string]types.Step{}
 	resourceGroupsByName := map[string]*types.ResourceGroupMeta{}
+	subscriptionsByName := map[string]*types.SubscriptionProvisioning{}
 	for _, rg := range pipeline.ResourceGroups {
 		resourceGroupsByName[rg.Name] = rg.ResourceGroupMeta
+		if rg.SubscriptionProvisioning != nil {
+			subscriptionsByName[rg.Name] = rg.SubscriptionProvisioning
+		}
 		stepsByResourceGroupAndName[rg.Name] = map[string]types.Step{}
 		for _, step := range rg.Steps {
 			stepsByResourceGroupAndName[rg.Name][step.StepName()] = step
@@ -241,7 +253,7 @@ func nodesFor(pipeline *types.Pipeline) (map[string]*types.ResourceGroupMeta, ma
 		return CompareDependencies(a.Dependency, b.Dependency)
 	})
 
-	return resourceGroupsByName, stepsByResourceGroupAndName, nodes
+	return resourceGroupsByName, subscriptionsByName, stepsByResourceGroupAndName, nodes
 }
 
 func CompareDependencies(a, b Dependency) int {
