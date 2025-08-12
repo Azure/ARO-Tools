@@ -45,8 +45,8 @@ type Graph struct {
 	// group with the same identifier are disallowed.
 	ResourceGroups map[string]*types.ResourceGroupMeta
 
-	// Subscriptions is a lookup table of subscription provisioning metadata by service group name.
-	Subscriptions map[string]*types.SubscriptionProvisioning
+	// Subscription is an optional set of metadata required for subscription provisioning.
+	Subscription *Subscription
 
 	// Steps is a lookup table of service group -> resource group -> step name. Steps are *not* flattened, keeping record
 	// of provenance and allowing step names to be kept short, unique only within their resource group.
@@ -54,6 +54,20 @@ type Graph struct {
 
 	// Nodes records every step, and the parent/child relationships between them.
 	Nodes []Node
+}
+
+// Subscription holds the metadata required to handle subscription provisioning for an execution graph.
+type Subscription struct {
+	// ServiceGroup records the service which requested the subscription provisioning. In a multi-service execution graph, there may
+	// be many services at play; subscription provisioning requires relative path resolution for role assignment ARM templates, so
+	// the path to the service's directory must be known.
+	ServiceGroup string
+
+	// ResourceGroup records the semantic identifier for the resource group that requested subscription provisioning. The scope tags
+	// used to parameterize the subscription provisioning must be tied to a specific resource group.
+	ResourceGroup string
+
+	Config types.SubscriptionProvisioning
 }
 
 // edge is a record of an inter-step dependency. This struct is unexported as we only use it during graph construction and do not
@@ -134,7 +148,10 @@ func (c *Graph) accumulate(service *topology.Service, pipelines map[string]*type
 		c.ResourceGroups[name] = group
 	}
 	if subscription != nil {
-		c.Subscriptions[service.ServiceGroup] = subscription
+		if c.Subscription != nil {
+			return fmt.Errorf("subscription provisioning already recorded for %s/%s, cannot add another for %s/%s", c.Subscription.ServiceGroup, c.Subscription.ResourceGroup, subscription.ServiceGroup, subscription.ResourceGroup)
+		}
+		c.Subscription = subscription
 	}
 	c.Steps[service.ServiceGroup] = steps
 	c.Nodes = append(c.Nodes, nodes...)
@@ -192,7 +209,7 @@ func (c *Graph) accumulate(service *topology.Service, pipelines map[string]*type
 // nodesFor transforms a pipeline to the list of nodes and lookup tables required in a graph
 func nodesFor(pipeline *types.Pipeline) (
 	map[string]*types.ResourceGroupMeta,
-	*types.SubscriptionProvisioning,
+	*Subscription,
 	map[string]map[string]types.Step,
 	[]Node,
 	error,
@@ -201,14 +218,18 @@ func nodesFor(pipeline *types.Pipeline) (
 	// and resource groups by name
 	stepsByResourceGroupAndName := map[string]map[string]types.Step{}
 	resourceGroupsByName := map[string]*types.ResourceGroupMeta{}
-	var subscription *types.SubscriptionProvisioning
+	var subscription *Subscription
 	for _, rg := range pipeline.ResourceGroups {
 		resourceGroupsByName[rg.Name] = rg.ResourceGroupMeta
 		if rg.SubscriptionProvisioning != nil {
 			if subscription != nil {
 				return nil, nil, nil, nil, fmt.Errorf("multiple subscriptions found for pipeline %s", pipeline.ServiceGroup)
 			}
-			subscription = rg.SubscriptionProvisioning
+			subscription = &Subscription{
+				ResourceGroup: pipeline.ServiceGroup,
+				ServiceGroup:  rg.Name,
+				Config:        *rg.SubscriptionProvisioning,
+			}
 		}
 		stepsByResourceGroupAndName[rg.Name] = map[string]types.Step{}
 		for _, step := range rg.Steps {
