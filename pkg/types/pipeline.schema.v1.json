@@ -251,7 +251,7 @@
                 "minLength": 1
               }
             },
-            "oneOf": [
+            "anyOf": [
               {
                 "required": [
                   "backfillSubscriptionId"
