@@ -226,8 +226,8 @@ func nodesFor(pipeline *types.Pipeline) (
 				return nil, nil, nil, nil, fmt.Errorf("multiple subscriptions found for pipeline %s", pipeline.ServiceGroup)
 			}
 			subscription = &Subscription{
-				ResourceGroup: pipeline.ServiceGroup,
-				ServiceGroup:  rg.Name,
+				ServiceGroup:  pipeline.ServiceGroup,
+				ResourceGroup: rg.Name,
 				Config:        *rg.SubscriptionProvisioning,
 			}
 		}
