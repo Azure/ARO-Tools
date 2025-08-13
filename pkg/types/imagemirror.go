@@ -29,13 +29,14 @@ var OnDemandSyncScript []byte
 type ImageMirrorStep struct {
 	StepMeta `json:",inline"`
 
-	TargetACR          Value `json:"targetACR,omitempty"`
-	SourceRegistry     Value `json:"sourceRegistry,omitempty"`
-	Repository         Value `json:"repository,omitempty"`
-	Digest             Value `json:"digest,omitempty"`
-	PullSecretKeyVault Value `json:"pullSecretKeyVault,omitempty"`
-	PullSecretName     Value `json:"pullSecretName,omitempty"`
-	ShellIdentity      Value `json:"shellIdentity,omitempty"`
+	TargetACR          Value  `json:"targetACR,omitempty"`
+	SourceRegistry     Value  `json:"sourceRegistry,omitempty"`
+	Repository         Value  `json:"repository,omitempty"`
+	Digest             Value  `json:"digest,omitempty"`
+	AuthUsing          string `json:"authUsing,omitempty"`
+	PullSecretKeyVault Value  `json:"pullSecretKeyVault,omitempty"`
+	PullSecretName     Value  `json:"pullSecretName,omitempty"`
+	ShellIdentity      Value  `json:"shellIdentity,omitempty"`
 }
 
 func (s *ImageMirrorStep) Description() string {
@@ -58,21 +59,29 @@ func (s *ImageMirrorStep) RequiredInputs() []StepDependency {
 // the OnDemandSyncScript to disk somewhere and pass the file name in as a parameter here, as we likely don't want to
 // inline 100+ lines of shell into a `bash -C "<contents>"` call and hope all the string interpolations work.
 func ResolveImageMirrorStep(input ImageMirrorStep, scriptFile string) (*ShellStep, error) {
+	variables := []Variable{
+		namedVariable("TARGET_ACR", input.TargetACR),
+		namedVariable("SOURCE_REGISTRY", input.SourceRegistry),
+		namedVariable("REPOSITORY", input.Repository),
+		namedVariable("DIGEST", input.Digest),
+	}
+
+	switch input.AuthUsing {
+	case "msi":
+		// No additional variables needed for MSI
+	default:
+		variables = append(variables, namedVariable("PULL_SECRET_KV", input.PullSecretKeyVault))
+		variables = append(variables, namedVariable("PULL_SECRET", input.PullSecretName))
+	}
+
 	return &ShellStep{
 		StepMeta: StepMeta{
 			Name:      input.Name,
 			Action:    "Shell",
 			DependsOn: input.DependsOn,
 		},
-		Command: fmt.Sprintf("/bin/bash %s", scriptFile),
-		Variables: []Variable{
-			namedVariable("TARGET_ACR", input.TargetACR),
-			namedVariable("SOURCE_REGISTRY", input.SourceRegistry),
-			namedVariable("REPOSITORY", input.Repository),
-			namedVariable("DIGEST", input.Digest),
-			namedVariable("PULL_SECRET_KV", input.PullSecretKeyVault),
-			namedVariable("PULL_SECRET", input.PullSecretName),
-		},
+		Command:   fmt.Sprintf("/bin/bash %s", scriptFile),
+		Variables: variables,
 		DryRun: DryRun{
 			Variables: []Variable{{
 				Name: "DRY_RUN",
@@ -127,6 +136,12 @@ func (s *ImageMirrorStep) WithRepository(repository Value) *ImageMirrorStep {
 // WithDigest fluent method that sets Digest.
 func (s *ImageMirrorStep) WithDigest(digest Value) *ImageMirrorStep {
 	s.Digest = digest
+	return s
+}
+
+// WithAuthUsing fluent method that sets AuthUsing.
+func (s *ImageMirrorStep) WithAuthUsing(authUsing string) *ImageMirrorStep {
+	s.AuthUsing = authUsing
 	return s
 }
 
