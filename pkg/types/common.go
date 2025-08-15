@@ -210,10 +210,10 @@ func (s *LogsStep) RequiredInputs() []StepDependency {
 }
 
 type FeatureRegistrationStep struct {
-	StepMeta       `json:",inline"`
-	SecretKeyVault Value `json:"secretKeyVault,omitempty"`
-	SecretName     Value `json:"secretName,omitempty"`
-	FeatureFlags   Value `json:"featureFlags,omitempty"`
+	StepMeta          `json:",inline"`
+	SecretKeyVault    Value  `json:"secretKeyVault,omitempty"`
+	SecretName        Value  `json:"secretName,omitempty"`
+	ProviderConfigRef string `json:"providerConfigRef,omitempty"`
 }
 
 func (s *FeatureRegistrationStep) Description() string {
@@ -222,7 +222,7 @@ func (s *FeatureRegistrationStep) Description() string {
 
 func (s *FeatureRegistrationStep) RequiredInputs() []StepDependency {
 	var deps []StepDependency
-	for _, val := range []Value{s.SecretKeyVault, s.SecretName, s.FeatureFlags} {
+	for _, val := range []Value{s.SecretKeyVault, s.SecretName} {
 		if val.Input != nil {
 			deps = append(deps, val.Input.StepDependency)
 		}
