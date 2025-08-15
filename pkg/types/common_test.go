@@ -182,12 +182,10 @@ func TestRequiredInputs(t *testing.T) {
 			input: &FeatureRegistrationStep{
 				SecretKeyVault: Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step"}}},
 				SecretName:     Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step2"}}},
-				FeatureFlags:   Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step3"}}},
 			},
 			expected: []StepDependency{
 				{ResourceGroup: "rg", Step: "step"},
 				{ResourceGroup: "rg", Step: "step2"},
-				{ResourceGroup: "rg", Step: "step3"},
 			},
 		},
 		{

@@ -705,8 +705,8 @@
                     "action": {
                       "const": "FeatureRegistration"
                     },
-                    "featureFlags": {
-                      "$ref": "#/definitions/value"
+                    "providerConfigRef": {
+                      "$ref": "#/definitions/configRef"
                     },
                     "secretKeyVault": {
                       "$ref": "#/definitions/value"
@@ -721,7 +721,7 @@
                   "required": [
                     "secretKeyVault",
                     "secretName",
-                    "featureFlags"
+                    "providerConfigRef"
                   ]
                 },
                 {
