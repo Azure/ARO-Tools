@@ -40,7 +40,7 @@ az keyvault secret download --vault-name "${PULL_SECRET_KV}" --name "${PULL_SECR
 
 # ACR login to target registry
 echo "Logging into target ACR ${TARGET_ACR}."
-if output="$( az acr login --name "${TARGET_ACR}" --expose-token --only-show-errors 2>&1 )"; then
+if output="$( az acr login --name "${TARGET_ACR}" --expose-token --only-show-errors --output json 2>&1 )"; then
   RESPONSE="${output}"
 else
   echo "Failed to log in to ACR ${TARGET_ACR}: ${output}"
