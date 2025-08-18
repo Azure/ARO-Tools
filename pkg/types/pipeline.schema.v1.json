@@ -802,48 +802,233 @@
             "type": "array",
             "items": {
               "type": "object",
-              "oneOf": [
+              "allOf": [
                 {
-                  "$ref": "#/definitions/armStep"
+                  "if": {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "ARM"
+                      }
+                    },
+                    "required": [
+                      "action"
+                    ]
+                  },
+                  "then": {
+                    "$ref": "#/definitions/armStep"
+                  }
                 },
                 {
-                  "$ref": "#/definitions/shellStep"
+                  "if": {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "Shell"
+                      }
+                    },
+                    "required": [
+                      "action"
+                    ]
+                  },
+                  "then": {
+                    "$ref": "#/definitions/shellStep"
+                  }
                 },
                 {
-                  "$ref": "#/definitions/delegateChildZoneStep"
+                  "if": {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "DelegateChildZone"
+                      }
+                    },
+                    "required": [
+                      "action"
+                    ]
+                  },
+                  "then": {
+                    "$ref": "#/definitions/delegateChildZoneStep"
+                  }
                 },
                 {
-                  "$ref": "#/definitions/setCertificateIssuerStep"
+                  "if": {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "SetCertificateIssuer"
+                      }
+                    },
+                    "required": [
+                      "action"
+                    ]
+                  },
+                  "then": {
+                    "$ref": "#/definitions/setCertificateIssuerStep"
+                  }
                 },
                 {
-                  "$ref": "#/definitions/createCertificateStep"
+                  "if": {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "CreateCertificate"
+                      }
+                    },
+                    "required": [
+                      "action"
+                    ]
+                  },
+                  "then": {
+                    "$ref": "#/definitions/createCertificateStep"
+                  }
                 },
                 {
-                  "$ref": "#/definitions/resourceProviderRegistrationStep"
+                  "if": {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "ResourceProviderRegistration"
+                      }
+                    },
+                    "required": [
+                      "action"
+                    ]
+                  },
+                  "then": {
+                    "$ref": "#/definitions/resourceProviderRegistrationStep"
+                  }
                 },
                 {
-                  "$ref": "#/definitions/kustoStep"
+                  "if": {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "Kusto"
+                      }
+                    },
+                    "required": [
+                      "action"
+                    ]
+                  },
+                  "then": {
+                    "$ref": "#/definitions/kustoStep"
+                  }
                 },
                 {
-                  "$ref": "#/definitions/pav2Step"
+                  "if": {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "Pav2"
+                      }
+                    },
+                    "required": [
+                      "action"
+                    ]
+                  },
+                  "then": {
+                    "$ref": "#/definitions/pav2Step"
+                  }
                 },
                 {
-                  "$ref": "#/definitions/logsStep"
+                  "if": {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "enum": [
+                          "RPLogsAccount",
+                          "ClusterLogsAccount"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "action"
+                    ]
+                  },
+                  "then": {
+                    "$ref": "#/definitions/logsStep"
+                  }
                 },
                 {
-                  "$ref": "#/definitions/imageMirrorStep"
+                  "if": {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "ImageMirror"
+                      }
+                    },
+                    "required": [
+                      "action"
+                    ]
+                  },
+                  "then": {
+                    "$ref": "#/definitions/imageMirrorStep"
+                  }
                 },
                 {
-                  "$ref": "#/definitions/featureRegistrationStep"
+                  "if": {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "FeatureRegistration"
+                      }
+                    },
+                    "required": [
+                      "action"
+                    ]
+                  },
+                  "then": {
+                    "$ref": "#/definitions/featureRegistrationStep"
+                  }
                 },
                 {
-                  "$ref": "#/definitions/providerFeatureRegistrationStep"
+                  "if": {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "ProviderFeatureRegistration"
+                      }
+                    },
+                    "required": [
+                      "action"
+                    ]
+                  },
+                  "then": {
+                    "$ref": "#/definitions/providerFeatureRegistrationStep"
+                  }
                 },
                 {
-                  "$ref": "#/definitions/secretSyncStep"
+                  "if": {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "SecretSync"
+                      }
+                    },
+                    "required": [
+                      "action"
+                    ]
+                  },
+                  "then": {
+                    "$ref": "#/definitions/secretSyncStep"
+                  }
                 },
                 {
-                  "$ref": "#/definitions/ev2RegistrationStep"
+                  "if": {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "Ev2Registration"
+                      }
+                    },
+                    "required": [
+                      "action"
+                    ]
+                  },
+                  "then": {
+                    "$ref": "#/definitions/ev2RegistrationStep"
+                  }
                 }
               ],
               "required": [
