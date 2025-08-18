@@ -274,7 +274,7 @@
                   "additionalProperties": false,
                   "properties": {
                     "name": {
-                      "$ref":"#/definitions/stepName"
+                      "$ref": "#/definitions/stepName"
                     },
                     "action": {
                       "const": "ARM"
@@ -346,7 +346,7 @@
                       "$ref": "#/definitions/value"
                     },
                     "dependsOn": {
-                      "$ref":  "#/definitions/stepDependencies"
+                      "$ref": "#/definitions/stepDependencies"
                     },
                     "dryRun": {
                       "type": "object",
@@ -384,7 +384,7 @@
                       "$ref": "#/definitions/value"
                     },
                     "dependsOn": {
-                      "$ref":  "#/definitions/stepDependencies"
+                      "$ref": "#/definitions/stepDependencies"
                     }
                   },
                   "required": [
@@ -417,7 +417,7 @@
                       "$ref": "#/definitions/value"
                     },
                     "dependsOn": {
-                      "$ref":  "#/definitions/stepDependencies"
+                      "$ref": "#/definitions/stepDependencies"
                     }
                   },
                   "required": [
@@ -462,7 +462,7 @@
                       "$ref": "#/definitions/value"
                     },
                     "dependsOn": {
-                      "$ref":  "#/definitions/stepDependencies"
+                      "$ref": "#/definitions/stepDependencies"
                     }
                   },
                   "required": [
@@ -489,7 +489,7 @@
                       "$ref": "#/definitions/value"
                     },
                     "dependsOn": {
-                      "$ref":  "#/definitions/stepDependencies"
+                      "$ref": "#/definitions/stepDependencies"
                     }
                   },
                   "required": [
@@ -521,7 +521,7 @@
                       "$ref": "#/definitions/value"
                     },
                     "dependsOn": {
-                      "$ref":  "#/definitions/stepDependencies"
+                      "$ref": "#/definitions/stepDependencies"
                     }
                   },
                   "required": [
@@ -557,7 +557,7 @@
                       "$ref": "#/definitions/value"
                     },
                     "dependsOn": {
-                      "$ref":  "#/definitions/stepDependencies"
+                      "$ref": "#/definitions/stepDependencies"
                     }
                   },
                   "required": [
@@ -632,7 +632,7 @@
                       "additionalProperties": false
                     },
                     "dependsOn": {
-                      "$ref":  "#/definitions/stepDependencies"
+                      "$ref": "#/definitions/stepDependencies"
                     }
                   },
                   "required": [
@@ -683,7 +683,7 @@
                       "$ref": "#/definitions/value"
                     },
                     "dependsOn": {
-                      "$ref":  "#/definitions/stepDependencies"
+                      "$ref": "#/definitions/stepDependencies"
                     }
                   },
                   "required": [
@@ -715,7 +715,7 @@
                       "$ref": "#/definitions/value"
                     },
                     "dependsOn": {
-                      "$ref":  "#/definitions/stepDependencies"
+                      "$ref": "#/definitions/stepDependencies"
                     }
                   },
                   "required": [
@@ -740,7 +740,7 @@
                       "$ref": "#/definitions/input"
                     },
                     "dependsOn": {
-                      "$ref":  "#/definitions/stepDependencies"
+                      "$ref": "#/definitions/stepDependencies"
                     }
                   },
                   "required": [
