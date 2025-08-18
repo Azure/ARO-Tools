@@ -190,6 +190,539 @@
           }
         }
       }
+    },
+    "armStep": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "$ref": "#/definitions/stepName"
+        },
+        "action": {
+          "const": "ARM"
+        },
+        "template": {
+          "type": "string"
+        },
+        "parameters": {
+          "type": "string"
+        },
+        "variables": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/variable"
+          }
+        },
+        "dependsOn": {
+          "$ref": "#/definitions/stepDependencies"
+        },
+        "deploymentLevel": {
+          "type": "string",
+          "enum": [
+            "ResourceGroup",
+            "Subscription"
+          ]
+        },
+        "deploymentMode": {
+          "type": "string",
+          "enum": [
+            "incremental",
+            "complete"
+          ]
+        },
+        "outputOnly": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "template",
+        "parameters",
+        "deploymentLevel"
+      ]
+    },
+    "shellStep": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "$ref": "#/definitions/stepName"
+        },
+        "action": {
+          "const": "Shell"
+        },
+        "command": {
+          "type": "string"
+        },
+        "aksCluster": {
+          "type": "string"
+        },
+        "variables": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/variable"
+          }
+        },
+        "subnetName": {
+          "type": "string"
+        },
+        "shellIdentity": {
+          "$ref": "#/definitions/value"
+        },
+        "dependsOn": {
+          "$ref": "#/definitions/stepDependencies"
+        },
+        "dryRun": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "command": {
+              "type": "string"
+            },
+            "variables": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/variable"
+              }
+            }
+          }
+        }
+      },
+      "required": [
+        "command"
+      ]
+    },
+    "delegateChildZoneStep": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "$ref": "#/definitions/stepName"
+        },
+        "action": {
+          "const": "DelegateChildZone"
+        },
+        "parentZone": {
+          "$ref": "#/definitions/value"
+        },
+        "childZone": {
+          "$ref": "#/definitions/value"
+        },
+        "dependsOn": {
+          "$ref": "#/definitions/stepDependencies"
+        }
+      },
+      "required": [
+        "parentZone",
+        "childZone"
+      ]
+    },
+    "setCertificateIssuerStep": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "$ref": "#/definitions/stepName"
+        },
+        "action": {
+          "const": "SetCertificateIssuer"
+        },
+        "vaultBaseUrl": {
+          "$ref": "#/definitions/value"
+        },
+        "issuer": {
+          "$ref": "#/definitions/value"
+        },
+        "secretKeyVault": {
+          "$ref": "#/definitions/value"
+        },
+        "secretName": {
+          "$ref": "#/definitions/value"
+        },
+        "applicationId": {
+          "$ref": "#/definitions/value"
+        },
+        "dependsOn": {
+          "$ref": "#/definitions/stepDependencies"
+        }
+      },
+      "required": [
+        "vaultBaseUrl",
+        "issuer",
+        "secretKeyVault",
+        "secretName",
+        "applicationId"
+      ]
+    },
+    "createCertificateStep": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "$ref": "#/definitions/stepName"
+        },
+        "action": {
+          "const": "CreateCertificate"
+        },
+        "vaultBaseUrl": {
+          "$ref": "#/definitions/value"
+        },
+        "certificateName": {
+          "$ref": "#/definitions/value"
+        },
+        "contentType": {
+          "$ref": "#/definitions/value"
+        },
+        "san": {
+          "$ref": "#/definitions/value"
+        },
+        "issuer": {
+          "$ref": "#/definitions/value"
+        },
+        "secretKeyVault": {
+          "$ref": "#/definitions/value"
+        },
+        "secretName": {
+          "$ref": "#/definitions/value"
+        },
+        "applicationId": {
+          "$ref": "#/definitions/value"
+        },
+        "dependsOn": {
+          "$ref": "#/definitions/stepDependencies"
+        }
+      },
+      "required": [
+        "vaultBaseUrl",
+        "certificateName",
+        "contentType",
+        "san",
+        "issuer",
+        "secretKeyVault",
+        "secretName",
+        "applicationId"
+      ]
+    },
+    "resourceProviderRegistrationStep": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "$ref": "#/definitions/stepName"
+        },
+        "action": {
+          "const": "ResourceProviderRegistration"
+        },
+        "resourceProviderNamespaces": {
+          "$ref": "#/definitions/value"
+        },
+        "dependsOn": {
+          "$ref": "#/definitions/stepDependencies"
+        }
+      },
+      "required": [
+        "resourceProviderNamespaces"
+      ]
+    },
+    "kustoStep": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "$ref": "#/definitions/stepName"
+        },
+        "action": {
+          "const": "Kusto"
+        },
+        "secretKeyVault": {
+          "$ref": "#/definitions/value"
+        },
+        "secretName": {
+          "$ref": "#/definitions/value"
+        },
+        "applicationId": {
+          "$ref": "#/definitions/value"
+        },
+        "connectionString": {
+          "$ref": "#/definitions/value"
+        },
+        "command": {
+          "$ref": "#/definitions/value"
+        },
+        "dependsOn": {
+          "$ref": "#/definitions/stepDependencies"
+        }
+      },
+      "required": [
+        "secretKeyVault",
+        "secretName",
+        "applicationId",
+        "connectionString",
+        "command"
+      ]
+    },
+    "pav2Step": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "$ref": "#/definitions/stepName"
+        },
+        "action": {
+          "const": "Pav2"
+        },
+        "secretKeyVault": {
+          "$ref": "#/definitions/value"
+        },
+        "secretName": {
+          "$ref": "#/definitions/value"
+        },
+        "storageAccount": {
+          "$ref": "#/definitions/value"
+        },
+        "smeEndpointSuffixParameter": {
+          "$ref": "#/definitions/value"
+        },
+        "smeAppidParameter": {
+          "$ref": "#/definitions/value"
+        },
+        "dependsOn": {
+          "$ref": "#/definitions/stepDependencies"
+        }
+      },
+      "required": [
+        "secretKeyVault",
+        "secretName",
+        "storageAccount",
+        "smeEndpointSuffixParameter",
+        "smeAppidParameter"
+      ]
+    },
+    "logsStep": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "$ref": "#/definitions/stepName"
+        },
+        "action": {
+          "type": "string",
+          "enum": [
+            "RPLogsAccount",
+            "ClusterLogsAccount"
+          ]
+        },
+        "typeName": {
+          "$ref": "#/definitions/value"
+        },
+        "secretKeyVault": {
+          "$ref": "#/definitions/value"
+        },
+        "secretName": {
+          "$ref": "#/definitions/value"
+        },
+        "environment": {
+          "$ref": "#/definitions/value"
+        },
+        "accountName": {
+          "$ref": "#/definitions/value"
+        },
+        "metricsAccount": {
+          "$ref": "#/definitions/value"
+        },
+        "adminAlias": {
+          "$ref": "#/definitions/value"
+        },
+        "adminGroup": {
+          "$ref": "#/definitions/value"
+        },
+        "subscriptionId": {
+          "$ref": "#/definitions/value"
+        },
+        "namespace": {
+          "$ref": "#/definitions/value"
+        },
+        "certsan": {
+          "$ref": "#/definitions/value"
+        },
+        "certdescription": {
+          "$ref": "#/definitions/value"
+        },
+        "configVersion": {
+          "$ref": "#/definitions/value"
+        },
+        "events": {
+          "type": "object",
+          "description": "A map of event configurations where keys represent the fluent bit tag and values are their corresponding Geneva table name. Refer to https://eng.ms/docs/products/geneva/collect/instrument/linux/fluentd for details",
+          "patternProperties": {
+            "^.*$": {
+              "type": "string",
+              "description": "Geneva table name for the corresponding fluent bit tag"
+            }
+          },
+          "additionalProperties": false
+        },
+        "dependsOn": {
+          "$ref": "#/definitions/stepDependencies"
+        }
+      },
+      "required": [
+        "typeName",
+        "secretKeyVault",
+        "secretName",
+        "environment",
+        "accountName",
+        "metricsAccount",
+        "adminAlias",
+        "adminGroup",
+        "subscriptionId",
+        "namespace",
+        "certsan",
+        "certdescription",
+        "configVersion",
+        "events"
+      ]
+    },
+    "imageMirrorStep": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "$ref": "#/definitions/stepName"
+        },
+        "action": {
+          "const": "ImageMirror"
+        },
+        "targetACR": {
+          "$ref": "#/definitions/value"
+        },
+        "sourceRegistry": {
+          "$ref": "#/definitions/value"
+        },
+        "repository": {
+          "$ref": "#/definitions/value"
+        },
+        "digest": {
+          "$ref": "#/definitions/value"
+        },
+        "pullSecretKeyVault": {
+          "$ref": "#/definitions/value"
+        },
+        "pullSecretName": {
+          "$ref": "#/definitions/value"
+        },
+        "shellIdentity": {
+          "$ref": "#/definitions/value"
+        },
+        "dependsOn": {
+          "$ref": "#/definitions/stepDependencies"
+        }
+      },
+      "required": [
+        "targetACR",
+        "sourceRegistry",
+        "repository",
+        "digest",
+        "pullSecretKeyVault",
+        "pullSecretName",
+        "shellIdentity"
+      ]
+    },
+    "featureRegistrationStep": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "$ref": "#/definitions/stepName"
+        },
+        "action": {
+          "const": "FeatureRegistration"
+        },
+        "providerConfigRef": {
+          "$ref": "#/definitions/configRef"
+        },
+        "secretKeyVault": {
+          "$ref": "#/definitions/value"
+        },
+        "secretName": {
+          "$ref": "#/definitions/value"
+        },
+        "dependsOn": {
+          "$ref": "#/definitions/stepDependencies"
+        }
+      },
+      "required": [
+        "secretKeyVault",
+        "secretName",
+        "providerConfigRef"
+      ]
+    },
+    "providerFeatureRegistrationStep": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "$ref": "#/definitions/stepName"
+        },
+        "action": {
+          "const": "ProviderFeatureRegistration"
+        },
+        "providerConfigRef": {
+          "$ref": "#/definitions/configRef"
+        },
+        "identityFrom": {
+          "$ref": "#/definitions/input"
+        },
+        "dependsOn": {
+          "$ref": "#/definitions/stepDependencies"
+        }
+      },
+      "required": [
+        "providerConfigRef",
+        "identityFrom"
+      ]
+    },
+    "secretSyncStep": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "$ref": "#/definitions/stepName"
+        },
+        "action": {
+          "const": "SecretSync"
+        },
+        "configurationFile": {
+          "type": "string",
+          "minLength": 1
+        },
+        "encryptionKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "keyVault": {
+          "type": "string",
+          "minLength": 1
+        },
+        "identityFrom": {
+          "$ref": "#/definitions/input"
+        },
+        "dependsOn": {
+          "$ref": "#/definitions/stepDependencies"
+        }
+      },
+      "required": [
+        "configurationFile",
+        "encryptionKey",
+        "keyVault",
+        "identityFrom"
+      ]
+    },
+    "ev2RegistrationStep": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "$ref": "#/definitions/stepName"
+        },
+        "action": {
+          "const": "Ev2Registration"
+        },
+        "identityFrom": {
+          "$ref": "#/definitions/input"
+        },
+        "dependsOn": {
+          "$ref": "#/definitions/stepDependencies"
+        }
+      },
+      "required": [
+        "identityFrom"
+      ]
     }
   },
   "properties": {
@@ -271,537 +804,46 @@
               "type": "object",
               "oneOf": [
                 {
-                  "additionalProperties": false,
-                  "properties": {
-                    "name": {
-                      "$ref": "#/definitions/stepName"
-                    },
-                    "action": {
-                      "const": "ARM"
-                    },
-                    "template": {
-                      "type": "string"
-                    },
-                    "parameters": {
-                      "type": "string"
-                    },
-                    "variables": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/definitions/variable"
-                      }
-                    },
-                    "dependsOn": {
-                      "$ref": "#/definitions/stepDependencies"
-                    },
-                    "deploymentLevel": {
-                      "type": "string",
-                      "enum": [
-                        "ResourceGroup",
-                        "Subscription"
-                      ]
-                    },
-                    "deploymentMode": {
-                      "type": "string",
-                      "enum": [
-                        "incremental",
-                        "complete"
-                      ]
-                    },
-                    "outputOnly": {
-                      "type": "boolean"
-                    }
-                  },
-                  "required": [
-                    "template",
-                    "parameters",
-                    "deploymentLevel"
-                  ]
+                  "$ref": "#/definitions/armStep"
                 },
                 {
-                  "additionalProperties": false,
-                  "properties": {
-                    "name": {
-                      "$ref": "#/definitions/stepName"
-                    },
-                    "action": {
-                      "const": "Shell"
-                    },
-                    "command": {
-                      "type": "string"
-                    },
-                    "aksCluster": {
-                      "type": "string"
-                    },
-                    "variables": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/definitions/variable"
-                      }
-                    },
-                    "subnetName": {
-                      "type": "string"
-                    },
-                    "shellIdentity": {
-                      "$ref": "#/definitions/value"
-                    },
-                    "dependsOn": {
-                      "$ref": "#/definitions/stepDependencies"
-                    },
-                    "dryRun": {
-                      "type": "object",
-                      "additionalProperties": false,
-                      "properties": {
-                        "command": {
-                          "type": "string"
-                        },
-                        "variables": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/definitions/variable"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "required": [
-                    "command"
-                  ]
+                  "$ref": "#/definitions/shellStep"
                 },
                 {
-                  "additionalProperties": false,
-                  "properties": {
-                    "name": {
-                      "$ref": "#/definitions/stepName"
-                    },
-                    "action": {
-                      "const": "DelegateChildZone"
-                    },
-                    "parentZone": {
-                      "$ref": "#/definitions/value"
-                    },
-                    "childZone": {
-                      "$ref": "#/definitions/value"
-                    },
-                    "dependsOn": {
-                      "$ref": "#/definitions/stepDependencies"
-                    }
-                  },
-                  "required": [
-                    "parentZone",
-                    "childZone"
-                  ]
+                  "$ref": "#/definitions/delegateChildZoneStep"
                 },
                 {
-                  "additionalProperties": false,
-                  "properties": {
-                    "name": {
-                      "$ref": "#/definitions/stepName"
-                    },
-                    "action": {
-                      "const": "SetCertificateIssuer"
-                    },
-                    "vaultBaseUrl": {
-                      "$ref": "#/definitions/value"
-                    },
-                    "issuer": {
-                      "$ref": "#/definitions/value"
-                    },
-                    "secretKeyVault": {
-                      "$ref": "#/definitions/value"
-                    },
-                    "secretName": {
-                      "$ref": "#/definitions/value"
-                    },
-                    "applicationId": {
-                      "$ref": "#/definitions/value"
-                    },
-                    "dependsOn": {
-                      "$ref": "#/definitions/stepDependencies"
-                    }
-                  },
-                  "required": [
-                    "vaultBaseUrl",
-                    "issuer",
-                    "secretKeyVault",
-                    "secretName",
-                    "applicationId"
-                  ]
+                  "$ref": "#/definitions/setCertificateIssuerStep"
                 },
                 {
-                  "additionalProperties": false,
-                  "properties": {
-                    "name": {
-                      "$ref": "#/definitions/stepName"
-                    },
-                    "action": {
-                      "const": "CreateCertificate"
-                    },
-                    "vaultBaseUrl": {
-                      "$ref": "#/definitions/value"
-                    },
-                    "certificateName": {
-                      "$ref": "#/definitions/value"
-                    },
-                    "contentType": {
-                      "$ref": "#/definitions/value"
-                    },
-                    "san": {
-                      "$ref": "#/definitions/value"
-                    },
-                    "issuer": {
-                      "$ref": "#/definitions/value"
-                    },
-                    "secretKeyVault": {
-                      "$ref": "#/definitions/value"
-                    },
-                    "secretName": {
-                      "$ref": "#/definitions/value"
-                    },
-                    "applicationId": {
-                      "$ref": "#/definitions/value"
-                    },
-                    "dependsOn": {
-                      "$ref": "#/definitions/stepDependencies"
-                    }
-                  },
-                  "required": [
-                    "vaultBaseUrl",
-                    "certificateName",
-                    "contentType",
-                    "san",
-                    "issuer",
-                    "secretKeyVault",
-                    "secretName",
-                    "applicationId"
-                  ]
+                  "$ref": "#/definitions/createCertificateStep"
                 },
                 {
-                  "additionalProperties": false,
-                  "properties": {
-                    "name": {
-                      "$ref": "#/definitions/stepName"
-                    },
-                    "action": {
-                      "const": "ResourceProviderRegistration"
-                    },
-                    "resourceProviderNamespaces": {
-                      "$ref": "#/definitions/value"
-                    },
-                    "dependsOn": {
-                      "$ref": "#/definitions/stepDependencies"
-                    }
-                  },
-                  "required": [
-                    "resourceProviderNamespaces"
-                  ]
+                  "$ref": "#/definitions/resourceProviderRegistrationStep"
                 },
                 {
-                  "additionalProperties": false,
-                  "properties": {
-                    "name": {
-                      "$ref": "#/definitions/stepName"
-                    },
-                    "action": {
-                      "const": "Kusto"
-                    },
-                    "secretKeyVault": {
-                      "$ref": "#/definitions/value"
-                    },
-                    "secretName": {
-                      "$ref": "#/definitions/value"
-                    },
-                    "applicationId": {
-                      "$ref": "#/definitions/value"
-                    },
-                    "connectionString": {
-                      "$ref": "#/definitions/value"
-                    },
-                    "command": {
-                      "$ref": "#/definitions/value"
-                    },
-                    "dependsOn": {
-                      "$ref": "#/definitions/stepDependencies"
-                    }
-                  },
-                  "required": [
-                    "secretKeyVault",
-                    "secretName",
-                    "applicationId",
-                    "connectionString",
-                    "command"
-                  ]
+                  "$ref": "#/definitions/kustoStep"
                 },
                 {
-                  "additionalProperties": false,
-                  "properties": {
-                    "name": {
-                      "$ref": "#/definitions/stepName"
-                    },
-                    "action": {
-                      "const": "Pav2"
-                    },
-                    "secretKeyVault": {
-                      "$ref": "#/definitions/value"
-                    },
-                    "secretName": {
-                      "$ref": "#/definitions/value"
-                    },
-                    "storageAccount": {
-                      "$ref": "#/definitions/value"
-                    },
-                    "smeEndpointSuffixParameter": {
-                      "$ref": "#/definitions/value"
-                    },
-                    "smeAppidParameter": {
-                      "$ref": "#/definitions/value"
-                    },
-                    "dependsOn": {
-                      "$ref": "#/definitions/stepDependencies"
-                    }
-                  },
-                  "required": [
-                    "secretKeyVault",
-                    "secretName",
-                    "storageAccount",
-                    "smeEndpointSuffixParameter",
-                    "smeAppidParameter"
-                  ]
+                  "$ref": "#/definitions/pav2Step"
                 },
                 {
-                  "additionalProperties": false,
-                  "properties": {
-                    "name": {
-                      "$ref": "#/definitions/stepName"
-                    },
-                    "action": {
-                      "type": "string",
-                      "enum": [
-                        "RPLogsAccount",
-                        "ClusterLogsAccount"
-                      ]
-                    },
-                    "typeName": {
-                      "$ref": "#/definitions/value"
-                    },
-                    "secretKeyVault": {
-                      "$ref": "#/definitions/value"
-                    },
-                    "secretName": {
-                      "$ref": "#/definitions/value"
-                    },
-                    "environment": {
-                      "$ref": "#/definitions/value"
-                    },
-                    "accountName": {
-                      "$ref": "#/definitions/value"
-                    },
-                    "metricsAccount": {
-                      "$ref": "#/definitions/value"
-                    },
-                    "adminAlias": {
-                      "$ref": "#/definitions/value"
-                    },
-                    "adminGroup": {
-                      "$ref": "#/definitions/value"
-                    },
-                    "subscriptionId": {
-                      "$ref": "#/definitions/value"
-                    },
-                    "namespace": {
-                      "$ref": "#/definitions/value"
-                    },
-                    "certsan": {
-                      "$ref": "#/definitions/value"
-                    },
-                    "certdescription": {
-                      "$ref": "#/definitions/value"
-                    },
-                    "configVersion": {
-                      "$ref": "#/definitions/value"
-                    },
-                    "events": {
-                      "type": "object",
-                      "description": "A map of event configurations where keys represent the fluent bit tag and values are their corresponding Geneva table name. Refer to https://eng.ms/docs/products/geneva/collect/instrument/linux/fluentd for details",
-                      "patternProperties": {
-                        "^.*$": {
-                          "type": "string",
-                          "description": "Geneva table name for the corresponding fluent bit tag"
-                        }
-                      },
-                      "additionalProperties": false
-                    },
-                    "dependsOn": {
-                      "$ref": "#/definitions/stepDependencies"
-                    }
-                  },
-                  "required": [
-                    "typeName",
-                    "secretKeyVault",
-                    "secretName",
-                    "environment",
-                    "accountName",
-                    "metricsAccount",
-                    "adminAlias",
-                    "adminGroup",
-                    "subscriptionId",
-                    "namespace",
-                    "certsan",
-                    "certdescription",
-                    "configVersion",
-                    "events"
-                  ]
+                  "$ref": "#/definitions/logsStep"
                 },
                 {
-                  "additionalProperties": false,
-                  "properties": {
-                    "name": {
-                      "$ref": "#/definitions/stepName"
-                    },
-                    "action": {
-                      "const": "ImageMirror"
-                    },
-                    "targetACR": {
-                      "$ref": "#/definitions/value"
-                    },
-                    "sourceRegistry": {
-                      "$ref": "#/definitions/value"
-                    },
-                    "repository": {
-                      "$ref": "#/definitions/value"
-                    },
-                    "digest": {
-                      "$ref": "#/definitions/value"
-                    },
-                    "pullSecretKeyVault": {
-                      "$ref": "#/definitions/value"
-                    },
-                    "pullSecretName": {
-                      "$ref": "#/definitions/value"
-                    },
-                    "shellIdentity": {
-                      "$ref": "#/definitions/value"
-                    },
-                    "dependsOn": {
-                      "$ref": "#/definitions/stepDependencies"
-                    }
-                  },
-                  "required": [
-                    "targetACR",
-                    "sourceRegistry",
-                    "repository",
-                    "digest",
-                    "pullSecretKeyVault",
-                    "pullSecretName",
-                    "shellIdentity"
-                  ]
+                  "$ref": "#/definitions/imageMirrorStep"
                 },
                 {
-                  "additionalProperties": false,
-                  "properties": {
-                    "name": {
-                      "$ref": "#/definitions/stepName"
-                    },
-                    "action": {
-                      "const": "FeatureRegistration"
-                    },
-                    "providerConfigRef": {
-                      "$ref": "#/definitions/configRef"
-                    },
-                    "secretKeyVault": {
-                      "$ref": "#/definitions/value"
-                    },
-                    "secretName": {
-                      "$ref": "#/definitions/value"
-                    },
-                    "dependsOn": {
-                      "$ref": "#/definitions/stepDependencies"
-                    }
-                  },
-                  "required": [
-                    "secretKeyVault",
-                    "secretName",
-                    "providerConfigRef"
-                  ]
+                  "$ref": "#/definitions/featureRegistrationStep"
                 },
                 {
-                  "additionalProperties": false,
-                  "properties": {
-                    "name": {
-                      "$ref": "#/definitions/stepName"
-                    },
-                    "action": {
-                      "const": "ProviderFeatureRegistration"
-                    },
-                    "providerConfigRef": {
-                      "$ref": "#/definitions/configRef"
-                    },
-                    "identityFrom": {
-                      "$ref": "#/definitions/input"
-                    },
-                    "dependsOn": {
-                      "$ref": "#/definitions/stepDependencies"
-                    }
-                  },
-                  "required": [
-                    "providerConfigRef",
-                    "identityFrom"
-                  ]
+                  "$ref": "#/definitions/providerFeatureRegistrationStep"
                 },
                 {
-                  "additionalProperties": false,
-                  "properties": {
-                    "name": {
-                      "$ref": "#/definitions/stepName"
-                    },
-                    "action": {
-                      "const": "SecretSync"
-                    },
-                    "configurationFile": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "encryptionKey": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "keyVault": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "identityFrom": {
-                      "$ref": "#/definitions/input"
-                    },
-                    "dependsOn": {
-                      "$ref": "#/definitions/stepDependencies"
-                    }
-                  },
-                  "required": [
-                    "configurationFile",
-                    "encryptionKey",
-                    "keyVault",
-                    "identityFrom"
-                  ]
+                  "$ref": "#/definitions/secretSyncStep"
                 },
                 {
-                  "additionalProperties": false,
-                  "properties": {
-                    "name": {
-                      "$ref": "#/definitions/stepName"
-                    },
-                    "action": {
-                      "const": "Ev2Registration"
-                    },
-                    "identityFrom": {
-                      "$ref": "#/definitions/input"
-                    },
-                    "dependsOn": {
-                      "$ref": "#/definitions/stepDependencies"
-                    }
-                  },
-                  "required": [
-                    "identityFrom"
-                  ]
+                  "$ref": "#/definitions/ev2RegistrationStep"
                 }
               ],
               "required": [
