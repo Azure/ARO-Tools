@@ -258,18 +258,18 @@ func (cr *configResolver) GetRegionConfiguration(region string) (types.Configura
 	if !hasCloud {
 		return nil, fmt.Errorf("the cloud %s is not found in the config", cr.cloud)
 	}
-	types.MergeConfiguration(cfg, cloudCfg.Defaults)
+	cfg = types.MergeConfiguration(cfg, cloudCfg.Defaults)
 	envCfg, hasEnv := cloudCfg.Overrides[cr.environment]
 	if !hasEnv {
 		return nil, fmt.Errorf("the deployment env %s is not found under cloud %s", cr.environment, cr.cloud)
 	}
-	types.MergeConfiguration(cfg, envCfg.Defaults)
+	cfg = types.MergeConfiguration(cfg, envCfg.Defaults)
 	regionCfg, hasRegion := envCfg.Overrides[region]
 	if !hasRegion {
 		// a missing region just means we use default values
 		regionCfg = types.Configuration{}
 	}
-	types.MergeConfiguration(cfg, regionCfg)
+	cfg = types.MergeConfiguration(cfg, regionCfg)
 	return cfg, nil
 }
 
@@ -280,12 +280,12 @@ func (cr *configResolver) GetConfiguration() (types.Configuration, error) {
 	if !hasCloud {
 		return nil, fmt.Errorf("the cloud %s is not found in the config", cr.cloud)
 	}
-	types.MergeConfiguration(cfg, cloudCfg.Defaults)
+	cfg = types.MergeConfiguration(cfg, cloudCfg.Defaults)
 	envCfg, hasEnv := cloudCfg.Overrides[cr.environment]
 	if !hasEnv {
 		return nil, fmt.Errorf("the deployment env %s is not found under cloud %s", cr.environment, cr.cloud)
 	}
-	types.MergeConfiguration(cfg, envCfg.Defaults)
+	cfg = types.MergeConfiguration(cfg, envCfg.Defaults)
 
 	return cfg, nil
 }

@@ -120,8 +120,8 @@ func TestMergeConfiguration(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			types.MergeConfiguration(tc.base, tc.override)
-			require.Empty(t, cmp.Diff(tc.expected, tc.base))
+			output := types.Configuration(types.MergeConfiguration(tc.base, tc.override))
+			require.Empty(t, cmp.Diff(tc.expected, output))
 		})
 	}
 

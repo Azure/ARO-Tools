@@ -37,9 +37,9 @@ func (v Configuration) GetByPath(path string) (any, error) {
 	return current, nil
 }
 
-// Merges Configuration, returns merged Configuration
-// However the return value is only used for recursive updates on the map
-// The actual merged Configuration are updated in the base map
+// MergeConfiguration returns a new configuration holding keys from base, unless they have been overridden.
+// This function does not mutate its inputs, but returns a `map[string]any` instead of `types.Configuration`, so
+// if your consumer is sensitive to the distinction, remember to cast the output.
 func MergeConfiguration(base, override Configuration) map[string]any {
 	if base == nil {
 		base = Configuration{}
@@ -47,16 +47,20 @@ func MergeConfiguration(base, override Configuration) map[string]any {
 	if override == nil {
 		override = Configuration{}
 	}
+	output := make(Configuration, len(base))
+	for k, v := range base {
+		output[k] = v
+	}
 	for k, newValue := range override {
-		if baseValue, exists := base[k]; exists {
+		if baseValue, exists := output[k]; exists {
 			srcMap, srcMapOk := newValue.(map[string]any)
 			dstMap, dstMapOk := baseValue.(map[string]any)
 			if srcMapOk && dstMapOk {
 				newValue = MergeConfiguration(dstMap, srcMap)
 			}
 		}
-		base[k] = newValue
+		output[k] = newValue
 	}
 
-	return base
+	return output
 }
