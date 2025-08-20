@@ -19,7 +19,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/Azure/ARO-Tools/internal/testutil"
 	"github.com/Azure/ARO-Tools/pkg/config"
@@ -35,10 +35,10 @@ func TestConfigProvider(t *testing.T) {
 	environment := "int"
 
 	ev2, err := ev2config.ResolveConfig(cloud, region)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	configProvider, err := config.NewConfigProvider("../../testdata/config.yaml")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	configResolver, err := configProvider.GetResolver(&config.ConfigReplacements{
 		RegionReplacement:      region,
 		RegionShortReplacement: regionShort,
@@ -47,11 +47,11 @@ func TestConfigProvider(t *testing.T) {
 		EnvironmentReplacement: environment,
 		Ev2Config:              ev2,
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	cfg, err := configResolver.GetRegionConfiguration(region)
-	assert.NoError(t, err)
-	assert.NotNil(t, cfg)
+	require.NoError(t, err)
+	require.NotNil(t, cfg)
 
 	testutil.CompareWithFixture(t, cfg)
 }
@@ -121,7 +121,7 @@ func TestMergeConfiguration(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			types.MergeConfiguration(tc.base, tc.override)
-			assert.Empty(t, cmp.Diff(tc.expected, tc.base))
+			require.Empty(t, cmp.Diff(tc.expected, tc.base))
 		})
 	}
 
@@ -129,7 +129,7 @@ func TestMergeConfiguration(t *testing.T) {
 
 func TestPreprocessContent(t *testing.T) {
 	fileContent, err := os.ReadFile("../../testdata/test.bicepparam")
-	assert.Nil(t, err)
+	require.Nil(t, err)
 
 	processed, err := config.PreprocessContent(
 		fileContent,
@@ -141,7 +141,7 @@ func TestPreprocessContent(t *testing.T) {
 			"availabilityZoneCount": 3,
 		},
 	)
-	assert.Nil(t, err)
+	require.Nil(t, err)
 	testutil.CompareWithFixture(t, processed, testutil.WithExtension(".bicepparam"))
 }
 
@@ -195,9 +195,9 @@ func TestPreprocessContentMissingKey(t *testing.T) {
 				tc.vars,
 			)
 			if tc.shouldFail {
-				assert.NotNil(t, err)
+				require.NotNil(t, err)
 			} else {
-				assert.Nil(t, err)
+				require.Nil(t, err)
 			}
 		})
 	}

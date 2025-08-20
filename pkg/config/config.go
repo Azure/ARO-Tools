@@ -16,6 +16,7 @@ package config
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -28,6 +29,8 @@ import (
 
 	"github.com/Azure/ARO-Tools/pkg/config/ev2config"
 	"github.com/Azure/ARO-Tools/pkg/config/types"
+
+	_ "embed"
 )
 
 // ConfigReplacements holds replacement values
@@ -120,6 +123,14 @@ func NewConfigProvider(config string) (ConfigProvider, error) {
 	}
 
 	if err := yaml.Unmarshal(rawContent, &cp.withFakeReplacements); err != nil {
+		return nil, err
+	}
+
+	forValidation := map[string]any{}
+	if err := yaml.Unmarshal(rawContent, &forValidation); err != nil {
+		return nil, err
+	}
+	if err := ValidateConfigMetaSchema(forValidation); err != nil {
 		return nil, err
 	}
 
@@ -297,20 +308,6 @@ func (cr *configResolver) GetRegionOverrides(region string) (types.Configuration
 	return regionCfg, nil
 }
 
-// PreprocessFile reads and processes a gotemplate
-// The path will be read as is. It parses the file as a template, and executes it with the provided Configuration.
-func PreprocessFile(templateFilePath string, vars map[string]any) ([]byte, error) {
-	content, err := os.ReadFile(templateFilePath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read file %s: %w", templateFilePath, err)
-	}
-	processedContent, err := PreprocessContent(content, vars)
-	if err != nil {
-		return nil, fmt.Errorf("failed to preprocess content %s: %w", templateFilePath, err)
-	}
-	return processedContent, nil
-}
-
 // PreprocessContent processes a gotemplate from memory
 func PreprocessContent(content []byte, vars map[string]any) ([]byte, error) {
 	var tmplBytes bytes.Buffer
@@ -330,4 +327,44 @@ func PreprocessContentIntoWriter(content []byte, vars map[string]any, writer io.
 		return fmt.Errorf("failed to execute template: %w", err)
 	}
 	return nil
+}
+
+//go:embed config.schema.v1.json
+var configSchemaV1Content []byte
+
+const schemaRef = "config.meta.schema.v1.json"
+
+func ValidateConfigMetaSchema(config map[string]any) error {
+	pipelineSchema, err := compileSchema()
+	if err != nil {
+		return fmt.Errorf("failed to load pipeline schema: %v", err)
+	}
+
+	err = pipelineSchema.Validate(config)
+	if err != nil {
+		return fmt.Errorf("config is not compliant with meta schema %s: %v", schemaRef, err)
+	}
+	return nil
+}
+
+func compileSchema() (*jsonschema.Schema, error) {
+	// parse schema content
+	schemaMap := make(map[string]interface{})
+	err := json.Unmarshal(configSchemaV1Content, &schemaMap)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal schema content: %v", err)
+	}
+
+	// compile schema
+	c := jsonschema.NewCompiler()
+	err = c.AddResource(schemaRef, schemaMap)
+	if err != nil {
+		return nil, fmt.Errorf("failed to add schema resource %s: %v", schemaRef, err)
+	}
+	pipelineSchema, err := c.Compile(schemaRef)
+	if err != nil {
+		return nil, fmt.Errorf("failed to compile schema %s: %v", schemaRef, err)
+	}
+
+	return pipelineSchema, nil
 }
