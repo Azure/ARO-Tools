@@ -39,12 +39,12 @@ func ResolveConfig(cloud, region string) (types.Configuration, error) {
 	if !hasCloud {
 		return nil, fmt.Errorf("failed to find cloud %s", cloud)
 	}
-	types.MergeConfiguration(cfg, cloudCfg.Defaults)
+	cfg = types.MergeConfiguration(cfg, cloudCfg.Defaults)
 	regionCfg, hasRegion := cloudCfg.Regions[region]
 	if !hasRegion {
 		return nil, fmt.Errorf("failed to find region %s in cloud %s", region, cloud)
 	}
-	types.MergeConfiguration(cfg, regionCfg)
+	cfg = types.MergeConfiguration(cfg, regionCfg)
 	return cfg, nil
 }
 
