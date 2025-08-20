@@ -67,11 +67,14 @@ defaults:
   storage:
     accountName: arotestaccount
     storageSuffix: aro-int
+  ubiquitousValue: global-value
+  partialValue: global-value
 clouds:
   ff:
     defaults: {}
   public:
-    defaults: {}
+    defaults:
+      ubiquitousValue: public-value
     environments:
       dev:
         defaults:
@@ -82,6 +85,9 @@ clouds:
         defaults:
           maestro_helm_chart: oci://aro-hcp-int.azurecr.io/helm/server
           maestro_image: aro-hcp-int.azurecr.io/maestro-server:the-stable-one
+          ubiquitousValue: public-int-value
         regions:
           uksouth:
             test: uksouth
+            ubiquitousValue: public-int-uksouth-value
+            partialValue: public-int-uksouth-value
