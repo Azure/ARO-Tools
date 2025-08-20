@@ -56,6 +56,65 @@ func TestConfigProvider(t *testing.T) {
 	testutil.CompareWithFixture(t, cfg)
 }
 
+func TestConfigProvenance(t *testing.T) {
+	region := "uksouth"
+	regionShort := "uks"
+	stamp := "1"
+	cloud := "public"
+	environment := "int"
+
+	ev2, err := ev2config.ResolveConfig(cloud, region)
+	require.NoError(t, err)
+
+	configProvider, err := config.NewConfigProvider("../../testdata/config.yaml")
+	require.NoError(t, err)
+	configResolver, err := configProvider.GetResolver(&config.ConfigReplacements{
+		RegionReplacement:      region,
+		RegionShortReplacement: regionShort,
+		StampReplacement:       stamp,
+		CloudReplacement:       cloud,
+		EnvironmentReplacement: environment,
+		Ev2Config:              ev2,
+	})
+	require.NoError(t, err)
+
+	ubiquitous, err := configResolver.ValueProvenance(region, "ubiquitousValue")
+	require.NoError(t, err)
+
+	if diff := cmp.Diff(ubiquitous, &config.Provenance{
+		Default:        "global-value",
+		DefaultSet:     true,
+		Cloud:          "public-value",
+		CloudSet:       true,
+		Environment:    "public-int-value",
+		EnvironmentSet: true,
+		Region:         "public-int-uksouth-value",
+		RegionSet:      true,
+		Result:         "public-int-uksouth-value",
+		ResultSet:      true,
+	}); diff != "" {
+		t.Errorf("Provenance mismatch for ubiquitousValue (-want +got):\n%s", diff)
+	}
+
+	partial, err := configResolver.ValueProvenance(region, "partialValue")
+	require.NoError(t, err)
+
+	if diff := cmp.Diff(partial, &config.Provenance{
+		Default:        "global-value",
+		DefaultSet:     true,
+		Cloud:          nil,
+		CloudSet:       false,
+		Environment:    nil,
+		EnvironmentSet: false,
+		Region:         "public-int-uksouth-value",
+		RegionSet:      true,
+		Result:         "public-int-uksouth-value",
+		ResultSet:      true,
+	}); diff != "" {
+		t.Errorf("Provenance mismatch for partialValue (-want +got):\n%s", diff)
+	}
+}
+
 func TestMergeConfiguration(t *testing.T) {
 	testCases := []struct {
 		name     string

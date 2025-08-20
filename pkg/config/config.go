@@ -17,6 +17,7 @@ package config
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -83,6 +84,8 @@ type ConfigResolver interface {
 	GetRegionConfiguration(region string) (types.Configuration, error)
 	// GetRegionOverrides fetches the overrides specific to a region, if any exist.
 	GetRegionOverrides(region string) (types.Configuration, error)
+	// ValueProvenance divulges how the value at 'path' is overridden to arrive at the result.
+	ValueProvenance(region, path string) (*Provenance, error)
 }
 
 // NewConfigProvider creates a configuration provider by knowing the path to the configuration file.
@@ -306,6 +309,69 @@ func (cr *configResolver) GetRegionOverrides(region string) (types.Configuration
 		regionCfg = types.Configuration{}
 	}
 	return regionCfg, nil
+}
+
+type Provenance struct {
+	Default    any
+	DefaultSet bool
+
+	Cloud    any
+	CloudSet bool
+
+	Environment    any
+	EnvironmentSet bool
+
+	Region    any
+	RegionSet bool
+
+	Result    any
+	ResultSet bool
+}
+
+// ValueProvenance determines the provenance of a value in the configuration - which levels of overrides have something to do
+// with this value, how do they override each other, what is the resulting value?
+func (cr *configResolver) ValueProvenance(region, path string) (*Provenance, error) {
+	cloudCfg, hasCloud := cr.cfg.Overrides[cr.cloud]
+	if !hasCloud {
+		return nil, fmt.Errorf("the cloud %s is not found in the config", cr.cloud)
+	}
+	envCfg, hasEnv := cloudCfg.Overrides[cr.environment]
+	if !hasEnv {
+		return nil, fmt.Errorf("the deployment env %s is not found under cloud %s", cr.environment, cr.cloud)
+	}
+	regionCfg, hasRegion := envCfg.Overrides[region]
+	if !hasRegion {
+		// a missing region just means we use default values
+		regionCfg = types.Configuration{}
+	}
+
+	mergedCfg, err := cr.GetRegionConfiguration(region)
+	if err != nil {
+		return nil, err
+	}
+
+	p := &Provenance{}
+	for name, part := range map[string]struct {
+		from  *types.Configuration
+		value *any
+		set   *bool
+	}{
+		"default":     {from: &cr.cfg.Defaults, value: &p.Default, set: &p.DefaultSet},
+		"cloud":       {from: &cloudCfg.Defaults, value: &p.Cloud, set: &p.CloudSet},
+		"environment": {from: &envCfg.Defaults, value: &p.Environment, set: &p.EnvironmentSet},
+		"region":      {from: &regionCfg, value: &p.Region, set: &p.RegionSet},
+		"result":      {from: &mergedCfg, value: &p.Result, set: &p.ResultSet},
+	} {
+		val, err := part.from.GetByPath(path)
+		var missingKeyErr *types.MissingKeyError
+		isMissing := errors.As(err, &missingKeyErr)
+		if err != nil && !isMissing {
+			return nil, fmt.Errorf("failed to get value from %s config: %w", name, err)
+		}
+		*part.value = val
+		*part.set = !isMissing
+	}
+	return p, nil
 }
 
 // PreprocessFile reads and processes a gotemplate

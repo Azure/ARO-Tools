@@ -44,6 +44,7 @@ maestro_image: aro-hcp-int.azurecr.io/maestro-server:the-stable-one
 managementClusterRG: hcp-underlay-uks-mgmt-1
 managementClusterSubscription: hcp-uksouth
 parentZone: example.com
+partialValue: public-int-uksouth-value
 provider: Self
 region: uksouth
 regionRG: hcp-underlay-uks
@@ -66,5 +67,6 @@ svc:
     displayName: 'Red Hat OpenShift HCP Service - int: uksouth'
     key: hcp-int-svc-uksouth
 test: uksouth
+ubiquitousValue: public-int-uksouth-value
 vaultBaseUrl: myvault.azure.com
 vaultDomainSuffix: vault.azure.net
