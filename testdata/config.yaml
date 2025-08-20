@@ -68,10 +68,10 @@ defaults:
     accountName: arotestaccount
     storageSuffix: aro-int
 clouds:
-  fairfax:
-    defaults:
+  ff:
+    defaults: {}
   public:
-    defaults:
+    defaults: {}
     environments:
       dev:
         defaults:
