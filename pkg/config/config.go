@@ -308,6 +308,20 @@ func (cr *configResolver) GetRegionOverrides(region string) (types.Configuration
 	return regionCfg, nil
 }
 
+// PreprocessFile reads and processes a gotemplate
+// The path will be read as is. It parses the file as a template, and executes it with the pro
+func PreprocessFile(templateFilePath string, vars map[string]any) ([]byte, error) {
+	content, err := os.ReadFile(templateFilePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file %s: %w", templateFilePath, err)
+	}
+	processedContent, err := PreprocessContent(content, vars)
+	if err != nil {
+		return nil, fmt.Errorf("failed to preprocess content %s: %w", templateFilePath, err)
+	}
+	return processedContent, nil
+}
+
 // PreprocessContent processes a gotemplate from memory
 func PreprocessContent(content []byte, vars map[string]any) ([]byte, error) {
 	var tmplBytes bytes.Buffer
