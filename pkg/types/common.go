@@ -177,6 +177,7 @@ func (s *ResourceProviderRegistrationStep) RequiredInputs() []StepDependency {
 
 type LogsStep struct {
 	StepMeta        `json:",inline"`
+	RolloutKind     string            `json:"rolloutKind,omitempty"`
 	TypeName        Value             `json:"typeName"`
 	SecretKeyVault  Value             `json:"secretKeyVault,omitempty"`
 	SecretName      Value             `json:"secretName,omitempty"`
@@ -194,12 +195,12 @@ type LogsStep struct {
 }
 
 func (s *LogsStep) Description() string {
-	return fmt.Sprintf("Step %s\n Kind: %s\n", s.Name, s.Action)
+	return fmt.Sprintf("Step %s\n Kind: %s\n RolloutKind: %s\n", s.Name, s.Action, s.RolloutKind)
 }
 
 func (s *LogsStep) RequiredInputs() []StepDependency {
 	var deps []StepDependency
-	for _, val := range []Value{s.TypeName, s.SecretKeyVault, s.SecretName, s.Environment, s.AccountName, s.MetricsAccount, s.AdminAlias, s.AdminGroup, s.SubscriptionId, s.Namespace, s.CertSAN, s.CertDescription, s.ConfigVersion} {
+	for _, val := range []Value{s.SecretKeyVault, s.SecretName, s.Environment, s.AccountName} {
 		if val.Input != nil {
 			deps = append(deps, val.Input.StepDependency)
 		}

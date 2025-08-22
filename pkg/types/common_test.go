@@ -147,6 +147,7 @@ func TestRequiredInputs(t *testing.T) {
 		{
 			name: "logs full",
 			input: &LogsStep{
+				RolloutKind:     "FluentBit",
 				TypeName:        Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step"}}},
 				SecretKeyVault:  Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step2"}}},
 				SecretName:      Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step2"}}},
@@ -162,15 +163,8 @@ func TestRequiredInputs(t *testing.T) {
 				ConfigVersion:   Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step9"}}},
 			},
 			expected: []StepDependency{
-				{ResourceGroup: "rg", Step: "step"},
 				{ResourceGroup: "rg", Step: "step2"},
 				{ResourceGroup: "rg", Step: "step3"},
-				{ResourceGroup: "rg", Step: "step4"},
-				{ResourceGroup: "rg", Step: "step5"},
-				{ResourceGroup: "rg", Step: "step6"},
-				{ResourceGroup: "rg", Step: "step7"},
-				{ResourceGroup: "rg", Step: "step8"},
-				{ResourceGroup: "rg", Step: "step9"},
 			},
 		},
 		{
