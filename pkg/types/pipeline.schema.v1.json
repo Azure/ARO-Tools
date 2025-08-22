@@ -502,6 +502,28 @@
             "ClusterLogsAccount"
           ]
         },
+        "rolloutKind": {
+          "type": "string",
+          "description": "Specifies the type of log rollout configuration. Different rollout kinds have different required fields and validation rules.",
+          "oneOf": [
+            {
+              "const": "FluentBit",
+              "description": "Log configuration from Fluent Bit source"
+            },
+            {
+              "const": "ClassicRPLog", 
+              "description": "ARO Classic RP Log configuration from RP VMSS"
+            },
+            {
+              "const": "ClassicClusterLog",
+              "description": "ARO Classic Cluster Log configuration from ARO Clusters"
+            },
+            {
+              "const": "AccountSetup",
+              "description": "Geneva account configuration"
+            }
+          ]
+        },
         "typeName": {
           "$ref": "#/definitions/value"
         },
@@ -556,21 +578,90 @@
           "$ref": "#/definitions/stepDependencies"
         }
       },
-      "required": [
-        "typeName",
-        "secretKeyVault",
-        "secretName",
-        "environment",
-        "accountName",
-        "metricsAccount",
-        "adminAlias",
-        "adminGroup",
-        "subscriptionId",
-        "namespace",
-        "certsan",
-        "certdescription",
-        "configVersion",
-        "events"
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "rolloutKind": {
+                "const": "FluentBit"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "rolloutKind",
+              "secretKeyVault",
+              "secretName",
+              "environment",
+              "accountName",
+              "namespace",
+              "certsan",
+              "certdescription",
+              "configVersion",
+              "events"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "rolloutKind": {
+                "const": "ClassicRPLog"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "rolloutKind",
+              "secretKeyVault",
+              "secretName",
+              "environment",
+              "certsan",
+              "certdescription"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "rolloutKind": {
+                "const": "ClassicClusterLog"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "rolloutKind",
+              "secretKeyVault",
+              "secretName",
+              "environment",
+              "certsan",
+              "certdescription"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "rolloutKind": {
+                "const": "AccountSetup"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "rolloutKind",
+              "secretKeyVault",
+              "secretName",
+              "environment",
+              "accountName",
+              "metricsAccount",
+              "adminAlias",
+              "adminGroup",
+              "subscriptionId"
+            ]
+          }
+        }
       ]
     },
     "imageMirrorStep": {

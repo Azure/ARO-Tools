@@ -147,6 +147,7 @@ func TestRequiredInputs(t *testing.T) {
 		{
 			name: "logs full",
 			input: &LogsStep{
+				RolloutKind:     "FluentBit",
 				TypeName:        Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step"}}},
 				SecretKeyVault:  Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step2"}}},
 				SecretName:      Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step2"}}},
