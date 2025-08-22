@@ -200,7 +200,7 @@ func (s *LogsStep) Description() string {
 
 func (s *LogsStep) RequiredInputs() []StepDependency {
 	var deps []StepDependency
-	for _, val := range []Value{s.SecretKeyVault, s.SecretName, s.Environment, s.AccountName} {
+	for _, val := range []Value{s.TypeName, s.SecretKeyVault, s.SecretName, s.Environment, s.AccountName, s.MetricsAccount, s.AdminAlias, s.AdminGroup, s.SubscriptionId, s.Namespace, s.CertSAN, s.CertDescription, s.ConfigVersion} {
 		if val.Input != nil {
 			deps = append(deps, val.Input.StepDependency)
 		}
