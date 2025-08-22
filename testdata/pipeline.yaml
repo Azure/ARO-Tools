@@ -135,6 +135,7 @@ resourceGroups:
       - Microsoft.Insights
   - name: rpAccount
     action: RPLogsAccount
+    rolloutKind: FluentBit
     typeName:
       configRef: geneva.logs.typeName
     secretKeyVault:
@@ -165,6 +166,7 @@ resourceGroups:
       akskubesystem: kubesystem
   - name: clusterAccount
     action: ClusterLogsAccount
+    rolloutKind: FluentBit
     typeName:
       configRef: geneva.logs.typeName
     secretKeyVault:

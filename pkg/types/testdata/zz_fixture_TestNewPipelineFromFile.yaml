@@ -146,6 +146,7 @@ resourceGroups:
     name: rpAccount
     namespace:
       value: ns
+    rolloutKind: FluentBit
     secretKeyVault:
       configRef: ev2.assistedId.certificate.keyVault
     secretName:
@@ -176,6 +177,7 @@ resourceGroups:
     name: clusterAccount
     namespace:
       value: ns
+    rolloutKind: FluentBit
     secretKeyVault:
       configRef: ev2.assistedId.certificate.keyVault
     secretName:
