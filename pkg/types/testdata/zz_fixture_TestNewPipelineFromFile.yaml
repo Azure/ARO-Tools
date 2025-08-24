@@ -137,12 +137,14 @@ resourceGroups:
       value: san
     configVersion:
       value: version
+    database: {}
     environment:
       configRef: geneva.logs.environment
     events:
       akskubesystem: kubesystem
     metricsAccount:
       configRef: geneva.metrics.rp.account
+    monikerDefaultRegion: {}
     name: rpAccount
     namespace:
       value: ns
@@ -168,12 +170,14 @@ resourceGroups:
       value: san
     configVersion:
       value: version
+    database: {}
     environment:
       configRef: geneva.logs.environment
     events:
       akskubesystem: kubesystem
     metricsAccount:
       configRef: geneva.metrics.cluster.account
+    monikerDefaultRegion: {}
     name: clusterAccount
     namespace:
       value: ns
@@ -186,6 +190,35 @@ resourceGroups:
       value: sub
     typeName:
       configRef: geneva.logs.typeName
+  - accountName:
+      configRef: geneva.logs.cluster.accountName
+    action: RPLogsAccount
+    adminAlias:
+      configRef: geneva.logs.administrators.alias
+    adminGroup:
+      configRef: geneva.logs.administrators.securityGroup
+    certdescription: {}
+    certsan: {}
+    configVersion: {}
+    database:
+      value: database
+    environment:
+      configRef: geneva.logs.environment
+    metricsAccount:
+      configRef: geneva.metrics.cluster.account
+    monikerDefaultRegion:
+      value: region
+    name: rpAccountSetup
+    namespace:
+      value: ns
+    rolloutKind: AccountSetup
+    secretKeyVault:
+      configRef: ev2.assistedId.certificate.keyVault
+    secretName:
+      configRef: ev2.assistedId.certificate.name
+    subscriptionId:
+      value: sub
+    typeName: {}
   - action: ImageMirror
     digest:
       value: digest
