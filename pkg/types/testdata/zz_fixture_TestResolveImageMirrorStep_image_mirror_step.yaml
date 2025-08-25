@@ -10,12 +10,12 @@ shellIdentity:
 variables:
 - name: TARGET_ACR
   value: myacr.azurecr.io
-- name: SOURCE_REGISTRY
-  value: docker.io
 - name: REPOSITORY
   value: nginx
 - name: DIGEST
   value: sha256:123456
+- name: SOURCE_REGISTRY
+  value: docker.io
 - name: PULL_SECRET_KV
   value: my-keyvault
 - name: PULL_SECRET

@@ -29,13 +29,15 @@ var OnDemandSyncScript []byte
 type ImageMirrorStep struct {
 	StepMeta `json:",inline"`
 
-	TargetACR          Value `json:"targetACR,omitempty"`
-	SourceRegistry     Value `json:"sourceRegistry,omitempty"`
-	Repository         Value `json:"repository,omitempty"`
-	Digest             Value `json:"digest,omitempty"`
-	PullSecretKeyVault Value `json:"pullSecretKeyVault,omitempty"`
-	PullSecretName     Value `json:"pullSecretName,omitempty"`
-	ShellIdentity      Value `json:"shellIdentity,omitempty"`
+	TargetACR          Value  `json:"targetACR,omitempty"`
+	SourceRegistry     Value  `json:"sourceRegistry,omitempty"`
+	Repository         Value  `json:"repository,omitempty"`
+	Digest             Value  `json:"digest,omitempty"`
+	CopyFrom           string `json:"copyFrom,omitempty"`
+	OCILayoutPath      Value  `json:"ociLayoutPath,omitempty"`
+	PullSecretKeyVault Value  `json:"pullSecretKeyVault,omitempty"`
+	PullSecretName     Value  `json:"pullSecretName,omitempty"`
+	ShellIdentity      Value  `json:"shellIdentity,omitempty"`
 }
 
 func (s *ImageMirrorStep) Description() string {
@@ -44,7 +46,7 @@ func (s *ImageMirrorStep) Description() string {
 
 func (s *ImageMirrorStep) RequiredInputs() []StepDependency {
 	var deps []StepDependency
-	for _, val := range []Value{s.TargetACR, s.SourceRegistry, s.Repository, s.Digest, s.PullSecretKeyVault, s.PullSecretName, s.ShellIdentity} {
+	for _, val := range []Value{s.TargetACR, s.SourceRegistry, s.Repository, s.Digest, s.OCILayoutPath, s.PullSecretKeyVault, s.PullSecretName, s.ShellIdentity} {
 		if val.Input != nil {
 			deps = append(deps, val.Input.StepDependency)
 		}
@@ -58,21 +60,29 @@ func (s *ImageMirrorStep) RequiredInputs() []StepDependency {
 // the OnDemandSyncScript to disk somewhere and pass the file name in as a parameter here, as we likely don't want to
 // inline 100+ lines of shell into a `bash -C "<contents>"` call and hope all the string interpolations work.
 func ResolveImageMirrorStep(input ImageMirrorStep, scriptFile string) (*ShellStep, error) {
+	variables := []Variable{
+		namedVariable("TARGET_ACR", input.TargetACR),
+		namedVariable("REPOSITORY", input.Repository),
+		namedVariable("DIGEST", input.Digest),
+	}
+
+	switch input.CopyFrom {
+	case "oci-layout":
+		variables = append(variables, namedVariable("OCI_LAYOUT_PATH", input.OCILayoutPath))
+	default:
+		variables = append(variables, namedVariable("SOURCE_REGISTRY", input.SourceRegistry))
+		variables = append(variables, namedVariable("PULL_SECRET_KV", input.PullSecretKeyVault))
+		variables = append(variables, namedVariable("PULL_SECRET", input.PullSecretName))
+	}
+
 	return &ShellStep{
 		StepMeta: StepMeta{
 			Name:      input.Name,
 			Action:    "Shell",
 			DependsOn: input.DependsOn,
 		},
-		Command: fmt.Sprintf("/bin/bash %s", scriptFile),
-		Variables: []Variable{
-			namedVariable("TARGET_ACR", input.TargetACR),
-			namedVariable("SOURCE_REGISTRY", input.SourceRegistry),
-			namedVariable("REPOSITORY", input.Repository),
-			namedVariable("DIGEST", input.Digest),
-			namedVariable("PULL_SECRET_KV", input.PullSecretKeyVault),
-			namedVariable("PULL_SECRET", input.PullSecretName),
-		},
+		Command:   fmt.Sprintf("/bin/bash %s", scriptFile),
+		Variables: variables,
 		DryRun: DryRun{
 			Variables: []Variable{{
 				Name: "DRY_RUN",
@@ -127,6 +137,18 @@ func (s *ImageMirrorStep) WithRepository(repository Value) *ImageMirrorStep {
 // WithDigest fluent method that sets Digest.
 func (s *ImageMirrorStep) WithDigest(digest Value) *ImageMirrorStep {
 	s.Digest = digest
+	return s
+}
+
+// WithCopyFrom fluent method that sets CopyFrom.
+func (s *ImageMirrorStep) WithCopyFrom(copyFrom string) *ImageMirrorStep {
+	s.CopyFrom = copyFrom
+	return s
+}
+
+// WithOCILayoutPath fluent method that sets OCILayoutPath.
+func (s *ImageMirrorStep) WithOCILayoutPath(ociLayoutPath Value) *ImageMirrorStep {
+	s.OCILayoutPath = ociLayoutPath
 	return s
 }
 

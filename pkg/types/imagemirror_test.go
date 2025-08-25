@@ -61,6 +61,23 @@ func TestResolveImageMirrorStep(t *testing.T) {
 			},
 			scriptFile: "/path/to/script.sh",
 		},
+		{
+			name: "image-mirror-step-with-oci-layout",
+			input: ImageMirrorStep{
+				StepMeta: StepMeta{
+					Name:   "image-mirror-step",
+					Action: "ImageMirror",
+				},
+				TargetACR:      Value{Value: "myacr.azurecr.io"},
+				SourceRegistry: Value{Value: "docker.io"},
+				Repository:     Value{Value: "nginx"},
+				Digest:         Value{Value: "sha256:123456"},
+				CopyFrom:       "oci-layout",
+				OCILayoutPath:  Value{Value: "/path/to/oci-layout"},
+				ShellIdentity:  Value{Value: "my-identity"},
+			},
+			scriptFile: "/path/to/script.sh",
+		},
 	}
 
 	for _, tt := range tests {
