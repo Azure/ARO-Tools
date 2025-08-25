@@ -176,22 +176,24 @@ func (s *ResourceProviderRegistrationStep) RequiredInputs() []StepDependency {
 }
 
 type LogsStep struct {
-	StepMeta        `json:",inline"`
-	RolloutKind     string            `json:"rolloutKind,omitempty"`
-	TypeName        Value             `json:"typeName"`
-	SecretKeyVault  Value             `json:"secretKeyVault,omitempty"`
-	SecretName      Value             `json:"secretName,omitempty"`
-	Environment     Value             `json:"environment"`
-	AccountName     Value             `json:"accountName"`
-	MetricsAccount  Value             `json:"metricsAccount"`
-	AdminAlias      Value             `json:"adminAlias"`
-	AdminGroup      Value             `json:"adminGroup"`
-	SubscriptionId  Value             `json:"subscriptionId,omitempty"`
-	Namespace       Value             `json:"namespace,omitempty"`
-	CertSAN         Value             `json:"certsan,omitempty"`
-	CertDescription Value             `json:"certdescription,omitempty"`
-	ConfigVersion   Value             `json:"configVersion,omitempty"`
-	Events          map[string]string `json:"events,omitempty"`
+	StepMeta             `json:",inline"`
+	RolloutKind          string            `json:"rolloutKind,omitempty"`
+	TypeName             Value             `json:"typeName"`
+	SecretKeyVault       Value             `json:"secretKeyVault,omitempty"`
+	SecretName           Value             `json:"secretName,omitempty"`
+	Environment          Value             `json:"environment"`
+	AccountName          Value             `json:"accountName"`
+	MetricsAccount       Value             `json:"metricsAccount"`
+	AdminAlias           Value             `json:"adminAlias"`
+	AdminGroup           Value             `json:"adminGroup"`
+	SubscriptionId       Value             `json:"subscriptionId,omitempty"`
+	Namespace            Value             `json:"namespace,omitempty"`
+	CertSAN              Value             `json:"certsan,omitempty"`
+	CertDescription      Value             `json:"certdescription,omitempty"`
+	ConfigVersion        Value             `json:"configVersion,omitempty"`
+	MonikerDefaultRegion Value             `json:"monikerDefaultRegion,omitempty"`
+	Database             Value             `json:"database,omitempty"`
+	Events               map[string]string `json:"events,omitempty"`
 }
 
 func (s *LogsStep) Description() string {
@@ -200,7 +202,7 @@ func (s *LogsStep) Description() string {
 
 func (s *LogsStep) RequiredInputs() []StepDependency {
 	var deps []StepDependency
-	for _, val := range []Value{s.TypeName, s.SecretKeyVault, s.SecretName, s.Environment, s.AccountName, s.MetricsAccount, s.AdminAlias, s.AdminGroup, s.SubscriptionId, s.Namespace, s.CertSAN, s.CertDescription, s.ConfigVersion} {
+	for _, val := range []Value{s.TypeName, s.SecretKeyVault, s.SecretName, s.Environment, s.AccountName, s.MetricsAccount, s.AdminAlias, s.AdminGroup, s.SubscriptionId, s.Namespace, s.CertSAN, s.CertDescription, s.ConfigVersion, s.MonikerDefaultRegion, s.Database} {
 		if val.Input != nil {
 			deps = append(deps, val.Input.StepDependency)
 		}

@@ -563,6 +563,12 @@
         "configVersion": {
           "$ref": "#/definitions/value"
         },
+        "monikerDefaultRegion": {
+          "$ref": "#/definitions/value"
+        },
+        "database": {
+          "$ref": "#/definitions/value"
+        },
         "events": {
           "type": "object",
           "description": "A map of event configurations where keys represent the fluent bit tag and values are their corresponding Geneva table name. Refer to https://eng.ms/docs/products/geneva/collect/instrument/linux/fluentd for details",
@@ -658,7 +664,10 @@
               "metricsAccount",
               "adminAlias",
               "adminGroup",
-              "subscriptionId"
+              "subscriptionId",
+              "namespace",
+              "monikerDefaultRegion",
+              "database"
             ]
           }
         }
