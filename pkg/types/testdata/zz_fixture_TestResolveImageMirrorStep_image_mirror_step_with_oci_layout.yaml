@@ -1,8 +1,5 @@
 action: Shell
 command: /bin/bash /path/to/script.sh
-dependsOn:
-- resourceGroup: whatever
-  step: previous-step
 dryRun:
   variables:
   - name: DRY_RUN
@@ -17,9 +14,5 @@ variables:
   value: nginx
 - name: DIGEST
   value: sha256:123456
-- name: SOURCE_REGISTRY
-  value: docker.io
-- name: PULL_SECRET_KV
-  value: my-keyvault
-- name: PULL_SECRET
-  value: my-pull-secret
+- name: OCI_LAYOUT_PATH
+  value: /path/to/oci-layout

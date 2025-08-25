@@ -223,6 +223,7 @@ resourceGroups:
     digest:
       value: digest
     name: image-mirror
+    ociLayoutPath: {}
     pullSecretKeyVault:
       value: pullSecretKeyVault
     pullSecretName:
@@ -280,6 +281,7 @@ resourceGroups:
     digest:
       value: digest
     name: image-mirror
+    ociLayoutPath: {}
     pullSecretKeyVault:
       value: pullSecretKeyVault
     pullSecretName:
@@ -290,6 +292,21 @@ resourceGroups:
       value: shellIdentity
     sourceRegistry:
       value: sourceRegistry
+    targetACR:
+      value: targetACR
+  - action: ImageMirror
+    digest:
+      value: digest
+    name: image-mirror-oci-layout
+    ociLayoutPath:
+      value: path/to/oci-layout
+    pullSecretKeyVault: {}
+    pullSecretName: {}
+    repository:
+      value: repository
+    shellIdentity:
+      value: shellIdentity
+    sourceRegistry: {}
     targetACR:
       value: targetACR
   - action: Pav2

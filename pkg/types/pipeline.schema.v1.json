@@ -694,6 +694,12 @@
         "digest": {
           "$ref": "#/definitions/value"
         },
+        "copyFrom": {
+          "const": "oci-layout"
+        },
+        "ociLayoutPath": {
+          "$ref": "#/definitions/value"
+        },
         "pullSecretKeyVault": {
           "$ref": "#/definitions/value"
         },
@@ -707,14 +713,27 @@
           "$ref": "#/definitions/stepDependencies"
         }
       },
-      "required": [
-        "targetACR",
-        "sourceRegistry",
-        "repository",
-        "digest",
-        "pullSecretKeyVault",
-        "pullSecretName",
-        "shellIdentity"
+      "anyOf": [
+        {
+          "required": [
+            "targetACR",
+            "sourceRegistry",
+            "repository",
+            "digest",
+            "pullSecretKeyVault",
+            "pullSecretName",
+            "shellIdentity"
+          ]
+        },
+        {
+          "required": [
+            "targetACR",
+            "repository",
+            "digest",
+            "ociLayoutPath",
+            "shellIdentity"
+          ]
+        }
       ]
     },
     "featureRegistrationStep": {

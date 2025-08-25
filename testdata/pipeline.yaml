@@ -289,6 +289,18 @@ resourceGroups:
         value: pullSecretName
       shellIdentity:
         value: shellIdentity
+    - name: image-mirror-oci-layout
+      action: ImageMirror
+      targetACR:
+        value: targetACR
+      repository:
+        value: repository
+      digest:
+        value: digest
+      ociLayoutPath:
+        value: "path/to/oci-layout"
+      shellIdentity:
+        value: shellIdentity        
     - name: pav2
       action: Pav2
       secretKeyVault:
