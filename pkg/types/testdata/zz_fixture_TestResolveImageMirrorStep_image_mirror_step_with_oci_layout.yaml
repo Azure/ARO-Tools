@@ -12,7 +12,8 @@ variables:
   value: myacr.azurecr.io
 - name: REPOSITORY
   value: nginx
-- name: DIGEST
-  value: sha256:123456
-- name: OCI_LAYOUT_PATH
-  value: /path/to/oci-layout
+- name: IMAGE_FILE_PATH
+- name: IMAGE_TAR_FILE_NAME
+  value: image.tar
+- name: IMAGE_METADATA_FILE_NAME
+  value: image-metadata.json

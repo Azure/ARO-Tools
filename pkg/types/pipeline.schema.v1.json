@@ -697,7 +697,13 @@
         "copyFrom": {
           "const": "oci-layout"
         },
-        "ociLayoutPath": {
+        "imageFilePath": {
+          "$ref": "#/definitions/value"
+        },
+        "imageTarFileName": {
+          "$ref": "#/definitions/value"
+        },
+        "imageMetadataFileName": {
           "$ref": "#/definitions/value"
         },
         "pullSecretKeyVault": {
@@ -729,8 +735,8 @@
           "required": [
             "targetACR",
             "repository",
-            "digest",
-            "ociLayoutPath",
+            "imageTarFileName",
+            "imageMetadataFileName",
             "shellIdentity"
           ]
         }
