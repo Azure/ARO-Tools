@@ -29,15 +29,17 @@ var OnDemandSyncScript []byte
 type ImageMirrorStep struct {
 	StepMeta `json:",inline"`
 
-	TargetACR          Value  `json:"targetACR,omitempty"`
-	SourceRegistry     Value  `json:"sourceRegistry,omitempty"`
-	Repository         Value  `json:"repository,omitempty"`
-	Digest             Value  `json:"digest,omitempty"`
-	CopyFrom           string `json:"copyFrom,omitempty"`
-	OCILayoutPath      Value  `json:"ociLayoutPath,omitempty"`
-	PullSecretKeyVault Value  `json:"pullSecretKeyVault,omitempty"`
-	PullSecretName     Value  `json:"pullSecretName,omitempty"`
-	ShellIdentity      Value  `json:"shellIdentity,omitempty"`
+	TargetACR             Value  `json:"targetACR,omitempty"`
+	SourceRegistry        Value  `json:"sourceRegistry,omitempty"`
+	Repository            Value  `json:"repository,omitempty"`
+	Digest                Value  `json:"digest,omitempty"`
+	CopyFrom              string `json:"copyFrom,omitempty"`
+	ImageFilePath         Value  `json:"imageFilePath,omitempty"` // optional, if path is same as pipeline.yaml
+	ImageTarFileName      Value  `json:"imageTarFileName,omitempty"`
+	ImageMetadataFileName Value  `json:"imageMetadataFileName,omitempty"`
+	PullSecretKeyVault    Value  `json:"pullSecretKeyVault,omitempty"`
+	PullSecretName        Value  `json:"pullSecretName,omitempty"`
+	ShellIdentity         Value  `json:"shellIdentity,omitempty"`
 }
 
 func (s *ImageMirrorStep) Description() string {
@@ -46,7 +48,7 @@ func (s *ImageMirrorStep) Description() string {
 
 func (s *ImageMirrorStep) RequiredInputs() []StepDependency {
 	var deps []StepDependency
-	for _, val := range []Value{s.TargetACR, s.SourceRegistry, s.Repository, s.Digest, s.OCILayoutPath, s.PullSecretKeyVault, s.PullSecretName, s.ShellIdentity} {
+	for _, val := range []Value{s.TargetACR, s.SourceRegistry, s.Repository, s.Digest, s.ImageFilePath, s.ImageTarFileName, s.ImageMetadataFileName, s.PullSecretKeyVault, s.PullSecretName, s.ShellIdentity} {
 		if val.Input != nil {
 			deps = append(deps, val.Input.StepDependency)
 		}
@@ -63,16 +65,18 @@ func ResolveImageMirrorStep(input ImageMirrorStep, scriptFile string) (*ShellSte
 	variables := []Variable{
 		namedVariable("TARGET_ACR", input.TargetACR),
 		namedVariable("REPOSITORY", input.Repository),
-		namedVariable("DIGEST", input.Digest),
 	}
 
 	switch input.CopyFrom {
 	case "oci-layout":
-		variables = append(variables, namedVariable("OCI_LAYOUT_PATH", input.OCILayoutPath))
+		variables = append(variables, namedVariable("IMAGE_FILE_PATH", input.ImageFilePath))
+		variables = append(variables, namedVariable("IMAGE_TAR_FILE_NAME", input.ImageTarFileName))
+		variables = append(variables, namedVariable("IMAGE_METADATA_FILE_NAME", input.ImageMetadataFileName))
 	default:
 		variables = append(variables, namedVariable("SOURCE_REGISTRY", input.SourceRegistry))
 		variables = append(variables, namedVariable("PULL_SECRET_KV", input.PullSecretKeyVault))
 		variables = append(variables, namedVariable("PULL_SECRET", input.PullSecretName))
+		variables = append(variables, namedVariable("DIGEST", input.Digest))
 	}
 
 	return &ShellStep{
@@ -146,9 +150,21 @@ func (s *ImageMirrorStep) WithCopyFrom(copyFrom string) *ImageMirrorStep {
 	return s
 }
 
-// WithOCILayoutPath fluent method that sets OCILayoutPath.
-func (s *ImageMirrorStep) WithOCILayoutPath(ociLayoutPath Value) *ImageMirrorStep {
-	s.OCILayoutPath = ociLayoutPath
+// WithImageFilePath fluent method that sets ImageFilePath.
+func (s *ImageMirrorStep) WithImageFilePath(imageFilePath Value) *ImageMirrorStep {
+	s.ImageFilePath = imageFilePath
+	return s
+}
+
+// WithImageTarFileName fluent method that sets ImageTarFileName.
+func (s *ImageMirrorStep) WithImageTarFileName(imageTarFileName Value) *ImageMirrorStep {
+	s.ImageTarFileName = imageTarFileName
+	return s
+}
+
+// WithImageMetadataFileName fluent method that sets ImageMetadataFileName.
+func (s *ImageMirrorStep) WithImageMetadataFileName(imageMetadataFileName Value) *ImageMirrorStep {
+	s.ImageMetadataFileName = imageMetadataFileName
 	return s
 }
 

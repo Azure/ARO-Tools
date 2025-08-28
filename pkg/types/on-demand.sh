@@ -77,7 +77,7 @@ copyImageFromRegistry() {
 
 copyImageFromOciLayout() {
     # validate required variables
-    REQUIRED_VARS=("TARGET_ACR" "REPOSITORY" "DIGEST" "OCI_LAYOUT_PATH")
+    REQUIRED_VARS=("TARGET_ACR" "REPOSITORY" "IMAGE_TAR_FILE_NAME" "IMAGE_METADATA_FILE_NAME")
     for VAR in "${REQUIRED_VARS[@]}"; do
         if [ -z "${!VAR}" ]; then
             echo "Error: Environment variable $VAR is not set."
@@ -85,11 +85,34 @@ copyImageFromOciLayout() {
         fi
     done
 
-    # validate OCI layout path exists
-    if [ ! -d "${OCI_LAYOUT_PATH}" ]; then
-        echo "Error: OCI layout directory ${OCI_LAYOUT_PATH} does not exist."
+    # set image file path to pwd if not set
+    if [ -z "${IMAGE_FILE_PATH}" ]; then
+        IMAGE_FILE_PATH="$(pwd)"
+    fi
+
+    IMAGE_TAR_FILE="${IMAGE_FILE_PATH}/${IMAGE_TAR_FILE_NAME}"
+    # validate image tar file exists
+    if [ ! -f "${IMAGE_TAR_FILE}" ]; then
+        echo "Error: Image tar file ${IMAGE_TAR_FILE_NAME} does not exist at a given path ${IMAGE_FILE_PATH}."
         exit 1
     fi
+
+    IMAGE_METADATA_FILE="${IMAGE_FILE_PATH}/${IMAGE_METADATA_FILE_NAME}"
+    # validate image metadata file exists
+    if [ ! -f "${IMAGE_METADATA_FILE}" ]; then
+        echo "Error: Image metadata file ${IMAGE_METADATA_FILE_NAME} does not exist at a given path ${IMAGE_FILE_PATH}."
+        exit 1
+    fi
+
+    # Extract build_tag using jq
+    BUILD_TAG=$(jq -r '.build_tag' "$IMAGE_METADATA_FILE")
+
+    if [[ -z "$BUILD_TAG" || "$BUILD_TAG" == "null" ]]; then
+    echo "❌ build_tag not found in $IMAGE_METADATA_FILE" >&2
+    exit 1
+    fi
+
+    echo "✅ build_tag is: $BUILD_TAG"    
 
     ACR_DOMAIN_SUFFIX="$(az cloud show --query "suffixes.acrLoginServerEndpoint" --output tsv)"
     TARGET_ACR_LOGIN_SERVER="${TARGET_ACR}${ACR_DOMAIN_SUFFIX}"
@@ -108,14 +131,11 @@ copyImageFromOciLayout() {
     fi
 
     # copy image from OCI layout to ACR
-    DIGEST_NO_PREFIX=${DIGEST#sha256:}
-    TARGET_IMAGE="${TARGET_ACR_LOGIN_SERVER}/${REPOSITORY}:${DIGEST_NO_PREFIX}"
-
-    echo "Copying image from OCI layout ${OCI_LAYOUT_PATH} to ${TARGET_IMAGE}."
-    oras cp --from-oci-layout "${OCI_LAYOUT_PATH}@${DIGEST}" "${TARGET_IMAGE}"
+    TARGET_IMAGE="${TARGET_ACR_LOGIN_SERVER}/${REPOSITORY}:${BUILD_TAG}"
+    oras cp --from-oci-layout "${IMAGE_TAR_FILE}:${BUILD_TAG}" "${TARGET_IMAGE}"
 }
 
-if [[ -z "${OCI_LAYOUT_PATH:-}" ]]; then
+if [[ -z "${IMAGE_TAR_FILE_NAME:-}" ]]; then
     copyImageFromRegistry
 else
     copyImageFromOciLayout
