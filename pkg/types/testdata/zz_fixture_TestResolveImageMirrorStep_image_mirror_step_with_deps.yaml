@@ -15,11 +15,11 @@ variables:
   value: myacr.azurecr.io
 - name: REPOSITORY
   value: nginx
-- name: DIGEST
-  value: sha256:123456
 - name: SOURCE_REGISTRY
   value: docker.io
 - name: PULL_SECRET_KV
   value: my-keyvault
 - name: PULL_SECRET
   value: my-pull-secret
+- name: DIGEST
+  value: sha256:123456

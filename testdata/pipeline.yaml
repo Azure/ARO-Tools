@@ -295,10 +295,13 @@ resourceGroups:
         value: targetACR
       repository:
         value: repository
-      digest:
-        value: digest
-      ociLayoutPath:
-        value: "path/to/oci-layout"
+      copyFrom: oci-layout
+      imageFilePath:
+        value: "path/to/image-tar-file"
+      imageTarFileName:
+        value: "image-tar-file-name"
+      imageMetadataFileName:
+        value: "image-metadata-file-name"
       shellIdentity:
         value: shellIdentity        
     - name: pav2

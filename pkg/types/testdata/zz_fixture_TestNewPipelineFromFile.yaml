@@ -222,8 +222,10 @@ resourceGroups:
   - action: ImageMirror
     digest:
       value: digest
+    imageFilePath: {}
+    imageMetadataFileName: {}
+    imageTarFileName: {}
     name: image-mirror
-    ociLayoutPath: {}
     pullSecretKeyVault:
       value: pullSecretKeyVault
     pullSecretName:
@@ -280,8 +282,10 @@ resourceGroups:
   - action: ImageMirror
     digest:
       value: digest
+    imageFilePath: {}
+    imageMetadataFileName: {}
+    imageTarFileName: {}
     name: image-mirror
-    ociLayoutPath: {}
     pullSecretKeyVault:
       value: pullSecretKeyVault
     pullSecretName:
@@ -295,11 +299,15 @@ resourceGroups:
     targetACR:
       value: targetACR
   - action: ImageMirror
-    digest:
-      value: digest
+    copyFrom: oci-layout
+    digest: {}
+    imageFilePath:
+      value: path/to/image-tar-file
+    imageMetadataFileName:
+      value: image-metadata-file-name
+    imageTarFileName:
+      value: image-tar-file-name
     name: image-mirror-oci-layout
-    ociLayoutPath:
-      value: path/to/oci-layout
     pullSecretKeyVault: {}
     pullSecretName: {}
     repository:
