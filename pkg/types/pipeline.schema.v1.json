@@ -239,6 +239,55 @@
         "deploymentLevel"
       ]
     },
+    "armStackStep": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "$ref": "#/definitions/stepName"
+        },
+        "action": {
+          "const": "ARMStack"
+        },
+        "template": {
+          "type": "string"
+        },
+        "parameters": {
+          "type": "string"
+        },
+        "variables": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/variable"
+          }
+        },
+        "dependsOn": {
+          "$ref": "#/definitions/stepDependencies"
+        },
+        "deploymentLevel": {
+          "type": "string",
+          "enum": [
+            "ResourceGroup",
+            "Subscription"
+          ]
+        },
+        "actionOnUnmanage": {
+          "type": "string",
+          "enum": [
+            "delete",
+            "detach"
+          ],
+          "default": "delete"
+        },
+        "bypassStackOutOfSyncError": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "template",
+        "parameters",
+        "deploymentLevel"
+      ]
+    },
     "shellStep": {
       "additionalProperties": false,
       "properties": {
@@ -521,7 +570,7 @@
               "description": "Log configuration from Fluent Bit source"
             },
             {
-              "const": "ClassicRPLog", 
+              "const": "ClassicRPLog",
               "description": "ARO Classic RP Log configuration from RP VMSS"
             },
             {
@@ -952,6 +1001,22 @@
                   },
                   "then": {
                     "$ref": "#/definitions/armStep"
+                  }
+                },
+                {
+                  "if": {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "ARMStack"
+                      }
+                    },
+                    "required": [
+                      "action"
+                    ]
+                  },
+                  "then": {
+                    "$ref": "#/definitions/armStackStep"
                   }
                 },
                 {
