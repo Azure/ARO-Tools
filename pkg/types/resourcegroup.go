@@ -96,33 +96,33 @@ func (s *Steps) UnmarshalJSON(data []byte) error {
 
 		var step Step
 		switch stepMeta.Action {
-		case "Shell":
+		case StepActionShell:
 			step = &ShellStep{}
-		case "ARM":
+		case StepActionARM:
 			step = &ARMStep{}
-		case "DelegateChildZone":
+		case StepActionDelegateChildZone:
 			step = &DelegateChildZoneStep{}
-		case "SetCertificateIssuer":
+		case StepActionSetCertificateIssuer:
 			step = &SetCertificateIssuerStep{}
-		case "CreateCertificate":
+		case StepActionCreateCertificate:
 			step = &CreateCertificateStep{}
-		case "ResourceProviderRegistration":
+		case StepActionResourceProviderRegistration:
 			step = &ResourceProviderRegistrationStep{}
-		case "ImageMirror":
+		case StepActionImageMirror:
 			step = &ImageMirrorStep{}
-		case "RPLogsAccount", "ClusterLogsAccount":
+		case StepActionRPLogs, StepActionClusterLogs:
 			step = &LogsStep{}
-		case "FeatureRegistration":
+		case StepActionFeatureRegistration:
 			step = &FeatureRegistrationStep{}
-		case "ProviderFeatureRegistration":
+		case StepActionProviderFeatureRegistration:
 			step = &ProviderFeatureRegistrationStep{}
-		case "Ev2Registration":
+		case StepActionEv2Registration:
 			step = &Ev2RegistrationStep{}
-		case "SecretSync":
+		case StepActionSecretSync:
 			step = &SecretSyncStep{}
-		case "Kusto":
+		case StepActionKusto:
 			step = &KustoStep{}
-		case "Pav2":
+		case StepActionPav2:
 			step = &Pav2Step{}
 		default:
 			step = &GenericStep{}
