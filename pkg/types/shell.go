@@ -22,14 +22,15 @@ import (
 // ShellStep represents a shell step
 // This struct supports fluent interface With... methods.
 type ShellStep struct {
-	StepMeta      `json:",inline"`
-	AKSCluster    string      `json:"aksCluster,omitempty"`
-	Command       string      `json:"command,omitempty"`
-	Variables     []Variable  `json:"variables,omitempty"`
-	DryRun        DryRun      `json:"dryRun,omitempty"`
-	References    []Reference `json:"references,omitempty"`
-	SubnetName    string      `json:"subnetName,omitempty"`
-	ShellIdentity Value       `json:"shellIdentity,omitempty"`
+	StepMeta          `json:",inline"`
+	AKSCluster        string      `json:"aksCluster,omitempty"`
+	Command           string      `json:"command,omitempty"`
+	Variables         []Variable  `json:"variables,omitempty"`
+	DryRun            DryRun      `json:"dryRun,omitempty"`
+	References        []Reference `json:"references,omitempty"`
+	SubnetName        string      `json:"subnetName,omitempty"`
+	ShellIdentity     Value       `json:"shellIdentity,omitempty"`
+	ServiceValidation []string    `json:"serviceValidation,omitempty"`
 }
 
 // Reference represents a configurable reference
