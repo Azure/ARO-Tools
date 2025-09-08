@@ -22,7 +22,6 @@ import (
 const StepActionShell = "Shell"
 
 // ShellStep represents a shell step
-// This struct supports fluent interface With... methods.
 type ShellStep struct {
 	StepMeta          `json:",inline"`
 	AKSCluster        string      `json:"aksCluster,omitempty"`
@@ -42,24 +41,6 @@ type Reference struct {
 
 	// The path to a file.
 	FilePath string `json:"filepath"`
-}
-
-// NewShellStep creates a new Shell step with the given parameters.
-//
-// Parameters:
-//   - name: The name of the step.
-//   - command: the command to execute.
-//
-// Returns:
-//   - A pointer to an ShellStep struct, representing the newly created instance.
-func NewShellStep(name string, command string) *ShellStep {
-	return &ShellStep{
-		StepMeta: StepMeta{
-			Name:   name,
-			Action: "Shell",
-		},
-		Command: command,
-	}
 }
 
 // Description
@@ -82,28 +63,4 @@ func (s *ShellStep) RequiredInputs() []StepDependency {
 	slices.SortFunc(deps, SortDependencies)
 	deps = slices.Compact(deps)
 	return deps
-}
-
-// WithAKSCluster fluent method that sets AKSCluster
-func (s *ShellStep) WithAKSCluster(aksCluster string) *ShellStep {
-	s.AKSCluster = aksCluster
-	return s
-}
-
-// WithDependsOn fluent method that sets DependsOn
-func (s *ShellStep) WithDependsOn(dependsOn ...StepDependency) *ShellStep {
-	s.DependsOn = dependsOn
-	return s
-}
-
-// WithVariables fluent method that sets Variables
-func (s *ShellStep) WithVariables(variables ...Variable) *ShellStep {
-	s.Variables = variables
-	return s
-}
-
-// WithDryRun fluent method that sets DryRun
-func (s *ShellStep) WithDryRun(dryRun DryRun) *ShellStep {
-	s.DryRun = dryRun
-	return s
 }
