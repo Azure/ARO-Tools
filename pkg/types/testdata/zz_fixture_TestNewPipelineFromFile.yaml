@@ -68,6 +68,18 @@ resourceGroups:
         resourceGroup: regional
         step: deploy
       name: MAESTRO_IMAGE
+  - action: ARMStack
+    actionOnUnmanage: delete
+    deploymentLevel: ResourceGroup
+    name: svc-stack
+    parameters: test.bicepparam
+    template: templates/svc-cluster.bicep
+    variables:
+    - input:
+        name: whatever
+        resourceGroup: regional
+        step: deploy
+      name: MAESTRO_IMAGE
   - action: DelegateChildZone
     childZone:
       configRef: childZone
