@@ -83,7 +83,13 @@ func TestPipelineValidate(t *testing.T) {
 							Subscription:  "sub1",
 						},
 						Steps: []Step{
-							NewShellStep("step1", "echo foo"),
+							&ShellStep{
+								StepMeta: StepMeta{
+									Name:   "step1",
+									Action: "Shell",
+								},
+								Command: "echo foo",
+							},
 						},
 					},
 					{
@@ -92,7 +98,14 @@ func TestPipelineValidate(t *testing.T) {
 							Subscription: "sub1",
 						},
 						Steps: []Step{
-							NewShellStep("step2", "echo bar").WithDependsOn(StepDependency{ResourceGroup: "rg1", Step: "step3"}),
+							&ShellStep{
+								StepMeta: StepMeta{
+									Name:      "step2",
+									Action:    "Shell",
+									DependsOn: []StepDependency{{ResourceGroup: "rg1", Step: "step3"}},
+								},
+								Command: "echo bar",
+							},
 						},
 					},
 				},
@@ -110,8 +123,21 @@ func TestPipelineValidate(t *testing.T) {
 							Subscription:  "sub1",
 						},
 						Steps: []Step{
-							NewShellStep("step1", "echo foo"),
-							NewShellStep("step1", "echo bar").WithDependsOn(StepDependency{ResourceGroup: "rg1", Step: "step1"}),
+							&ShellStep{
+								StepMeta: StepMeta{
+									Name:   "step1",
+									Action: "Shell",
+								},
+								Command: "echo foo",
+							},
+							&ShellStep{
+								StepMeta: StepMeta{
+									Name:      "step1",
+									Action:    "Shell",
+									DependsOn: []StepDependency{{ResourceGroup: "rg1", Step: "step1"}},
+								},
+								Command: "echo bar",
+							},
 						},
 					},
 				},
@@ -129,7 +155,13 @@ func TestPipelineValidate(t *testing.T) {
 							Subscription:  "sub1",
 						},
 						Steps: []Step{
-							NewShellStep("step1", "echo foo"),
+							&ShellStep{
+								StepMeta: StepMeta{
+									Name:   "step1",
+									Action: "Shell",
+								},
+								Command: "echo foo",
+							},
 						},
 					},
 					{
@@ -138,7 +170,14 @@ func TestPipelineValidate(t *testing.T) {
 							Subscription: "sub1",
 						},
 						Steps: []Step{
-							NewShellStep("step1", "echo bar").WithDependsOn(StepDependency{ResourceGroup: "rg1", Step: "step1"}),
+							&ShellStep{
+								StepMeta: StepMeta{
+									Name:      "step1",
+									Action:    "Shell",
+									DependsOn: []StepDependency{{ResourceGroup: "rg1", Step: "step1"}},
+								},
+								Command: "echo bar",
+							},
 						},
 					},
 				},
@@ -155,7 +194,13 @@ func TestPipelineValidate(t *testing.T) {
 							Subscription:  "sub1",
 						},
 						Steps: []Step{
-							NewShellStep("step1", "echo foo"),
+							&ShellStep{
+								StepMeta: StepMeta{
+									Name:   "step1",
+									Action: "Shell",
+								},
+								Command: "echo foo",
+							},
 						},
 					},
 					{
@@ -165,7 +210,14 @@ func TestPipelineValidate(t *testing.T) {
 							Subscription:  "sub1",
 						},
 						Steps: []Step{
-							NewShellStep("step2", "echo bar").WithDependsOn(StepDependency{ResourceGroup: "rg1", Step: "step1"}),
+							&ShellStep{
+								StepMeta: StepMeta{
+									Name:      "step2",
+									Action:    "Shell",
+									DependsOn: []StepDependency{{ResourceGroup: "rg1", Step: "step1"}},
+								},
+								Command: "echo bar",
+							},
 						},
 					},
 				},
