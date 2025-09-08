@@ -303,6 +303,9 @@
         "aksCluster": {
           "type": "string"
         },
+        "imageString": {
+          "type": "string"
+        },
         "variables": {
           "type": "array",
           "items": {

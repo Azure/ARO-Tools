@@ -32,6 +32,7 @@ type ShellStep struct {
 	SubnetName        string      `json:"subnetName,omitempty"`
 	ShellIdentity     Value       `json:"shellIdentity,omitempty"`
 	ServiceValidation []string    `json:"serviceValidation,omitempty"`
+	ImageString       string      `json:"imageString,omitempty"`
 }
 
 // Reference represents a configurable reference
