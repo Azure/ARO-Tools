@@ -23,7 +23,6 @@ import (
 const StepActionARM = "ARM"
 
 // ARMStep represents an ARM deployment step.
-// This struct supports fluent interface With... methods.
 type ARMStep struct {
 	StepMeta        `json:",inline"`
 	Command         string     `json:"command,omitempty"`
@@ -33,46 +32,6 @@ type ARMStep struct {
 	DeploymentLevel string     `json:"deploymentLevel,omitempty"`
 	OutputOnly      bool       `json:"outputOnly,omitempty"`
 	DeploymentMode  string     `json:"deploymentMode,omitempty"`
-}
-
-// NewARMStep creates a new ARM deployment step with the given parameters.
-//
-// Parameters:
-//   - name: The name of the step.
-//   - template: The path to the template.
-//   - parameters: The path to the parameter file.
-//   - deploymentLevel: The deployment level (e.g., "ResourceGroup", "Subscription").
-//
-// Returns:
-//   - A pointer to an ARMStep struct, representing the newly created instance.
-func NewARMStep(name string, template string, parameters string, deploymentLevel string) *ARMStep {
-	return &ARMStep{
-		StepMeta: StepMeta{
-			Name:   name,
-			Action: "ARM",
-		},
-		Template:        template,
-		Parameters:      parameters,
-		DeploymentLevel: deploymentLevel,
-	}
-}
-
-// WithDependsOn fluent method that sets DependsOn
-func (s *ARMStep) WithDependsOn(dependsOn ...StepDependency) *ARMStep {
-	s.DependsOn = dependsOn
-	return s
-}
-
-// WithVariables fluent method that sets Variables
-func (s *ARMStep) WithVariables(variables ...Variable) *ARMStep {
-	s.Variables = variables
-	return s
-}
-
-// WithOutputOnly fluent method that sets OutputOnly
-func (s *ARMStep) WithOutputOnly() *ARMStep {
-	s.OutputOnly = true
-	return s
 }
 
 // Description
