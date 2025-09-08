@@ -79,6 +79,8 @@ type DryRun struct {
 	Command   string     `json:"command,omitempty"`
 }
 
+const StepActionDelegateChildZone = "DelegateChildZone"
+
 type DelegateChildZoneStep struct {
 	StepMeta   `json:",inline"`
 	ParentZone Value `json:"parentZone,omitempty"`
@@ -100,6 +102,8 @@ func (s *DelegateChildZoneStep) RequiredInputs() []StepDependency {
 	deps = slices.Compact(deps)
 	return deps
 }
+
+const StepActionSetCertificateIssuer = "SetCertificateIssuer"
 
 type SetCertificateIssuerStep struct {
 	StepMeta       `json:",inline"`
@@ -125,6 +129,8 @@ func (s *SetCertificateIssuerStep) RequiredInputs() []StepDependency {
 	deps = slices.Compact(deps)
 	return deps
 }
+
+const StepActionCreateCertificate = "CreateCertificate"
 
 type CreateCertificateStep struct {
 	StepMeta        `json:",inline"`
@@ -154,6 +160,8 @@ func (s *CreateCertificateStep) RequiredInputs() []StepDependency {
 	return deps
 }
 
+const StepActionResourceProviderRegistration = "ResourceProviderRegistration"
+
 type ResourceProviderRegistrationStep struct {
 	StepMeta                   `json:",inline"`
 	ResourceProviderNamespaces Value `json:"resourceProviderNamespaces,omitempty"`
@@ -174,6 +182,11 @@ func (s *ResourceProviderRegistrationStep) RequiredInputs() []StepDependency {
 	deps = slices.Compact(deps)
 	return deps
 }
+
+const (
+	StepActionRPLogs      = "RPLogsAccount"
+	StepActionClusterLogs = "ClusterLogsAccount"
+)
 
 type LogsStep struct {
 	StepMeta             `json:",inline"`
@@ -212,6 +225,8 @@ func (s *LogsStep) RequiredInputs() []StepDependency {
 	return deps
 }
 
+const StepActionFeatureRegistration = "FeatureRegistration"
+
 type FeatureRegistrationStep struct {
 	StepMeta          `json:",inline"`
 	SecretKeyVault    Value  `json:"secretKeyVault,omitempty"`
@@ -235,6 +250,8 @@ func (s *FeatureRegistrationStep) RequiredInputs() []StepDependency {
 	return deps
 }
 
+const StepActionProviderFeatureRegistration = "ProviderFeatureRegistration"
+
 type ProviderFeatureRegistrationStep struct {
 	StepMeta          `json:",inline"`
 	ProviderConfigRef string `json:"providerConfigRef,omitempty"`
@@ -249,6 +266,8 @@ func (s *ProviderFeatureRegistrationStep) RequiredInputs() []StepDependency {
 	return []StepDependency{s.IdentityFrom.StepDependency}
 }
 
+const StepActionEv2Registration = "Ev2Registration"
+
 type Ev2RegistrationStep struct {
 	StepMeta     `json:",inline"`
 	IdentityFrom Input `json:"identityFrom,omitempty"`
@@ -261,6 +280,8 @@ func (s *Ev2RegistrationStep) Description() string {
 func (s *Ev2RegistrationStep) RequiredInputs() []StepDependency {
 	return []StepDependency{s.IdentityFrom.StepDependency}
 }
+
+const StepActionSecretSync = "SecretSync"
 
 type SecretSyncStep struct {
 	StepMeta          `json:",inline"`
@@ -277,6 +298,8 @@ func (s *SecretSyncStep) Description() string {
 func (s *SecretSyncStep) RequiredInputs() []StepDependency {
 	return []StepDependency{s.IdentityFrom.StepDependency}
 }
+
+const StepActionKusto = "Kusto"
 
 type KustoStep struct {
 	StepMeta         `json:",inline"`
@@ -302,6 +325,8 @@ func (s *KustoStep) RequiredInputs() []StepDependency {
 	deps = slices.Compact(deps)
 	return deps
 }
+
+const StepActionPav2 = "Pav2"
 
 type Pav2Step struct {
 	StepMeta                   `json:",inline"`

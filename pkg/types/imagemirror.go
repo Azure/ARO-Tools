@@ -21,6 +21,8 @@ import (
 	_ "embed"
 )
 
+const StepActionImageMirror = "ImageMirror"
+
 //go:embed on-demand.sh
 var OnDemandSyncScript []byte
 
