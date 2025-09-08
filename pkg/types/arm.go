@@ -25,7 +25,6 @@ const StepActionARM = "ARM"
 // ARMStep represents an ARM deployment step.
 type ARMStep struct {
 	StepMeta        `json:",inline"`
-	Command         string     `json:"command,omitempty"`
 	Variables       []Variable `json:"variables,omitempty"`
 	Template        string     `json:"template,omitempty"`
 	Parameters      string     `json:"parameters,omitempty"`
