@@ -19,6 +19,8 @@ import (
 	"slices"
 )
 
+const StepActionShell = "Shell"
+
 // ShellStep represents a shell step
 // This struct supports fluent interface With... methods.
 type ShellStep struct {

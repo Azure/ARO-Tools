@@ -20,6 +20,8 @@ import (
 	"strings"
 )
 
+const StepActionARM = "ARM"
+
 // ARMStep represents an ARM deployment step.
 // This struct supports fluent interface With... methods.
 type ARMStep struct {
