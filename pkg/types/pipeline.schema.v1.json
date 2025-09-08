@@ -283,6 +283,16 @@
               }
             }
           }
+        },
+        "serviceValidation": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "Internal",
+              "GA"
+            ]
+          }
         }
       },
       "required": [

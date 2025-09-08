@@ -46,6 +46,17 @@ resourceGroups:
     name: dry-run
     shellIdentity:
       configRef: aroDevopsMsiId
+  - action: Shell
+    command: make e2e
+    dryRun:
+      variables:
+      - name: DRY_RUN
+        value: A very dry one
+    name: validation
+    serviceValidation:
+    - GA
+    shellIdentity:
+      configRef: aroDevopsMsiId
   - action: ARM
     deploymentLevel: ResourceGroup
     name: svc
