@@ -127,6 +127,7 @@ resourceGroups:
       configRef: ev2.assistedId.applicationId
     certificateName:
       value: hcp-mdsd
+    commonName: {}
     contentType:
       value: x-pem-file
     issuer:
