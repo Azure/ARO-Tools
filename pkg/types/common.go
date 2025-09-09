@@ -330,15 +330,16 @@ const StepActionPav2 = "Pav2"
 
 type Pav2Step struct {
 	StepMeta                   `json:",inline"`
-	SecretKeyVault             Value `json:"secretKeyVault,omitempty"`
-	SecretName                 Value `json:"secretName,omitempty"`
-	StorageAccount             Value `json:"storageAccount,omitempty"`
-	SMEEndpointSuffixParameter Value `json:"smeEndpointSuffixParameter,omitempty"`
-	SMEAppidParameter          Value `json:"smeAppidParameter,omitempty"`
+	SecretKeyVault             Value  `json:"secretKeyVault,omitempty"`
+	SecretName                 Value  `json:"secretName,omitempty"`
+	StorageAccount             Value  `json:"storageAccount,omitempty"`
+	SMEEndpointSuffixParameter Value  `json:"smeEndpointSuffixParameter,omitempty"`
+	SMEAppidParameter          Value  `json:"smeAppidParameter,omitempty"`
+	Operation                  string `json:"operation,omitempty"`
 }
 
 func (s *Pav2Step) Description() string {
-	return fmt.Sprintf("Step %s\n Kind: %s\n", s.Name, s.Action)
+	return fmt.Sprintf("Step %s\n Kind: %s\n Operation: %s\n", s.Name, s.Action, s.Operation)
 }
 
 func (s *Pav2Step) RequiredInputs() []StepDependency {
