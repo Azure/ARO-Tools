@@ -521,6 +521,24 @@
         "action": {
           "const": "Pav2"
         },
+        "operation": {
+          "type": "string",
+          "description": "Specifies the type of Pav2 operation to run via Geneva Actions.",
+          "oneOf": [
+            {
+              "const": "All",
+              "description": "Run all Pav2 operations"
+            },
+            {
+              "const": "AddAccount",
+              "description": "Add Pav2 Account"
+            },
+            {
+              "const": "ManageAppId",
+              "description": "Manage the application ID"
+            }
+          ]
+        },
         "secretKeyVault": {
           "$ref": "#/definitions/value"
         },
@@ -540,12 +558,61 @@
           "$ref": "#/definitions/stepDependencies"
         }
       },
-      "required": [
-        "secretKeyVault",
-        "secretName",
-        "storageAccount",
-        "smeEndpointSuffixParameter",
-        "smeAppidParameter"
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "operation": {
+                "const": "All"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "operation",
+              "secretKeyVault",
+              "secretName",
+              "storageAccount",
+              "smeEndpointSuffixParameter",
+              "smeAppidParameter"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "operation": {
+                "const": "AddAccount"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "operation",
+              "secretKeyVault",
+              "secretName",
+              "storageAccount",
+              "smeEndpointSuffixParameter"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "operation": {
+                "const": "ManageAppId"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "operation",
+              "secretKeyVault",
+              "secretName",
+              "smeAppidParameter"
+            ]
+          }
+        }
       ]
     },
     "logsStep": {
