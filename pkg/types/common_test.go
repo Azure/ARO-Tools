@@ -93,6 +93,7 @@ func TestRequiredInputs(t *testing.T) {
 				SecretKeyVault:  Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step5"}}},
 				SecretName:      Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step6"}}},
 				ApplicationId:   Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step7"}}},
+				CommonName:      Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step8"}}},
 			},
 			expected: []StepDependency{
 				{ResourceGroup: "rg", Step: "step"},
@@ -102,6 +103,7 @@ func TestRequiredInputs(t *testing.T) {
 				{ResourceGroup: "rg", Step: "step5"},
 				{ResourceGroup: "rg", Step: "step6"},
 				{ResourceGroup: "rg", Step: "step7"},
+				{ResourceGroup: "rg", Step: "step8"},
 			},
 		},
 		{
