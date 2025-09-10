@@ -150,6 +150,8 @@ resourceGroups:
       value: hcp-mdsd.geneva.keyvault.aro-int.azure.com
     issuer:
       value: OneCertV2-PrivateCA
+    commonName:
+      value: hcp-mdsd.geneva.keyvault.aro-int.azure.com
   - name: rpRegistration
     action: ResourceProviderRegistration
     resourceProviderNamespaces:
@@ -330,6 +332,7 @@ resourceGroups:
         value: shellIdentity        
     - name: pav2
       action: Pav2
+      operation: All
       secretKeyVault:
         configRef: ev2.assistedId.certificate.keyVault
       secretName:
