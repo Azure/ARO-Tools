@@ -441,6 +441,9 @@
         "applicationId": {
           "$ref": "#/definitions/value"
         },
+        "commonName": {
+          "$ref": "#/definitions/value"
+        },
         "dependsOn": {
           "$ref": "#/definitions/stepDependencies"
         }
@@ -453,7 +456,8 @@
         "issuer",
         "secretKeyVault",
         "secretName",
-        "applicationId"
+        "applicationId",
+        "commonName"
       ]
     },
     "resourceProviderRegistrationStep": {

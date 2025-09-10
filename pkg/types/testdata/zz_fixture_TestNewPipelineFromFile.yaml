@@ -127,6 +127,8 @@ resourceGroups:
       configRef: ev2.assistedId.applicationId
     certificateName:
       value: hcp-mdsd
+    commonName:
+      value: hcp-mdsd.geneva.keyvault.aro-int.azure.com
     contentType:
       value: x-pem-file
     issuer:
@@ -341,7 +343,7 @@ resourceGroups:
     targetACR:
       value: targetACR
   - action: Pav2
-    name: pav2-All
+    name: pav2
     operation: All
     secretKeyVault:
       configRef: ev2.assistedId.certificate.keyVault
@@ -356,32 +358,6 @@ resourceGroups:
       configRef: storage.storageSuffix
     storageAccount:
       configRef: storage.accountName
-  - action: Pav2
-    name: pav2-AddAccount
-    operation: AddAccount
-    secretKeyVault:
-      configRef: ev2.assistedId.certificate.keyVault
-    secretName:
-      configRef: ev2.assistedId.certificate.name
-    smeAppidParameter: {}
-    smeEndpointSuffixParameter:
-      configRef: storage.storageSuffix
-    storageAccount:
-      configRef: storage.accountName
-  - action: Pav2
-    name: pav2-ManageAppId
-    operation: ManageAppId
-    secretKeyVault:
-      configRef: ev2.assistedId.certificate.keyVault
-    secretName:
-      configRef: ev2.assistedId.certificate.name
-    smeAppidParameter:
-      input:
-        name: kvUrl
-        resourceGroup: regional
-        step: deploy
-    smeEndpointSuffixParameter: {}
-    storageAccount: {}
   subscription: hcp-uksouth
   subscriptionProvisioning:
     displayName:

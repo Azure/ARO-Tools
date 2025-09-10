@@ -142,6 +142,7 @@ type CreateCertificateStep struct {
 	SecretKeyVault  Value `json:"secretKeyVault,omitempty"`
 	SecretName      Value `json:"secretName,omitempty"`
 	ApplicationId   Value `json:"applicationId,omitempty"`
+	CommonName      Value `json:"commonName,omitempty"`
 }
 
 func (s *CreateCertificateStep) Description() string {
@@ -150,7 +151,7 @@ func (s *CreateCertificateStep) Description() string {
 
 func (s *CreateCertificateStep) RequiredInputs() []StepDependency {
 	var deps []StepDependency
-	for _, val := range []Value{s.VaultBaseUrl, s.CertificateName, s.ContentType, s.SAN, s.Issuer, s.SecretKeyVault, s.SecretName, s.ApplicationId} {
+	for _, val := range []Value{s.VaultBaseUrl, s.CertificateName, s.ContentType, s.SAN, s.Issuer, s.SecretKeyVault, s.SecretName, s.ApplicationId, s.CommonName} {
 		if val.Input != nil {
 			deps = append(deps, val.Input.StepDependency)
 		}
