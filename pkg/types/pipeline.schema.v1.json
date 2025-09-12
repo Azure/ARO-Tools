@@ -13,6 +13,25 @@
         "dependsOn": {
           "$ref": "#/definitions/stepDependencies"
         },
+        "automatedRetry": {
+          "type": "object",
+          "properties": {
+            "errorContainsAny": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "maxLength": 16
+            },
+            "maximumRetryCount": {
+              "type": "integer",
+              "maximum": 10
+            },
+            "durationBetweenRetries": {
+              "type": "string"
+            }
+          }
+        }
       },
       "required": [
         "name"
