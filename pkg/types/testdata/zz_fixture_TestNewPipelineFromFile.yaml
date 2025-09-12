@@ -358,6 +358,28 @@ resourceGroups:
       configRef: storage.storageSuffix
     storageAccount:
       configRef: storage.accountName
+  - action: Helm
+    aksCluster: whatever
+    chartDir: chart
+    identityFrom:
+      name: whatever
+      resourceGroup: regional
+      step: deploy
+    inputVariables:
+      important:
+        name: whatever
+        resourceGroup: regional
+        step: deploy
+      other:
+        name: whatever
+        resourceGroup: regional
+        step: deploy
+    name: workload
+    namespaceFiles:
+    - additional-ns.yaml
+    releaseName: workload
+    releaseNamespace: kube-system
+    valuesFile: values.yaml
   subscription: hcp-uksouth
   subscriptionProvisioning:
     displayName:

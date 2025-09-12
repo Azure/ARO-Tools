@@ -354,3 +354,60 @@ func (s *Pav2Step) RequiredInputs() []StepDependency {
 	deps = slices.Compact(deps)
 	return deps
 }
+
+const StepActionHelm = "Helm"
+
+type HelmStep struct {
+	StepMeta `json:",inline"`
+
+	// AKSCluster is the name of the AKS cluster onto which this Helm release will be deployed.
+	AKSCluster string `json:"aksCluster"`
+	// SubnetName is an optional specifier for the name of the subnet to which the deployer must connect to before
+	// accessing the AKS cluster. Provide this value when deploying to private clusters.
+	SubnetName string `json:"subnetName,omitempty"`
+
+	// ReleaseName is the semantically-meaningful name of the Helm release. The first deployment for a given name
+	// will install the Helm chart, further deployments to the same name will upgrade it.
+	ReleaseName string `json:"releaseName"`
+	// ReleaseNamespace is the name of the namespace in which the Helm release should be deployed, analogous to the
+	// --namespace flag for the Helm CLI. This namespace will be created before the Helm release is installed.
+	ReleaseNamespace string `json:"releaseNamespace"`
+	// NamespaceFiles specify namespaces that must be created before the Helm release is installed. It is *not* required
+	// to specify the release namespace manifest here, but it may be present if a complex configuration (with labels,
+	// annotations, spec, etc.) is required. By default, the release namespace will be created with no additional fields
+	// set if no additional manifests are specified in this field.
+	// NOTE: These files will be pre-processed as Go templates to resolve configuration fields and input variables.
+	NamespaceFiles []string `json:"namespaceFiles,omitempty"`
+	// ChartDir is the relative path from the pipeline configuration to the chart being deployed.
+	ChartDir string `json:"chartDir"`
+	// ValuesFile is the path to the Helm values file to use when deploying the Helm release.
+	// NOTE: This file will be pre-processed as a Go template to resolve configuration fields and input variables.
+	ValuesFile string `json:"valuesFile,omitempty"`
+
+	// InputVariables records a mapping from variable names to the output variable that provides the value.
+	// For some input variable like:
+	//     inputVariables:
+	//       someImportantThing:
+	//         resourceGroup: regional
+	//         step: output
+	//         name: outputVariableName
+	// Refer to this value in the namespace files or values.yaml with __someImportantThing__.
+	InputVariables map[string]Input `json:"inputVariables,omitempty"`
+
+	// IdentityFrom specifies the managed identity with which this deployment will run in Ev2.
+	IdentityFrom Input `json:"identityFrom,omitempty"`
+}
+
+func (s *HelmStep) Description() string {
+	return fmt.Sprintf("Step %s\n Kind: %s\n", s.Name, s.Action)
+}
+
+func (s *HelmStep) RequiredInputs() []StepDependency {
+	deps := []StepDependency{s.IdentityFrom.StepDependency}
+	for _, val := range s.InputVariables {
+		deps = append(deps, val.StepDependency)
+	}
+	slices.SortFunc(deps, SortDependencies)
+	deps = slices.Compact(deps)
+	return deps
+}
