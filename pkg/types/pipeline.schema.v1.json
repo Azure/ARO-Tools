@@ -308,8 +308,7 @@
               "enum": [
                 "delete",
                 "detach"
-              ],
-              "default": "delete"
+              ]
             },
             "bypassStackOutOfSyncError": {
               "type": "boolean"
@@ -318,7 +317,8 @@
           "required": [
             "template",
             "parameters",
-            "deploymentLevel"
+            "deploymentLevel",
+            "actionOnUnmanage"
           ]
         }
       ]
