@@ -26,6 +26,7 @@ type Step interface {
 	Description() string
 	Dependencies() []StepDependency
 	RequiredInputs() []StepDependency
+	AutomatedRetries() *AutomatedRetry
 }
 
 // StepMeta contains metadata for a steps.
@@ -76,6 +77,10 @@ func (m *StepMeta) ActionType() string {
 
 func (m *StepMeta) Dependencies() []StepDependency {
 	return m.DependsOn
+}
+
+func (m *StepMeta) AutomatedRetries() *AutomatedRetry {
+	return m.AutomatedRetry
 }
 
 type GenericStep struct {
