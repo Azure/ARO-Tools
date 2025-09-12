@@ -348,6 +348,63 @@
         "command"
       ]
     },
+    "helmStep": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "$ref": "#/definitions/stepName"
+        },
+        "action": {
+          "const": "Helm"
+        },
+        "aksCluster": {
+          "type": "string"
+        },
+        "subnetName": {
+          "type": "string"
+        },
+        "releaseName": {
+          "type": "string"
+        },
+        "releaseNamespace": {
+          "type": "string"
+        },
+        "namespaceFiles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "chartDir": {
+          "type": "string"
+        },
+        "valuesFile": {
+          "type": "string"
+        },
+        "inputVariables": {
+          "type": "object",
+          "patternProperties": {
+            "^.+$": {
+              "$ref": "#/definitions/input"
+            }
+          }
+        },
+        "identityFrom": {
+          "$ref": "#/definitions/input"
+        },
+        "dependsOn": {
+          "$ref": "#/definitions/stepDependencies"
+        }
+      },
+      "required": [
+        "aksCluster",
+        "releaseName",
+        "releaseNamespace",
+        "chartDir",
+        "valuesFile",
+        "identityFrom"
+      ]
+    },
     "delegateChildZoneStep": {
       "additionalProperties": false,
       "properties": {
@@ -1104,6 +1161,22 @@
                   },
                   "then": {
                     "$ref": "#/definitions/shellStep"
+                  }
+                },
+                {
+                  "if": {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "Helm"
+                      }
+                    },
+                    "required": [
+                      "action"
+                    ]
+                  },
+                  "then": {
+                    "$ref": "#/definitions/helmStep"
                   }
                 },
                 {

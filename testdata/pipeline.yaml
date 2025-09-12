@@ -345,4 +345,26 @@ resourceGroups:
         input:
           resourceGroup: regional
           name: kvUrl
-          step: deploy     
+          step: deploy
+    - name: workload
+      action: Helm
+      aksCluster: whatever
+      releaseName: workload
+      releaseNamespace: kube-system
+      namespaceFiles:
+        - additional-ns.yaml
+      chartDir: chart
+      valuesFile: values.yaml
+      inputVariables:
+        important:
+          resourceGroup: regional
+          step: deploy
+          name: whatever
+        other:
+          resourceGroup: regional
+          step: deploy
+          name: whatever
+      identityFrom:
+        resourceGroup: regional
+        step: deploy
+        name: whatever

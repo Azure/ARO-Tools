@@ -98,6 +98,8 @@ func (s *Steps) UnmarshalJSON(data []byte) error {
 		switch stepMeta.Action {
 		case StepActionShell:
 			step = &ShellStep{}
+		case StepActionHelm:
+			step = &HelmStep{}
 		case StepActionARM:
 			step = &ARMStep{}
 		case StepActionARMStack:
