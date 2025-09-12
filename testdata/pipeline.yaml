@@ -315,6 +315,11 @@ resourceGroups:
         value: pullSecretName
       shellIdentity:
         value: shellIdentity
+      automatedRetry:
+        errorContainsAny:
+        - "Transient error"
+        maximumRetryCount: 8
+        durationBetweenRetries: 1h
     - name: image-mirror-oci-layout
       action: ImageMirror
       targetACR:
