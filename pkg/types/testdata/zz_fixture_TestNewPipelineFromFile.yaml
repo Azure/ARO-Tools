@@ -305,6 +305,11 @@ resourceGroups:
     keyVault: arohcpint-global
     name: sync-secrets
   - action: ImageMirror
+    automatedRetry:
+      durationBetweenRetries: 1h
+      errorContainsAny:
+      - Transient error
+      maximumRetryCount: 8
     digest:
       value: digest
     imageFilePath: {}

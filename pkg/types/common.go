@@ -30,9 +30,10 @@ type Step interface {
 
 // StepMeta contains metadata for a steps.
 type StepMeta struct {
-	Name      string           `json:"name"`
-	Action    string           `json:"action"`
-	DependsOn []StepDependency `json:"dependsOn,omitempty"`
+	Name           string           `json:"name"`
+	Action         string           `json:"action"`
+	DependsOn      []StepDependency `json:"dependsOn,omitempty"`
+	AutomatedRetry *AutomatedRetry  `json:"automatedRetry,omitempty"`
 }
 
 // StepDependency describes a step that must run before the dependent step may begin.
@@ -41,6 +42,21 @@ type StepDependency struct {
 	ResourceGroup string `json:"resourceGroup"`
 	// Step is the name of the step being depended on.
 	Step string `json:"step"`
+}
+
+// AutomatedRetry configures automated retry for failed steps.
+type AutomatedRetry struct {
+	// ErrorContainsAny determines when a retry should run - if the output of a step contains any of
+	// the strings in this array, matching in a case-insensitive manner, a retry will fire.
+	// Must contain 16 or fewer items; the total encoded length of this array may not be more than 1KB.
+	ErrorContainsAny []string `json:"errorContainsAny,omitempty"`
+
+	// MaximumRetryCount is the maximum number of retires that should fire. Between 1 and 10, defaults to 1.
+	MaximumRetryCount int `json:"maximumRetryCount,omitempty"`
+
+	// DurationBetweenRetries is the amount of time to wait between retries. Must be between 1 minute and 3 hours.
+	// Formatted using Go's time.Duration syntax.
+	DurationBetweenRetries string `json:"durationBetweenRetries,omitempty"`
 }
 
 func SortDependencies(a, b StepDependency) int {
