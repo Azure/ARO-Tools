@@ -15,6 +15,7 @@ import (
 	"helm.sh/helm/v4/pkg/action"
 	chartv2 "helm.sh/helm/v4/pkg/chart/v2"
 	"helm.sh/helm/v4/pkg/chart/v2/loader"
+	"helm.sh/helm/v4/pkg/kube"
 	helmreleasev1 "helm.sh/helm/v4/pkg/release/v1"
 	"helm.sh/helm/v4/pkg/storage/driver"
 
@@ -244,14 +245,14 @@ func (opts *Options) Deploy(ctx context.Context) error {
 	}
 
 	logger.Info("Rolling out Helm release.", "dryRun", opts.DryRun)
-	release, err := runHelmUpgrade(ctx, logger, opts)
-	if err != nil {
-		logger.Error(err, "Failed to roll out the Helm release.")
+	release, releaseErr := runHelmUpgrade(ctx, logger, opts)
+	if releaseErr != nil {
+		logger.Error(releaseErr, "Failed to roll out the Helm release.")
 	}
 	logger.Info("Finished deploying Helm release.")
 
 	if opts.DryRun {
-		if err != nil {
+		if releaseErr != nil {
 			return fmt.Errorf("failed to create a dry-run Helm release: %w", err)
 		}
 		logger.Info("Validating Helm release contents for dry-run.")
@@ -267,7 +268,7 @@ func (opts *Options) Deploy(ctx context.Context) error {
 	}
 
 	logger.Info("Deployment complete.")
-	return nil
+	return releaseErr
 }
 
 func applyNamespace(ctx context.Context, logger logr.Logger, client corev1client.NamespaceInterface, namespace corev1.Namespace, dryRun bool) error {
@@ -308,8 +309,10 @@ func runHelmUpgrade(ctx context.Context, logger logr.Logger, opts *Options) (*he
 	if err == driver.ErrReleaseNotFound || isReleaseUninstalled(versions) {
 		logger.Info("No release history found, running the first release...")
 		installClient := action.NewInstall(opts.ActionConfig)
+		installClient.WaitStrategy = kube.StatusWatcherStrategy
 		installClient.Namespace = opts.ReleaseNamespace
 		installClient.Timeout = opts.Timeout
+		installClient.ServerSideApply = true
 
 		if opts.DryRun {
 			installClient.DryRun = true
@@ -322,9 +325,11 @@ func runHelmUpgrade(ctx context.Context, logger logr.Logger, opts *Options) (*he
 	logger.Info("Found release history, upgrading...", "numVersions", len(versions))
 
 	upgradeClient := action.NewUpgrade(opts.ActionConfig)
+	upgradeClient.WaitStrategy = kube.StatusWatcherStrategy
 	upgradeClient.Namespace = opts.ReleaseNamespace
 	upgradeClient.Timeout = opts.Timeout
 	upgradeClient.Install = true
+	upgradeClient.ServerSideApply = "true"
 
 	if opts.DryRun {
 		upgradeClient.DryRun = true
