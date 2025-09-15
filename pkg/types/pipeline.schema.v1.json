@@ -37,6 +37,24 @@
         "name"
       ]
     },
+    "validationStepBase": {
+      "type": "object",
+      "properties": {
+        "validation": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "Internal",
+              "GA"
+            ]
+          }
+        }
+      },
+      "required": [
+        "validation"
+      ]
+    },
     "stepReference": {
       "type": "object",
       "properties": {
@@ -323,21 +341,35 @@
         }
       ]
     },
-    "shellStep": {
-      "unevaluatedProperties": false,
-      "allOf": [
-        {
-          "$ref": "#/definitions/stepMeta"
+    "shellStepBase": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "const": "Shell"
         },
-        {
+        "command": {
+          "type": "string"
+        },
+        "aksCluster": {
+          "type": "string"
+        },
+        "variables": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/variable"
+          }
+        },
+        "subnetName": {
+          "type": "string"
+        },
+        "shellIdentity": {
+          "$ref": "#/definitions/value"
+        },
+        "dryRun": {
+          "type": "object",
+          "additionalProperties": false,
           "properties": {
-            "action": {
-              "const": "Shell"
-            },
             "command": {
-              "type": "string"
-            },
-            "aksCluster": {
               "type": "string"
             },
             "variables": {
@@ -345,42 +377,36 @@
               "items": {
                 "$ref": "#/definitions/variable"
               }
-            },
-            "subnetName": {
-              "type": "string"
-            },
-            "shellIdentity": {
-              "$ref": "#/definitions/value"
-            },
-            "dryRun": {
-              "type": "object",
-              "additionalProperties": false,
-              "properties": {
-                "command": {
-                  "type": "string"
-                },
-                "variables": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/definitions/variable"
-                  }
-                }
-              }
-            },
-            "serviceValidation": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "enum": [
-                  "Internal",
-                  "GA"
-                ]
-              }
             }
-          },
-          "required": [
-            "command"
-          ]
+          }
+        }
+      },
+      "required": [
+        "command"
+      ]
+    },
+    "shellStep": {
+      "unevaluatedProperties": false,
+      "allOf": [
+        {
+          "$ref": "#/definitions/stepMeta"
+        },
+        {
+          "$ref": "#/definitions/shellStepBase"
+        }
+      ]
+    },
+    "shellValidationStep": {
+      "unevaluatedProperties": false,
+      "allOf": [
+        {
+          "$ref": "#/definitions/stepMeta"
+        },
+        {
+          "$ref": "#/definitions/shellStepBase"
+        },
+        {
+          "$ref": "#/definitions/validationStepBase"
         }
       ]
     },
@@ -1421,6 +1447,34 @@
                   },
                   "then": {
                     "$ref": "#/definitions/ev2RegistrationStep"
+                  }
+                }
+              ],
+              "required": [
+                "name",
+                "action"
+              ]
+            }
+          },
+          "validationSteps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "allOf": [
+                {
+                  "if": {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "Shell"
+                      }
+                    },
+                    "required": [
+                      "action"
+                    ]
+                  },
+                  "then": {
+                    "$ref": "#/definitions/shellValidationStep"
                   }
                 }
               ],

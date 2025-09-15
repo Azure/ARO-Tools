@@ -29,12 +29,22 @@ type Step interface {
 	AutomatedRetries() *AutomatedRetry
 }
 
+type ValidationStep interface {
+	StepName() string
+	ActionType() string
+	Description() string
+	Dependencies() []StepDependency
+	RequiredInputs() []StepDependency
+	AutomatedRetries() *AutomatedRetry
+	Validations() []string
+}
+
 // StepMeta contains metadata for a steps.
 type StepMeta struct {
 	Name           string           `json:"name"`
 	Action         string           `json:"action"`
-	DependsOn      []StepDependency `json:"dependsOn,omitempty"`
 	AutomatedRetry *AutomatedRetry  `json:"automatedRetry,omitempty"`
+	DependsOn      []StepDependency `json:"dependsOn,omitempty"`
 }
 
 // StepDependency describes a step that must run before the dependent step may begin.
@@ -75,12 +85,12 @@ func (m *StepMeta) ActionType() string {
 	return m.Action
 }
 
-func (m *StepMeta) Dependencies() []StepDependency {
-	return m.DependsOn
-}
-
 func (m *StepMeta) AutomatedRetries() *AutomatedRetry {
 	return m.AutomatedRetry
+}
+
+func (m *StepMeta) Dependencies() []StepDependency {
+	return m.DependsOn
 }
 
 type GenericStep struct {
@@ -93,6 +103,23 @@ func (s *GenericStep) Description() string {
 
 func (s *GenericStep) RequiredInputs() []StepDependency {
 	return []StepDependency{}
+}
+
+type GenericValidationStep struct {
+	StepMeta   `json:",inline"`
+	Validation []string `json:"validation,omitempty"`
+}
+
+func (s *GenericValidationStep) Description() string {
+	return fmt.Sprintf("Step %s\n  Kind: %s", s.Name, s.Action)
+}
+
+func (s *GenericValidationStep) RequiredInputs() []StepDependency {
+	return []StepDependency{}
+}
+
+func (s *GenericValidationStep) Validations() []string {
+	return s.Validation
 }
 
 type DryRun struct {
