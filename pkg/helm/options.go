@@ -51,6 +51,7 @@ func BindOptions(opts *RawOptions, cmd *cobra.Command) error {
 	cmd.Flags().StringVar(&opts.ReleaseNamespace, "release-namespace", opts.ReleaseNamespace, "Namespace in which the Helm release is deployed. Will create a basic namespace manifest unless a more complex namespace configuration is provided as a file.")
 	cmd.Flags().StringVar(&opts.ChartDir, "chart-dir", opts.ChartDir, "Path to the directory containing the Helm chart.")
 	cmd.Flags().StringVar(&opts.ValuesFile, "values-file", opts.ValuesFile, "Path to the Helm values file.")
+	cmd.Flags().StringVar(&opts.Ev2RolloutVersion, "ev2-rollout-version", opts.Ev2RolloutVersion, "Version of the Ev2 rollout deploying this Helm chart.")
 
 	cmd.Flags().DurationVar(&opts.Timeout, "timeout", opts.Timeout, "Timeout for waiting on the Helm release.")
 
@@ -64,10 +65,11 @@ func BindOptions(opts *RawOptions, cmd *cobra.Command) error {
 type RawOptions struct {
 	NamespaceFiles []string
 
-	ReleaseName      string
-	ReleaseNamespace string
-	ChartDir         string
-	ValuesFile       string
+	ReleaseName       string
+	ReleaseNamespace  string
+	ChartDir          string
+	ValuesFile        string
+	Ev2RolloutVersion string
 
 	Timeout time.Duration
 
@@ -96,10 +98,11 @@ type completedOptions struct {
 
 	ActionConfig *action.Configuration
 
-	ReleaseName      string
-	ReleaseNamespace string
-	Chart            *chartv2.Chart
-	Values           map[string]any
+	ReleaseName       string
+	ReleaseNamespace  string
+	Chart             *chartv2.Chart
+	Values            map[string]any
+	Ev2RolloutVersion string
 
 	Timeout time.Duration
 	DryRun  bool
@@ -221,8 +224,9 @@ func (o *ValidatedOptions) Complete() (*Options, error) {
 			ReleaseName:      o.ReleaseName,
 			ReleaseNamespace: o.ReleaseNamespace,
 
-			Chart:  chart,
-			Values: values,
+			Chart:             chart,
+			Values:            values,
+			Ev2RolloutVersion: o.Ev2RolloutVersion,
 
 			Timeout: o.Timeout,
 			DryRun:  o.DryRun,
@@ -294,6 +298,8 @@ func applyNamespace(ctx context.Context, logger logr.Logger, client corev1client
 	return nil
 }
 
+const ev2RolloutVersionLabel = "ev2.azure.com/rollout.version"
+
 // runHelmUpgrade effectively re-packages `helm upgrade --install` by mirroring the logic here:
 // https://github.com/helm/helm/blob/e2cbc5c0c94e6a12473fb7d1a7a232498aa4cda6/pkg/cmd/upgrade.go#L102
 // This helps us over using exec.Command as:
@@ -320,6 +326,12 @@ func runHelmUpgrade(ctx context.Context, logger logr.Logger, opts *Options) (*he
 			installClient.HideSecret = true
 		}
 
+		if opts.Ev2RolloutVersion != "" {
+			installClient.Labels = map[string]string{
+				ev2RolloutVersionLabel: opts.Ev2RolloutVersion,
+			}
+		}
+
 		return installClient.RunWithContext(ctx, opts.Chart, opts.Values)
 	}
 	logger.Info("Found release history, upgrading...", "numVersions", len(versions))
@@ -335,6 +347,12 @@ func runHelmUpgrade(ctx context.Context, logger logr.Logger, opts *Options) (*he
 		upgradeClient.DryRun = true
 		upgradeClient.DryRunOption = "server"
 		upgradeClient.HideSecret = true
+	}
+
+	if opts.Ev2RolloutVersion != "" {
+		upgradeClient.Labels = map[string]string{
+			ev2RolloutVersionLabel: opts.Ev2RolloutVersion,
+		}
 	}
 
 	return upgradeClient.RunWithContext(ctx, opts.ReleaseName, opts.Chart, opts.Values)
