@@ -288,3 +288,11 @@ resourceGroups:
             resourceGroup: global
             step: output
             name: globalMSIId
+    validationSteps:
+    - name: validation
+      action: Shell
+      command: make e2e
+      shellIdentity:
+        configRef: aroDevopsMsiId
+      validation:
+      - Internal
