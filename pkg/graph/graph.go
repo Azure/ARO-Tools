@@ -3,6 +3,7 @@ package graph
 import (
 	"bytes"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 
@@ -16,7 +17,7 @@ import (
 
 // Dependency records a dependency on a step in a particular service group and resource group.
 // This is the minimum amount of precision required to identify a step in a multi-pipeline execution environment.
-type Dependency struct {
+type Identifier struct {
 	ServiceGroup string
 	types.StepDependency
 }
@@ -26,12 +27,12 @@ type Dependency struct {
 // make operations that produce or operate over these nodes easy to test and verify.
 type Node struct {
 	// This embedded Dependency defines the identifier for this node.
-	Dependency
+	Identifier
 
 	// Children contains the direct children (not further descendants) of this node.
-	Children []Dependency
+	Children []Identifier
 	// Parents contains the direct parents (not further ancestors) of this node.
-	Parents []Dependency
+	Parents []Identifier
 }
 
 // Graph holds a set of nodes, recording parent/child relationships for each, along with a set of lookup tables for
@@ -54,6 +55,9 @@ type Graph struct {
 
 	// Nodes records every step, and the parent/child relationships between them.
 	Nodes []Node
+
+	// ServiceValidationSteps record the service validation steps
+	ServiceValidationSteps map[Identifier]types.ValidationStep
 }
 
 // Subscription holds the metadata required to handle subscription provisioning for an execution graph.
@@ -73,7 +77,7 @@ type Subscription struct {
 // edge is a record of an inter-step dependency. This struct is unexported as we only use it during graph construction and do not
 // expose edges directly as part of the graph.
 type edge struct {
-	from, to Dependency
+	from, to Identifier
 }
 
 // ForPipeline generates a graph for one pipeline, processing all steps therein to determine dependencies between them.
@@ -87,10 +91,11 @@ func ForPipeline(service *topology.Service, pipeline *types.Pipeline) (*Graph, e
 	}
 
 	graph := &Graph{
-		Services:       map[string]*topology.Service{},
-		ResourceGroups: map[string]*types.ResourceGroupMeta{},
-		Steps:          map[string]map[string]map[string]types.Step{},
-		Nodes:          []Node{},
+		Services:               map[string]*topology.Service{},
+		ResourceGroups:         map[string]*types.ResourceGroupMeta{},
+		Steps:                  map[string]map[string]map[string]types.Step{},
+		Nodes:                  []Node{},
+		ServiceValidationSteps: map[Identifier]types.ValidationStep{},
 	}
 
 	if err := graph.accumulate(withoutChildren, map[string]*types.Pipeline{pipeline.ServiceGroup: pipeline}); err != nil {
@@ -108,10 +113,11 @@ func ForEntrypoint(topo *topology.Topology, entrypoint *topology.Entrypoint, pip
 	}
 
 	graph := &Graph{
-		Services:       map[string]*topology.Service{},
-		ResourceGroups: map[string]*types.ResourceGroupMeta{},
-		Steps:          map[string]map[string]map[string]types.Step{},
-		Nodes:          []Node{},
+		Services:               map[string]*topology.Service{},
+		ResourceGroups:         map[string]*types.ResourceGroupMeta{},
+		Steps:                  map[string]map[string]map[string]types.Step{},
+		Nodes:                  []Node{},
+		ServiceValidationSteps: map[Identifier]types.ValidationStep{},
 	}
 
 	if err := graph.accumulate(root, pipelines); err != nil {
@@ -137,7 +143,7 @@ func (c *Graph) accumulate(service *topology.Service, pipelines map[string]*type
 	if !exists {
 		return fmt.Errorf("pipeline for service %s not found", service.ServiceGroup)
 	}
-	resourceGroups, subscription, steps, nodes, err := nodesFor(pipeline)
+	resourceGroups, subscription, steps, serviceValidationSteps, nodes, err := nodesFor(pipeline)
 	if err != nil {
 		return fmt.Errorf("failed to generate graph for pipeline %s: %v", service.ServiceGroup, err)
 	}
@@ -154,12 +160,13 @@ func (c *Graph) accumulate(service *topology.Service, pipelines map[string]*type
 		c.Subscription = subscription
 	}
 	c.Steps[service.ServiceGroup] = steps
+	maps.Copy(c.ServiceValidationSteps, serviceValidationSteps)
 	c.Nodes = append(c.Nodes, nodes...)
 
-	var leaves []Dependency
+	var leaves []Identifier
 	for _, node := range c.Nodes {
 		if len(node.Children) == 0 {
-			leaves = append(leaves, node.Dependency)
+			leaves = append(leaves, node.Identifier)
 		}
 	}
 
@@ -179,11 +186,11 @@ func (c *Graph) accumulate(service *topology.Service, pipelines map[string]*type
 
 		// First, find the root nodes for the child service, which accumulate() will have placed in the graph.
 		// Record those roots for later use and mark them as being children of the leaves of the parent.
-		var roots []Dependency
+		var roots []Identifier
 		for i, node := range c.Nodes {
 			if node.ServiceGroup == child.ServiceGroup && len(node.Parents) == 0 {
 				// accumulate() did not divulge the list of root nodes for that specific child, but we can find them
-				roots = append(roots, node.Dependency)
+				roots = append(roots, node.Identifier)
 
 				// our topology allows each service to depend on one and only one parent, so we know that
 				// a) it's safe to determine that `len(node.Parents) == 0` identifies a root node for that service
@@ -211,19 +218,21 @@ func nodesFor(pipeline *types.Pipeline) (
 	map[string]*types.ResourceGroupMeta,
 	*Subscription,
 	map[string]map[string]types.Step,
+	map[Identifier]types.ValidationStep,
 	[]Node,
 	error,
 ) {
 	// first, create a registry of steps by their identifier (resource group name, step name)
 	// and resource groups by name
 	stepsByResourceGroupAndName := map[string]map[string]types.Step{}
+	serviceValidationSteps := map[Identifier]types.ValidationStep{}
 	resourceGroupsByName := map[string]*types.ResourceGroupMeta{}
 	var subscription *Subscription
 	for _, rg := range pipeline.ResourceGroups {
 		resourceGroupsByName[rg.Name] = rg.ResourceGroupMeta
 		if rg.SubscriptionProvisioning != nil {
 			if subscription != nil {
-				return nil, nil, nil, nil, fmt.Errorf("multiple subscriptions found for pipeline %s", pipeline.ServiceGroup)
+				return nil, nil, nil, nil, nil, fmt.Errorf("multiple subscriptions found for pipeline %s", pipeline.ServiceGroup)
 			}
 			subscription = &Subscription{
 				ServiceGroup:  pipeline.ServiceGroup,
@@ -234,6 +243,15 @@ func nodesFor(pipeline *types.Pipeline) (
 		stepsByResourceGroupAndName[rg.Name] = map[string]types.Step{}
 		for _, step := range rg.Steps {
 			stepsByResourceGroupAndName[rg.Name][step.StepName()] = step
+		}
+		for _, step := range rg.ValidationSteps {
+			serviceValidationSteps[Identifier{
+				ServiceGroup: pipeline.ServiceGroup,
+				StepDependency: types.StepDependency{
+					ResourceGroup: rg.Name,
+					Step:          step.StepName(),
+				},
+			}] = step
 		}
 	}
 
@@ -247,14 +265,14 @@ func nodesFor(pipeline *types.Pipeline) (
 
 			for _, dep := range dependsOn {
 				stepDependencies = append(stepDependencies, edge{
-					from: Dependency{
+					from: Identifier{
 						ServiceGroup: pipeline.ServiceGroup,
 						StepDependency: types.StepDependency{
 							ResourceGroup: dep.ResourceGroup,
 							Step:          dep.Step,
 						},
 					},
-					to: Dependency{
+					to: Identifier{
 						ServiceGroup: pipeline.ServiceGroup,
 						StepDependency: types.StepDependency{
 							ResourceGroup: rg.Name,
@@ -273,20 +291,19 @@ func nodesFor(pipeline *types.Pipeline) (
 		return CompareDependencies(a.to, b.to)
 	})
 
-	// record edges as references in nodes for ease of traversal
 	var nodes []Node
 	for resourceGroup, steps := range stepsByResourceGroupAndName {
 		for stepName := range steps {
 			node := Node{
-				Dependency: Dependency{
+				Identifier: Identifier{
 					ServiceGroup: pipeline.ServiceGroup,
 					StepDependency: types.StepDependency{
 						ResourceGroup: resourceGroup,
 						Step:          stepName,
 					},
 				},
-				Children: []Dependency{},
-				Parents:  []Dependency{},
+				Children: []Identifier{},
+				Parents:  []Identifier{},
 			}
 			for _, edge := range stepDependencies {
 				if edge.to.ServiceGroup == pipeline.ServiceGroup && edge.to.ResourceGroup == resourceGroup && edge.to.Step == stepName {
@@ -301,13 +318,13 @@ func nodesFor(pipeline *types.Pipeline) (
 	}
 
 	slices.SortFunc(nodes, func(a, b Node) int {
-		return CompareDependencies(a.Dependency, b.Dependency)
+		return CompareDependencies(a.Identifier, b.Identifier)
 	})
 
-	return resourceGroupsByName, subscription, stepsByResourceGroupAndName, nodes, nil
+	return resourceGroupsByName, subscription, stepsByResourceGroupAndName, serviceValidationSteps, nodes, nil
 }
 
-func CompareDependencies(a, b Dependency) int {
+func CompareDependencies(a, b Identifier) int {
 	if comparison := strings.Compare(a.ServiceGroup, b.ServiceGroup); comparison != 0 {
 		return comparison
 	}
@@ -355,8 +372,8 @@ func resourceGroupMetaEqual(a, b *types.ResourceGroupMeta) bool {
 // detectCycles runs a depth-first traversal of the tree, starting at every node, to detect cycles
 func (c *Graph) detectCycles() error {
 	for _, node := range c.Nodes {
-		seen := []Dependency{
-			node.Dependency,
+		seen := []Identifier{
+			node.Identifier,
 		}
 		if err := traverse(node, c.Nodes, seen); err != nil {
 			return err
@@ -365,7 +382,7 @@ func (c *Graph) detectCycles() error {
 	return nil
 }
 
-func traverse(node Node, all []Node, seen []Dependency) error {
+func traverse(node Node, all []Node, seen []Identifier) error {
 	for _, child := range node.Children {
 		for _, previous := range seen {
 			if previous == child {
@@ -404,7 +421,7 @@ const graphSuffix = `}`
 
 // MarshalDOT marshals the graph described by the list of nodes into the DOT notation used by the graphviz library.
 // See documentation here: https://graphviz.gitlab.io/doc/info/lang.html
-func MarshalDOT(nodes []Node) ([]byte, error) {
+func MarshalDOT(nodes []Node, serviceValidationSteps map[Identifier]types.ValidationStep) ([]byte, error) {
 	out := bytes.Buffer{}
 	if n, err := out.WriteString(graphPrefix); err != nil || n != len(graphPrefix) {
 		return nil, fmt.Errorf("failed to write graph prefix: wrote %d/%d bytes: %w", n, len(graphPrefix), err)
@@ -430,6 +447,16 @@ func MarshalDOT(nodes []Node) ([]byte, error) {
 			if _, err := out.WriteString(fmt.Sprintf(" \"%s_%s_%s\" -> \"%s_%s_%s\";\n", serviceGroup, node.ResourceGroup, node.Step, childServiceGroup, child.ResourceGroup, child.Step)); err != nil {
 				return nil, err
 			}
+		}
+	}
+
+	for identifier := range serviceValidationSteps {
+		shortServiceGroup, err := shortenServiceGroup(identifier.ServiceGroup)
+		if err != nil {
+			return nil, err
+		}
+		if _, err := out.WriteString(fmt.Sprintf(" \"serviceValidation\" -> \"%s_%s_%s\";\n", shortServiceGroup, identifier.ResourceGroup, identifier.Step)); err != nil {
+			return nil, err
 		}
 	}
 

@@ -23,15 +23,14 @@ const StepActionShell = "Shell"
 
 // ShellStep represents a shell step
 type ShellStep struct {
-	StepMeta          `json:",inline"`
-	AKSCluster        string      `json:"aksCluster,omitempty"`
-	Command           string      `json:"command,omitempty"`
-	Variables         []Variable  `json:"variables,omitempty"`
-	DryRun            DryRun      `json:"dryRun,omitempty"`
-	References        []Reference `json:"references,omitempty"`
-	SubnetName        string      `json:"subnetName,omitempty"`
-	ShellIdentity     Value       `json:"shellIdentity,omitempty"`
-	ServiceValidation []string    `json:"serviceValidation,omitempty"`
+	StepMeta      `json:",inline"`
+	AKSCluster    string      `json:"aksCluster,omitempty"`
+	Command       string      `json:"command,omitempty"`
+	Variables     []Variable  `json:"variables,omitempty"`
+	DryRun        DryRun      `json:"dryRun,omitempty"`
+	References    []Reference `json:"references,omitempty"`
+	SubnetName    string      `json:"subnetName,omitempty"`
+	ShellIdentity Value       `json:"shellIdentity,omitempty"`
 }
 
 // Reference represents a configurable reference
@@ -63,4 +62,14 @@ func (s *ShellStep) RequiredInputs() []StepDependency {
 	slices.SortFunc(deps, SortDependencies)
 	deps = slices.Compact(deps)
 	return deps
+}
+
+// ShellValidationStep represents a shell step that is a validation step.
+type ShellValidationStep struct {
+	ShellStep  `json:",inline"`
+	Validation []string `json:"validation,omitempty"`
+}
+
+func (s *ShellValidationStep) Validations() []string {
+	return s.Validation
 }

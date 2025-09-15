@@ -167,4 +167,5 @@ digraph regexp {
  "Uncle_regional_delete-region" [label="Uncle/regional/delete-region"];
  "Uncle_regional_rg-ownership" [label="Uncle/regional/rg-ownership"];
  "Uncle_regional_rg-ownership" -> "Uncle_regional_delete-region";
+ "serviceValidation" -> "Child_service_validation";
 }

@@ -109,6 +109,17 @@ func (p *Pipeline) Validate() error {
 			steps.Insert(step.StepName())
 		}
 		references[rg.Name] = steps
+
+		serviceValidationSteps := sets.New[string]()
+		for j, step := range rg.ValidationSteps {
+			if steps.Has(step.StepName()) {
+				return fmt.Errorf("pipeline.resourceGroups[%d:%s].serviceValidationSteps[%d:%s]: step name %q duplicated with a regular step", i, rg.Name, j, step.StepName(), step.StepName())
+			}
+			if steps.Has(step.StepName()) {
+				return fmt.Errorf("pipeline.resourceGroups[%d:%s].serviceValidationSteps[%d:%s]: step name %q duplicated", i, rg.Name, j, step.StepName(), step.StepName())
+			}
+			serviceValidationSteps.Insert(step.StepName())
+		}
 	}
 
 	for i, rg := range p.ResourceGroups {
