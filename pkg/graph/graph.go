@@ -46,6 +46,9 @@ type Graph struct {
 	// group with the same identifier are disallowed.
 	ResourceGroups map[string]*types.ResourceGroupMeta
 
+	// ResourceGroupOwners tracks which service groups have registered each resource group.
+	ResourceGroupOwners map[string][]string
+
 	// Subscription is an optional set of metadata required for subscription provisioning.
 	Subscription *Subscription
 
@@ -93,6 +96,7 @@ func ForPipeline(service *topology.Service, pipeline *types.Pipeline) (*Graph, e
 	graph := &Graph{
 		Services:               map[string]*topology.Service{},
 		ResourceGroups:         map[string]*types.ResourceGroupMeta{},
+		ResourceGroupOwners:    map[string][]string{},
 		Steps:                  map[string]map[string]map[string]types.Step{},
 		Nodes:                  []Node{},
 		ServiceValidationSteps: map[Identifier]types.ValidationStep{},
@@ -115,6 +119,7 @@ func ForEntrypoint(topo *topology.Topology, entrypoint *topology.Entrypoint, pip
 	graph := &Graph{
 		Services:               map[string]*topology.Service{},
 		ResourceGroups:         map[string]*types.ResourceGroupMeta{},
+		ResourceGroupOwners:    map[string][]string{},
 		Steps:                  map[string]map[string]map[string]types.Step{},
 		Nodes:                  []Node{},
 		ServiceValidationSteps: map[Identifier]types.ValidationStep{},
@@ -148,10 +153,19 @@ func (c *Graph) accumulate(service *topology.Service, pipelines map[string]*type
 		return fmt.Errorf("failed to generate graph for pipeline %s: %v", service.ServiceGroup, err)
 	}
 	for name, group := range resourceGroups {
-		if other, alreadyRecorded := c.ResourceGroups[name]; alreadyRecorded && !resourceGroupMetaEqual(group, other) {
-			return fmt.Errorf("resource group %s already recorded with different step meta, diff: %v", name, cmp.Diff(group, other))
+		if other, alreadyRecorded := c.ResourceGroups[name]; alreadyRecorded {
+			if !resourceGroupMetaEqual(group, other) {
+				existingOwners := strings.Join(c.ResourceGroupOwners[name], ", ")
+				return fmt.Errorf("resource group %s already recorded with different step meta (existing services: %s, new service: %s), diff: %v", name, existingOwners, service.ServiceGroup, cmp.Diff(group, other))
+			} else {
+				// Same metadata, just add this service as an owner if not already present
+				c.ResourceGroupOwners[name] = addUniqueOwner(c.ResourceGroupOwners[name], service.ServiceGroup)
+			}
+		} else {
+			// First time recording this resource group
+			c.ResourceGroups[name] = group
+			c.ResourceGroupOwners[name] = []string{service.ServiceGroup}
 		}
-		c.ResourceGroups[name] = group
 	}
 	if subscription != nil {
 		if c.Subscription != nil {
@@ -336,6 +350,16 @@ func CompareStepDependencies(a, b types.StepDependency) int {
 		return comparison
 	}
 	return strings.Compare(a.Step, b.Step)
+}
+
+// addUniqueOwner adds a service group to the owners list if it's not already present
+func addUniqueOwner(owners []string, serviceGroup string) []string {
+	for _, owner := range owners {
+		if owner == serviceGroup {
+			return owners
+		}
+	}
+	return append(owners, serviceGroup)
 }
 
 func resourceGroupMetaEqual(a, b *types.ResourceGroupMeta) bool {

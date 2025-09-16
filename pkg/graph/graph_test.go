@@ -97,6 +97,12 @@ func TestForEntrypointDuplicateResourceGroups(t *testing.T) {
 	if !strings.Contains(err.Error(), "already recorded with different step meta") {
 		t.Fatalf("expected duplicate resource group error, got %v", err)
 	}
+	if !strings.Contains(err.Error(), "existing services:") {
+		t.Fatalf("expected error to contain 'existing services:', got %v", err)
+	}
+	if !strings.Contains(err.Error(), "new service:") {
+		t.Fatalf("expected error to contain 'new service:', got %v", err)
+	}
 }
 
 func loadTestdata(t *testing.T, topologyPath string) (*topology.Topology, *topology.Entrypoint, *topology.Service, map[string]*types.Pipeline) {
