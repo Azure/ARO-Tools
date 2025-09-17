@@ -21,9 +21,8 @@ import (
 
 const StepActionShell = "Shell"
 
-// ShellStep represents a shell step
-type ShellStep struct {
-	StepMeta      `json:",inline"`
+// Common base for ShellStep and ShellValidationStep
+type ShellStepBase struct {
 	AKSCluster    string      `json:"aksCluster,omitempty"`
 	Command       string      `json:"command,omitempty"`
 	Variables     []Variable  `json:"variables,omitempty"`
@@ -31,6 +30,12 @@ type ShellStep struct {
 	References    []Reference `json:"references,omitempty"`
 	SubnetName    string      `json:"subnetName,omitempty"`
 	ShellIdentity Value       `json:"shellIdentity,omitempty"`
+}
+
+// ShellStep represents a shell step
+type ShellStep struct {
+	StepMeta      `json:",inline"`
+	ShellStepBase `json:",inline"`
 }
 
 // Reference represents a configurable reference
@@ -49,7 +54,7 @@ func (s *ShellStep) Description() string {
 	return fmt.Sprintf("Step %s\n  Kind: %s\n  Command: %s\n", s.Name, s.Action, s.Command)
 }
 
-func (s *ShellStep) RequiredInputs() []StepDependency {
+func (s *ShellStepBase) RequiredInputs() []StepDependency {
 	var deps []StepDependency
 	for _, val := range append(s.Variables, s.DryRun.Variables...) {
 		if val.Input != nil {
@@ -66,9 +71,17 @@ func (s *ShellStep) RequiredInputs() []StepDependency {
 
 // ShellValidationStep represents a shell step that is a validation step.
 type ShellValidationStep struct {
-	ShellStep  `json:",inline"`
-	Validation []string `json:"validation,omitempty"`
+	ValidationStepMeta `json:",inline"`
+	ShellStepBase      `json:",inline"`
 }
+
+// Description
+// Returns:
+//   - A string representation of this ShellStep
+func (s *ShellValidationStep) Description() string {
+	return fmt.Sprintf("Validation Step %s\n  Kind: %s\n  Command: %s\n", s.Name, s.Action, s.Command)
+}
+
 
 func (s *ShellValidationStep) Validations() []string {
 	return s.Validation

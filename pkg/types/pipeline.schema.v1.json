@@ -4,6 +4,25 @@
   "type": "object",
   "additionalProperties": false,
   "definitions": {
+    "automatedRetry": {
+      "type": "object",
+      "properties": {
+        "errorContainsAny": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxLength": 16
+        },
+        "maximumRetryCount": {
+          "type": "integer",
+          "maximum": 10
+        },
+        "durationBetweenRetries": {
+          "type": "string"
+        }
+      }
+    },
     "stepMeta": {
       "type": "object",
       "properties": {
@@ -14,32 +33,22 @@
           "$ref": "#/definitions/stepDependencies"
         },
         "automatedRetry": {
-          "type": "object",
-          "properties": {
-            "errorContainsAny": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              },
-              "maxLength": 16
-            },
-            "maximumRetryCount": {
-              "type": "integer",
-              "maximum": 10
-            },
-            "durationBetweenRetries": {
-              "type": "string"
-            }
-          }
+          "$ref": "#/definitions/automatedRetry"
         }
       },
       "required": [
         "name"
       ]
     },
-    "validationStepBase": {
+    "validationStepMeta": {
       "type": "object",
       "properties": {
+        "name": {
+          "$ref": "#/definitions/stepName"
+        },
+        "automatedRetry": {
+          "$ref": "#/definitions/automatedRetry"
+        },
         "validation": {
           "type": "array",
           "items": {
@@ -52,6 +61,7 @@
         }
       },
       "required": [
+        "name",
         "validation"
       ]
     },
@@ -400,13 +410,10 @@
       "unevaluatedProperties": false,
       "allOf": [
         {
-          "$ref": "#/definitions/stepMeta"
+          "$ref": "#/definitions/validationStepMeta"
         },
         {
           "$ref": "#/definitions/shellStepBase"
-        },
-        {
-          "$ref": "#/definitions/validationStepBase"
         }
       ]
     },

@@ -33,18 +33,26 @@ type ValidationStep interface {
 	StepName() string
 	ActionType() string
 	Description() string
-	Dependencies() []StepDependency
 	RequiredInputs() []StepDependency
 	AutomatedRetries() *AutomatedRetry
 	Validations() []string
 }
 
-// StepMeta contains metadata for a steps.
-type StepMeta struct {
+type StepMetaBase struct {
 	Name           string           `json:"name"`
 	Action         string           `json:"action"`
 	AutomatedRetry *AutomatedRetry  `json:"automatedRetry,omitempty"`
-	DependsOn      []StepDependency `json:"dependsOn,omitempty"`
+}
+
+// StepMeta contains metadata for a steps.
+type StepMeta struct {
+	StepMetaBase `json:",inline"`
+	DependsOn    []StepDependency `json:"dependsOn,omitempty"`
+}
+
+type ValidationStepMeta struct {
+	StepMetaBase `json:",inline"`
+	Validation   []string         `json:"validation,omitempty"`
 }
 
 // StepDependency describes a step that must run before the dependent step may begin.
@@ -77,15 +85,15 @@ func SortDependencies(a, b StepDependency) int {
 	return strings.Compare(a.Step, b.Step)
 }
 
-func (m *StepMeta) StepName() string {
+func (m *StepMetaBase) StepName() string {
 	return m.Name
 }
 
-func (m *StepMeta) ActionType() string {
+func (m *StepMetaBase) ActionType() string {
 	return m.Action
 }
 
-func (m *StepMeta) AutomatedRetries() *AutomatedRetry {
+func (m *StepMetaBase) AutomatedRetries() *AutomatedRetry {
 	return m.AutomatedRetry
 }
 
