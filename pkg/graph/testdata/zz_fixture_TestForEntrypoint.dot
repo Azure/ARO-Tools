@@ -99,6 +99,7 @@ digraph regexp {
  "Child_global_output" -> "Child_service_istio-upgrade";
  "Child_global_output" -> "Child_service_prometheus";
  "Child_global_output" -> "Child_service_svc";
+ "Child_global_output" -> "Child_service_validation";
  "Child_regional_output" [label="Child/regional/output"];
  "Child_regional_output" -> "Child_service_infra";
  "Child_regional_output" -> "Child_service_svc";
@@ -120,6 +121,7 @@ digraph regexp {
  "Child_service_svc-oncert-private-kv-issuer" -> "Child_service_svc";
  "Child_service_svc-oncert-public-kv-issuer" [label="Child/service/svc-oncert-public-kv-issuer"];
  "Child_service_svc-oncert-public-kv-issuer" -> "Child_service_svc";
+ "Child_service_validation" [label="Child/service/validation", color="green", fontcolor="green"];
  "Sibling_global_output" [label="Sibling/global/output"];
  "Sibling_global_output" -> "Sibling_management_acrpull";
  "Sibling_global_output" -> "Sibling_management_arobit";
@@ -167,5 +169,4 @@ digraph regexp {
  "Uncle_regional_delete-region" [label="Uncle/regional/delete-region"];
  "Uncle_regional_rg-ownership" [label="Uncle/regional/rg-ownership"];
  "Uncle_regional_rg-ownership" -> "Uncle_regional_delete-region";
- "serviceValidation" -> "Child_service_validation";
 }

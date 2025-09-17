@@ -113,6 +113,129 @@ func TestPipelineValidate(t *testing.T) {
 			err: "pipeline.resourceGroups[1:rg2].steps[0:step2]: dependency rg1/step3 invalid: resource group rg1 has no step step3",
 		},
 		{
+			name: "validation step with incoming dependency from regular step",
+			pipeline: &Pipeline{
+				ResourceGroups: []*ResourceGroup{
+					{
+						ResourceGroupMeta: &ResourceGroupMeta{
+							Name:          "rg1",
+							ResourceGroup: "rg1",
+							Subscription:  "sub1",
+						},
+						ValidationSteps: []Step{
+							&ShellStep{
+								StepMeta: StepMeta{
+									Name:       "step1",
+									Action:     "Shell",
+									Validation: []string{"Internal"},
+								},
+								Command: "echo foo",
+							},
+						},
+					},
+					{
+						ResourceGroupMeta: &ResourceGroupMeta{
+							Name:         "rg2",
+							Subscription: "sub1",
+						},
+						Steps: []Step{
+							&ShellStep{
+								StepMeta: StepMeta{
+									Name:      "step2",
+									Action:    "Shell",
+									DependsOn: []StepDependency{{ResourceGroup: "rg1", Step: "step1"}},
+								},
+								Command: "echo bar",
+							},
+						},
+					},
+				},
+			},
+			err: `pipeline.resourceGroups[1:rg2].steps[0:step2]: step cannot depend on validation step rg1/step1`,
+		},
+		{
+			name: "validation step with incoming dependency from other validation step",
+			pipeline: &Pipeline{
+				ResourceGroups: []*ResourceGroup{
+					{
+						ResourceGroupMeta: &ResourceGroupMeta{
+							Name:         "rg1",
+							Subscription: "sub1",
+						},
+						ValidationSteps: []Step{
+							&ShellStep{
+								StepMeta: StepMeta{
+									Name:       "step1",
+									Action:     "Shell",
+									Validation: []string{"Internal"},
+								},
+								Command: "echo foo",
+							},
+							&ShellStep{
+								StepMeta: StepMeta{
+									Name:       "step2",
+									Action:     "Shell",
+									Validation: []string{"Internal"},
+									DependsOn:  []StepDependency{{ResourceGroup: "rg1", Step: "step1"}},
+								},
+								Command: "echo bar",
+							},
+						},
+					},
+				},
+			},
+			err: "pipeline.resourceGroups[0:rg1].validationSteps[1:step2]: step cannot depend on validation step rg1/step1",
+		},
+		{
+			name: "regular step with validations",
+			pipeline: &Pipeline{
+				ResourceGroups: []*ResourceGroup{
+					{
+						ResourceGroupMeta: &ResourceGroupMeta{
+							Name:          "rg1",
+							ResourceGroup: "rg1",
+							Subscription:  "sub1",
+						},
+						Steps: []Step{
+							&ShellStep{
+								StepMeta: StepMeta{
+									Name:       "step1",
+									Action:     "Shell",
+									Validation: []string{"Internal"},
+								},
+								Command: "echo foo",
+							},
+						},
+					},
+				},
+			},
+			err: `pipeline.resourceGroups[0:rg1].steps[0:step1]: step name "step1" has validations`,
+		},
+		{
+			name: "validation step without validations",
+			pipeline: &Pipeline{
+				ResourceGroups: []*ResourceGroup{
+					{
+						ResourceGroupMeta: &ResourceGroupMeta{
+							Name:          "rg1",
+							ResourceGroup: "rg1",
+							Subscription:  "sub1",
+						},
+						ValidationSteps: []Step{
+							&ShellStep{
+								StepMeta: StepMeta{
+									Name:   "step1",
+									Action: "Shell",
+								},
+								Command: "echo foo",
+							},
+						},
+					},
+				},
+			},
+			err: `pipeline.resourceGroups[0:rg1].validationSteps[0:step1]: step "step1" has no validations`,
+		},
+		{
 			name: "duplicate step name",
 			pipeline: &Pipeline{
 				ResourceGroups: []*ResourceGroup{
@@ -143,6 +266,75 @@ func TestPipelineValidate(t *testing.T) {
 				},
 			},
 			err: `pipeline.resourceGroups[0:rg1].steps[1:step1]: step name "step1" duplicated`,
+		},
+		{
+			name: "duplicate validation step name",
+			pipeline: &Pipeline{
+				ResourceGroups: []*ResourceGroup{
+					{
+						ResourceGroupMeta: &ResourceGroupMeta{
+							Name:          "rg1",
+							ResourceGroup: "rg1",
+							Subscription:  "sub1",
+						},
+						ValidationSteps: []Step{
+							&ShellStep{
+								StepMeta: StepMeta{
+									Name:       "step1",
+									Action:     "Shell",
+									Validation: []string{"Internal"},
+								},
+								Command: "echo foo",
+							},
+							&ShellStep{
+								StepMeta: StepMeta{
+									Name:       "step1",
+									Action:     "Shell",
+									DependsOn:  []StepDependency{{ResourceGroup: "rg1", Step: "step1"}},
+									Validation: []string{"Internal"},
+								},
+								Command: "echo bar",
+							},
+						},
+					},
+				},
+			},
+			err: `pipeline.resourceGroups[0:rg1].validationSteps[1:step1]: step name "step1" duplicated`,
+		},
+		{
+			name: "duplicate step and validation step name",
+			pipeline: &Pipeline{
+				ResourceGroups: []*ResourceGroup{
+					{
+						ResourceGroupMeta: &ResourceGroupMeta{
+							Name:          "rg1",
+							ResourceGroup: "rg1",
+							Subscription:  "sub1",
+						},
+						Steps: []Step{
+							&ShellStep{
+								StepMeta: StepMeta{
+									Name:   "step1",
+									Action: "Shell",
+								},
+								Command: "echo foo",
+							},
+						},
+						ValidationSteps: []Step{
+							&ShellStep{
+								StepMeta: StepMeta{
+									Name:       "step1",
+									Action:     "Shell",
+									DependsOn:  []StepDependency{{ResourceGroup: "rg1", Step: "step1"}},
+									Validation: []string{"Internal"},
+								},
+								Command: "echo bar",
+							},
+						},
+					},
+				},
+			},
+			err: `pipeline.resourceGroups[0:rg1].validationSteps[0:step1]: step name "step1" duplicated with a regular step`,
 		},
 		{
 			name: "same step name across groups",

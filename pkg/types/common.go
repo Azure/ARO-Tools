@@ -27,15 +27,6 @@ type Step interface {
 	Dependencies() []StepDependency
 	RequiredInputs() []StepDependency
 	AutomatedRetries() *AutomatedRetry
-}
-
-type ValidationStep interface {
-	StepName() string
-	ActionType() string
-	Description() string
-	Dependencies() []StepDependency
-	RequiredInputs() []StepDependency
-	AutomatedRetries() *AutomatedRetry
 	Validations() []string
 }
 
@@ -45,6 +36,7 @@ type StepMeta struct {
 	Action         string           `json:"action"`
 	AutomatedRetry *AutomatedRetry  `json:"automatedRetry,omitempty"`
 	DependsOn      []StepDependency `json:"dependsOn,omitempty"`
+	Validation     []string         `json:"validation,omitempty"`
 }
 
 // StepDependency describes a step that must run before the dependent step may begin.
@@ -91,6 +83,10 @@ func (m *StepMeta) AutomatedRetries() *AutomatedRetry {
 
 func (m *StepMeta) Dependencies() []StepDependency {
 	return m.DependsOn
+}
+
+func (m *StepMeta) Validations() []string {
+	return m.Validation
 }
 
 type GenericStep struct {

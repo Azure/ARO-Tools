@@ -63,13 +63,3 @@ func (s *ShellStep) RequiredInputs() []StepDependency {
 	deps = slices.Compact(deps)
 	return deps
 }
-
-// ShellValidationStep represents a shell step that is a validation step.
-type ShellValidationStep struct {
-	ShellStep  `json:",inline"`
-	Validation []string `json:"validation,omitempty"`
-}
-
-func (s *ShellValidationStep) Validations() []string {
-	return s.Validation
-}

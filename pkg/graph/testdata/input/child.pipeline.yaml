@@ -293,6 +293,9 @@ resourceGroups:
       action: Shell
       command: make e2e
       shellIdentity:
-        configRef: aroDevopsMsiId
+        input:
+          resourceGroup: global
+          step: output
+          name: globalMSIId
       validation:
       - Internal

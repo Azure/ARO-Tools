@@ -95,6 +95,7 @@ func NewPipelineFromBytes(pipelineBytes []byte, cfg types2.Configuration) (*Pipe
 func (p *Pipeline) Validate() error {
 	groups := sets.New[string]()
 	references := map[string]sets.Set[string]{}
+	validationStepReferences := map[string]sets.Set[string]{}
 	for i, rg := range p.ResourceGroups {
 		if groups.Has(rg.Name) {
 			return fmt.Errorf("pipeline.resourceGroups[%d:%s]: resource group name %q duplicated", i, rg.Name, rg.Name)
@@ -106,6 +107,9 @@ func (p *Pipeline) Validate() error {
 			if steps.Has(step.StepName()) {
 				return fmt.Errorf("pipeline.resourceGroups[%d:%s].steps[%d:%s]: step name %q duplicated", i, rg.Name, j, step.StepName(), step.StepName())
 			}
+			if len(step.Validations()) > 0 {
+				return fmt.Errorf("pipeline.resourceGroups[%d:%s].steps[%d:%s]: step name %q has validations", i, rg.Name, j, step.StepName(), step.StepName())
+			}
 			steps.Insert(step.StepName())
 		}
 		references[rg.Name] = steps
@@ -113,25 +117,30 @@ func (p *Pipeline) Validate() error {
 		serviceValidationSteps := sets.New[string]()
 		for j, step := range rg.ValidationSteps {
 			if steps.Has(step.StepName()) {
-				return fmt.Errorf("pipeline.resourceGroups[%d:%s].serviceValidationSteps[%d:%s]: step name %q duplicated with a regular step", i, rg.Name, j, step.StepName(), step.StepName())
+				return fmt.Errorf("pipeline.resourceGroups[%d:%s].validationSteps[%d:%s]: step name %q duplicated with a regular step", i, rg.Name, j, step.StepName(), step.StepName())
 			}
-			if steps.Has(step.StepName()) {
-				return fmt.Errorf("pipeline.resourceGroups[%d:%s].serviceValidationSteps[%d:%s]: step name %q duplicated", i, rg.Name, j, step.StepName(), step.StepName())
+			if serviceValidationSteps.Has(step.StepName()) {
+				return fmt.Errorf("pipeline.resourceGroups[%d:%s].validationSteps[%d:%s]: step name %q duplicated", i, rg.Name, j, step.StepName(), step.StepName())
+			}
+			if len(step.Validations()) == 0 {
+				return fmt.Errorf("pipeline.resourceGroups[%d:%s].validationSteps[%d:%s]: step %q has no validations", i, rg.Name, j, step.StepName(), step.StepName())
 			}
 			serviceValidationSteps.Insert(step.StepName())
 		}
+		validationStepReferences[rg.Name] = serviceValidationSteps
 	}
 
 	for i, rg := range p.ResourceGroups {
 		for j, step := range rg.Steps {
-			for _, dep := range append(step.Dependencies(), step.RequiredInputs()...) {
-				group, exists := references[dep.ResourceGroup]
-				if !exists {
-					return fmt.Errorf("pipeline.resourceGroups[%d:%s].steps[%d:%s]: dependency %s/%s invalid: no such resource group %s", i, rg.Name, j, step.StepName(), dep.ResourceGroup, dep.Step, dep.ResourceGroup)
-				}
-				if !group.Has(dep.Step) {
-					return fmt.Errorf("pipeline.resourceGroups[%d:%s].steps[%d:%s]: dependency %s/%s invalid: resource group %s has no step %s", i, rg.Name, j, step.StepName(), dep.ResourceGroup, dep.Step, dep.ResourceGroup, dep.Step)
-				}
+			err := ValidateStepDependencies(step, references, validationStepReferences)
+			if err != nil {
+				return fmt.Errorf("pipeline.resourceGroups[%d:%s].steps[%d:%s]: %w", i, rg.Name, j, step.StepName(), err)
+			}
+		}
+		for j, step := range rg.ValidationSteps {
+			err := ValidateStepDependencies(step, references, validationStepReferences)
+			if err != nil {
+				return fmt.Errorf("pipeline.resourceGroups[%d:%s].validationSteps[%d:%s]: %w", i, rg.Name, j, step.StepName(), err)
 			}
 		}
 	}
@@ -143,6 +152,22 @@ func (p *Pipeline) Validate() error {
 		err := rg.Validate()
 		if err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+func ValidateStepDependencies(step Step, references map[string]sets.Set[string], validationStepReferences map[string]sets.Set[string]) error {
+	for _, dep := range append(step.Dependencies(), step.RequiredInputs()...) {
+		group, exists := references[dep.ResourceGroup]
+		if validationSteps, exists := validationStepReferences[dep.ResourceGroup]; exists && validationSteps.Has(dep.Step) {
+			return fmt.Errorf("step cannot depend on validation step %s/%s", dep.ResourceGroup, dep.Step)
+		}
+		if !exists {
+			return fmt.Errorf("dependency %s/%s invalid: no such resource group %s", dep.ResourceGroup, dep.Step, dep.ResourceGroup)
+		}
+		if !group.Has(dep.Step) {
+			return fmt.Errorf("dependency %s/%s invalid: resource group %s has no step %s", dep.ResourceGroup, dep.Step, dep.ResourceGroup, dep.Step)
 		}
 	}
 	return nil

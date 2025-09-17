@@ -27,8 +27,8 @@ type ResourceGroup struct {
 
 	SubscriptionProvisioning *SubscriptionProvisioning `json:"subscriptionProvisioning,omitempty"`
 
-	Steps           Steps           `json:"steps"`
-	ValidationSteps ValidationSteps `json:"validationSteps,omitempty"`
+	Steps           Steps `json:"steps"`
+	ValidationSteps Steps `json:"validationSteps,omitempty"`
 }
 
 // ResourceGroupMeta holds metadata required to fully qualify a resource group execution context. Subscription provisioning
@@ -131,37 +131,6 @@ func (s *Steps) UnmarshalJSON(data []byte) error {
 			step = &Pav2Step{}
 		default:
 			step = &GenericStep{}
-		}
-		if err := yaml.Unmarshal(rawStep, step); err != nil {
-			return fmt.Errorf("steps[%d]: failed to unmarshal step from metadata remainder: %w", i, err)
-		}
-		steps = append(steps, step)
-	}
-	*s = steps
-	return nil
-}
-
-type ValidationSteps []ValidationStep
-
-func (s *ValidationSteps) UnmarshalJSON(data []byte) error {
-	var raw []json.RawMessage
-	if err := yaml.Unmarshal(data, &raw); err != nil {
-		return fmt.Errorf("failed to unmarshal %v into array of json.RawMessage: %w", string(data), err)
-	}
-
-	steps := make([]ValidationStep, 0, len(raw))
-	for i, rawStep := range raw {
-		stepMeta := &StepMeta{}
-		if err := yaml.Unmarshal(rawStep, stepMeta); err != nil {
-			return fmt.Errorf("steps[%d]: failed to unmarshal step metadata from raw json: %w", i, err)
-		}
-
-		var step ValidationStep
-		switch stepMeta.Action {
-		case StepActionShell:
-			step = &ShellValidationStep{}
-		default:
-			step = &GenericValidationStep{}
 		}
 		if err := yaml.Unmarshal(rawStep, step); err != nil {
 			return fmt.Errorf("steps[%d]: failed to unmarshal step from metadata remainder: %w", i, err)
