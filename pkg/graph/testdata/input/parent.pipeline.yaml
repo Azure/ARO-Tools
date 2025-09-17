@@ -152,3 +152,14 @@ resourceGroups:
         dependsOn:
           - resourceGroup: regional
             step: region
+    validationSteps:
+      - name: validation
+        action: Shell
+        command: make child-validation
+        shellIdentity:
+          input:
+            resourceGroup: global
+            step: output
+            name: globalMSIId
+        validation:
+        - Internal

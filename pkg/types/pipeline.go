@@ -159,10 +159,13 @@ func (p *Pipeline) Validate() error {
 
 func ValidateStepDependencies(step Step, references map[string]sets.Set[string], validationStepReferences map[string]sets.Set[string]) error {
 	for _, dep := range append(step.Dependencies(), step.RequiredInputs()...) {
-		group, exists := references[dep.ResourceGroup]
+		// First check if the dependency is a validation step (not allowed)
 		if validationSteps, exists := validationStepReferences[dep.ResourceGroup]; exists && validationSteps.Has(dep.Step) {
 			return fmt.Errorf("step cannot depend on validation step %s/%s", dep.ResourceGroup, dep.Step)
 		}
+
+		// Then check if the dependency exists in regular steps
+		group, exists := references[dep.ResourceGroup]
 		if !exists {
 			return fmt.Errorf("dependency %s/%s invalid: no such resource group %s", dep.ResourceGroup, dep.Step, dep.ResourceGroup)
 		}

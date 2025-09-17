@@ -210,9 +210,15 @@ func (c *Graph) accumulate(service *topology.Service, pipelines map[string]*type
 		// Second, using the identifiers in `leaves`, find the leaf nodes in the graph and mark them as having
 		// the roots of the child service as children.
 		for i, node := range c.Nodes {
-			for _, leaf := range leaves {
-				if node.ServiceGroup == leaf.ServiceGroup && node.ResourceGroup == leaf.ResourceGroup && node.Step == leaf.Step {
-					c.Nodes[i].Children = append(c.Nodes[i].Children, roots...)
+			step, err := c.findStep(node.Identifier)
+			if err != nil {
+				return fmt.Errorf("failed to lookup step for node %v: %w", node.Identifier, err)
+			}
+			if len(step.Validations()) == 0 {
+				for _, leaf := range leaves {
+					if node.ServiceGroup == leaf.ServiceGroup && node.ResourceGroup == leaf.ResourceGroup && node.Step == leaf.Step {
+						c.Nodes[i].Children = append(c.Nodes[i].Children, roots...)
+					}
 				}
 			}
 		}
@@ -387,6 +393,23 @@ func (c *Graph) detectCycles() error {
 		}
 	}
 	return nil
+}
+
+func (c *Graph) findStep(identifier Identifier) (types.Step, error) {
+	serviceGroup, ok := c.Steps[identifier.ServiceGroup]
+	if !ok {
+		return nil, fmt.Errorf("could not find resource group %s in service group %s", identifier.ResourceGroup, identifier.ServiceGroup)
+	}
+	resourceGroup, ok := serviceGroup[identifier.ResourceGroup]
+	if !ok {
+		return nil, fmt.Errorf("could not find step %s in resource group %s", identifier.Step, identifier.ResourceGroup)
+	}
+
+	step, ok := resourceGroup[identifier.Step]
+	if !ok {
+		return nil, fmt.Errorf("could not find step %s in resource group %s", identifier.Step, identifier.ResourceGroup)
+	}
+	return step, nil
 }
 
 func traverse(node Node, all []Node, seen []Identifier) error {

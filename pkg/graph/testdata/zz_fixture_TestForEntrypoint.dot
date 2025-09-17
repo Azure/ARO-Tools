@@ -82,6 +82,7 @@ digraph regexp {
  "Parent_global_output" -> "Parent_global_svc-acr-replication";
  "Parent_global_output" -> "Parent_regional_region";
  "Parent_global_output" -> "Parent_regional_rpRegistration";
+ "Parent_global_output" -> "Parent_regional_validation";
  "Parent_global_svc-acr-replication" [label="Parent/global/svc-acr-replication"];
  "Parent_global_svc-acr-replication" -> "Parent_regional_rpRegistration";
  "Parent_regional_output" [label="Parent/regional/output"];
@@ -91,6 +92,7 @@ digraph regexp {
  "Parent_regional_region" -> "Parent_regional_output";
  "Parent_regional_rpRegistration" [label="Parent/regional/rpRegistration"];
  "Parent_regional_rpRegistration" -> "Parent_regional_region";
+ "Parent_regional_validation" [label="Parent/regional/validation", color="green", fontcolor="green"];
  "Child_global_output" [label="Child/global/output"];
  "Child_global_output" -> "Child_service_acrpull";
  "Child_global_output" -> "Child_service_arobit";

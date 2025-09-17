@@ -291,7 +291,7 @@ resourceGroups:
     validationSteps:
     - name: validation
       action: Shell
-      command: make e2e
+      command: make child-validation
       shellIdentity:
         input:
           resourceGroup: global
