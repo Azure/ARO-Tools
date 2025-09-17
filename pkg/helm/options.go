@@ -315,6 +315,7 @@ func runHelmUpgrade(ctx context.Context, logger logr.Logger, opts *Options) (*he
 	if err == driver.ErrReleaseNotFound || isReleaseUninstalled(versions) {
 		logger.Info("No release history found, running the first release...")
 		installClient := action.NewInstall(opts.ActionConfig)
+		installClient.ReleaseName = opts.ReleaseName
 		installClient.WaitStrategy = kube.StatusWatcherStrategy
 		installClient.Namespace = opts.ReleaseNamespace
 		installClient.Timeout = opts.Timeout
