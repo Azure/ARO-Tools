@@ -20,7 +20,16 @@ import (
 	"strings"
 )
 
+// WellFormedChecker allows introspection of how well-formed this step is over inputs.
+type WellFormedChecker interface {
+	// IsWellFormedOverInputs determines if, given the same (visible) inputs, this step will have the same outputs.
+	// Implicit inputs on the filesystem outside the purview of any configuration make a step ill-formed.
+	IsWellFormedOverInputs() bool
+}
+
+// Step divulges common metadata about a step.
 type Step interface {
+	WellFormedChecker
 	StepName() string
 	ActionType() string
 	Description() string
@@ -30,12 +39,7 @@ type Step interface {
 }
 
 type ValidationStep interface {
-	StepName() string
-	ActionType() string
-	Description() string
-	Dependencies() []StepDependency
-	RequiredInputs() []StepDependency
-	AutomatedRetries() *AutomatedRetry
+	Step
 	Validations() []string
 }
 
@@ -93,6 +97,10 @@ func (m *StepMeta) Dependencies() []StepDependency {
 	return m.DependsOn
 }
 
+func (m *StepMeta) IsWellFormedOverInputs() bool {
+	return true
+}
+
 type GenericStep struct {
 	StepMeta `json:",inline"`
 }
@@ -103,6 +111,10 @@ func (s *GenericStep) Description() string {
 
 func (s *GenericStep) RequiredInputs() []StepDependency {
 	return []StepDependency{}
+}
+
+func (s *GenericStep) IsWellFormedOverInputs() bool {
+	return false
 }
 
 type GenericValidationStep struct {
@@ -120,6 +132,10 @@ func (s *GenericValidationStep) RequiredInputs() []StepDependency {
 
 func (s *GenericValidationStep) Validations() []string {
 	return s.Validation
+}
+
+func (s *GenericValidationStep) IsWellFormedOverInputs() bool {
+	return false
 }
 
 type DryRun struct {

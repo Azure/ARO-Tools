@@ -1,6 +1,7 @@
 package types
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -266,6 +267,40 @@ func TestRequiredInputs(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			if diff := cmp.Diff(testCase.expected, testCase.input.RequiredInputs()); diff != "" {
 				t.Errorf("required inputs mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestIsWellFormedOverInputs(t *testing.T) {
+	for _, testCase := range []struct {
+		in       WellFormedChecker
+		expected bool
+	}{
+		{in: &ShellStep{}, expected: false},
+		{in: &HelmStep{}, expected: true},
+		{in: &ARMStep{}, expected: true},
+		{in: &ARMStackStep{}, expected: true},
+		{in: &DelegateChildZoneStep{}, expected: true},
+		{in: &SetCertificateIssuerStep{}, expected: true},
+		{in: &CreateCertificateStep{}, expected: true},
+		{in: &ResourceProviderRegistrationStep{}, expected: true},
+		{in: &ImageMirrorStep{}, expected: true},
+		{in: &ImageMirrorStep{CopyFrom: "oci-layout"}, expected: false},
+		{in: &LogsStep{}, expected: true},
+		{in: &FeatureRegistrationStep{}, expected: true},
+		{in: &ProviderFeatureRegistrationStep{}, expected: true},
+		{in: &Ev2RegistrationStep{}, expected: true},
+		{in: &SecretSyncStep{}, expected: true},
+		{in: &KustoStep{}, expected: true},
+		{in: &Pav2Step{}, expected: true},
+		{in: &GenericStep{}, expected: false},
+		{in: &GenericValidationStep{}, expected: false},
+		{in: &ShellValidationStep{}, expected: false},
+	} {
+		t.Run(fmt.Sprintf("%T", testCase.in)[1:], func(t *testing.T) {
+			if got, expected := testCase.in.IsWellFormedOverInputs(), testCase.expected; got != expected {
+				t.Errorf("IsWellFormedOverInputs() = %v, want %v", got, testCase.expected)
 			}
 		})
 	}
