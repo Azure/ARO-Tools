@@ -111,9 +111,18 @@ func ForPipeline(service *topology.Service, pipeline *types.Pipeline) (*Graph, e
 
 // ForEntrypoint generates a graph for all pipelines in the sub-tree of the topology identified by the entrypoint.
 func ForEntrypoint(topo *topology.Topology, entrypoint *topology.Entrypoint, pipelines map[string]*types.Pipeline) (*Graph, error) {
-	root, err := topo.Lookup(entrypoint.Identifier)
-	if err != nil {
-		return nil, fmt.Errorf("failed to lookup entrypoint %s: %v", entrypoint.Identifier, err)
+	return ForEntrypoints(topo, []*topology.Entrypoint{entrypoint}, pipelines)
+}
+
+// ForEntrypoints generates a graph for all pipelines in the sub-trees of the topology identified by the entrypoints.
+func ForEntrypoints(topo *topology.Topology, entrypoints []*topology.Entrypoint, pipelines map[string]*types.Pipeline) (*Graph, error) {
+	var roots []*topology.Service
+	for _, entrypoint := range entrypoints {
+		root, err := topo.Lookup(entrypoint.Identifier)
+		if err != nil {
+			return nil, fmt.Errorf("failed to lookup entrypoint %s: %v", entrypoint.Identifier, err)
+		}
+		roots = append(roots, root)
 	}
 
 	graph := &Graph{
@@ -125,8 +134,10 @@ func ForEntrypoint(topo *topology.Topology, entrypoint *topology.Entrypoint, pip
 		ServiceValidationSteps: map[Identifier]types.ValidationStep{},
 	}
 
-	if err := graph.accumulate(root, pipelines); err != nil {
-		return nil, err
+	for _, root := range roots {
+		if err := graph.accumulate(root, pipelines); err != nil {
+			return nil, err
+		}
 	}
 
 	return graph, graph.detectCycles()
