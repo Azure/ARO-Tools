@@ -64,6 +64,11 @@ func (s *ShellStep) RequiredInputs() []StepDependency {
 	return deps
 }
 
+func (s *ShellStep) IsWellFormedOverInputs() bool {
+	// raw shell steps capture the whole repository as an archive input, so they are not well-formed
+	return false
+}
+
 // ShellValidationStep represents a shell step that is a validation step.
 type ShellValidationStep struct {
 	ShellStep  `json:",inline"`
@@ -72,4 +77,9 @@ type ShellValidationStep struct {
 
 func (s *ShellValidationStep) Validations() []string {
 	return s.Validation
+}
+
+func (s *ShellValidationStep) IsWellFormedOverInputs() bool {
+	// raw shell steps capture the whole repository as an archive input, so they are not well-formed
+	return false
 }

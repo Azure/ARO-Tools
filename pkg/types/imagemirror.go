@@ -60,6 +60,11 @@ func (s *ImageMirrorStep) RequiredInputs() []StepDependency {
 	return deps
 }
 
+func (s *ImageMirrorStep) IsWellFormedOverInputs() bool {
+	// when we're coping from a local set of files, the inputs are not captured and we are not well-formed
+	return s.CopyFrom != "oci-layout"
+}
+
 // ResolveImageMirrorStep resolves an image mirror step to a shell step. It's up to the user to write the contents of
 // the OnDemandSyncScript to disk somewhere and pass the file name in as a parameter here, as we likely don't want to
 // inline 100+ lines of shell into a `bash -C "<contents>"` call and hope all the string interpolations work.
