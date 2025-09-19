@@ -170,12 +170,12 @@ func (o *ValidatedOptions) Complete() (*Options, error) {
 		if err := yaml.Unmarshal(raw, &ns); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal namespace %s: %w", file, err)
 		}
-		foundReleaseNamespace = foundReleaseNamespace || ns.Name == o.ReleaseName
+		foundReleaseNamespace = foundReleaseNamespace || ns.Name == o.ReleaseNamespace
 		namespaces = append(namespaces, ns)
 	}
 	if !foundReleaseNamespace {
 		// if the user hasn't provided an explicit manifest for the release namespace, let's add a minimal one
-		namespaces = append(namespaces, corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: o.ReleaseName}})
+		namespaces = append(namespaces, corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: o.ReleaseNamespace}})
 	}
 
 	actionCfg := &action.Configuration{}
