@@ -30,11 +30,12 @@ type ShellStep struct {
 	DryRun     DryRun      `json:"dryRun,omitempty"`
 	References []Reference `json:"references,omitempty"`
 	SubnetName string      `json:"subnetName,omitempty"`
-	// ArchiveSubdir is the relative path from the pipeline definition to the directory which will be the *only* content
+	// WorkingDir is the relative path from the pipeline definition to the directory which will be the *only* content
 	// available to the shell during execution. If and only if this is set will a shell step be eligible for being skipped
 	// during incremental execution; it is in the best interest of the author to contain the smallest amount of content
-	// in the directory, as any change to any input will cause a re-run.
-	ArchiveSubdir string `json:"archiveSubdir,omitempty"`
+	// in the directory, as any change to any input will cause a re-run. Validation will ensure that this directory does
+	// not escape the root directory of the pipeline. `$PWD` for the shell commands will be this directory.
+	WorkingDir string `json:"workingDir,omitempty"`
 	// ShellIdentity is the ID of the managed identity with which the shell step will execute in an Ev2 context. Required.
 	ShellIdentity Value `json:"shellIdentity"`
 }
@@ -72,7 +73,7 @@ func (s *ShellStep) RequiredInputs() []StepDependency {
 
 func (s *ShellStep) IsWellFormedOverInputs() bool {
 	// raw shell steps capture the whole repository as an archive input, so they are not well-formed
-	return s.ArchiveSubdir != ""
+	return s.WorkingDir != ""
 }
 
 // ShellValidationStep represents a shell step that is a validation step.
