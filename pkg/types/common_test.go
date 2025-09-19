@@ -278,6 +278,7 @@ func TestIsWellFormedOverInputs(t *testing.T) {
 		expected bool
 	}{
 		{in: &ShellStep{}, expected: false},
+		{in: &ShellStep{ArchiveSubdir: "something"}, expected: true},
 		{in: &HelmStep{}, expected: true},
 		{in: &ARMStep{}, expected: true},
 		{in: &ARMStackStep{}, expected: true},
