@@ -34,6 +34,7 @@ resourceGroups:
     - configRef: maestro_image
       name: MAESTRO_IMAGE
   - action: Shell
+    archiveSubdir: something
     command: make deploy
     dryRun:
       variables:
