@@ -45,7 +45,7 @@ resourceGroups:
   - name: dry-run
     action: Shell
     command: make deploy
-    archiveSubdir: something
+    workingDir: something
     shellIdentity:
       configRef: aroDevopsMsiId
     dryRun:

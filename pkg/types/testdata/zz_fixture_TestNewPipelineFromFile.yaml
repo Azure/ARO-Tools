@@ -34,7 +34,6 @@ resourceGroups:
     - configRef: maestro_image
       name: MAESTRO_IMAGE
   - action: Shell
-    archiveSubdir: something
     command: make deploy
     dryRun:
       variables:
@@ -47,6 +46,7 @@ resourceGroups:
     name: dry-run
     shellIdentity:
       configRef: aroDevopsMsiId
+    workingDir: something
   - action: ARM
     deploymentLevel: ResourceGroup
     name: svc

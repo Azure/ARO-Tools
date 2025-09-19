@@ -362,7 +362,7 @@
         "subnetName": {
           "type": "string"
         },
-        "archiveSubdir": {
+        "workingDir": {
           "type": "string"
         },
         "shellIdentity": {
