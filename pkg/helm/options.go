@@ -257,7 +257,7 @@ func (opts *Options) Deploy(ctx context.Context) error {
 
 	if opts.DryRun {
 		if releaseErr != nil {
-			return fmt.Errorf("failed to create a dry-run Helm release: %w", err)
+			return fmt.Errorf("failed to create a dry-run Helm release: %w", releaseErr)
 		}
 		logger.Info("Validating Helm release contents for dry-run.")
 		if err := validateHelmResources(ctx, logger, opts, release); err != nil {
