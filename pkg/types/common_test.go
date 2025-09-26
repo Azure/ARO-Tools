@@ -263,6 +263,22 @@ func TestRequiredInputs(t *testing.T) {
 			name:  "pav2 empty",
 			input: &Pav2Step{},
 		},
+		{
+			name: "acr full",
+			input: &AcrLoginStep{
+				ACRName:       Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step"}}},
+				ACRUrl:        Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step2"}}},
+				ShellIdentity: Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step"}}},
+			},
+			expected: []StepDependency{
+				{ResourceGroup: "rg", Step: "step"},
+				{ResourceGroup: "rg", Step: "step2"},
+			},
+		},
+		{
+			name:  "acr empty",
+			input: &AcrLoginStep{},
+		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			if diff := cmp.Diff(testCase.expected, testCase.input.RequiredInputs()); diff != "" {

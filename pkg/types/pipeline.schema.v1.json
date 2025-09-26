@@ -1113,6 +1113,32 @@
           ]
         }
       ]
+    },
+    "acrLoginStep": {
+      "unevaluatedProperties": false,
+      "allOf": [
+        {
+          "$ref": "#/definitions/stepMeta"
+        },
+        {
+          "properties": {
+            "ACRName": {
+              "$ref": "#/definitions/value"
+            },
+            "ACRUrl": {
+              "$ref": "#/definitions/value"
+            },
+            "shellIdentity": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "ACRName",
+            "ACRUrl",
+            "shellIdentity"
+          ]
+        }
+      ]
     }
   },
   "properties": {

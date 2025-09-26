@@ -475,3 +475,28 @@ func (s *HelmStep) RequiredInputs() []StepDependency {
 	deps = slices.Compact(deps)
 	return deps
 }
+
+const StepAcrLogin = "AcrLogin"
+
+type AcrLoginStep struct {
+	StepMeta      `json:",inline"`
+	ACRName       Value `json:"secretName,omitempty"`
+	ACRUrl        Value `json:"acrUrl,omitempty"`
+	ShellIdentity Value `json:"shellIdentity"`
+}
+
+func (s *AcrLoginStep) Description() string {
+	return fmt.Sprintf("Step %s\n Kind: %s\n", s.Name, s.Action)
+}
+
+func (s *AcrLoginStep) RequiredInputs() []StepDependency {
+	var deps []StepDependency
+	for _, val := range []Value{s.ACRName, s.ACRUrl} {
+		if val.Input != nil {
+			deps = append(deps, val.Input.StepDependency)
+		}
+	}
+	slices.SortFunc(deps, SortDependencies)
+	deps = slices.Compact(deps)
+	return deps
+}

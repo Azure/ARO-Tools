@@ -324,7 +324,15 @@ resourceGroups:
       imageMetadataFileName:
         value: "image-metadata-file-name"
       shellIdentity:
-        value: shellIdentity        
+        value: shellIdentity
+    - name: acr
+      action: AcrLogin
+      acrName:
+        value: acrName
+      acrUrl:
+        value: acrUrl
+      shellIdentity:
+        configRef: aroDevopsMsiId  
     - name: pav2
       action: Pav2
       operation: All

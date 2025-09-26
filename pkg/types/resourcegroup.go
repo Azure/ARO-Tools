@@ -129,6 +129,8 @@ func (s *Steps) UnmarshalJSON(data []byte) error {
 			step = &KustoStep{}
 		case StepActionPav2:
 			step = &Pav2Step{}
+		case StepAcrLogin:
+			step = &AcrLoginStep{}
 		default:
 			step = &GenericStep{}
 		}

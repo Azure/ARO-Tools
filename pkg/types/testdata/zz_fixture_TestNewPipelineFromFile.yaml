@@ -337,6 +337,11 @@ resourceGroups:
     sourceRegistry: {}
     targetACR:
       value: targetACR
+  - acrUrl:
+      value: acrUrl
+    action: AcrLogin
+    name: acr
+    secretName: {}
   - action: Pav2
     name: pav2
     operation: All
