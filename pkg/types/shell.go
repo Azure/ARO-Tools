@@ -37,9 +37,9 @@ type ShellStep struct {
 	// not escape the root directory of the pipeline. `$PWD` for the shell commands will be this directory.
 	WorkingDir string `json:"workingDir,omitempty"`
 	// ShellIdentity is the ID of the managed identity with which the shell step will execute in an Ev2 context. Required.
-	ShellIdentity Value `json:"shellIdentity"`
-	ACRName       Value `json:"acrName,omitempty"`
-	ACRUrl        Value `json:"acrUrl,omitempty"`
+	ShellIdentity Value  `json:"shellIdentity"`
+	ACRName       string `json:"acrName,omitempty"`
+	ACRUrl        string `json:"acrUrl,omitempty"`
 }
 
 // Reference represents a configurable reference

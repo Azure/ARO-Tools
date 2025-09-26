@@ -369,10 +369,10 @@
           "$ref": "#/definitions/value"
         },
         "acrName": {
-          "$ref": "#/definitions/value"
+          "type": "string"
         },
         "acrUrl": {
-          "$ref": "#/definitions/value"
+          "type": "string"
         },
         "dryRun": {
           "type": "object",
