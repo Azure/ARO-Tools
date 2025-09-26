@@ -368,6 +368,12 @@
         "shellIdentity": {
           "$ref": "#/definitions/value"
         },
+        "acrName": {
+          "$ref": "#/definitions/value"
+        },
+        "acrUrl": {
+          "$ref": "#/definitions/value"
+        },
         "dryRun": {
           "type": "object",
           "additionalProperties": false,
