@@ -1,3 +1,5 @@
+acrName: {}
+acrUrl: {}
 action: Shell
 command: /bin/bash /path/to/script.sh
 dependsOn:
