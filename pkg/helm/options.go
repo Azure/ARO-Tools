@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/google/go-cmp/cmp"
 	"github.com/spf13/cobra"
 	"helm.sh/helm/v4/pkg/action"
 	chartv2 "helm.sh/helm/v4/pkg/chart/v2"
@@ -420,6 +421,13 @@ func validateHelmResources(ctx context.Context, logger logr.Logger, opts *Option
 		}); err != nil {
 			failed = true
 			objLogger.Error(err, "Failed to validate resource using server-side dry-run.")
+
+			current, err := opts.DynamicClient.Resource(mapping.Resource).Namespace(obj.GetNamespace()).Get(ctx, obj.GetName(), metav1.GetOptions{})
+			if err != nil {
+				objLogger.Error(err, "Failed to fetch current resource state for diffing.")
+			}
+			objLogger.Info("Printing diff between live object and intended manifest on disk.")
+			fmt.Println(cmp.Diff(current, obj))
 		} else {
 			objLogger.Info("Validated resource using server-side dry-run.")
 		}
