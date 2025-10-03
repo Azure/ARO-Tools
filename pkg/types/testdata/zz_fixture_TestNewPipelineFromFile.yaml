@@ -235,6 +235,9 @@ resourceGroups:
       value: sub
     typeName: {}
   - action: ImageMirror
+    adoProject: {}
+    artifactName: {}
+    buildId: {}
     digest:
       value: digest
     imageFilePath: {}
@@ -295,11 +298,14 @@ resourceGroups:
     keyVault: arohcpint-global
     name: sync-secrets
   - action: ImageMirror
+    adoProject: {}
+    artifactName: {}
     automatedRetry:
       durationBetweenRetries: 1h
       errorContainsAny:
       - Transient error
       maximumRetryCount: 8
+    buildId: {}
     digest:
       value: digest
     imageFilePath: {}
@@ -319,6 +325,9 @@ resourceGroups:
     targetACR:
       value: targetACR
   - action: ImageMirror
+    adoProject: {}
+    artifactName: {}
+    buildId: {}
     copyFrom: oci-layout
     digest: {}
     imageFilePath:

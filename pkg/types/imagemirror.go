@@ -42,6 +42,9 @@ type ImageMirrorStep struct {
 	PullSecretKeyVault    Value  `json:"pullSecretKeyVault,omitempty"`
 	PullSecretName        Value  `json:"pullSecretName,omitempty"`
 	ShellIdentity         Value  `json:"shellIdentity,omitempty"`
+	ADOProject            Value  `json:"adoProject,omitempty"`
+	ArtifactName          Value  `json:"artifactName,omitempty"`
+	BuildID               Value  `json:"buildId,omitempty"`
 }
 
 func (s *ImageMirrorStep) Description() string {

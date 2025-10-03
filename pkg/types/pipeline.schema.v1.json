@@ -976,6 +976,15 @@
             },
             "shellIdentity": {
               "$ref": "#/definitions/value"
+            },
+            "artifactName": {
+              "$ref": "#/definitions/value"
+            },
+            "buildId": {
+              "$ref": "#/definitions/value"
+            },
+            "adoProject": {
+              "$ref": "#/definitions/value"
             }
           },
           "anyOf": [
