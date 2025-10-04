@@ -38,6 +38,8 @@ type ShellStep struct {
 	WorkingDir string `json:"workingDir,omitempty"`
 	// ShellIdentity is the ID of the managed identity with which the shell step will execute in an Ev2 context. Required.
 	ShellIdentity Value `json:"shellIdentity"`
+	ACRName       Value `json:"acrName,omitempty"`
+	ACRUrl        Value `json:"acrUrl,omitempty"`
 }
 
 // Reference represents a configurable reference

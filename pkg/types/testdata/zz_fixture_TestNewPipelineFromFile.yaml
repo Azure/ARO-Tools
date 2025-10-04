@@ -22,7 +22,9 @@ resourceGroups:
   name: regional
   resourceGroup: hcp-underlay-uks
   steps:
-  - action: Shell
+  - acrName: {}
+    acrUrl: {}
+    action: Shell
     aksCluster: aro-hcp-aks
     command: make deploy
     dryRun: {}
@@ -33,7 +35,9 @@ resourceGroups:
     variables:
     - configRef: maestro_image
       name: MAESTRO_IMAGE
-  - action: Shell
+  - acrName: {}
+    acrUrl: {}
+    action: Shell
     command: make deploy
     dryRun:
       variables:
@@ -381,7 +385,9 @@ resourceGroups:
       configRef: svc.subscription.displayName
     roleAssignment: test.bicepparam
   validationSteps:
-  - action: Shell
+  - acrName: {}
+    acrUrl: {}
+    action: Shell
     command: make e2e
     dryRun:
       variables:
