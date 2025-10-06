@@ -260,6 +260,7 @@ resourceGroups:
   - action: ImageMirror
     adoProject: adoProject
     artifactName: artifactName
+    buildId: 12345
     digest:
       value: digest
     imageFilePath: {}
