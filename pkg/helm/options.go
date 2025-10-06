@@ -294,7 +294,7 @@ func applyNamespace(ctx context.Context, logger logr.Logger, client corev1client
 	if dryRun {
 		dryRunOpt = append(dryRunOpt, "All")
 	}
-	if _, err := client.Apply(ctx, cfg, metav1.ApplyOptions{FieldManager: "helm", DryRun: dryRunOpt}); err != nil {
+	if _, err := client.Apply(ctx, cfg, metav1.ApplyOptions{FieldManager: getManagedFieldsManager(), DryRun: dryRunOpt}); err != nil {
 		return fmt.Errorf("failed to apply namespace %s: %w", namespace.Name, err)
 	}
 	logger.WithValues("namespace", namespace.Name).Info("Namespace applied successfully.")
@@ -421,7 +421,7 @@ func validateHelmResources(ctx context.Context, logger logr.Logger, opts *Option
 		}
 
 		if _, err := opts.DynamicClient.Resource(mapping.Resource).Namespace(obj.GetNamespace()).Apply(ctx, obj.GetName(), obj, metav1.ApplyOptions{
-			FieldManager: "helm", DryRun: []string{"All"},
+			FieldManager: getManagedFieldsManager(), DryRun: []string{"All"},
 		}); err != nil {
 			failed = true
 			objLogger.Error(err, "Failed to validate resource using server-side dry-run.")
@@ -440,4 +440,18 @@ func validateHelmResources(ctx context.Context, logger logr.Logger, opts *Option
 		return errors.New("failed validating release manifests")
 	}
 	return nil
+}
+
+// getManagedFieldsManager follows the (bizarre) mechanism that Helm uses to figure out the field manager
+// see: https://github.com/helm/helm/blob/0adfe83ff8a46630164388c71620818e11253ece/pkg/kube/client.go#L838-L846
+func getManagedFieldsManager() string {
+	// When no calling application can be found it is unknown
+	if len(os.Args[0]) == 0 {
+		return "unknown"
+	}
+
+	// When there is an application that can be determined and no set manager
+	// use the base name. This is one of the ways Kubernetes libs handle figuring
+	// names out.
+	return filepath.Base(os.Args[0])
 }
