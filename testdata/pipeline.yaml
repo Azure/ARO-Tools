@@ -252,6 +252,25 @@ resourceGroups:
       value: pullSecretName
     shellIdentity:
       value: shellIdentity
+  - name: image-mirror-with-artifact
+    action: ImageMirror
+    targetACR:
+      value: targetACR
+    sourceRegistry:
+      value: sourceRegistry
+    repository:
+      value: repository
+    digest:
+      value: digest
+    pullSecretKeyVault:
+      value: pullSecretKeyVault
+    pullSecretName:
+      value: pullSecretName
+    shellIdentity:
+      value: shellIdentity
+    adoProject: adoProject
+    artifactName: artifactName
+    buildId: 0
 - name: global
   resourceGroup: '{{ .globalRG  }}'
   subscription: '{{ .managementClusterSubscription }}'
