@@ -324,6 +324,7 @@ func runHelmUpgrade(ctx context.Context, logger logr.Logger, opts *Options) (*he
 		installClient.Timeout = opts.Timeout
 		installClient.ServerSideApply = true
 		installClient.ForceConflicts = true
+		installClient.IncludeCRDs = true
 
 		if opts.DryRun {
 			installClient.DryRun = true
