@@ -10,6 +10,9 @@
         "name": {
           "$ref": "#/definitions/stepName"
         },
+        "externalDependsOn": {
+          "$ref": "#/definitions/externalStepDependencies"
+        },
         "dependsOn": {
           "$ref": "#/definitions/stepDependencies"
         },
@@ -76,6 +79,35 @@
       "type": "array",
       "items": {
         "$ref": "#/definitions/stepReference"
+      },
+      "minLength": 1
+    },
+    "externalStepReference": {
+      "type": "object",
+      "properties": {
+        "serviceGroup": {
+          "type": "string",
+          "minLength": 1
+        },
+        "resourceGroup": {
+          "type": "string",
+          "minLength": 1
+        },
+        "step": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "serviceGroup",
+        "resourceGroup",
+        "step"
+      ]
+    },
+    "externalStepDependencies": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/externalStepReference"
       },
       "minLength": 1
     },

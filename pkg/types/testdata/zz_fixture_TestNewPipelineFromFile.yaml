@@ -76,6 +76,10 @@ resourceGroups:
     dependsOn:
     - resourceGroup: regional
       step: deploy
+    externalDependsOn:
+    - resourceGroup: regional
+      serviceGroup: Microsoft.Azure.ARO.Classic.Whatever
+      step: deploy
     name: cxChildZone
     parentZone:
       configRef: parentZone

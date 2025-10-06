@@ -159,6 +159,7 @@ digraph regexp {
  "Sibling_service_output" -> "Sibling_management_mgmt-infra";
  "Sibling_service_output" -> "Sibling_management_mgmt-nsp";
  "Uncle_global_output" [label="Uncle/global/output"];
+ "Uncle_global_output" -> "Sibling_management_mgmt-nsp";
  "Uncle_global_output" -> "Uncle_global_rg-ownership";
  "Uncle_global_output" -> "Uncle_regional_delete-region";
  "Uncle_global_output" -> "Uncle_regional_rg-ownership";
