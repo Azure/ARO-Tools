@@ -170,6 +170,24 @@ services:
 			err: true,
 		},
 		{
+			name: "ARO.Classic service group component",
+			input: `services:
+- serviceGroup: Microsoft.Azure.ARO.Classic.Whatever
+  purpose: stuff
+  metadata:
+    pipeline: foo`,
+			err: false,
+		},
+		{
+			name: "ARO.ARMManifest service group component",
+			input: `services:
+- serviceGroup: Microsoft.Azure.ARO.ARMManifest.Whatever
+  purpose: stuff
+  metadata:
+    pipeline: foo`,
+			err: false,
+		},
+		{
 			name: "invalid service group component",
 			input: `services:
 - serviceGroup: Microsoft.Azure.ARO.Oops.Doops.Troops
