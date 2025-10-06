@@ -270,7 +270,7 @@ resourceGroups:
       value: shellIdentity
     adoProject: adoProject
     artifactName: artifactName
-    buildId: 0
+    buildId: 12345
 - name: global
   resourceGroup: '{{ .globalRG  }}'
   subscription: '{{ .managementClusterSubscription }}'
