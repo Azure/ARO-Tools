@@ -1010,13 +1010,13 @@
               "$ref": "#/definitions/value"
             },
             "artifactName": {
-              "$ref": "#/definitions/value"
+              "type": "string"
             },
             "buildId": {
-              "$ref": "#/definitions/value"
+              "type": "integer"
             },
             "adoProject": {
-              "$ref": "#/definitions/value"
+              "type": "string"
             }
           },
           "anyOf": [
