@@ -89,6 +89,10 @@ resourceGroups:
     dependsOn:
     - step: deploy
       resourceGroup: regional
+    externalDependsOn:
+      - step: deploy
+        resourceGroup: regional
+        serviceGroup: Microsoft.Azure.ARO.Classic.Whatever
   - name: issuerTest
     action: SetCertificateIssuer
     secretKeyVault:

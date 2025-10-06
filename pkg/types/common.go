@@ -35,6 +35,7 @@ type Step interface {
 	Description() string
 	Dependencies() []StepDependency
 	RequiredInputs() []StepDependency
+	ExternalDependencies() []ExternalStepDependency
 	AutomatedRetries() *AutomatedRetry
 }
 
@@ -45,10 +46,11 @@ type ValidationStep interface {
 
 // StepMeta contains metadata for a steps.
 type StepMeta struct {
-	Name           string           `json:"name"`
-	Action         string           `json:"action"`
-	AutomatedRetry *AutomatedRetry  `json:"automatedRetry,omitempty"`
-	DependsOn      []StepDependency `json:"dependsOn,omitempty"`
+	Name              string                   `json:"name"`
+	Action            string                   `json:"action"`
+	AutomatedRetry    *AutomatedRetry          `json:"automatedRetry,omitempty"`
+	DependsOn         []StepDependency         `json:"dependsOn,omitempty"`
+	ExternalDependsOn []ExternalStepDependency `json:"externalDependsOn,omitempty"`
 }
 
 // StepDependency describes a step that must run before the dependent step may begin.
@@ -57,6 +59,12 @@ type StepDependency struct {
 	ResourceGroup string `json:"resourceGroup"`
 	// Step is the name of the step being depended on.
 	Step string `json:"step"`
+}
+
+type ExternalStepDependency struct {
+	// ServiceGroup declares which service group the external dependency belongs to.
+	ServiceGroup   string `json:"serviceGroup"`
+	StepDependency `json:",inline"`
 }
 
 // AutomatedRetry configures automated retry for failed steps.
@@ -93,8 +101,17 @@ func (m *StepMeta) AutomatedRetries() *AutomatedRetry {
 	return m.AutomatedRetry
 }
 
+// Dependencies exposes the dependencies this step has on other steps for the same service group.
 func (m *StepMeta) Dependencies() []StepDependency {
 	return m.DependsOn
+}
+
+// ExternalDependencies exposes the dependencies this step has on steps in *other* service groups. When provided,
+// this will add to the default behavior of depending on "all" leaf outputs from the parent service group as
+// configured in the topology. Be careful when using this to encode intent directly. Depending on steps from many
+// service groups is supported. In single-service-group contexts, these dependencies are ignored.
+func (m *StepMeta) ExternalDependencies() []ExternalStepDependency {
+	return m.ExternalDependsOn
 }
 
 func (m *StepMeta) IsWellFormedOverInputs() bool {

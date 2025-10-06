@@ -183,6 +183,10 @@ resourceGroups:
             step: mgmt-cluster
           - resourceGroup: management
             step: mgmt-infra
+        externalDependsOn:
+          - serviceGroup: Microsoft.Azure.ARO.HCP.Uncle
+            resourceGroup: global
+            step: output
       - name: prometheus
         aksCluster: cluster-name
         action: Shell

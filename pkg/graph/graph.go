@@ -140,6 +140,14 @@ func ForEntrypoints(topo *topology.Topology, entrypoints []*topology.Entrypoint,
 		}
 	}
 
+	// External step dependencies break the nice separation between nodes of one pipeline and the rest of the graph,
+	// so the `nodesFor()` method can no longer generate bi-directional edges as it does not see other nodes to add
+	// child relations. Instead of trying to teach `nodesFor()` how to do half of these edges, we can just do a pass
+	// now will full context.
+	if err := graph.addExternalDependencyEdges(); err != nil {
+		return nil, err
+	}
+
 	return graph, graph.detectCycles()
 }
 
@@ -236,6 +244,52 @@ func (c *Graph) accumulate(service *topology.Service, pipelines map[string]*type
 		}
 	}
 
+	return nil
+}
+
+func (c *Graph) node(id Identifier) (int, error) {
+	for i, node := range c.Nodes {
+		if node.ServiceGroup == id.ServiceGroup && node.ResourceGroup == id.ResourceGroup && node.Step == id.Step {
+			return i, nil
+		}
+	}
+	return 0, fmt.Errorf("node %s not found", id)
+}
+
+func (c *Graph) addExternalDependencyEdges() error {
+	for i, node := range c.Nodes {
+		step, ok := c.Steps[node.ServiceGroup][node.ResourceGroup][node.Step]
+		if !ok {
+			return fmt.Errorf("step %s/%s/%s not found", node.ServiceGroup, node.ResourceGroup, node.Step)
+		}
+		external := step.ExternalDependencies()
+		if len(external) == 0 {
+			continue
+		}
+		for _, dep := range external {
+			parent := Identifier{
+				ServiceGroup: dep.ServiceGroup,
+				StepDependency: types.StepDependency{
+					ResourceGroup: dep.ResourceGroup,
+					Step:          dep.Step,
+				},
+			}
+			parentNodeIdx, err := c.node(parent)
+			if err != nil {
+				return err
+			}
+			parentNode := c.Nodes[parentNodeIdx]
+			parentNode.Children = append(parentNode.Children, node.Identifier)
+			slices.SortFunc(parentNode.Children, CompareDependencies)
+			parentNode.Children = slices.Compact(parentNode.Children)
+			c.Nodes[parentNodeIdx] = parentNode
+
+			node.Parents = append(node.Parents, parent)
+		}
+		slices.SortFunc(node.Children, CompareDependencies)
+		node.Children = slices.Compact(node.Children)
+		c.Nodes[i] = node
+	}
 	return nil
 }
 
