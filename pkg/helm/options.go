@@ -325,6 +325,7 @@ func runHelmUpgrade(ctx context.Context, logger logr.Logger, opts *Options) (*he
 		installClient.ServerSideApply = true
 		installClient.ForceConflicts = true
 		installClient.IncludeCRDs = true
+		installClient.TakeOwnership = true
 
 		if opts.DryRun {
 			installClient.DryRun = true
@@ -349,6 +350,7 @@ func runHelmUpgrade(ctx context.Context, logger logr.Logger, opts *Options) (*he
 	upgradeClient.Install = true
 	upgradeClient.ServerSideApply = "true"
 	upgradeClient.ForceConflicts = true
+	upgradeClient.TakeOwnership = true
 
 	if opts.DryRun {
 		upgradeClient.DryRun = true
