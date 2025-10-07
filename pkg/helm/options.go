@@ -349,6 +349,7 @@ func runHelmUpgrade(ctx context.Context, logger logr.Logger, opts *Options) (*he
 	upgradeClient.Timeout = opts.Timeout
 	upgradeClient.Install = true
 	upgradeClient.ServerSideApply = "true"
+	upgradeClient.SkipCRDs = true // to match previous (v3) behavior, we do not want to touch CRDs
 	upgradeClient.ForceConflicts = true
 	upgradeClient.TakeOwnership = true
 
