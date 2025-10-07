@@ -97,7 +97,7 @@ type InvalidServiceGroupError struct {
 }
 
 func (e *InvalidServiceGroupError) Error() string {
-	return fmt.Sprintf("invalid service group %s, must be of form Microsoft.Azure.ARO.{Classic|HCP|ARMManifest}.Component(.Subcomponent)?", e.ServiceGroup)
+	return fmt.Sprintf("invalid service group %s, must be of form Microsoft.Azure.ARO.Service.Component(.Subcomponent)?", e.ServiceGroup)
 }
 
 func (v *validator) walk(s Service) error {
@@ -110,7 +110,7 @@ func (v *validator) walk(s Service) error {
 		return &InvalidServiceGroupError{ServiceGroup: s.ServiceGroup}
 	}
 
-	if parts[3] != "Classic" && parts[3] != "HCP" && parts[3] != "ARMManifest" {
+	if parts[3] == "" {
 		return &InvalidServiceGroupError{ServiceGroup: s.ServiceGroup}
 	}
 

@@ -188,13 +188,13 @@ services:
 			err: false,
 		},
 		{
-			name: "invalid service group component",
+			name: "unknown service group component",
 			input: `services:
 - serviceGroup: Microsoft.Azure.ARO.Oops.Doops.Troops
   purpose: stuff
   metadata:
     pipeline: foo`,
-			err: true,
+			err: false,
 		},
 		{
 			name: "missing service group component",
