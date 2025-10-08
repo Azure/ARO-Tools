@@ -62,6 +62,7 @@ resourceGroups:
     actionOnUnmanage: delete
     deploymentLevel: ResourceGroup
     name: svc-stack
+    omitFromServiceGroupCompletion: true
     parameters: test.bicepparam
     template: templates/svc-cluster.bicep
     variables:

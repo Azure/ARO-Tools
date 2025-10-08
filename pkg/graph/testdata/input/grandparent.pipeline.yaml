@@ -61,6 +61,7 @@ resourceGroups:
       - name: grafana-dashboards
         action: Shell
         command: cd ../observability/grafana && ./deploy.sh
+        omitFromServiceGroupCompletion: true
         dependsOn:
           - resourceGroup: global
             step: housekeeping

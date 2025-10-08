@@ -200,7 +200,21 @@ func (c *Graph) accumulate(service *topology.Service, pipelines map[string]*type
 	var leaves []Identifier
 	for _, node := range c.Nodes {
 		if len(node.Children) == 0 {
-			leaves = append(leaves, node.Identifier)
+			sg, ok := c.Steps[node.ServiceGroup]
+			if !ok {
+				return fmt.Errorf("service group %s missing from steps", node.ServiceGroup)
+			}
+			rg, ok := sg[node.ResourceGroup]
+			if !ok {
+				return fmt.Errorf("resource group %s missing from steps", node.ResourceGroup)
+			}
+			step, ok := rg[node.Step]
+			if !ok {
+				return fmt.Errorf("resource group %s missing from steps", node.ResourceGroup)
+			}
+			if step.ConsideredForServiceGroupCompletion() {
+				leaves = append(leaves, node.Identifier)
+			}
 		}
 	}
 

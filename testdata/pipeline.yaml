@@ -80,6 +80,7 @@ resourceGroups:
           name: whatever
     actionOnUnmanage: delete
     bypassStackOutOfSyncError: false
+    omitFromServiceGroupCompletion: true
   - name: cxChildZone
     action: DelegateChildZone
     parentZone:
