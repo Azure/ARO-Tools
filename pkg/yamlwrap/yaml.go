@@ -108,12 +108,12 @@ func WrapYAML(data []byte, validateResult bool) ([]byte, error) {
 
 		// Only process if value has template and is not quoted
 		if valueContent != "" && templatePattern.MatchString(valueContent) && !isQuoted(valueContent) {
-			wrappedValue := fmt.Sprintf("%q", valueContent)
+			wrappedValue := fmt.Sprintf("%q", fmt.Sprintf("%s%s", WrapperMarker, valueContent))
 
 			if comment != "" {
-				lines[i] = fmt.Sprintf("%s%s %s %s", prefix, wrappedValue, comment, WrapperMarker)
+				lines[i] = fmt.Sprintf("%s%s %s", prefix, wrappedValue, comment)
 			} else {
-				lines[i] = fmt.Sprintf("%s%s # %s", prefix, wrappedValue, WrapperMarker)
+				lines[i] = fmt.Sprintf("%s%s", prefix, wrappedValue)
 			}
 		}
 	}
@@ -150,7 +150,7 @@ func UnwrapYAML(data []byte) ([]byte, error) {
 		value := match[2]
 
 		// Remove wrapper marker
-		value = strings.Replace(value, " "+WrapperMarker, "", 1)
+		value = strings.Replace(value, WrapperMarker, "", 1)
 
 		// Split value and comment
 		commentIdx := strings.Index(value, "#")
@@ -175,7 +175,7 @@ func UnwrapYAML(data []byte) ([]byte, error) {
 		}
 
 		// Reconstruct line
-		if comment != "" && strings.TrimSpace(comment) != "#" {
+		if comment != "" {
 			lines[i] = fmt.Sprintf("%s%s %s", prefix, valueContent, comment)
 		} else {
 			lines[i] = fmt.Sprintf("%s%s", prefix, valueContent)

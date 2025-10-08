@@ -42,50 +42,50 @@ boolComment: true # comment
 array:
 - item1
 - item2
-- "item-with-tmpl-{{ .value }}" # __WRAPPED_TEMPLATE__
-- item-with-colon-and-template:"{{ .Values.metricsPort }}" # __WRAPPED_TEMPLATE__
+- "__WRAPPED_TEMPLATE__item-with-tmpl-{{ .value }}"
+- item-with-colon-and-template:"__WRAPPED_TEMPLATE__{{ .Values.metricsPort }}"
 
 objectArray:
-- port: "{{ .name }}-http" # __WRAPPED_TEMPLATE__
-  targetPort: "{{ .port }}" # __WRAPPED_TEMPLATE__
+- port: "__WRAPPED_TEMPLATE__{{ .name }}-http"
+  targetPort: "__WRAPPED_TEMPLATE__{{ .port }}"
 
 # templates
-unquotedTemplate: "{{ .value }}" # __WRAPPED_TEMPLATE__
-unquotedTemplateWithComment: "{{ .value }}" # comment __WRAPPED_TEMPLATE__
+unquotedTemplate: "__WRAPPED_TEMPLATE__{{ .value }}"
+unquotedTemplateWithComment: "__WRAPPED_TEMPLATE__{{ .value }}" # comment
 quotedTemplate: "{{ .value }}"
 quotedTemplateWithComment: "{{ .value }}" # comment
-quotedTemplateWithQuotes: "{{  .value | default \"default\" }}" # __WRAPPED_TEMPLATE__
+quotedTemplateWithQuotes: "__WRAPPED_TEMPLATE__{{  .value | default \"default\" }}"
 
-unquotedTemplatePrefix: "prefix-{{ .value }}" # __WRAPPED_TEMPLATE__
-unquotedTemplatePrefixWithComment: "prefix-{{ .value }}" # comment __WRAPPED_TEMPLATE__
+unquotedTemplatePrefix: "__WRAPPED_TEMPLATE__prefix-{{ .value }}"
+unquotedTemplatePrefixWithComment: "__WRAPPED_TEMPLATE__prefix-{{ .value }}" # comment
 quotedTemplatePrefix: "prefix-{{ .value }}"
 quotedTemplatePrefixWithComment: "prefix-{{ .value }}" # comment
 
-unquotedTemplateSuffix: "{{ .value }}-suffix" # __WRAPPED_TEMPLATE__
-unquotedTemplateSuffixWithComment: "{{ .value }}-suffix" # comment __WRAPPED_TEMPLATE__
+unquotedTemplateSuffix: "__WRAPPED_TEMPLATE__{{ .value }}-suffix"
+unquotedTemplateSuffixWithComment: "__WRAPPED_TEMPLATE__{{ .value }}-suffix" # comment
 quotedTemplateSuffix: "{{ .value }}-suffix"
 quotedTemplateSuffixWithComment: "{{ .value }}-suffix" # comment
 
-unquotedTemplateInfix: "prefix-{{ .value }}-suffix" # __WRAPPED_TEMPLATE__
-unquotedTemplateInfixWithComment: "prefix-{{ .value }}-suffix" # comment __WRAPPED_TEMPLATE__
+unquotedTemplateInfix: "__WRAPPED_TEMPLATE__prefix-{{ .value }}-suffix"
+unquotedTemplateInfixWithComment: "__WRAPPED_TEMPLATE__prefix-{{ .value }}-suffix" # comment
 quotedTemplateInfix: "prefix-{{ .value }}-suffix"
 quotedTemplateInfixWithComment: "prefix-{{ .value }}-suffix" # comment
-unquotedTemplateWithColon: "prefix:{{ .value }}" # __WRAPPED_TEMPLATE__
+unquotedTemplateWithColon: "__WRAPPED_TEMPLATE__prefix:{{ .value }}"
 
 # array templates
 arrayWithTemplates:
-- "{{ .value }}" # __WRAPPED_TEMPLATE__
+- "__WRAPPED_TEMPLATE__{{ .value }}"
 - regular_value
 - "{{ .value }}"
-- item-with-colon-and-template:"{{ .value }}" # __WRAPPED_TEMPLATE__
+- item-with-colon-and-template:"__WRAPPED_TEMPLATE__{{ .value }}"
 
 # indented array
 indentedArray:
   - item1
-  - "{{ .value }}" # __WRAPPED_TEMPLATE__
+  - "__WRAPPED_TEMPLATE__{{ .value }}"
   - regular_value
   - "{{ .value }}"
-  - item-with-colon-and-template:"{{ .value }}" # __WRAPPED_TEMPLATE__
+  - item-with-colon-and-template:"__WRAPPED_TEMPLATE__{{ .value }}"
 
 # nested
 nested:
@@ -108,42 +108,42 @@ nested:
   array:
   - item1
   - item2
-  - "item-with-tmpl-{{ .value }}" # __WRAPPED_TEMPLATE__
-  - item-with-colon-and-template:"{{ .Values.metricsPort }}" # __WRAPPED_TEMPLATE__
+  - "__WRAPPED_TEMPLATE__item-with-tmpl-{{ .value }}"
+  - item-with-colon-and-template:"__WRAPPED_TEMPLATE__{{ .Values.metricsPort }}"
 
   # templates
-  unquotedTemplate: "{{ .value }}" # __WRAPPED_TEMPLATE__
-  unquotedTemplateWithComment: "{{ .value }}" # comment __WRAPPED_TEMPLATE__
+  unquotedTemplate: "__WRAPPED_TEMPLATE__{{ .value }}"
+  unquotedTemplateWithComment: "__WRAPPED_TEMPLATE__{{ .value }}" # comment
   quotedTemplate: "{{ .value }}"
   quotedTemplateWithComment: "{{ .value }}" # comment
 
-  unquotedTemplatePrefix: "prefix-{{ .value }}" # __WRAPPED_TEMPLATE__
-  unquotedTemplatePrefixWithComment: "prefix-{{ .value }}" # comment __WRAPPED_TEMPLATE__
+  unquotedTemplatePrefix: "__WRAPPED_TEMPLATE__prefix-{{ .value }}"
+  unquotedTemplatePrefixWithComment: "__WRAPPED_TEMPLATE__prefix-{{ .value }}" # comment
   quotedTemplatePrefix: "prefix-{{ .value }}"
   quotedTemplatePrefixWithComment: "prefix-{{ .value }}" # comment
 
-  unquotedTemplateSuffix: "{{ .value }}-suffix" # __WRAPPED_TEMPLATE__
-  unquotedTemplateSuffixWithComment: "{{ .value }}-suffix" # comment __WRAPPED_TEMPLATE__
+  unquotedTemplateSuffix: "__WRAPPED_TEMPLATE__{{ .value }}-suffix"
+  unquotedTemplateSuffixWithComment: "__WRAPPED_TEMPLATE__{{ .value }}-suffix" # comment
   quotedTemplateSuffix: "{{ .value }}-suffix"
   quotedTemplateSuffixWithComment: "{{ .value }}-suffix" # comment
 
-  unquotedTemplateInfix: "prefix-{{ .value }}-suffix" # __WRAPPED_TEMPLATE__
-  unquotedTemplateInfixWithComment: "prefix-{{ .value }}-suffix" # comment __WRAPPED_TEMPLATE__
+  unquotedTemplateInfix: "__WRAPPED_TEMPLATE__prefix-{{ .value }}-suffix"
+  unquotedTemplateInfixWithComment: "__WRAPPED_TEMPLATE__prefix-{{ .value }}-suffix" # comment
   quotedTemplateInfix: "prefix-{{ .value }}-suffix"
   quotedTemplateInfixWithComment: "prefix-{{ .value }}-suffix" # comment
-  unquotedTemplateWithColon: "prefix:{{ .value }}" # __WRAPPED_TEMPLATE__
+  unquotedTemplateWithColon: "__WRAPPED_TEMPLATE__prefix:{{ .value }}"
 
   # array templates
   arrayWithTemplates:
-  - "{{ .value }}" # __WRAPPED_TEMPLATE__
+  - "__WRAPPED_TEMPLATE__{{ .value }}"
   - regular_value
   - "{{ .value }}"
-  - item-with-colon-and-template:"{{ .value }}" # __WRAPPED_TEMPLATE__
+  - item-with-colon-and-template:"__WRAPPED_TEMPLATE__{{ .value }}"
 
   # indented array
   indentedArray:
     - item1
-    - "{{ .value }}" # __WRAPPED_TEMPLATE__
+    - "__WRAPPED_TEMPLATE__{{ .value }}"
     - regular_value
     - "{{ .value }}"
-    - item-with-colon-and-template:"{{ .value }}" # __WRAPPED_TEMPLATE__
+    - item-with-colon-and-template:"__WRAPPED_TEMPLATE__{{ .value }}"
