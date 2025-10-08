@@ -199,20 +199,26 @@ func (c *Graph) accumulate(service *topology.Service, pipelines map[string]*type
 
 	var leaves []Identifier
 	for _, node := range c.Nodes {
+		_, _, step, err := c.lookup(node.Identifier)
+		if err != nil {
+			return fmt.Errorf("failed to lookup node: %v", err)
+		}
 		if len(node.Children) == 0 {
-			sg, ok := c.Steps[node.ServiceGroup]
-			if !ok {
-				return fmt.Errorf("service group %s missing from steps", node.ServiceGroup)
-			}
-			rg, ok := sg[node.ResourceGroup]
-			if !ok {
-				return fmt.Errorf("resource group %s missing from steps", node.ResourceGroup)
-			}
-			step, ok := rg[node.Step]
-			if !ok {
-				return fmt.Errorf("resource group %s missing from steps", node.ResourceGroup)
-			}
 			if step.ConsideredForServiceGroupCompletion() {
+				leaves = append(leaves, node.Identifier)
+			}
+		} else if step.ConsideredForServiceGroupCompletion() {
+			ignoredLeaves := 0
+			for _, child := range node.Children {
+				_, _, childStep, err := c.lookup(child)
+				if err != nil {
+					return fmt.Errorf("failed to lookup node: %v", err)
+				}
+				if !childStep.ConsideredForServiceGroupCompletion() {
+					ignoredLeaves++
+				}
+			}
+			if ignoredLeaves == len(node.Children) {
 				leaves = append(leaves, node.Identifier)
 			}
 		}
@@ -259,6 +265,22 @@ func (c *Graph) accumulate(service *topology.Service, pipelines map[string]*type
 	}
 
 	return nil
+}
+
+func (c *Graph) lookup(node Identifier) (*topology.Service, *types.ResourceGroupMeta, types.Step, error) {
+	svc, exists := c.Services[node.ServiceGroup]
+	if !exists {
+		return nil, nil, nil, fmt.Errorf("service %s does not exist", node.ServiceGroup)
+	}
+	resourceGroup, exists := c.ResourceGroups[node.ResourceGroup]
+	if !exists {
+		return nil, nil, nil, fmt.Errorf("resource group %s does not exist", node.ResourceGroup)
+	}
+	step, exists := c.Steps[node.ServiceGroup][node.ResourceGroup][node.Step]
+	if !exists {
+		return nil, nil, nil, fmt.Errorf("step %s/%s/%s does not exist", node.ServiceGroup, node.ResourceGroup, node.Step)
+	}
+	return svc, resourceGroup, step, nil
 }
 
 func (c *Graph) node(id Identifier) (int, error) {
