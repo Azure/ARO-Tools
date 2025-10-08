@@ -23,13 +23,6 @@ digraph regexp {
  "Grandparent_global_decrypt-and-ingest-secrets" [label="Grandparent/global/decrypt-and-ingest-secrets"];
  "Grandparent_global_decrypt-and-ingest-secrets" -> "Grandparent_global_mirror-oc-mirror-image";
  "Grandparent_global_grafana-dashboards" [label="Grandparent/global/grafana-dashboards"];
- "Grandparent_global_grafana-dashboards" -> "Child_global_output";
- "Grandparent_global_grafana-dashboards" -> "Child_regional_output";
- "Grandparent_global_grafana-dashboards" -> "Sibling_global_output";
- "Grandparent_global_grafana-dashboards" -> "Sibling_regional_output";
- "Grandparent_global_grafana-dashboards" -> "Sibling_service_output";
- "Grandparent_global_grafana-dashboards" -> "Parent_global_output";
- "Grandparent_global_grafana-dashboards" -> "Uncle_global_output";
  "Grandparent_global_housekeeping" [label="Grandparent/global/housekeeping"];
  "Grandparent_global_housekeeping" -> "Grandparent_global_grafana-dashboards";
  "Grandparent_global_imagemirror" [label="Grandparent/global/imagemirror"];

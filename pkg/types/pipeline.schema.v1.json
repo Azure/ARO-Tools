@@ -16,6 +16,9 @@
         "dependsOn": {
           "$ref": "#/definitions/stepDependencies"
         },
+        "omitFromServiceGroupCompletion": {
+          "type": "boolean"
+        },
         "automatedRetry": {
           "type": "object",
           "properties": {

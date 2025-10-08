@@ -37,6 +37,7 @@ type Step interface {
 	RequiredInputs() []StepDependency
 	ExternalDependencies() []ExternalStepDependency
 	AutomatedRetries() *AutomatedRetry
+	ConsideredForServiceGroupCompletion() bool
 }
 
 type ValidationStep interface {
@@ -51,6 +52,12 @@ type StepMeta struct {
 	AutomatedRetry    *AutomatedRetry          `json:"automatedRetry,omitempty"`
 	DependsOn         []StepDependency         `json:"dependsOn,omitempty"`
 	ExternalDependsOn []ExternalStepDependency `json:"externalDependsOn,omitempty"`
+
+	// OmitFromServiceGroupCompletion influences how this step is treated in execution graphs containing multiple
+	// service groups - by default, *all* leaf nodes of a service group must finish before *any* root nodes of
+	// dependent service groups begin. Setting this flag will omit this particular step from that set of leaf nodes
+	// that block execution of dependent steps.
+	OmitFromServiceGroupCompletion bool `json:"omitFromServiceGroupCompletion,omitempty"`
 }
 
 // StepDependency describes a step that must run before the dependent step may begin.
@@ -116,6 +123,10 @@ func (m *StepMeta) ExternalDependencies() []ExternalStepDependency {
 
 func (m *StepMeta) IsWellFormedOverInputs() bool {
 	return true
+}
+
+func (m *StepMeta) ConsideredForServiceGroupCompletion() bool {
+	return !m.OmitFromServiceGroupCompletion
 }
 
 type GenericStep struct {
