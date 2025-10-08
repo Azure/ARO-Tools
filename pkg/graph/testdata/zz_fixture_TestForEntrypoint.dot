@@ -25,6 +25,13 @@ digraph regexp {
  "Grandparent_global_grafana-dashboards" [label="Grandparent/global/grafana-dashboards"];
  "Grandparent_global_housekeeping" [label="Grandparent/global/housekeeping"];
  "Grandparent_global_housekeeping" -> "Grandparent_global_grafana-dashboards";
+ "Grandparent_global_housekeeping" -> "Child_global_output";
+ "Grandparent_global_housekeeping" -> "Child_regional_output";
+ "Grandparent_global_housekeeping" -> "Sibling_global_output";
+ "Grandparent_global_housekeeping" -> "Sibling_regional_output";
+ "Grandparent_global_housekeeping" -> "Sibling_service_output";
+ "Grandparent_global_housekeeping" -> "Parent_global_output";
+ "Grandparent_global_housekeeping" -> "Uncle_global_output";
  "Grandparent_global_imagemirror" [label="Grandparent/global/imagemirror"];
  "Grandparent_global_imagemirror" -> "Child_global_output";
  "Grandparent_global_imagemirror" -> "Child_regional_output";
