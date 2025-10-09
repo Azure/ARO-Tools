@@ -64,8 +64,12 @@ func (s *ImageMirrorStep) RequiredInputs() []StepDependency {
 }
 
 func (s *ImageMirrorStep) IsWellFormedOverInputs() bool {
-	// when we're coping from a local set of files, the inputs are not captured and we are not well-formed
-	return s.CopyFrom != "oci-layout"
+	if s.CopyFrom != "oci-layout" {
+		return true
+	}
+
+	// If build info is defined, future runs with the same args are no-ops
+	return s.ADOProject != "" && s.ArtifactName != "" && s.BuildID != 0
 }
 
 // ResolveImageMirrorStep resolves an image mirror step to a shell step. It's up to the user to write the contents of
