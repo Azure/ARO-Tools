@@ -186,6 +186,222 @@ func TestMergeConfiguration(t *testing.T) {
 
 }
 
+func TestTruncateConfiguration(t *testing.T) {
+	testCases := []struct {
+		name        string
+		config      types.Configuration
+		paths       []string
+		expected    map[string]any
+		expectError bool
+		errorMsg    string
+	}{
+		// Error cases
+		{
+			name:        "nil config",
+			config:      nil,
+			paths:       []string{"key1"},
+			expected:    nil,
+			expectError: true,
+			errorMsg:    "config cannot be nil",
+		},
+		{
+			name:        "empty paths",
+			config:      types.Configuration{"key1": "value1"},
+			paths:       []string{},
+			expected:    nil,
+			expectError: true,
+			errorMsg:    "no paths provided for truncation",
+		},
+		{
+			name:        "invalid path - empty string",
+			config:      types.Configuration{"key1": "value1"},
+			paths:       []string{""},
+			expected:    nil,
+			expectError: true,
+			errorMsg:    "invalid truncate path",
+		},
+		{
+			name:        "invalid path - starts with dot",
+			config:      types.Configuration{"key1": "value1"},
+			paths:       []string{".key1"},
+			expected:    nil,
+			expectError: true,
+			errorMsg:    "invalid truncate path",
+		},
+		{
+			name:        "invalid path - ends with dot",
+			config:      types.Configuration{"key1": "value1"},
+			paths:       []string{"key1."},
+			expected:    nil,
+			expectError: true,
+			errorMsg:    "invalid truncate path",
+		},
+		{
+			name:        "invalid path - consecutive dots",
+			config:      types.Configuration{"key1": "value1"},
+			paths:       []string{"key1..key2"},
+			expected:    nil,
+			expectError: true,
+			errorMsg:    "invalid truncate path",
+		},
+		{
+			name:        "invalid path - just a dot",
+			config:      types.Configuration{"key1": "value1"},
+			paths:       []string{"."},
+			expected:    nil,
+			expectError: true,
+			errorMsg:    "invalid truncate path",
+		},
+		// Valid cases
+		{
+			name:        "empty config with valid paths",
+			config:      types.Configuration{},
+			paths:       []string{"nonexistent"},
+			expected:    map[string]any{},
+			expectError: false,
+		},
+		{
+			name:   "truncate single top-level key",
+			config: types.Configuration{"key1": "value1", "key2": "value2"},
+			paths:  []string{"key1"},
+			expected: map[string]any{
+				"key2": "value2",
+			},
+			expectError: false,
+		},
+		{
+			name: "truncate nested key",
+			config: types.Configuration{
+				"database": map[string]any{
+					"host":     "localhost",
+					"port":     5432,
+					"password": "secret",
+				},
+				"api": map[string]any{
+					"timeout": 30,
+				},
+			},
+			paths: []string{"database.password"},
+			expected: map[string]any{
+				"database": map[string]any{
+					"host": "localhost",
+					"port": 5432,
+				},
+				"api": map[string]any{
+					"timeout": 30,
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "truncate multiple paths",
+			config: types.Configuration{
+				"database": map[string]any{
+					"host":     "localhost",
+					"port":     5432,
+					"password": "secret",
+					"username": "admin",
+				},
+				"api": map[string]any{
+					"timeout": 30,
+					"secret":  "api-secret",
+				},
+			},
+			paths: []string{"database.password", "database.username", "api.secret"},
+			expected: map[string]any{
+				"database": map[string]any{
+					"host": "localhost",
+					"port": 5432,
+				},
+				"api": map[string]any{
+					"timeout": 30,
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "truncate entire nested object",
+			config: types.Configuration{
+				"database": map[string]any{
+					"credentials": map[string]any{
+						"username": "admin",
+						"password": "secret",
+					},
+					"host": "localhost",
+				},
+				"api": "config",
+			},
+			paths: []string{"database.credentials"},
+			expected: map[string]any{
+				"database": map[string]any{
+					"host": "localhost",
+				},
+				"api": "config",
+			},
+			expectError: false,
+		},
+		{
+			name: "truncate nonexistent path",
+			config: types.Configuration{
+				"key1": "value1",
+				"key2": map[string]any{
+					"nested": "value",
+				},
+			},
+			paths: []string{"nonexistent", "key2.nonexistent"},
+			expected: map[string]any{
+				"key1": "value1",
+				"key2": map[string]any{
+					"nested": "value",
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "deep nesting truncation",
+			config: types.Configuration{
+				"level1": map[string]any{
+					"level2": map[string]any{
+						"level3": map[string]any{
+							"keep":   "this",
+							"remove": "this",
+						},
+						"keep": "this too",
+					},
+				},
+			},
+			paths: []string{"level1.level2.level3.remove"},
+			expected: map[string]any{
+				"level1": map[string]any{
+					"level2": map[string]any{
+						"level3": map[string]any{
+							"keep": "this",
+						},
+						"keep": "this too",
+					},
+				},
+			},
+			expectError: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			output, err := types.TruncateConfiguration(tc.config, tc.paths...)
+			if tc.expectError {
+				require.Error(t, err)
+				if tc.errorMsg != "" {
+					require.Contains(t, err.Error(), tc.errorMsg)
+				}
+				require.Nil(t, output)
+			} else {
+				require.NoError(t, err)
+				require.Empty(t, cmp.Diff(tc.expected, output))
+			}
+		})
+	}
+}
+
 func TestPreprocessContent(t *testing.T) {
 	fileContent, err := os.ReadFile("../../testdata/test.bicepparam")
 	require.Nil(t, err)
