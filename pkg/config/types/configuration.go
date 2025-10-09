@@ -2,7 +2,10 @@ package types
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
+
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 // Configuration is the top-level container for all values for all services. See an example at: https://github.com/Azure/ARO-HCP/blob/main/config/config.yaml
@@ -60,6 +63,71 @@ func MergeConfiguration(base, override Configuration) map[string]any {
 			}
 		}
 		output[k] = newValue
+	}
+
+	return output
+}
+
+// TruncateConfiguration returns a new configuration with specified paths excluded from the base configuration.
+// Paths use dot notation (e.g., "database.host", "api.endpoints.users").
+// Returns an error if config is nil, no paths are provided, or if any path is invalid.
+func TruncateConfiguration(config Configuration, paths ...string) (map[string]any, error) {
+	if config == nil {
+		return nil, fmt.Errorf("config cannot be nil")
+	}
+	if len(paths) == 0 {
+		return nil, fmt.Errorf("no paths provided for truncation")
+	}
+
+	// Validate paths
+	for _, path := range paths {
+		if err := validateTruncatePath(path); err != nil {
+			return nil, fmt.Errorf("invalid truncate path %q: %w", path, err)
+		}
+	}
+
+	result := truncateConfigurationRecursive(map[string]any(config), sets.New(paths...), "")
+	return result, nil
+}
+
+// validPathRegex matches valid dot notation paths (one or more segments separated by dots)
+var validPathRegex = regexp.MustCompile(`^[^.]+(\.[^.]+)*$`)
+
+// validateTruncatePath validates that a path is in proper dot notation format
+func validateTruncatePath(path string) error {
+	if !validPathRegex.MatchString(path) {
+		return fmt.Errorf("path must be in dot notation format (e.g., 'key' or 'parent.child')")
+	}
+	return nil
+}
+
+// truncateConfigurationRecursive recursively copies the configuration while excluding specified paths
+func truncateConfigurationRecursive(current map[string]any, truncatePaths sets.Set[string], currentPath string) map[string]any {
+	if current == nil {
+		return nil
+	}
+
+	output := make(map[string]any)
+
+	for key, value := range current {
+		var fullPath string
+		if currentPath == "" {
+			fullPath = key
+		} else {
+			fullPath = currentPath + "." + key
+		}
+
+		if truncatePaths.Has(fullPath) {
+			continue
+		}
+
+		if nestedMap, ok := value.(map[string]any); ok {
+			result := truncateConfigurationRecursive(nestedMap, truncatePaths, fullPath)
+			output[key] = result
+		} else {
+			// Not a nested map, copy the value as-is
+			output[key] = value
+		}
 	}
 
 	return output
