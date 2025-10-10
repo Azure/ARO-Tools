@@ -69,6 +69,10 @@ defaults:
     storageSuffix: aro-int
   ubiquitousValue: global-value
   partialValue: global-value
+  imageMirror:
+    adoProject: adoProject
+    artifactName: artifactName
+    buildId: 12345
 clouds:
   ff:
     defaults: {}
