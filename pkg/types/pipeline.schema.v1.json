@@ -1016,7 +1016,8 @@
               "type": "string"
             },
             "buildId": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^[0-9]*$"
             },
             "adoProject": {
               "type": "string"
