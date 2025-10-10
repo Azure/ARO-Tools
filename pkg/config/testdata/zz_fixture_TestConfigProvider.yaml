@@ -35,6 +35,10 @@ global:
   keyVault:
     name: arohcpint-global
 globalRG: global
+imageMirror:
+  adoProject: adoProject
+  artifactName: artifactName
+  buildId: 12345
 imageSyncRG: hcp-underlay-uks-imagesync
 kusto:
   cluster: aroINT
