@@ -1016,7 +1016,7 @@
               "type": "string"
             },
             "buildId": {
-              "type": "integer"
+              "type": "string"
             },
             "adoProject": {
               "type": "string"
