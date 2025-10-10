@@ -44,7 +44,7 @@ type ImageMirrorStep struct {
 	ShellIdentity         Value  `json:"shellIdentity,omitempty"`
 	ADOProject            string `json:"adoProject,omitempty"`
 	ArtifactName          string `json:"artifactName,omitempty"`
-	BuildID               int    `json:"buildId,omitempty"`
+	BuildID               string `json:"buildId,omitempty"`
 }
 
 func (s *ImageMirrorStep) Description() string {
@@ -69,7 +69,7 @@ func (s *ImageMirrorStep) IsWellFormedOverInputs() bool {
 	}
 
 	// If build info is defined, future runs with the same args are no-ops
-	return s.ADOProject != "" && s.ArtifactName != "" && s.BuildID != 0
+	return s.ADOProject != "" && s.ArtifactName != "" && s.BuildID != ""
 }
 
 // ResolveImageMirrorStep resolves an image mirror step to a shell step. It's up to the user to write the contents of

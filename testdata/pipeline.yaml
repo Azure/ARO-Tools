@@ -273,9 +273,9 @@ resourceGroups:
       value: pullSecretName
     shellIdentity:
       value: shellIdentity
-    adoProject: adoProject
-    artifactName: artifactName
-    buildId: 12345
+    adoProject: '{{ .imageMirror.adoProject }}'
+    artifactName: '{{ .imageMirror.artifactName }}'
+    buildId: '{{ .imageMirror.buildId }}'
 - name: global
   resourceGroup: '{{ .globalRG  }}'
   subscription: '{{ .managementClusterSubscription }}'
