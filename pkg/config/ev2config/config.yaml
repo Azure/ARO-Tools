@@ -1,6 +1,8 @@
 clouds:
   ff:
     defaults:
+      azureContainerRegistry:
+        domainNameSuffix: azurecr.us
       cloudName: Fairfax
       keyVault:
         domainNameSuffix: vault.usgovcloudapi.net
@@ -43,6 +45,8 @@ clouds:
         regionShortName: cy
   public:
     defaults:
+      azureContainerRegistry:
+        domainNameSuffix: azurecr.io
       cloudName: Public
       keyVault:
         domainNameSuffix: vault.azure.net
@@ -64,7 +68,7 @@ clouds:
         regionFriendlyName: Australia East
         regionShortName: sy
       australiasoutheast:
-        availabilityZoneCount: 2
+        availabilityZoneCount: 3
         regionFriendlyName: Australia Southeast
         regionShortName: ml
       austriaeast:
@@ -159,6 +163,10 @@ clouds:
         availabilityZoneCount: 3
         regionFriendlyName: Germany West Central
         regionShortName: dewc
+      indiasouthcentral:
+        availabilityZoneCount: 3
+        regionFriendlyName: India South Central
+        regionShortName: insc
       indonesiacentral:
         availabilityZoneCount: 3
         regionFriendlyName: Indonesia Central
@@ -224,7 +232,7 @@ clouds:
         regionFriendlyName: North Central US
         regionShortName: ch
       northeastus5:
-        availabilityZoneCount: 0
+        availabilityZoneCount: 1
         regionFriendlyName: Northeast US 5
         regionShortName: usne5
       northeurope:
