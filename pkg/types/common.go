@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"slices"
 	"strings"
-	"time"
 )
 
 // WellFormedChecker allows introspection of how well-formed this step is over inputs.
@@ -491,7 +490,7 @@ type HelmStep struct {
 	IdentityFrom Input `json:"identityFrom,omitempty"`
 
 	// Timeout is the amount of time to wait for the Helm release to be deployed.
-	Timeout time.Duration `json:"timeout,omitempty"`
+	Timeout string `json:"timeout,omitempty"`
 }
 
 func (s *HelmStep) Description() string {
