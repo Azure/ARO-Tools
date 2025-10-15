@@ -370,6 +370,7 @@ resourceGroups:
       aksCluster: whatever
       releaseName: workload
       releaseNamespace: kube-system
+      timeout: 1h
       namespaceFiles:
         - additional-ns.yaml
       chartDir: chart
