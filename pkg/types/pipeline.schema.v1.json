@@ -483,6 +483,9 @@
             "valuesFile": {
               "type": "string"
             },
+            "timeout": {
+              "type": "string"
+            },
             "inputVariables": {
               "type": "object",
               "patternProperties": {
