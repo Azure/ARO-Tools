@@ -119,6 +119,10 @@
       "minLength": 1,
       "pattern": "[a-zA-Z0-9]+(\\.[a-zA-Z0-9]+)*"
     },
+    "durationString": {
+      "type": "string",
+      "pattern": "^[0-9]+[hms]$"
+    },
     "staticVariableValue": {
       "oneOf": [
         {
@@ -484,7 +488,7 @@
               "type": "string"
             },
             "timeout": {
-              "type": "string"
+              "$ref": "#/definitions/durationString"
             },
             "inputVariables": {
               "type": "object",
