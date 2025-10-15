@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 )
 
 // WellFormedChecker allows introspection of how well-formed this step is over inputs.
@@ -488,6 +489,9 @@ type HelmStep struct {
 
 	// IdentityFrom specifies the managed identity with which this deployment will run in Ev2.
 	IdentityFrom Input `json:"identityFrom,omitempty"`
+
+	// Timeout is the amount of time to wait for the Helm release to be deployed.
+	Timeout time.Duration `json:"timeout,omitempty"`
 }
 
 func (s *HelmStep) Description() string {
