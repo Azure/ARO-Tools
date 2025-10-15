@@ -21,6 +21,9 @@ func Sanitize(inputs map[string]CentralConfig) SanitizedConfig {
 				KeyVault: KeyVaultValues{
 					DomainNameSuffix: cfg.Settings.KeyVault.DomainNameSuffix,
 				},
+				AzureContainerRegistry: AzureContainerRegistryValues{
+					DomainNameSuffix: cfg.Settings.AzureContainerRegistry.DomainNameSuffix,
+				},
 			},
 			Regions: regions,
 		}

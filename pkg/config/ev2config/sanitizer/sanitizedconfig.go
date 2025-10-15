@@ -10,8 +10,9 @@ type SanitizedCloudConfig struct {
 }
 
 type SanitizedCloudConfigValues struct {
-	CloudName string         `json:"cloudName"`
-	KeyVault  KeyVaultValues `json:"keyVault"`
+	CloudName              string                       `json:"cloudName"`
+	KeyVault               KeyVaultValues               `json:"keyVault"`
+	AzureContainerRegistry AzureContainerRegistryValues `json:"azureContainerRegistry"`
 }
 
 type KeyVaultValues struct {
@@ -22,4 +23,8 @@ type SanitizedRegionConfig struct {
 	AvailabilityZoneCount int    `json:"availabilityZoneCount"`
 	RegionShortName       string `json:"regionShortName"`
 	RegionFriendlyName    string `json:"regionFriendlyName"`
+}
+
+type AzureContainerRegistryValues struct {
+	DomainNameSuffix string `json:"domainNameSuffix"`
 }
