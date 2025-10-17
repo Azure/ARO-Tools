@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"path/filepath"
 	"time"
@@ -389,8 +390,53 @@ func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options) erro
 		"values", release.Config,
 	)
 
-	// TODO: add in Kusto deep-links
-	// TOOD: do we still want/need to dump the YAMLs of the resources that were just created?
+	
+
+	// Extract and collect actual Kubernetes resources from the release
+	var foundResources []map[string]string
+	if release.Info != nil && len(release.Info.Resources) > 0 {
+		for _, resourceList := range release.Info.Resources {
+			for _, resource := range resourceList {
+				if unstructuredObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(resource); err == nil {
+					if kind, hasKind := unstructuredObj["kind"]; hasKind {
+						resourceInfo := map[string]string{
+							"kind": kind.(string),
+						}
+						
+						// Extract metadata
+						if metadata, ok := unstructuredObj["metadata"].(map[string]interface{}); ok {
+							if name, ok := metadata["name"].(string); ok {
+								resourceInfo["name"] = name
+							}
+							if namespace, ok := metadata["namespace"].(string); ok {
+								resourceInfo["namespace"] = namespace
+							}
+						}
+						
+						foundResources = append(foundResources, resourceInfo)
+					}
+				}
+			}
+		}
+	}
+
+	if len(foundResources) > 0 {
+		logger.Info("Found Kubernetes resources in release:", "resources", foundResources)
+	}
+
+	// Create Kusto deep-link for troubleshooting
+	kustoQuery := fmt.Sprintf(`kubesystem
+		| where TIMESTAMP > ago(1h)
+		| where pod_name startswith "kube-events"
+		| where * contains "%s"
+		| project TIMESTAMP, log
+		| take 1`, release.Name)
+
+	// Create kusto URL with query parameter
+	kustoDeepLink := "https://dataexplorer.azure.com/clusters/aroint.eastus/databases/HCPServiceLogs?query=" + url.QueryEscape(kustoQuery)
+	logger.Info("Kusto link for troubleshooting:", "url", kustoDeepLink)
+
+	// TODO: do we still want/need to dump the YAMLs of the resources that were just created?
 
 	return nil
 }
