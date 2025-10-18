@@ -42,6 +42,12 @@ resourceGroups:
     variables:
     - name: MAESTRO_IMAGE
       configRef: maestro_image
+    adoArtifacts:
+    - adoProject: '{{ .imageMirror.adoProject }}'
+      artifactName: '{{ .imageMirror.artifactName }}'
+      buildId: '{{ .imageMirror.buildId }}'
+      fileSourceToDestination:
+        'path/in/artifact/file1.txt': 'local/path/file1.txt'
   - name: dry-run
     action: Shell
     command: make deploy
