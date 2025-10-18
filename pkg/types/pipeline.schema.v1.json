@@ -281,6 +281,23 @@
         }
       }
     },
+    "adoArtifactDownloadReference": {
+      "properties": {
+        "artifactName": {
+          "type": "string"
+        },
+        "buildId": {
+          "type": "string"
+        },
+        "adoProject": {
+          "type": "string"
+        },
+        "fileSourceToDestination": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    },
     "armStep": {
       "unevaluatedProperties": false,
       "allOf": [
@@ -420,6 +437,12 @@
                 "$ref": "#/definitions/variable"
               }
             }
+          }
+        },
+        "adoArtifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/adoArtifactDownloadReference"
           }
         }
       },

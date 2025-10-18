@@ -38,6 +38,8 @@ type ShellStep struct {
 	WorkingDir string `json:"workingDir,omitempty"`
 	// ShellIdentity is the ID of the managed identity with which the shell step will execute in an Ev2 context. Required.
 	ShellIdentity Value `json:"shellIdentity"`
+	// AdoArtifacts is a list of Azure DevOps artifacts to download before executing the shell step.
+	AdoArtifacts  []AzureDevOpsArtifactDownloadReference `json:"adoArtifacts"`
 }
 
 // Reference represents a configurable reference
@@ -47,6 +49,15 @@ type Reference struct {
 
 	// The path to a file.
 	FilePath string `json:"filepath"`
+}
+
+type AzureDevOpsArtifactDownloadReference struct {
+	ADOProject               string `json:"adoProject,omitempty"`
+	ArtifactName             string `json:"artifactName,omitempty"`
+	BuildID                  string `json:"buildId,omitempty"`
+
+	// FileSourceToDestination is a mapping of source file paths within the artifact to destination file paths in the local filesystem.
+	FileSourceToDestination  map[string]string `json:"fileSourceToDestination,omitempty"`
 }
 
 // Description
