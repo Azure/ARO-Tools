@@ -47,7 +47,9 @@ resourceGroups:
       artifactName: '{{ .imageMirror.artifactName }}'
       buildId: '{{ .imageMirror.buildId }}'
       fileSourceToDestination:
-        'path/in/artifact/file1.txt': 'local/path/file1.txt'
+        'path/in/artifact/file1.txt':
+          path: 'local/path/file1.txt'
+          mode: 644
   - name: dry-run
     action: Shell
     command: make deploy
