@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -252,6 +253,8 @@ func (opts *Options) Deploy(ctx context.Context) error {
 		}
 	}
 
+	deploymentStartTime := time.Now()
+
 	logger.Info("Rolling out Helm release.", "dryRun", opts.DryRun)
 	release, releaseErr := runHelmUpgrade(ctx, logger, opts)
 	if releaseErr != nil {
@@ -270,7 +273,7 @@ func (opts *Options) Deploy(ctx context.Context) error {
 		logger.Info("Finished validating Helm release contents.")
 	} else {
 		logger.Info("Running inline diagnostics.")
-		if err := runDiagnostics(ctx, logger, opts); err != nil {
+		if err := runDiagnostics(ctx, logger, opts, deploymentStartTime); err != nil {
 			return fmt.Errorf("capturing diagnostics failed: %w", err)
 		}
 	}
@@ -374,7 +377,7 @@ func isReleaseUninstalled(versions []*helmreleasev1.Release) bool {
 	return len(versions) > 0 && versions[len(versions)-1].Info.Status == helmreleasev1.StatusUninstalled
 }
 
-func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options) error {
+func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options, deploymentStartTime time.Time) error {
 	statusClient := action.NewStatus(opts.ActionConfig)
 	release, err := statusClient.Run(opts.ReleaseName)
 	if err != nil {
@@ -390,51 +393,151 @@ func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options) erro
 		"values", release.Config,
 	)
 
-	
+	var resourceRows []string
+	var foundPods []map[string]string
 
-	// Extract and collect actual Kubernetes resources from the release
-	var foundResources []map[string]string
-	if release.Info != nil && len(release.Info.Resources) > 0 {
-		for _, resourceList := range release.Info.Resources {
-			for _, resource := range resourceList {
-				if unstructuredObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(resource); err == nil {
-					if kind, hasKind := unstructuredObj["kind"]; hasKind {
-						resourceInfo := map[string]string{
-							"kind": kind.(string),
-						}
-						
-						// Extract metadata
-						if metadata, ok := unstructuredObj["metadata"].(map[string]interface{}); ok {
-							if name, ok := metadata["name"].(string); ok {
-								resourceInfo["name"] = name
-							}
-							if namespace, ok := metadata["namespace"].(string); ok {
-								resourceInfo["namespace"] = namespace
-							}
-						}
-						
-						foundResources = append(foundResources, resourceInfo)
+	if release.Info == nil || len(release.Info.Resources) == 0 {
+		return nil
+	}
+
+	// Process all resources in the release
+	for _, resourceList := range release.Info.Resources {
+		for _, resource := range resourceList {
+			unstructuredObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(resource)
+			if err != nil {
+				continue
+			}
+
+			kind, hasKind := unstructuredObj["kind"].(string)
+			if !hasKind || kind == "" {
+				continue
+			}
+
+			// Extract resource metadata
+			var name, namespace string
+			if metadata, ok := unstructuredObj["metadata"].(map[string]interface{}); ok {
+				name, _ = metadata["name"].(string)
+				namespace, _ = metadata["namespace"].(string)
+			}
+
+			// Build datatable row for Kusto query
+			if name != "" {
+				resourceRows = append(resourceRows, fmt.Sprintf(`    "%s", "%s", "%s"`, kind, name, namespace))
+			}
+
+			// Process PodList resources specifically
+			if kind != "PodList" {
+				continue
+			}
+
+			items, ok := unstructuredObj["items"].([]interface{})
+			if !ok {
+				continue
+			}
+
+			// Extract pod information
+			for _, item := range items {
+				podObj, ok := item.(map[string]interface{})
+				if !ok {
+					continue
+				}
+
+				podInfo := make(map[string]string)
+
+				// Pod metadata
+				if metadata, ok := podObj["metadata"].(map[string]interface{}); ok {
+					if name, ok := metadata["name"].(string); ok {
+						podInfo["name"] = name
 					}
+					if namespace, ok := metadata["namespace"].(string); ok {
+						podInfo["namespace"] = namespace
+					}
+				}
+
+				// Pod status
+				status, ok := podObj["status"].(map[string]interface{})
+				if !ok {
+					continue
+				}
+
+				if phase, ok := status["phase"].(string); ok {
+					podInfo["phase"] = phase
+				}
+
+				// Container statuses
+				if containerStatuses, ok := status["containerStatuses"].([]interface{}); ok {
+					for _, cs := range containerStatuses {
+						container, ok := cs.(map[string]interface{})
+						if !ok {
+							continue
+						}
+
+						if name, ok := container["name"].(string); ok {
+							podInfo["containerName"] = name
+						}
+						if ready, ok := container["ready"].(bool); ok {
+							podInfo["containerReady"] = fmt.Sprintf("%t", ready)
+						}
+						if restartCount, ok := container["restartCount"].(float64); ok {
+							podInfo["restartCount"] = fmt.Sprintf("%.0f", restartCount)
+						}
+						if state, ok := container["state"].(map[string]interface{}); ok {
+							podInfo["state"] = fmt.Sprintf("%+v", state)
+						}
+					}
+				}
+
+				if len(podInfo) > 0 {
+					foundPods = append(foundPods, podInfo)
 				}
 			}
 		}
 	}
 
-	if len(foundResources) > 0 {
-		logger.Info("Found Kubernetes resources in release:", "resources", foundResources)
+	// Generate Kusto link for resource events
+	if len(resourceRows) > 0 {
+		// Build kusto query with datatable for resources found in the Helm release
+		kustoQuery := fmt.Sprintf(`let resources = datatable(['kind']:string, name:string, namespace:string)[
+%s
+];
+kubesystem
+| where TIMESTAMP > ago(1h)
+| where pod_name startswith "kube-events"
+| extend parsed_log = parse_json(log)
+| extend ['kind'] = tostring(parsed_log.involved_object.kind),
+         name = tostring(parsed_log.involved_object.name),
+         namespace = tostring(parsed_log.involved_object.namespace)
+| join kind=inner resources on ['kind'], name, namespace
+| project TIMESTAMP, pod_name, ['kind'], name, namespace, log
+| order by TIMESTAMP desc`, strings.Join(resourceRows, ",\n"))
+
+		kustoDeepLink := "https://dataexplorer.azure.com/clusters/aroint.eastus/databases/HCPServiceLogs?query=" + url.QueryEscape(kustoQuery)
+		logger.Info("Kube-events kusto link for troubleshooting:", "url", kustoDeepLink)
 	}
 
-	// Create Kusto deep-link for troubleshooting
-	kustoQuery := fmt.Sprintf(`kubesystem
-		| where TIMESTAMP > ago(1h)
-		| where pod_name startswith "kube-events"
-		| where * contains "%s"
-		| project TIMESTAMP, log
-		| take 1`, release.Name)
+	// Generate Kusto link for failed pod logs
+	if len(foundPods) > 0 {
+		logger.Info("Found Pod details in release:", "pods", foundPods)
 
-	// Create kusto URL with query parameter
-	kustoDeepLink := "https://dataexplorer.azure.com/clusters/aroint.eastus/databases/HCPServiceLogs?query=" + url.QueryEscape(kustoQuery)
-	logger.Info("Kusto link for troubleshooting:", "url", kustoDeepLink)
+		// Find first pod in CrashLoopBackOff state
+		for _, pod := range foundPods {
+			if pod["phase"] == "Running" && strings.Contains(pod["state"], "CrashLoopBackOff") {
+				deploymentStart := deploymentStartTime.Format(time.RFC3339)
+				deploymentEnd := time.Now().Format(time.RFC3339)
+
+				failedPodQuery := fmt.Sprintf(`kubesystem
+| where TIMESTAMP between (datetime("%s") .. datetime("%s"))
+| where pod_name == "%s"
+| where namespace_name == "%s"
+| project TIMESTAMP, log
+| order by TIMESTAMP desc`, deploymentStart, deploymentEnd, pod["name"], pod["namespace"])
+
+				failedPodDeepLink := "https://dataexplorer.azure.com/clusters/aroint.eastus/databases/HCPServiceLogs?query=" + url.QueryEscape(failedPodQuery)
+				logger.Info("Sample kusto link for failed pod logs:", "url", failedPodDeepLink, "podName", pod["name"], "podNamespace", pod["namespace"])
+				break
+			}
+		}
+	}
 
 	// TODO: do we still want/need to dump the YAMLs of the resources that were just created?
 
