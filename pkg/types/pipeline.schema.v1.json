@@ -281,18 +281,6 @@
         }
       }
     },
-    "fileReference": {
-      "properties": {
-        "path": {
-          "type": "string"
-        },
-        "mode": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 777
-        }
-      }
-    },
     "adoArtifactDownloadReference": {
       "properties": {
         "artifactName": {
@@ -306,7 +294,7 @@
         },
         "fileSourceToDestination": {
           "type": "object",
-          "additionalProperties": { "$ref": "#/definitions/fileReference" }
+          "additionalProperties": { "type": "string" }
         }
       }
     },
