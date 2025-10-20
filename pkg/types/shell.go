@@ -39,7 +39,7 @@ type ShellStep struct {
 	// ShellIdentity is the ID of the managed identity with which the shell step will execute in an Ev2 context. Required.
 	ShellIdentity Value `json:"shellIdentity"`
 	// AdoArtifacts is a list of Azure DevOps artifacts to download before executing the shell step.
-	AdoArtifacts []AdoArtifactDownloadPipelineReference `json:"adoArtifacts"`
+	AdoArtifacts []AdoArtifactDownloadPipelineReference `json:"adoArtifacts,omitempty"`
 }
 
 // Reference represents a configurable reference
