@@ -28,9 +28,7 @@ resourceGroups:
       artifactName: artifactName
       buildId: "12345"
       fileSourceToDestination:
-        path/in/artifact/file1.txt:
-          mode: 644
-          path: local/path/file1.txt
+        path/in/artifact/file1.txt: local/path/file1.txt
     aksCluster: aro-hcp-aks
     command: make deploy
     dryRun: {}
