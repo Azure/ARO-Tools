@@ -40,7 +40,6 @@ resourceGroups:
     - configRef: maestro_image
       name: MAESTRO_IMAGE
   - action: Shell
-    adoArtifacts: null
     command: make deploy
     dryRun:
       variables:
@@ -417,7 +416,6 @@ resourceGroups:
     roleAssignment: test.bicepparam
   validationSteps:
   - action: Shell
-    adoArtifacts: null
     command: make e2e
     dryRun:
       variables:

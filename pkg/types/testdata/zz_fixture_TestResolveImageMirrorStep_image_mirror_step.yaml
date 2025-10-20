@@ -1,5 +1,4 @@
 action: Shell
-adoArtifacts: null
 command: /bin/bash /path/to/script.sh
 dryRun:
   variables:
