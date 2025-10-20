@@ -2,11 +2,12 @@ package helm
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -40,6 +41,22 @@ import (
 
 	"github.com/Azure/ARO-Tools/pkg/cmdutils"
 )
+
+// base64Gzip compresses the input text with gzip and then encodes it to base64
+func base64Gzip(text string) (string, error) {
+	var buf bytes.Buffer
+	gzipWriter := gzip.NewWriter(&buf)
+
+	if _, err := gzipWriter.Write([]byte(text)); err != nil {
+		return "", fmt.Errorf("failed to write to gzip writer: %w", err)
+	}
+
+	if err := gzipWriter.Close(); err != nil {
+		return "", fmt.Errorf("failed to close gzip writer: %w", err)
+	}
+
+	return base64.StdEncoding.EncodeToString(buf.Bytes()), nil
+}
 
 func DefaultOptions() *RawOptions {
 	return &RawOptions{
@@ -511,8 +528,13 @@ kubesystem
 | project TIMESTAMP, pod_name, ['kind'], name, namespace, log
 | order by TIMESTAMP desc`, strings.Join(resourceRows, ",\n"))
 
-		kustoDeepLink := "https://dataexplorer.azure.com/clusters/aroint.eastus/databases/HCPServiceLogs?query=" + url.QueryEscape(kustoQuery)
-		logger.Info("Kube-events kusto link for troubleshooting:", "url", kustoDeepLink)
+		encodedQuery, err := base64Gzip(kustoQuery)
+		if err != nil {
+			logger.Error(err, "Failed to encode query for Kusto deep link")
+		} else {
+			kustoDeepLink := "https://dataexplorer.azure.com/clusters/aroint.eastus/databases/HCPServiceLogs?query=" + encodedQuery
+			logger.Info("Kube-events kusto link for troubleshooting:", "url", kustoDeepLink)
+		}
 	}
 
 	// Generate Kusto link for failed pod logs
@@ -532,7 +554,13 @@ kubesystem
 | project TIMESTAMP, log
 | order by TIMESTAMP desc`, deploymentStart, deploymentEnd, pod["name"], pod["namespace"])
 
-				failedPodDeepLink := "https://dataexplorer.azure.com/clusters/aroint.eastus/databases/HCPServiceLogs?query=" + url.QueryEscape(failedPodQuery)
+				encodedQuery, err := base64Gzip(failedPodQuery)
+				if err != nil {
+					logger.Error(err, "Failed to encode query for Kusto deep link")
+					continue
+				}
+
+				failedPodDeepLink := "https://dataexplorer.azure.com/clusters/aroint.eastus/databases/HCPServiceLogs?query=" + encodedQuery
 				logger.Info("Sample kusto link for failed pod logs:", "url", failedPodDeepLink, "podName", pod["name"], "podNamespace", pod["namespace"])
 				break
 			}
