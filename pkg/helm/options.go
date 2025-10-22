@@ -509,6 +509,9 @@ func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options, depl
 		}
 	}
 
+	deploymentStart := deploymentStartTime.UTC().Format(time.RFC3339)
+	deploymentEnd := time.Now().UTC().Format(time.RFC3339)
+
 	// Generate Kusto link for resource events
 	if len(resources) > 0 {
 		// Build resource rows for Kusto query
@@ -517,22 +520,22 @@ func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options, depl
 			logger.Info("Processing resource", "name", resource.Name, "namespace", resource.Namespace, "kind", resource.Kind)
 			resourceRows = append(resourceRows, fmt.Sprintf(`    "%s", "%s", "%s"`, resource.Kind, resource.Name, resource.Namespace))
 		}
-		
+
 		// Build kusto query with datatable for resources found in the Helm release
 		// (indentation necessary for proper kusto formatting)
 		kustoQuery := fmt.Sprintf(`let resources = datatable(['kind']:string, name:string, namespace:string)[
 %s
 ];
 kubesystem
-| where TIMESTAMP > ago(1h)
+| where ['time'] between (datetime("%s") .. datetime("%s"))
 | where pod_name startswith "kube-events"
 | extend parsed_log = parse_json(log)
 | extend ['kind'] = tostring(parsed_log.involved_object.kind),
          name = tostring(parsed_log.involved_object.name),
          namespace = tostring(parsed_log.involved_object.namespace)
 | join kind=inner resources on ['kind'], name, namespace
-| project TIMESTAMP, pod_name, ['kind'], name, namespace, log
-| order by TIMESTAMP desc`, strings.Join(resourceRows, ",\n"))
+| project ['time'], pod_name, ['kind'], name, namespace, log
+| order by ['time'] desc`, strings.Join(resourceRows, ",\n"), deploymentStart, deploymentEnd)
 
 		encodedQuery, err := base64Gzip(kustoQuery)
 		if err != nil {
@@ -550,15 +553,13 @@ kubesystem
 		// Find first pod in CrashLoopBackOff state
 		for _, pod := range foundPods {
 			if pod.Phase == "Running" && strings.Contains(pod.State, "CrashLoopBackOff") {
-				deploymentStart := deploymentStartTime.Format(time.RFC3339)
-				deploymentEnd := time.Now().Format(time.RFC3339)
 
 				failedPodQuery := fmt.Sprintf(`kubesystem
-| where TIMESTAMP between (datetime("%s") .. datetime("%s"))
+| where ['time'] between (datetime("%s") .. datetime("%s"))
 | where pod_name == "%s"
 | where namespace_name == "%s"
-| project TIMESTAMP, log
-| order by TIMESTAMP desc`, deploymentStart, deploymentEnd, pod.Name, pod.Namespace)
+| project ['time'], log
+| order by ['time'] desc`, deploymentStart, deploymentEnd, pod.Name, pod.Namespace)
 
 				encodedQuery, err := base64Gzip(failedPodQuery)
 				if err != nil {
