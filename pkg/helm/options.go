@@ -394,6 +394,51 @@ func isReleaseUninstalled(versions []*helmreleasev1.Release) bool {
 	return len(versions) > 0 && versions[len(versions)-1].Info.Status == helmreleasev1.StatusUninstalled
 }
 
+type PodInfo struct {
+	Name      string
+	Namespace string
+	Phase     string
+	State     string // container state summary
+}
+type ResourceInfo struct {
+	Kind      string
+	Name      string
+	Namespace string
+}
+
+// extractContainerStateSummary creates a summary string of all container states
+func extractContainerStateSummary(containerStatuses []corev1.ContainerStatus) string {
+	if len(containerStatuses) == 0 {
+		return "no containers"
+	}
+
+	var states []string
+	for _, cs := range containerStatuses {
+		var state string
+		switch {
+		case cs.State.Waiting != nil:
+			state = fmt.Sprintf("%s:Waiting(%s)", cs.Name, cs.State.Waiting.Reason)
+		case cs.State.Terminated != nil:
+			state = fmt.Sprintf("%s:Terminated(%s,exit:%d)", cs.Name, cs.State.Terminated.Reason, cs.State.Terminated.ExitCode)
+		case cs.State.Running != nil:
+			state = fmt.Sprintf("%s:Running", cs.Name)
+		default:
+			state = fmt.Sprintf("%s:Unknown", cs.Name)
+		}
+
+		if cs.RestartCount > 0 {
+			state += fmt.Sprintf("[restarts:%d]", cs.RestartCount)
+		}
+		if !cs.Ready {
+			state += "[not-ready]"
+		}
+
+		states = append(states, state)
+	}
+
+	return strings.Join(states, ", ")
+}
+
 func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options, deploymentStartTime time.Time) error {
 	statusClient := action.NewStatus(opts.ActionConfig)
 	release, err := statusClient.Run(opts.ReleaseName)
@@ -410,8 +455,8 @@ func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options, depl
 		"values", release.Config,
 	)
 
-	var resourceRows []string
-	var foundPods []map[string]string
+	var resources []ResourceInfo
+	var foundPods []PodInfo
 
 	if release.Info == nil || len(release.Info.Resources) == 0 {
 		return nil
@@ -420,100 +465,61 @@ func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options, depl
 	// Process all resources in the release
 	for _, resourceList := range release.Info.Resources {
 		for _, resource := range resourceList {
-			unstructuredObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(resource)
-			if err != nil {
-				continue
-			}
 
-			kind, hasKind := unstructuredObj["kind"].(string)
-			if !hasKind || kind == "" {
-				continue
-			}
+			kind := resource.GetObjectKind().GroupVersionKind().Kind
 
-			// Extract resource metadata
-			var name, namespace string
-			if metadata, ok := unstructuredObj["metadata"].(map[string]interface{}); ok {
-				name, _ = metadata["name"].(string)
-				namespace, _ = metadata["namespace"].(string)
-			}
+			if kind == "PodList" {
+				// Process each pod item individually
+				err := meta.EachListItem(resource, func(item runtime.Object) error {
 
-			// Build datatable row for Kusto query
-			if name != "" {
-				resourceRows = append(resourceRows, fmt.Sprintf(`    "%s", "%s", "%s"`, kind, name, namespace))
-			}
+					kind := item.GetObjectKind().GroupVersionKind().Kind
+					var pod corev1.Pod
 
-			// Process PodList resources specifically
-			if kind != "PodList" {
-				continue
-			}
+					if unstructuredItem, ok := item.(*unstructured.Unstructured); kind == "Pod" && ok {
+						err := runtime.DefaultUnstructuredConverter.FromUnstructured(unstructuredItem.Object, &pod)
+						if err != nil {
+							logger.Error(err, "Failed to convert unstructured to Pod")
+							return nil
+						}
 
-			items, ok := unstructuredObj["items"].([]interface{})
-			if !ok {
-				continue
-			}
-
-			// Extract pod information
-			for _, item := range items {
-				podObj, ok := item.(map[string]interface{})
-				if !ok {
-					continue
-				}
-
-				podInfo := make(map[string]string)
-
-				// Pod metadata
-				if metadata, ok := podObj["metadata"].(map[string]interface{}); ok {
-					if name, ok := metadata["name"].(string); ok {
-						podInfo["name"] = name
+						podInfo := PodInfo{
+							Name:      pod.Name,
+							Namespace: pod.Namespace,
+							Phase:     string(pod.Status.Phase),
+							State:     extractContainerStateSummary(pod.Status.ContainerStatuses),
+						}
+						foundPods = append(foundPods, podInfo)
 					}
-					if namespace, ok := metadata["namespace"].(string); ok {
-						podInfo["namespace"] = namespace
+					return nil
+				})
+				if err != nil {
+					logger.Error(err, "Failed to process pod list items")
+				}
+			} else { // Not PodList
+				objMeta, err := meta.Accessor(resource)
+				if err == nil {
+					resourceInfo := ResourceInfo{
+						Kind:      kind,
+						Name:      objMeta.GetName(),
+						Namespace: objMeta.GetNamespace(),
 					}
-				}
-
-				// Pod status
-				status, ok := podObj["status"].(map[string]interface{})
-				if !ok {
-					continue
-				}
-
-				if phase, ok := status["phase"].(string); ok {
-					podInfo["phase"] = phase
-				}
-
-				// Container statuses
-				if containerStatuses, ok := status["containerStatuses"].([]interface{}); ok {
-					for _, cs := range containerStatuses {
-						container, ok := cs.(map[string]interface{})
-						if !ok {
-							continue
-						}
-
-						if name, ok := container["name"].(string); ok {
-							podInfo["containerName"] = name
-						}
-						if ready, ok := container["ready"].(bool); ok {
-							podInfo["containerReady"] = fmt.Sprintf("%t", ready)
-						}
-						if restartCount, ok := container["restartCount"].(float64); ok {
-							podInfo["restartCount"] = fmt.Sprintf("%.0f", restartCount)
-						}
-						if state, ok := container["state"].(map[string]interface{}); ok {
-							podInfo["state"] = fmt.Sprintf("%+v", state)
-						}
-					}
-				}
-
-				if len(podInfo) > 0 {
-					foundPods = append(foundPods, podInfo)
+					resources = append(resources, resourceInfo)
 				}
 			}
 		}
 	}
 
 	// Generate Kusto link for resource events
-	if len(resourceRows) > 0 {
+	if len(resources) > 0 {
+		// Build resource rows for Kusto query
+		var resourceRows []string
+		for _, resource := range resources {
+			logger.Info("Processing resource", "name", resource.Name, "namespace", resource.Namespace, "kind", resource.Kind)
+			resourceRows = append(resourceRows, fmt.Sprintf(`    "%s", "%s", "%s"`, resource.Kind, resource.Name, resource.Namespace))
+		}
+		
 		// Build kusto query with datatable for resources found in the Helm release
+		// (indentation necessary for proper kusto formatting)
 		kustoQuery := fmt.Sprintf(`let resources = datatable(['kind']:string, name:string, namespace:string)[
 %s
 ];
@@ -543,7 +549,7 @@ kubesystem
 
 		// Find first pod in CrashLoopBackOff state
 		for _, pod := range foundPods {
-			if pod["phase"] == "Running" && strings.Contains(pod["state"], "CrashLoopBackOff") {
+			if pod.Phase == "Running" && strings.Contains(pod.State, "CrashLoopBackOff") {
 				deploymentStart := deploymentStartTime.Format(time.RFC3339)
 				deploymentEnd := time.Now().Format(time.RFC3339)
 
@@ -552,7 +558,7 @@ kubesystem
 | where pod_name == "%s"
 | where namespace_name == "%s"
 | project TIMESTAMP, log
-| order by TIMESTAMP desc`, deploymentStart, deploymentEnd, pod["name"], pod["namespace"])
+| order by TIMESTAMP desc`, deploymentStart, deploymentEnd, pod.Name, pod.Namespace)
 
 				encodedQuery, err := base64Gzip(failedPodQuery)
 				if err != nil {
@@ -561,7 +567,7 @@ kubesystem
 				}
 
 				failedPodDeepLink := "https://dataexplorer.azure.com/clusters/aroint.eastus/databases/HCPServiceLogs?query=" + encodedQuery
-				logger.Info("Sample kusto link for failed pod logs:", "url", failedPodDeepLink, "podName", pod["name"], "podNamespace", pod["namespace"])
+				logger.Info("Sample kusto link for failed pod logs:", "url", failedPodDeepLink, "podName", pod.Name, "podNamespace", pod.Namespace)
 				break
 			}
 		}
