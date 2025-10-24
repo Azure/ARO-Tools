@@ -1,8 +1,8 @@
-$schema: config.schema.json
+$schema: ../config.schema.json
 clouds:
   public:
     environments:
       int:
         defaults:
           key1: '{{ .ctx.region }}-{{ .ctx.regionShort }}'
-          key2: 42
+          key2: {{ .ev2.availabilityZoneCount }}
