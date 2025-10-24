@@ -395,10 +395,10 @@ func isReleaseUninstalled(versions []*helmreleasev1.Release) bool {
 }
 
 type PodInfo struct {
-	Name      string
-	Namespace string
-	Phase     string
-	State     string // container state summary
+	Name          string
+	Namespace     string
+	Phase         string
+	State         string // container state summary
 	KustoDeepLink string
 }
 type ResourceInfo struct {
@@ -516,7 +516,7 @@ func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options, depl
 	// Generate Kusto link for resource events
 	if len(resources) > 0 {
 		logger.Info("Found resources in release:", "resources", resources)
-		
+
 		// Build resource rows for Kusto query
 		var resourceRows []string
 		for _, resource := range resources {
@@ -561,7 +561,7 @@ kubesystem
 | where namespace_name == "%s"
 | project ['time'], log
 | order by ['time'] desc`, deploymentStart, deploymentEnd, foundPods[i].Name, foundPods[i].Namespace)
-			
+
 			encodedQuery, err := base64Gzip(podQuery)
 			if err != nil {
 				logger.Error(err, "Failed to encode query for Kusto deep link")
