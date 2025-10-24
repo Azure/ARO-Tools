@@ -522,10 +522,11 @@ func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options, depl
 		}
 
 		// Build kusto query with datatable for resources found in the Helm release
-		// (indentation necessary for proper kusto formatting)
-		kustoQuery := fmt.Sprintf(`let resources = datatable(['kind']:string, name:string, namespace:string)[
-%s
-];
+		// Utilizing ['time'] instead of TIMESTAMP because TIMESTAMP rounds down times to the nearest minute,
+		// which can lead to missing logs
+		// 'time' is a reserved keyword in Kusto and needs to be escaped with brackets to reference the column name
+		kustoQuery := fmt.Sprintf(`
+let resources = datatable(['kind']:string, name:string, namespace:string)[%s];
 kubesystem
 | where ['time'] between (datetime("%s") .. datetime("%s"))
 | where pod_name startswith "kube-events"
@@ -554,7 +555,8 @@ kubesystem
 		for _, pod := range foundPods {
 			if pod.Phase == "Running" && strings.Contains(pod.State, "CrashLoopBackOff") {
 
-				failedPodQuery := fmt.Sprintf(`kubesystem
+				failedPodQuery := fmt.Sprintf(`
+kubesystem
 | where ['time'] between (datetime("%s") .. datetime("%s"))
 | where pod_name == "%s"
 | where namespace_name == "%s"
