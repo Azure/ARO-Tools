@@ -2,12 +2,15 @@ package helm
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -38,6 +41,22 @@ import (
 
 	"github.com/Azure/ARO-Tools/pkg/cmdutils"
 )
+
+// base64Gzip compresses the input text with gzip and then encodes it to base64
+func base64Gzip(text string) (string, error) {
+	var buf bytes.Buffer
+	gzipWriter := gzip.NewWriter(&buf)
+
+	if _, err := gzipWriter.Write([]byte(text)); err != nil {
+		return "", fmt.Errorf("failed to write to gzip writer: %w", err)
+	}
+
+	if err := gzipWriter.Close(); err != nil {
+		return "", fmt.Errorf("failed to close gzip writer: %w", err)
+	}
+
+	return base64.StdEncoding.EncodeToString(buf.Bytes()), nil
+}
 
 func DefaultOptions() *RawOptions {
 	return &RawOptions{
@@ -251,6 +270,8 @@ func (opts *Options) Deploy(ctx context.Context) error {
 		}
 	}
 
+	deploymentStartTime := time.Now()
+
 	logger.Info("Rolling out Helm release.", "dryRun", opts.DryRun)
 	release, releaseErr := runHelmUpgrade(ctx, logger, opts)
 	if releaseErr != nil {
@@ -269,7 +290,7 @@ func (opts *Options) Deploy(ctx context.Context) error {
 		logger.Info("Finished validating Helm release contents.")
 	} else {
 		logger.Info("Running inline diagnostics.")
-		if err := runDiagnostics(ctx, logger, opts); err != nil {
+		if err := runDiagnostics(ctx, logger, opts, deploymentStartTime); err != nil {
 			return fmt.Errorf("capturing diagnostics failed: %w", err)
 		}
 	}
@@ -371,7 +392,53 @@ func isReleaseUninstalled(versions []*helmreleasev1.Release) bool {
 	return len(versions) > 0 && versions[len(versions)-1].Info.Status == helmreleasev1.StatusUninstalled
 }
 
-func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options) error {
+type PodInfo struct {
+	Name      string
+	Namespace string
+	Phase     string
+	State     string // container state summary
+	KustoDeepLink string
+}
+type ResourceInfo struct {
+	Kind      string
+	Name      string
+	Namespace string
+}
+
+// extractContainerStateSummary creates a summary string of all container states
+func extractContainerStateSummary(containerStatuses []corev1.ContainerStatus) string {
+	if len(containerStatuses) == 0 {
+		return "no containers"
+	}
+
+	var states []string
+	for _, cs := range containerStatuses {
+		var state string
+		switch {
+		case cs.State.Waiting != nil:
+			state = fmt.Sprintf("%s:Waiting(%s)", cs.Name, cs.State.Waiting.Reason)
+		case cs.State.Terminated != nil:
+			state = fmt.Sprintf("%s:Terminated(%s,exit:%d)", cs.Name, cs.State.Terminated.Reason, cs.State.Terminated.ExitCode)
+		case cs.State.Running != nil:
+			state = fmt.Sprintf("%s:Running", cs.Name)
+		default:
+			state = fmt.Sprintf("%s:Unknown", cs.Name)
+		}
+
+		if cs.RestartCount > 0 {
+			state += fmt.Sprintf("[restarts:%d]", cs.RestartCount)
+		}
+		if !cs.Ready {
+			state += "[not-ready]"
+		}
+
+		states = append(states, state)
+	}
+
+	return strings.Join(states, ", ")
+}
+
+func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options, deploymentStartTime time.Time) error {
 	statusClient := action.NewStatus(opts.ActionConfig)
 	release, err := statusClient.Run(opts.ReleaseName)
 	if err != nil {
@@ -387,8 +454,123 @@ func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options) erro
 		"values", release.Config,
 	)
 
-	// TODO: add in Kusto deep-links
-	// TOOD: do we still want/need to dump the YAMLs of the resources that were just created?
+	var resources []ResourceInfo
+	var foundPods []PodInfo
+
+	if release.Info == nil || len(release.Info.Resources) == 0 {
+		return nil
+	}
+
+	// Process all resources in the release
+	for _, resourceList := range release.Info.Resources {
+		for _, resource := range resourceList {
+
+			kind := resource.GetObjectKind().GroupVersionKind().Kind
+
+			if kind == "PodList" {
+				// Process each pod item individually
+				err := meta.EachListItem(resource, func(item runtime.Object) error {
+
+					kind := item.GetObjectKind().GroupVersionKind().Kind
+					var pod corev1.Pod
+
+					if unstructuredItem, ok := item.(*unstructured.Unstructured); kind == "Pod" && ok {
+						err := runtime.DefaultUnstructuredConverter.FromUnstructured(unstructuredItem.Object, &pod)
+						if err != nil {
+							logger.Error(err, "Failed to convert unstructured to Pod")
+							return nil
+						}
+
+						podInfo := PodInfo{
+							Name:      pod.Name,
+							Namespace: pod.Namespace,
+							Phase:     string(pod.Status.Phase),
+							State:     extractContainerStateSummary(pod.Status.ContainerStatuses),
+						}
+						foundPods = append(foundPods, podInfo)
+					}
+					return nil
+				})
+				if err != nil {
+					logger.Error(err, "Failed to process pod list items")
+				}
+			} else { // Not PodList
+				objMeta, err := meta.Accessor(resource)
+				if err == nil {
+					resourceInfo := ResourceInfo{
+						Kind:      kind,
+						Name:      objMeta.GetName(),
+						Namespace: objMeta.GetNamespace(),
+					}
+					resources = append(resources, resourceInfo)
+				}
+			}
+		}
+	}
+
+	deploymentStart := deploymentStartTime.UTC().Format(time.RFC3339)
+	deploymentEnd := time.Now().UTC().Format(time.RFC3339)
+
+	// Generate Kusto link for resource events
+	if len(resources) > 0 {
+		logger.Info("Found resources in release:", "resources", resources)
+		
+		// Build resource rows for Kusto query
+		var resourceRows []string
+		for _, resource := range resources {
+			resourceRows = append(resourceRows, fmt.Sprintf(`    "%s", "%s", "%s"`, resource.Kind, resource.Name, resource.Namespace))
+		}
+
+		// Build kusto query with datatable for resources found in the Helm release
+		// Utilizing ['time'] instead of TIMESTAMP since TIMESTAMP rounds down times to the nearest minute,
+		// which can lead to missing logs
+		// 'time' and 'kind' are reserved keywords in Kusto and need to be escaped with brackets to reference the column name
+		kustoQuery := fmt.Sprintf(`
+let resources = datatable(['kind']:string, name:string, namespace:string)[
+%s
+];
+kubesystem
+| where ['time'] between (datetime("%s") .. datetime("%s"))
+| where pod_name startswith "kube-events"
+| extend parsed_log = parse_json(log)
+| extend ['kind'] = tostring(parsed_log.involved_object.kind),
+         name = tostring(parsed_log.involved_object.name),
+         namespace = tostring(parsed_log.involved_object.namespace)
+| join kind=inner resources on ['kind'], name, namespace
+| project ['time'], pod_name, ['kind'], name, namespace, log
+| order by ['time'] desc`, strings.Join(resourceRows, ",\n"), deploymentStart, deploymentEnd)
+
+		encodedQuery, err := base64Gzip(kustoQuery)
+		if err != nil {
+			logger.Error(err, "Failed to encode query for Kusto deep link")
+		} else {
+			kustoDeepLink := "https://dataexplorer.azure.com/clusters/aroint.eastus/databases/HCPServiceLogs?query=" + encodedQuery
+			logger.Info("Kube-events kusto link for troubleshooting:", "url", kustoDeepLink)
+		}
+	}
+
+	// Generate Kusto link for all pods
+	if len(foundPods) > 0 {
+		for i := range foundPods {
+			podQuery := fmt.Sprintf(`
+kubesystem
+| where ['time'] between (datetime("%s") .. datetime("%s"))
+| where pod_name == "%s"
+| where namespace_name == "%s"
+| project ['time'], log
+| order by ['time'] desc`, deploymentStart, deploymentEnd, foundPods[i].Name, foundPods[i].Namespace)
+			
+			encodedQuery, err := base64Gzip(podQuery)
+			if err != nil {
+				logger.Error(err, "Failed to encode query for Kusto deep link")
+				continue
+			}
+			podDeepLink := "https://dataexplorer.azure.com/clusters/aroint.eastus/databases/HCPServiceLogs?query=" + encodedQuery
+			foundPods[i].KustoDeepLink = podDeepLink
+		}
+
+		logger.Info("Found Pod details in release:", "pods", foundPods)
+	}
 
 	return nil
 }
