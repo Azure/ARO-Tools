@@ -1,0 +1,7 @@
+$schema: schema/config.schema.json
+clouds:
+  public:
+    environments:
+      int:
+        defaults:
+          key2: 99

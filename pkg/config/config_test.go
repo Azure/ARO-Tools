@@ -477,3 +477,64 @@ func TestPreprocessContentMissingKey(t *testing.T) {
 		})
 	}
 }
+
+func TestMergeRawConfigurationFiles(t *testing.T) {
+	testCases := []struct {
+		name                          string
+		schemaLocationRebaseReference string
+		configFiles                   []string
+		expectError                   bool
+		errorMsg                      string
+	}{
+		{
+			name:        "no config files",
+			configFiles: []string{},
+			expectError: true,
+			errorMsg:    "no configuration files provided",
+		},
+		{
+			name: "single config file",
+			configFiles: []string{
+				"testdata/config.yaml",
+			},
+			schemaLocationRebaseReference: "testdata/merge",
+			expectError:                   false,
+		},
+		{
+			name: "merge two config files",
+			configFiles: []string{
+				"testdata/config.yaml",
+				"testdata/override.yaml",
+			},
+			schemaLocationRebaseReference: "testdata/merge",
+			expectError:                   false,
+		},
+		{
+			name: "merge two config files with schema override",
+			configFiles: []string{
+				"testdata/config.yaml",
+				"testdata/override.yaml",
+				"testdata/nested/override-with-schema.yaml",
+			},
+			schemaLocationRebaseReference: "testdata/merged",
+			expectError:                   false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			output, err := types.MergeRawConfigurationFiles(tc.schemaLocationRebaseReference, tc.configFiles)
+
+			if tc.expectError {
+				require.Error(t, err)
+				if tc.errorMsg != "" {
+					require.Contains(t, err.Error(), tc.errorMsg)
+				}
+				return
+			}
+
+			require.NoError(t, err)
+			testutil.CompareWithFixture(t, output)
+		})
+	}
+}
