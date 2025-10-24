@@ -2,10 +2,16 @@ package types
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/util/sets"
+
+	"sigs.k8s.io/yaml"
+
+	"github.com/Azure/ARO-Tools/pkg/yamlwrap"
 )
 
 // Configuration is the top-level container for all values for all services. See an example at: https://github.com/Azure/ARO-HCP/blob/main/config/config.yaml
@@ -66,6 +72,104 @@ func MergeConfiguration(base, override Configuration) map[string]any {
 	}
 
 	return output
+}
+
+// resolveSchemaPath resolves a schema path for a new file location while preserving whether it's relative or absolute.
+// - if the schema path is already absolute, it returns it as is
+// - if the schema path is relative, it computes a new relative path from the target file to the schema
+// - if the schema path is empty, it returns an empty string
+func resolveSchemaPath(schemaPath, originalConfigDir, targetConfigDir string) (string, error) {
+	if schemaPath == "" {
+		return "", nil
+	}
+
+	if filepath.IsAbs(schemaPath) {
+		return schemaPath, nil
+	}
+
+	absoluteSchemaPath, err := filepath.Abs(filepath.Join(originalConfigDir, schemaPath))
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute path for schema path %q: %w", schemaPath, err)
+	}
+
+	absoluteTargetDir, err := filepath.Abs(targetConfigDir)
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute path for target directory %q: %w", targetConfigDir, err)
+	}
+
+	relativeSchemaPath, err := filepath.Rel(absoluteTargetDir, absoluteSchemaPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to compute relative path from %q to %q: %w", targetConfigDir, absoluteSchemaPath, err)
+	}
+
+	return relativeSchemaPath, nil
+}
+
+// MergeRawConfigurationFiles merges multiple configuration files into a single configuration
+// while rebasing the schema path to the proposed schemaLocationRebaseReference.
+// The function is able to handle raw configuration files with Go template placeholders.
+func MergeRawConfigurationFiles(schemaLocationRebaseReference string, configFilePaths []string) ([]byte, error) {
+	if len(configFilePaths) == 0 {
+		return nil, fmt.Errorf("no configuration files provided")
+	}
+
+	// iteratively merge the configuration files
+	rawMerged := Configuration{}
+	var targetFileSchemaPath string
+	for _, configFile := range configFilePaths {
+		rawConfig, err := readAndWrapRawConfig(configFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read configuration file %q: %w", configFile, err)
+		}
+
+		if rawConfigSchemaPath, hasSchema := rawConfig["$schema"]; hasSchema {
+			if rawConfigSchemaPathStr, ok := rawConfigSchemaPath.(string); ok {
+				targetFileSchemaPath, err = resolveSchemaPath(rawConfigSchemaPathStr, filepath.Dir(configFile), schemaLocationRebaseReference)
+				if err != nil {
+					return nil, fmt.Errorf("failed to resolve schema path %q: %w", rawConfigSchemaPathStr, err)
+				}
+			} else {
+				return nil, fmt.Errorf("$schema in configuration file %q is not a string", configFile)
+			}
+		}
+		rawMerged = MergeConfiguration(rawMerged, rawConfig)
+	}
+	if targetFileSchemaPath != "" {
+		rawMerged["$schema"] = targetFileSchemaPath
+	}
+
+	// marshal and unwrap
+	rawYaml, err := yaml.Marshal(rawMerged)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal configuration: %w", err)
+	}
+	unwrappedYaml, err := yamlwrap.UnwrapYAML(rawYaml)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unwrap configuration: %w", err)
+	}
+
+	return unwrappedYaml, nil
+}
+
+// readAndWrapRawConfig reads a YAML file with Go template placeholders by wrapping it
+// with yamlwrapper to make template syntax valid YAML, then parses it into a Configuration.
+func readAndWrapRawConfig(filePath string) (Configuration, error) {
+	raw, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read configuration file %q: %w", filePath, err)
+	}
+
+	wrappedRaw, err := yamlwrap.WrapYAML(raw, true)
+	if err != nil {
+		return nil, fmt.Errorf("failed to wrap configuration file %q: %w", filePath, err)
+	}
+
+	var config Configuration
+	if err := yaml.Unmarshal(wrappedRaw, &config); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal configuration file %q: %w", filePath, err)
+	}
+
+	return config, nil
 }
 
 // TruncateConfiguration returns a new configuration with specified paths excluded from the base configuration.

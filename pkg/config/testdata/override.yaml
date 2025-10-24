@@ -1,0 +1,6 @@
+clouds:
+  public:
+    environments:
+      int:
+        defaults:
+          key2: {{ .ev2.availabilityZoneCount }}
