@@ -399,6 +399,7 @@ type PodInfo struct {
 	Namespace string
 	Phase     string
 	State     string // container state summary
+	KustoDeepLink string
 }
 type ResourceInfo struct {
 	Kind      string
@@ -514,19 +515,22 @@ func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options, depl
 
 	// Generate Kusto link for resource events
 	if len(resources) > 0 {
+		logger.Info("Found resources in release:", "resources", resources)
+		
 		// Build resource rows for Kusto query
 		var resourceRows []string
 		for _, resource := range resources {
-			logger.Info("Processing resource", "name", resource.Name, "namespace", resource.Namespace, "kind", resource.Kind)
 			resourceRows = append(resourceRows, fmt.Sprintf(`    "%s", "%s", "%s"`, resource.Kind, resource.Name, resource.Namespace))
 		}
 
 		// Build kusto query with datatable for resources found in the Helm release
-		// Utilizing ['time'] instead of TIMESTAMP because TIMESTAMP rounds down times to the nearest minute,
+		// Utilizing ['time'] instead of TIMESTAMP since TIMESTAMP rounds down times to the nearest minute,
 		// which can lead to missing logs
-		// 'time' is a reserved keyword in Kusto and needs to be escaped with brackets to reference the column name
+		// 'time' and 'kind' are reserved keywords in Kusto and need to be escaped with brackets to reference the column name
 		kustoQuery := fmt.Sprintf(`
-let resources = datatable(['kind']:string, name:string, namespace:string)[%s];
+let resources = datatable(['kind']:string, name:string, namespace:string)[
+%s
+];
 kubesystem
 | where ['time'] between (datetime("%s") .. datetime("%s"))
 | where pod_name startswith "kube-events"
@@ -547,36 +551,28 @@ kubesystem
 		}
 	}
 
-	// Generate Kusto link for failed pod logs
+	// Generate Kusto link for all pods
 	if len(foundPods) > 0 {
-		logger.Info("Found Pod details in release:", "pods", foundPods)
-
-		// Find first pod in CrashLoopBackOff state
-		for _, pod := range foundPods {
-			if pod.Phase == "Running" && strings.Contains(pod.State, "CrashLoopBackOff") {
-
-				failedPodQuery := fmt.Sprintf(`
+		for i := range foundPods {
+			podQuery := fmt.Sprintf(`
 kubesystem
 | where ['time'] between (datetime("%s") .. datetime("%s"))
 | where pod_name == "%s"
 | where namespace_name == "%s"
 | project ['time'], log
-| order by ['time'] desc`, deploymentStart, deploymentEnd, pod.Name, pod.Namespace)
-
-				encodedQuery, err := base64Gzip(failedPodQuery)
-				if err != nil {
-					logger.Error(err, "Failed to encode query for Kusto deep link")
-					continue
-				}
-
-				failedPodDeepLink := "https://dataexplorer.azure.com/clusters/aroint.eastus/databases/HCPServiceLogs?query=" + encodedQuery
-				logger.Info("Sample kusto link for failed pod logs:", "url", failedPodDeepLink, "podName", pod.Name, "podNamespace", pod.Namespace)
-				break
+| order by ['time'] desc`, deploymentStart, deploymentEnd, foundPods[i].Name, foundPods[i].Namespace)
+			
+			encodedQuery, err := base64Gzip(podQuery)
+			if err != nil {
+				logger.Error(err, "Failed to encode query for Kusto deep link")
+				continue
 			}
+			podDeepLink := "https://dataexplorer.azure.com/clusters/aroint.eastus/databases/HCPServiceLogs?query=" + encodedQuery
+			foundPods[i].KustoDeepLink = podDeepLink
 		}
-	}
 
-	// TODO: do we still want/need to dump the YAMLs of the resources that were just created?
+		logger.Info("Found Pod details in release:", "pods", foundPods)
+	}
 
 	return nil
 }
