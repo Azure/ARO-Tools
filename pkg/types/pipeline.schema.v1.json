@@ -510,13 +510,13 @@
             "valuesFile": {
               "type": "string"
             },
-            "kustoClusterName": {
+            "kustoCluster": {
               "type": "string"
             },
-            "kustoDatabaseName": { 
+            "kustoDatabase": { 
               "type": "string"
             },
-            "kustoTableName": {
+            "kustoTable": {
               "type": "string"
             },
             "timeout": {

@@ -42,8 +42,10 @@ import (
 	"github.com/Azure/ARO-Tools/pkg/cmdutils"
 )
 
-// base64Gzip compresses the input text with gzip and then encodes it to base64
-func base64Gzip(text string) (string, error) {
+// encodeKustoQuery compresses the input text with gzip and then encodes it to base64
+// Necessary to compress long queries to fit in the default browser URI length limits
+// see: https://learn.microsoft.com/en-us/kusto/api/rest/deeplink
+func encodeKustoQuery(text string) (string, error) {
 	var buf bytes.Buffer
 	gzipWriter := gzip.NewWriter(&buf)
 
@@ -73,9 +75,9 @@ func BindOptions(opts *RawOptions, cmd *cobra.Command) error {
 	cmd.Flags().StringVar(&opts.ValuesFile, "values-file", opts.ValuesFile, "Path to the Helm values file.")
 	cmd.Flags().StringVar(&opts.Ev2RolloutVersion, "ev2-rollout-version", opts.Ev2RolloutVersion, "Version of the Ev2 rollout deploying this Helm chart.")
 
-	cmd.Flags().StringVar(&opts.KustoClusterName, "kusto-cluster-name", opts.KustoClusterName, "Name of the Kusto cluster for diagnostics.")
-	cmd.Flags().StringVar(&opts.KustoDatabaseName, "kusto-database-name", opts.KustoDatabaseName, "Name of the Kusto database for diagnostics.")
-	cmd.Flags().StringVar(&opts.KustoTableName, "kusto-table-name", opts.KustoTableName, "Name of the Kusto table for diagnostics.")
+	cmd.Flags().StringVar(&opts.KustoCluster, "kusto-cluster", opts.KustoCluster, "Name of the Kusto cluster for diagnostics.")
+	cmd.Flags().StringVar(&opts.KustoDatabase, "kusto-database", opts.KustoDatabase, "Name of the Kusto database for diagnostics.")
+	cmd.Flags().StringVar(&opts.KustoTable, "kusto-table", opts.KustoTable, "Name of the Kusto table for diagnostics.")
 
 	cmd.Flags().DurationVar(&opts.Timeout, "timeout", opts.Timeout, "Timeout for waiting on the Helm release.")
 
@@ -95,9 +97,9 @@ type RawOptions struct {
 	ValuesFile        string
 	Ev2RolloutVersion string
 
-	KustoClusterName  string
-	KustoDatabaseName string
-	KustoTableName    string
+	KustoCluster      string
+	KustoDatabase     string
+	KustoTable        string
 
 	Timeout time.Duration
 
@@ -132,9 +134,9 @@ type completedOptions struct {
 	Values            map[string]any
 	Ev2RolloutVersion string
 
-	KustoClusterName  string
-	KustoDatabaseName string
-	KustoTableName    string
+	KustoCluster  string
+	KustoDatabase string
+	KustoTable    string
 
 	Timeout time.Duration
 	DryRun  bool
@@ -156,9 +158,9 @@ func (o *RawOptions) Validate() (*ValidatedOptions, error) {
 		{flag: "chart-dir", name: "Helm chart directory", value: &o.ChartDir},
 		{flag: "values-file", name: "Helm values file", value: &o.ValuesFile},
 		{flag: "kubeconfig", name: "Kubeconfig file", value: &o.KubeconfigFile},
-		{flag: "kusto-cluster-name", name: "Kusto cluster name", value: &o.KustoClusterName},
-		{flag: "kusto-database-name", name: "Kusto database name", value: &o.KustoDatabaseName},
-		{flag: "kusto-table-name", name: "Kusto table name", value: &o.KustoTableName},
+		{flag: "kusto-cluster", name: "Kusto cluster name", value: &o.KustoCluster},
+		{flag: "kusto-database", name: "Kusto database name", value: &o.KustoDatabase},
+		{flag: "kusto-table", name: "Kusto table name", value: &o.KustoTable},
 	} {
 		if item.value == nil || *item.value == "" {
 			return nil, fmt.Errorf("the %s must be provided with --%s", item.name, item.flag)
@@ -263,9 +265,9 @@ func (o *ValidatedOptions) Complete() (*Options, error) {
 			Values:            values,
 			Ev2RolloutVersion: o.Ev2RolloutVersion,
 
-			KustoClusterName:  o.KustoClusterName,
-			KustoDatabaseName: o.KustoDatabaseName,
-			KustoTableName:    o.KustoTableName,
+			KustoCluster:  o.KustoCluster,
+			KustoDatabase: o.KustoDatabase,
+			KustoTable:    o.KustoTable,
 
 			Timeout: o.Timeout,
 			DryRun:  o.DryRun,
@@ -475,7 +477,7 @@ func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options, depl
 		"values", release.Config,
 	)
 
-	logger.Info("Using Kusto configuration.", "cluster", opts.KustoClusterName, "database", opts.KustoDatabaseName, "table", opts.KustoTableName)
+	logger.Info("Using Kusto configuration.", "cluster", opts.KustoCluster, "database", opts.KustoDatabase, "table", opts.KustoTable)
 
 	var resources []ResourceInfo
 	var foundPods []PodInfo
@@ -561,13 +563,13 @@ let resources = datatable(['kind']:string, name:string, namespace:string)[
          namespace = tostring(parsed_log.involved_object.namespace)
 | join kind=inner resources on ['kind'], name, namespace
 | project ['time'], pod_name, ['kind'], name, namespace, log
-| order by ['time'] desc`, strings.Join(resourceRows, ",\n"), opts.KustoTableName, deploymentStart, deploymentEnd)
+| order by ['time'] desc`, strings.Join(resourceRows, ",\n"), opts.KustoTable, deploymentStart, deploymentEnd)
 
-		encodedQuery, err := base64Gzip(kustoQuery)
+		encodedQuery, err := encodeKustoQuery(kustoQuery)
 		if err != nil {
 			logger.Error(err, "Failed to encode query for Kusto deep link")
 		} else {
-			kustoDeepLink := fmt.Sprintf("https://dataexplorer.azure.com/clusters/%s/databases/%s?query=%s", opts.KustoClusterName, opts.KustoDatabaseName, encodedQuery)
+			kustoDeepLink := fmt.Sprintf("https://dataexplorer.azure.com/clusters/%s/databases/%s?query=%s", opts.KustoCluster, opts.KustoDatabase, encodedQuery)
 			logger.Info("Kube-events kusto link for troubleshooting:", "url", kustoDeepLink)
 		}
 	}
@@ -575,20 +577,19 @@ let resources = datatable(['kind']:string, name:string, namespace:string)[
 	// Generate Kusto link for all pods
 	if len(foundPods) > 0 {
 		for i := range foundPods {
-			podQuery := fmt.Sprintf(`
-%s
+			podQuery := fmt.Sprintf(`%s
 | where ['time'] between (datetime("%s") .. datetime("%s"))
 | where pod_name == "%s"
 | where namespace_name == "%s"
 | project ['time'], log
-| order by ['time'] desc`, opts.KustoTableName, deploymentStart, deploymentEnd, foundPods[i].Name, foundPods[i].Namespace)
+| order by ['time'] desc`, opts.KustoTable, deploymentStart, deploymentEnd, foundPods[i].Name, foundPods[i].Namespace)
 
-			encodedQuery, err := base64Gzip(podQuery)
+			encodedQuery, err := encodeKustoQuery(podQuery)
 			if err != nil {
 				logger.Error(err, "Failed to encode query for Kusto deep link")
 				continue
 			}
-			podDeepLink := fmt.Sprintf("https://dataexplorer.azure.com/clusters/%s/databases/%s?query=%s", opts.KustoClusterName, opts.KustoDatabaseName, encodedQuery)
+			podDeepLink := fmt.Sprintf("https://dataexplorer.azure.com/clusters/%s/databases/%s?query=%s", opts.KustoCluster, opts.KustoDatabase, encodedQuery)
 			foundPods[i].KustoDeepLink = podDeepLink
 		}
 
