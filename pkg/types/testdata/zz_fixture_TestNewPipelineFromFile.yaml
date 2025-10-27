@@ -264,28 +264,6 @@ resourceGroups:
       value: sourceRegistry
     targetACR:
       value: targetACR
-  - action: ImageMirror
-    adoProject: adoProject
-    artifactName: artifactName
-    buildId: "12345"
-    digest:
-      value: digest
-    imageFilePath: {}
-    imageMetadataFileName: {}
-    imageTarFileName: {}
-    name: image-mirror-with-artifact
-    pullSecretKeyVault:
-      value: pullSecretKeyVault
-    pullSecretName:
-      value: pullSecretName
-    repository:
-      value: repository
-    shellIdentity:
-      value: shellIdentity
-    sourceRegistry:
-      value: sourceRegistry
-    targetACR:
-      value: targetACR
   subscription: hcp-int-svc-uksouth
   subscriptionProvisioning:
     airsRegisteredUserPrincipalId:
@@ -352,6 +330,9 @@ resourceGroups:
     targetACR:
       value: targetACR
   - action: ImageMirror
+    adoProject: adoProject
+    artifactName: artifactName
+    buildId: "12345"
     copyFrom: oci-layout
     digest: {}
     imageFilePath:
