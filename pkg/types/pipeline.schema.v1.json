@@ -1070,7 +1070,10 @@
                 "repository",
                 "imageTarFileName",
                 "imageMetadataFileName",
-                "shellIdentity"
+                "shellIdentity",
+                "adoProject",
+                "artifactName",
+                "buildId"
               ]
             }
           ]
