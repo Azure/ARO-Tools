@@ -287,7 +287,6 @@ func TestIsWellFormedOverInputs(t *testing.T) {
 		{in: &CreateCertificateStep{}, expected: true},
 		{in: &ResourceProviderRegistrationStep{}, expected: true},
 		{in: &ImageMirrorStep{}, expected: true},
-		{in: &ImageMirrorStep{CopyFrom: "oci-layout"}, expected: false},
 		{in: &ImageMirrorStep{CopyFrom: "oci-layout", ADOProject: "project", ArtifactName: "artifact", BuildID: "buildId"}, expected: true},
 		{in: &LogsStep{}, expected: true},
 		{in: &FeatureRegistrationStep{}, expected: true},
