@@ -63,15 +63,6 @@ func (s *ImageMirrorStep) RequiredInputs() []StepDependency {
 	return deps
 }
 
-func (s *ImageMirrorStep) IsWellFormedOverInputs() bool {
-	if s.CopyFrom != "oci-layout" {
-		return true
-	}
-
-	// If build info is defined, future runs with the same args are no-ops
-	return s.ADOProject != "" && s.ArtifactName != "" && s.BuildID != ""
-}
-
 // ResolveImageMirrorStep resolves an image mirror step to a shell step. It's up to the user to write the contents of
 // the OnDemandSyncScript to disk somewhere and pass the file name in as a parameter here, as we likely don't want to
 // inline 100+ lines of shell into a `bash -C "<contents>"` call and hope all the string interpolations work.
