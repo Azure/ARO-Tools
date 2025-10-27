@@ -98,15 +98,23 @@ type ConfigResolver interface {
 // We instead run the file through a dummy template step that replaces values with some cloud/env/region and - since
 // this ConfigProvider can't do anything except for divulge the contexts - we can just do the correct templating later.
 func NewConfigProvider(config string) (ConfigProvider, error) {
-	cp := configProvider{
-		path: config,
-	}
-
 	raw, err := os.ReadFile(config)
 	if err != nil {
 		return nil, err
 	}
-	cp.raw = raw
+	absPath, err := filepath.Abs(filepath.Dir(config))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get absolute path for config file %q: %w", config, err)
+	}
+	return NewConfigProviderFromData(raw, absPath)
+}
+
+// NewConfigProviderFromData creates a configuration provider from raw configuration data and the reference directory
+// for resolving relative schema paths. The schemaBaseDir is used to turn a relative schema path into an absolute one.
+func NewConfigProviderFromData(raw []byte, schemaBaseDir string) (ConfigProvider, error) {
+	cp := configProvider{
+		raw: raw,
+	}
 
 	ev2Cfg, err := ev2config.ResolveConfig("public", "uksouth")
 	if err != nil {
@@ -129,6 +137,15 @@ func NewConfigProvider(config string) (ConfigProvider, error) {
 		return nil, err
 	}
 
+	schemaPath := cp.withFakeReplacements.Schema
+	if !filepath.IsAbs(cp.withFakeReplacements.Schema) {
+		schemaPath, err = filepath.Abs(filepath.Join(schemaBaseDir, schemaPath))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create absolute path to schema %q: %w", schemaPath, err)
+		}
+	}
+	cp.absoluteSchemaPath = schemaPath
+
 	forValidation := map[string]any{}
 	if err := yaml.Unmarshal(rawContent, &forValidation); err != nil {
 		return nil, err
@@ -141,8 +158,7 @@ func NewConfigProvider(config string) (ConfigProvider, error) {
 }
 
 type configProvider struct {
-	// schema can be a relative path to this file, so we need to keep track of it
-	path                 string
+	absoluteSchemaPath   string
 	raw                  []byte
 	withFakeReplacements configurationOverrides
 }
@@ -184,17 +200,17 @@ func (cp *configProvider) GetResolver(configReplacements *ConfigReplacements) (C
 		return nil, err
 	}
 	return &configResolver{
-		cloud:       configReplacements.CloudReplacement,
-		environment: configReplacements.EnvironmentReplacement,
-		cfg:         currentVariableOverrides,
-		path:        cp.path,
+		cloud:              configReplacements.CloudReplacement,
+		environment:        configReplacements.EnvironmentReplacement,
+		cfg:                currentVariableOverrides,
+		absoluteSchemaPath: cp.absoluteSchemaPath,
 	}, nil
 }
 
 type configResolver struct {
 	cloud, environment string
 	cfg                configurationOverrides
-	path               string
+	absoluteSchemaPath string
 }
 
 // Merges Configuration, returns merged Configuration
@@ -209,11 +225,7 @@ func (cr *configResolver) ValidateSchema(config types.Configuration) error {
 	}
 	c := jsonschema.NewCompiler()
 	c.UseLoader(loader)
-	path, err := cr.SchemaPath()
-	if err != nil {
-		return err
-	}
-	sch, err := c.Compile(path)
+	sch, err := c.Compile(cr.absoluteSchemaPath)
 	if err != nil {
 		return fmt.Errorf("failed to compile schema: %v", err)
 	}
@@ -226,15 +238,7 @@ func (cr *configResolver) ValidateSchema(config types.Configuration) error {
 }
 
 func (cr *configResolver) SchemaPath() (string, error) {
-	path := cr.cfg.Schema
-	if !filepath.IsAbs(path) {
-		absPath, err := filepath.Abs(filepath.Join(filepath.Dir(cr.path), path))
-		if err != nil {
-			return "", fmt.Errorf("failed to create absolute path to schema %q: %w", path, err)
-		}
-		path = absPath
-	}
-	return path, nil
+	return cr.absoluteSchemaPath, nil
 }
 
 func (cr *configResolver) GetRegions() ([]string, error) {
