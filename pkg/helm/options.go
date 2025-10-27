@@ -73,6 +73,10 @@ func BindOptions(opts *RawOptions, cmd *cobra.Command) error {
 	cmd.Flags().StringVar(&opts.ValuesFile, "values-file", opts.ValuesFile, "Path to the Helm values file.")
 	cmd.Flags().StringVar(&opts.Ev2RolloutVersion, "ev2-rollout-version", opts.Ev2RolloutVersion, "Version of the Ev2 rollout deploying this Helm chart.")
 
+	cmd.Flags().StringVar(&opts.KustoClusterName, "kusto-cluster-name", opts.KustoClusterName, "Name of the Kusto cluster for diagnostics.")
+	cmd.Flags().StringVar(&opts.KustoDatabaseName, "kusto-database-name", opts.KustoDatabaseName, "Name of the Kusto database for diagnostics.")
+	cmd.Flags().StringVar(&opts.KustoTableName, "kusto-table-name", opts.KustoTableName, "Name of the Kusto table for diagnostics.")
+
 	cmd.Flags().DurationVar(&opts.Timeout, "timeout", opts.Timeout, "Timeout for waiting on the Helm release.")
 
 	cmd.Flags().StringVar(&opts.KubeconfigFile, "kubeconfig", opts.KubeconfigFile, "Path to the kubeconfig.")
@@ -90,6 +94,10 @@ type RawOptions struct {
 	ChartDir          string
 	ValuesFile        string
 	Ev2RolloutVersion string
+
+	KustoClusterName  string
+	KustoDatabaseName string
+	KustoTableName    string
 
 	Timeout time.Duration
 
@@ -124,6 +132,10 @@ type completedOptions struct {
 	Values            map[string]any
 	Ev2RolloutVersion string
 
+	KustoClusterName  string
+	KustoDatabaseName string
+	KustoTableName    string
+
 	Timeout time.Duration
 	DryRun  bool
 }
@@ -144,6 +156,9 @@ func (o *RawOptions) Validate() (*ValidatedOptions, error) {
 		{flag: "chart-dir", name: "Helm chart directory", value: &o.ChartDir},
 		{flag: "values-file", name: "Helm values file", value: &o.ValuesFile},
 		{flag: "kubeconfig", name: "Kubeconfig file", value: &o.KubeconfigFile},
+		{flag: "kusto-cluster-name", name: "Kusto cluster name", value: &o.KustoClusterName},
+		{flag: "kusto-database-name", name: "Kusto database name", value: &o.KustoDatabaseName},
+		{flag: "kusto-table-name", name: "Kusto table name", value: &o.KustoTableName},
 	} {
 		if item.value == nil || *item.value == "" {
 			return nil, fmt.Errorf("the %s must be provided with --%s", item.name, item.flag)
@@ -247,6 +262,10 @@ func (o *ValidatedOptions) Complete() (*Options, error) {
 			Chart:             chart,
 			Values:            values,
 			Ev2RolloutVersion: o.Ev2RolloutVersion,
+
+			KustoClusterName:  o.KustoClusterName,
+			KustoDatabaseName: o.KustoDatabaseName,
+			KustoTableName:    o.KustoTableName,
 
 			Timeout: o.Timeout,
 			DryRun:  o.DryRun,
@@ -456,6 +475,8 @@ func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options, depl
 		"values", release.Config,
 	)
 
+	logger.Info("Using Kusto configuration.", "cluster", opts.KustoClusterName, "database", opts.KustoDatabaseName, "table", opts.KustoTableName)
+
 	var resources []ResourceInfo
 	var foundPods []PodInfo
 
@@ -531,7 +552,7 @@ func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options, depl
 let resources = datatable(['kind']:string, name:string, namespace:string)[
 %s
 ];
-kubesystem
+%s
 | where ['time'] between (datetime("%s") .. datetime("%s"))
 | where pod_name startswith "kube-events"
 | extend parsed_log = parse_json(log)
@@ -540,13 +561,13 @@ kubesystem
          namespace = tostring(parsed_log.involved_object.namespace)
 | join kind=inner resources on ['kind'], name, namespace
 | project ['time'], pod_name, ['kind'], name, namespace, log
-| order by ['time'] desc`, strings.Join(resourceRows, ",\n"), deploymentStart, deploymentEnd)
+| order by ['time'] desc`, strings.Join(resourceRows, ",\n"), opts.KustoTableName, deploymentStart, deploymentEnd)
 
 		encodedQuery, err := base64Gzip(kustoQuery)
 		if err != nil {
 			logger.Error(err, "Failed to encode query for Kusto deep link")
 		} else {
-			kustoDeepLink := "https://dataexplorer.azure.com/clusters/aroint.eastus/databases/HCPServiceLogs?query=" + encodedQuery
+			kustoDeepLink := fmt.Sprintf("https://dataexplorer.azure.com/clusters/%s/databases/%s?query=%s", opts.KustoClusterName, opts.KustoDatabaseName, encodedQuery)
 			logger.Info("Kube-events kusto link for troubleshooting:", "url", kustoDeepLink)
 		}
 	}
@@ -555,19 +576,19 @@ kubesystem
 	if len(foundPods) > 0 {
 		for i := range foundPods {
 			podQuery := fmt.Sprintf(`
-kubesystem
+%s
 | where ['time'] between (datetime("%s") .. datetime("%s"))
 | where pod_name == "%s"
 | where namespace_name == "%s"
 | project ['time'], log
-| order by ['time'] desc`, deploymentStart, deploymentEnd, foundPods[i].Name, foundPods[i].Namespace)
+| order by ['time'] desc`, opts.KustoTableName, deploymentStart, deploymentEnd, foundPods[i].Name, foundPods[i].Namespace)
 
 			encodedQuery, err := base64Gzip(podQuery)
 			if err != nil {
 				logger.Error(err, "Failed to encode query for Kusto deep link")
 				continue
 			}
-			podDeepLink := "https://dataexplorer.azure.com/clusters/aroint.eastus/databases/HCPServiceLogs?query=" + encodedQuery
+			podDeepLink := fmt.Sprintf("https://dataexplorer.azure.com/clusters/%s/databases/%s?query=%s", opts.KustoClusterName, opts.KustoDatabaseName, encodedQuery)
 			foundPods[i].KustoDeepLink = podDeepLink
 		}
 

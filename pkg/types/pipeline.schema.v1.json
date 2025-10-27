@@ -510,6 +510,15 @@
             "valuesFile": {
               "type": "string"
             },
+            "kustoClusterName": {
+              "type": "string"
+            },
+            "kustoDatabaseName": { 
+              "type": "string"
+            },
+            "kustoTableName": {
+              "type": "string"
+            },
             "timeout": {
               "$ref": "#/definitions/durationString"
             },
