@@ -263,25 +263,6 @@ resourceGroups:
       value: pullSecretName
     shellIdentity:
       value: shellIdentity
-  - name: image-mirror-with-artifact
-    action: ImageMirror
-    targetACR:
-      value: targetACR
-    sourceRegistry:
-      value: sourceRegistry
-    repository:
-      value: repository
-    digest:
-      value: digest
-    pullSecretKeyVault:
-      value: pullSecretKeyVault
-    pullSecretName:
-      value: pullSecretName
-    shellIdentity:
-      value: shellIdentity
-    adoProject: '{{ .imageMirror.adoProject }}'
-    artifactName: '{{ .imageMirror.artifactName }}'
-    buildId: '{{ .imageMirror.buildId }}'
 - name: global
   resourceGroup: '{{ .globalRG  }}'
   subscription: '{{ .managementClusterSubscription }}'
@@ -354,7 +335,10 @@ resourceGroups:
       imageMetadataFileName:
         value: "image-metadata-file-name"
       shellIdentity:
-        value: shellIdentity        
+        value: shellIdentity
+      adoProject: '{{ .imageMirror.adoProject }}'
+      artifactName: '{{ .imageMirror.artifactName }}'
+      buildId: '{{ .imageMirror.buildId }}'
     - name: pav2
       action: Pav2
       operation: All
