@@ -75,9 +75,9 @@ func BindOptions(opts *RawOptions, cmd *cobra.Command) error {
 	cmd.Flags().StringVar(&opts.ValuesFile, "values-file", opts.ValuesFile, "Path to the Helm values file.")
 	cmd.Flags().StringVar(&opts.Ev2RolloutVersion, "ev2-rollout-version", opts.Ev2RolloutVersion, "Version of the Ev2 rollout deploying this Helm chart.")
 
-	cmd.Flags().StringVar(&opts.KustoCluster, "kusto-cluster", opts.KustoCluster, "Name of the Kusto cluster for diagnostics.")
-	cmd.Flags().StringVar(&opts.KustoDatabase, "kusto-database", opts.KustoDatabase, "Name of the Kusto database for diagnostics.")
-	cmd.Flags().StringVar(&opts.KustoTable, "kusto-table", opts.KustoTable, "Name of the Kusto table for diagnostics.")
+	cmd.Flags().StringVar(&opts.KustoCluster, "kusto-cluster", opts.KustoCluster, "Name of the Kusto cluster to use for diagnostics.")
+	cmd.Flags().StringVar(&opts.KustoDatabase, "kusto-database", opts.KustoDatabase, "Name of the Kusto database in the given cluster to use for diagnostics.")
+	cmd.Flags().StringVar(&opts.KustoTable, "kusto-table", opts.KustoTable, "Name of the Kusto table in the given database to use for diagnostics.")
 
 	cmd.Flags().DurationVar(&opts.Timeout, "timeout", opts.Timeout, "Timeout for waiting on the Helm release.")
 
@@ -158,9 +158,6 @@ func (o *RawOptions) Validate() (*ValidatedOptions, error) {
 		{flag: "chart-dir", name: "Helm chart directory", value: &o.ChartDir},
 		{flag: "values-file", name: "Helm values file", value: &o.ValuesFile},
 		{flag: "kubeconfig", name: "Kubeconfig file", value: &o.KubeconfigFile},
-		{flag: "kusto-cluster", name: "Kusto cluster name", value: &o.KustoCluster},
-		{flag: "kusto-database", name: "Kusto database name", value: &o.KustoDatabase},
-		{flag: "kusto-table", name: "Kusto table name", value: &o.KustoTable},
 	} {
 		if item.value == nil || *item.value == "" {
 			return nil, fmt.Errorf("the %s must be provided with --%s", item.name, item.flag)
@@ -291,6 +288,7 @@ func (opts *Options) Deploy(ctx context.Context) error {
 		}
 	}
 
+	// Start a deployment timer to use for finding relevant logs in runDiagnostics
 	deploymentStartTime := time.Now()
 
 	logger.Info("Rolling out Helm release.", "dryRun", opts.DryRun)
@@ -428,30 +426,30 @@ type ResourceInfo struct {
 	Namespace string
 }
 
-// extractContainerStateSummary creates a summary string of all container states
+// extractContainerStateSummary creates a summary string of all container states for easy logging
 func extractContainerStateSummary(containerStatuses []corev1.ContainerStatus) string {
 	if len(containerStatuses) == 0 {
-		return "no containers"
+		return "no containers found"
 	}
 
 	var states []string
-	for _, cs := range containerStatuses {
+	for _, contStatus := range containerStatuses {
 		var state string
 		switch {
-		case cs.State.Waiting != nil:
-			state = fmt.Sprintf("%s:Waiting(%s)", cs.Name, cs.State.Waiting.Reason)
-		case cs.State.Terminated != nil:
-			state = fmt.Sprintf("%s:Terminated(%s,exit:%d)", cs.Name, cs.State.Terminated.Reason, cs.State.Terminated.ExitCode)
-		case cs.State.Running != nil:
-			state = fmt.Sprintf("%s:Running", cs.Name)
+		case contStatus.State.Waiting != nil:
+			state = fmt.Sprintf("%s:Waiting(%s)", contStatus.Name, contStatus.State.Waiting.Reason)
+		case contStatus.State.Terminated != nil:
+			state = fmt.Sprintf("%s:Terminated(%s,exit:%d)", contStatus.Name, contStatus.State.Terminated.Reason, contStatus.State.Terminated.ExitCode)
+		case contStatus.State.Running != nil:
+			state = fmt.Sprintf("%s:Running", contStatus.Name)
 		default:
-			state = fmt.Sprintf("%s:Unknown", cs.Name)
+			state = fmt.Sprintf("%s:Unknown", contStatus.Name)
 		}
 
-		if cs.RestartCount > 0 {
-			state += fmt.Sprintf("[restarts:%d]", cs.RestartCount)
+		if contStatus.RestartCount > 0 {
+			state += fmt.Sprintf("[restarts:%d]", contStatus.RestartCount)
 		}
-		if !cs.Ready {
+		if !contStatus.Ready {
 			state += "[not-ready]"
 		}
 
@@ -477,7 +475,10 @@ func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options, depl
 		"values", release.Config,
 	)
 
-	logger.Info("Using Kusto configuration.", "cluster", opts.KustoCluster, "database", opts.KustoDatabase, "table", opts.KustoTable)
+	if opts.KustoCluster == "" || opts.KustoDatabase == "" || opts.KustoTable == "" {
+		logger.Info("Kusto configuration not provided, skipping Kusto diagnostics.")
+		return nil
+	}
 
 	var resources []ResourceInfo
 	var foundPods []PodInfo
@@ -567,7 +568,7 @@ let resources = datatable(['kind']:string, name:string, namespace:string)[
 
 		encodedQuery, err := encodeKustoQuery(kustoQuery)
 		if err != nil {
-			logger.Error(err, "Failed to encode query for Kusto deep link")
+			logger.Error(err, "Failed to encode query for Kusto deep link for kube events")
 		} else {
 			kustoDeepLink := fmt.Sprintf("https://dataexplorer.azure.com/clusters/%s/databases/%s?query=%s", opts.KustoCluster, opts.KustoDatabase, encodedQuery)
 			logger.Info("Kube-events kusto link for troubleshooting:", "url", kustoDeepLink)
@@ -586,7 +587,7 @@ let resources = datatable(['kind']:string, name:string, namespace:string)[
 
 			encodedQuery, err := encodeKustoQuery(podQuery)
 			if err != nil {
-				logger.Error(err, "Failed to encode query for Kusto deep link")
+				logger.Error(err, "Failed to encode query for Kusto deep link for pods")
 				continue
 			}
 			podDeepLink := fmt.Sprintf("https://dataexplorer.azure.com/clusters/%s/databases/%s?query=%s", opts.KustoCluster, opts.KustoDatabase, encodedQuery)
