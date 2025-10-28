@@ -580,7 +580,7 @@ let resources = datatable(['kind']:string, name:string, namespace:string)[
 		for i := range foundPods {
 			if opts.KustoCluster == "" || opts.KustoDatabase == "" || opts.KustoTable == "" {
 				foundPods[i].KustoDeepLink = "Kusto configuration not provided, no deep link available"
-			} else {			
+			} else {
 				podQuery := fmt.Sprintf(`%s
 | where ['time'] between (datetime("%s") .. datetime("%s"))
 | where pod_name == "%s"
