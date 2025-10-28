@@ -320,6 +320,7 @@ func runHelmUpgrade(ctx context.Context, logger logr.Logger, opts *Options) (*he
 		installClient := action.NewInstall(opts.ActionConfig)
 		installClient.ReleaseName = opts.ReleaseName
 		installClient.WaitStrategy = kube.StatusWatcherStrategy
+		installClient.WaitForJobs = true
 		installClient.Namespace = opts.ReleaseNamespace
 		installClient.Timeout = opts.Timeout
 		installClient.ServerSideApply = true
@@ -345,6 +346,7 @@ func runHelmUpgrade(ctx context.Context, logger logr.Logger, opts *Options) (*he
 
 	upgradeClient := action.NewUpgrade(opts.ActionConfig)
 	upgradeClient.WaitStrategy = kube.StatusWatcherStrategy
+	upgradeClient.WaitForJobs = true
 	upgradeClient.Namespace = opts.ReleaseNamespace
 	upgradeClient.Timeout = opts.Timeout
 	upgradeClient.Install = true
