@@ -97,9 +97,9 @@ type RawOptions struct {
 	ValuesFile        string
 	Ev2RolloutVersion string
 
-	KustoCluster      string
-	KustoDatabase     string
-	KustoTable        string
+	KustoCluster  string
+	KustoDatabase string
+	KustoTable    string
 
 	Timeout time.Duration
 
