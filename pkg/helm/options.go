@@ -427,6 +427,7 @@ type ResourceInfo struct {
 }
 
 // extractContainerStateSummary creates a summary string of all container states for easy logging
+// ex: "credential-refresher:Terminated(Error,exit:1)[restarts:2][not-ready]"
 func extractContainerStateSummary(containerStatuses []corev1.ContainerStatus) string {
 	if len(containerStatuses) == 0 {
 		return "no containers found"
@@ -474,11 +475,6 @@ func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options, depl
 		"description", release.Info.Description,
 		"values", release.Config,
 	)
-
-	if opts.KustoCluster == "" || opts.KustoDatabase == "" || opts.KustoTable == "" {
-		logger.Info("Kusto configuration not provided, skipping Kusto diagnostics.")
-		return nil
-	}
 
 	var resources []ResourceInfo
 	var foundPods []PodInfo
@@ -537,21 +533,24 @@ func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options, depl
 	deploymentStart := deploymentStartTime.UTC().Format(time.RFC3339)
 	deploymentEnd := time.Now().UTC().Format(time.RFC3339)
 
-	// Generate Kusto link for resource events
+	// Log information for all resources in release, and create kusto deep link for kube events if configuration available
 	if len(resources) > 0 {
 		logger.Info("Found resources in release:", "resources", resources)
 
-		// Build resource rows for Kusto query
-		var resourceRows []string
-		for _, resource := range resources {
-			resourceRows = append(resourceRows, fmt.Sprintf(`    "%s", "%s", "%s"`, resource.Kind, resource.Name, resource.Namespace))
-		}
+		if opts.KustoCluster == "" || opts.KustoDatabase == "" || opts.KustoTable == "" {
+			logger.Info("Kusto configuration not provided, skipping Kusto deep link generation for kube events.")
+		} else {
+			// Build resource rows for Kusto query
+			var resourceRows []string
+			for _, resource := range resources {
+				resourceRows = append(resourceRows, fmt.Sprintf(`    "%s", "%s", "%s"`, resource.Kind, resource.Name, resource.Namespace))
+			}
 
-		// Build kusto query with datatable for resources found in the Helm release
-		// Utilizing ['time'] instead of TIMESTAMP since TIMESTAMP rounds down times to the nearest minute,
-		// which can lead to missing logs
-		// 'time' and 'kind' are reserved keywords in Kusto and need to be escaped with brackets to reference the column name
-		kustoQuery := fmt.Sprintf(`
+			// Build kusto query with datatable for resources found in the Helm release
+			// Utilizing ['time'] instead of TIMESTAMP since TIMESTAMP rounds down times to the nearest minute,
+			// which can lead to missing logs
+			// 'time' and 'kind' are reserved keywords in Kusto and need to be escaped with brackets to reference the column name
+			kustoQuery := fmt.Sprintf(`
 let resources = datatable(['kind']:string, name:string, namespace:string)[
 %s
 ];
@@ -560,38 +559,43 @@ let resources = datatable(['kind']:string, name:string, namespace:string)[
 | where pod_name startswith "kube-events"
 | extend parsed_log = parse_json(log)
 | extend ['kind'] = tostring(parsed_log.involved_object.kind),
-         name = tostring(parsed_log.involved_object.name),
-         namespace = tostring(parsed_log.involved_object.namespace)
+	name = tostring(parsed_log.involved_object.name),
+	namespace = tostring(parsed_log.involved_object.namespace)
 | join kind=inner resources on ['kind'], name, namespace
 | project ['time'], pod_name, ['kind'], name, namespace, log
 | order by ['time'] desc`, strings.Join(resourceRows, ",\n"), opts.KustoTable, deploymentStart, deploymentEnd)
 
-		encodedQuery, err := encodeKustoQuery(kustoQuery)
-		if err != nil {
-			logger.Error(err, "Failed to encode query for Kusto deep link for kube events")
-		} else {
-			kustoDeepLink := fmt.Sprintf("https://dataexplorer.azure.com/clusters/%s/databases/%s?query=%s", opts.KustoCluster, opts.KustoDatabase, encodedQuery)
-			logger.Info("Kube-events kusto link for troubleshooting:", "url", kustoDeepLink)
+			encodedQuery, err := encodeKustoQuery(kustoQuery)
+			if err != nil {
+				logger.Error(err, "Failed to encode query for Kusto deep link for kube events")
+			} else {
+				kustoDeepLink := fmt.Sprintf("https://dataexplorer.azure.com/clusters/%s/databases/%s?query=%s", opts.KustoCluster, opts.KustoDatabase, encodedQuery)
+				logger.Info("Kube-events kusto link for troubleshooting:", "url", kustoDeepLink)
+			}
 		}
 	}
 
-	// Generate Kusto link for all pods
+	// Log information for individual pods, including kusto deep link if configuration available
 	if len(foundPods) > 0 {
 		for i := range foundPods {
-			podQuery := fmt.Sprintf(`%s
+			if opts.KustoCluster == "" || opts.KustoDatabase == "" || opts.KustoTable == "" {
+				foundPods[i].KustoDeepLink = "Kusto configuration not provided, no deep link available"
+			} else {			
+				podQuery := fmt.Sprintf(`%s
 | where ['time'] between (datetime("%s") .. datetime("%s"))
 | where pod_name == "%s"
 | where namespace_name == "%s"
 | project ['time'], log
 | order by ['time'] desc`, opts.KustoTable, deploymentStart, deploymentEnd, foundPods[i].Name, foundPods[i].Namespace)
 
-			encodedQuery, err := encodeKustoQuery(podQuery)
-			if err != nil {
-				logger.Error(err, "Failed to encode query for Kusto deep link for pods")
-				continue
+				encodedQuery, err := encodeKustoQuery(podQuery)
+				if err != nil {
+					logger.Error(err, "Failed to encode query for Kusto deep link for pods")
+					continue
+				}
+				podDeepLink := fmt.Sprintf("https://dataexplorer.azure.com/clusters/%s/databases/%s?query=%s", opts.KustoCluster, opts.KustoDatabase, encodedQuery)
+				foundPods[i].KustoDeepLink = podDeepLink
 			}
-			podDeepLink := fmt.Sprintf("https://dataexplorer.azure.com/clusters/%s/databases/%s?query=%s", opts.KustoCluster, opts.KustoDatabase, encodedQuery)
-			foundPods[i].KustoDeepLink = podDeepLink
 		}
 
 		logger.Info("Found Pod details in release:", "pods", foundPods)
