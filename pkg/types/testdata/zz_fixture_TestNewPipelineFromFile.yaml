@@ -388,6 +388,7 @@ resourceGroups:
     - additional-ns.yaml
     releaseName: workload
     releaseNamespace: kube-system
+    rollbackOnFailure: true
     timeout: 1h
     valuesFile: values.yaml
   subscription: hcp-uksouth

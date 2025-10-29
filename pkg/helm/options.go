@@ -85,6 +85,7 @@ func BindOptions(opts *RawOptions, cmd *cobra.Command) error {
 
 	cmd.Flags().StringVar(&opts.KubeconfigFile, "kubeconfig", opts.KubeconfigFile, "Path to the kubeconfig.")
 	cmd.Flags().BoolVar(&opts.DryRun, "dry-run", opts.DryRun, "Do not make any changes to the Kubernetes API server.")
+	cmd.Flags().BoolVar(&opts.RollbackOnFailure, "rollback-on-failure", opts.RollbackOnFailure, "Rollback the release on deployment failure.")
 
 	return nil
 }
@@ -105,8 +106,9 @@ type RawOptions struct {
 
 	Timeout time.Duration
 
-	KubeconfigFile string
-	DryRun         bool
+	KubeconfigFile    string
+	DryRun            bool
+	RollbackOnFailure bool
 }
 
 // validatedOptions is a private wrapper that enforces a call of Validate() before Complete() can be invoked.
@@ -140,8 +142,9 @@ type completedOptions struct {
 	KustoDatabase string
 	KustoTable    string
 
-	Timeout time.Duration
-	DryRun  bool
+	Timeout           time.Duration
+	DryRun            bool
+	RollbackOnFailure bool
 }
 
 type Options struct {
@@ -215,6 +218,7 @@ func (o *ValidatedOptions) Complete() (*Options, error) {
 	}
 
 	actionCfg := &action.Configuration{}
+
 	cliOpts := &genericclioptions.ConfigFlags{
 		KubeConfig: ptr.To(o.KubeconfigFile),
 		Namespace:  ptr.To(o.ReleaseNamespace),
@@ -268,8 +272,9 @@ func (o *ValidatedOptions) Complete() (*Options, error) {
 			KustoDatabase: o.KustoDatabase,
 			KustoTable:    o.KustoTable,
 
-			Timeout: o.Timeout,
-			DryRun:  o.DryRun,
+			Timeout:           o.Timeout,
+			DryRun:            o.DryRun,
+			RollbackOnFailure: o.RollbackOnFailure,
 		},
 	}, nil
 }
@@ -374,6 +379,7 @@ func runHelmUpgrade(ctx context.Context, logger logr.Logger, opts *Options) (hel
 		installClient.ForceConflicts = true
 		installClient.SkipCRDs = false
 		installClient.TakeOwnership = true
+		installClient.RollbackOnFailure = opts.RollbackOnFailure
 
 		if opts.DryRun {
 			installClient.DryRunStrategy = "server"
@@ -399,6 +405,7 @@ func runHelmUpgrade(ctx context.Context, logger logr.Logger, opts *Options) (hel
 	upgradeClient.ServerSideApply = "true"
 	upgradeClient.ForceConflicts = true
 	upgradeClient.TakeOwnership = true
+	upgradeClient.RollbackOnFailure = opts.RollbackOnFailure
 
 	if opts.DryRun {
 		upgradeClient.DryRunStrategy = "server"

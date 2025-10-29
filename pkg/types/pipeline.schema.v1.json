@@ -510,6 +510,9 @@
             "valuesFile": {
               "type": "string"
             },
+            "rollbackOnFailure": {
+              "type": "boolean"
+            },
             "kustoCluster": {
               "type": "string"
             },
