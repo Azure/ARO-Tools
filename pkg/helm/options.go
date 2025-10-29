@@ -20,6 +20,8 @@ import (
 	chartv2 "helm.sh/helm/v4/pkg/chart/v2"
 	"helm.sh/helm/v4/pkg/chart/v2/loader"
 	"helm.sh/helm/v4/pkg/kube"
+	helmrelease "helm.sh/helm/v4/pkg/release"
+	helmreleasecommon "helm.sh/helm/v4/pkg/release/common"
 	helmreleasev1 "helm.sh/helm/v4/pkg/release/v1"
 	"helm.sh/helm/v4/pkg/storage/driver"
 
@@ -278,7 +280,7 @@ func (opts *Options) Deploy(ctx context.Context) error {
 		return fmt.Errorf("failed to create logger: %w", err)
 	}
 
-	logger.Info("Resolved input values.", "values", opts.Values)
+	logger.Info("Resolved input values!!!!", "values", opts.Values)
 
 	logger.Info("Applying namespaces.")
 	// Helm does not let us manage namespaces easily, so we need to apply them ourselves, up-front.
@@ -292,9 +294,13 @@ func (opts *Options) Deploy(ctx context.Context) error {
 	deploymentStartTime := time.Now()
 
 	logger.Info("Rolling out Helm release.", "dryRun", opts.DryRun)
-	release, releaseErr := runHelmUpgrade(ctx, logger, opts)
+	releaser, releaseErr := runHelmUpgrade(ctx, logger, opts)
 	if releaseErr != nil {
 		logger.Error(releaseErr, "Failed to roll out the Helm release.")
+	}
+	release, err := releaserToV1Release(releaser)
+	if err != nil {
+		return fmt.Errorf("failed to convert release to v1: %w", err)
 	}
 	logger.Info("Finished deploying Helm release.")
 
@@ -349,13 +355,14 @@ const ev2RolloutVersionLabel = "ev2.azure.com/rollout.version"
 //   - our deployer is self-contained and easy to use
 //   - we get to control the version of Helm used to deploy directly, as opposed to being vulnerable to whatever the Ev2
 //     or local environment we run in happens to use
-func runHelmUpgrade(ctx context.Context, logger logr.Logger, opts *Options) (*helmreleasev1.Release, error) {
+func runHelmUpgrade(ctx context.Context, logger logr.Logger, opts *Options) (helmrelease.Releaser, error) {
 	logger.Info("Searching for release history...")
 	historyClient := action.NewHistory(opts.ActionConfig)
 	historyClient.Max = 1
 	versions, err := historyClient.Run(opts.ReleaseName)
+
 	// If a release does not exist, install it.
-	if err == driver.ErrReleaseNotFound || isReleaseUninstalled(versions) {
+	if err == driver.ErrReleaseNotFound || isReleaseUninstalled(logger, versions) {
 		logger.Info("No release history found, running the first release...")
 		installClient := action.NewInstall(opts.ActionConfig)
 		installClient.ReleaseName = opts.ReleaseName
@@ -369,8 +376,7 @@ func runHelmUpgrade(ctx context.Context, logger logr.Logger, opts *Options) (*he
 		installClient.TakeOwnership = true
 
 		if opts.DryRun {
-			installClient.DryRun = true
-			installClient.DryRunOption = "server"
+			installClient.DryRunStrategy = "server"
 			installClient.HideSecret = true
 		}
 
@@ -395,8 +401,7 @@ func runHelmUpgrade(ctx context.Context, logger logr.Logger, opts *Options) (*he
 	upgradeClient.TakeOwnership = true
 
 	if opts.DryRun {
-		upgradeClient.DryRun = true
-		upgradeClient.DryRunOption = "server"
+		upgradeClient.DryRunStrategy = "server"
 		upgradeClient.HideSecret = true
 	}
 
@@ -409,8 +414,14 @@ func runHelmUpgrade(ctx context.Context, logger logr.Logger, opts *Options) (*he
 	return upgradeClient.RunWithContext(ctx, opts.ReleaseName, opts.Chart, opts.Values)
 }
 
-func isReleaseUninstalled(versions []*helmreleasev1.Release) bool {
-	return len(versions) > 0 && versions[len(versions)-1].Info.Status == helmreleasev1.StatusUninstalled
+// https://github.com/helm/helm/blob/f4c5220d99723ca63dd0acb7302fe5b0971899f2/pkg/cmd/upgrade.go#L322
+func isReleaseUninstalled(logger logr.Logger, versionsi []helmrelease.Releaser) bool {
+	versions, err := releaseListToV1List(versionsi)
+	if err != nil {
+		logger.Error(err, "cannot convert release list to v1 release list")
+		return false
+	}
+	return len(versions) > 0 && versions[len(versions)-1].Info.Status == helmreleasecommon.StatusUninstalled
 }
 
 type PodInfo struct {
@@ -462,9 +473,13 @@ func extractContainerStateSummary(containerStatuses []corev1.ContainerStatus) st
 
 func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options, deploymentStartTime time.Time) error {
 	statusClient := action.NewStatus(opts.ActionConfig)
-	release, err := statusClient.Run(opts.ReleaseName)
+	releaser, err := statusClient.Run(opts.ReleaseName)
 	if err != nil {
 		return fmt.Errorf("failed to get status for release %s: %w", opts.ReleaseName, err)
+	}
+	release, err := releaserToV1Release(releaser)
+	if err != nil {
+		return fmt.Errorf("failed to convert releaser to v1 release: %w", err)
 	}
 
 	logger.Info(
@@ -674,4 +689,32 @@ func getManagedFieldsManager() string {
 	// use the base name. This is one of the ways Kubernetes libs handle figuring
 	// names out.
 	return filepath.Base(os.Args[0])
+}
+
+// https://github.com/helm/helm/blob/f4c5220d99723ca63dd0acb7302fe5b0971899f2/pkg/action/get_values.go#L71C1-L84C2
+func releaserToV1Release(rel helmrelease.Releaser) (*helmreleasev1.Release, error) {
+	switch r := rel.(type) {
+	case helmreleasev1.Release:
+		return &r, nil
+	case *helmreleasev1.Release:
+		return r, nil
+	case nil:
+		return nil, nil
+	default:
+		return nil, fmt.Errorf("unsupported release type: %T", rel)
+	}
+}
+
+// https://github.com/helm/helm/blob/f4c5220d99723ca63dd0acb7302fe5b0971899f2/pkg/cmd/root.go#L485
+func releaseListToV1List(ls []helmrelease.Releaser) ([]*helmreleasev1.Release, error) {
+	rls := make([]*helmreleasev1.Release, 0, len(ls))
+	for _, val := range ls {
+		rel, err := releaserToV1Release(val)
+		if err != nil {
+			return nil, err
+		}
+		rls = append(rls, rel)
+	}
+
+	return rls, nil
 }
