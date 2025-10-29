@@ -280,7 +280,7 @@ func (opts *Options) Deploy(ctx context.Context) error {
 		return fmt.Errorf("failed to create logger: %w", err)
 	}
 
-	logger.Info("Resolved input values!!!!", "values", opts.Values)
+	logger.Info("Resolved input values.", "values", opts.Values)
 
 	logger.Info("Applying namespaces.")
 	// Helm does not let us manage namespaces easily, so we need to apply them ourselves, up-front.
