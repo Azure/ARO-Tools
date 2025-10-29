@@ -424,6 +424,12 @@ func validateHelmResources(ctx context.Context, logger logr.Logger, opts *Option
 		if err != nil {
 			return fmt.Errorf("unable to determine GVR mapping for GVK %s: %v", obj.GroupVersionKind(), err)
 		}
+		// for whatever reason, in dry-run mode Helm does not make the `{{ .Release }}` object available, so we need to set namespaces manually
+		// for any resources that used the template `{{ .Release.namespace }}` - we can approximate this by looking for namespaces resources
+		// that have no resource set
+		if mapping.Scope.Name() == meta.RESTScopeNameNamespace && obj.GetNamespace() == "" {
+			obj.SetNamespace(opts.ReleaseNamespace)
+		}
 
 		if _, err := opts.DynamicClient.Resource(mapping.Resource).Namespace(obj.GetNamespace()).Apply(ctx, obj.GetName(), obj, metav1.ApplyOptions{
 			FieldManager: getManagedFieldsManager(), DryRun: []string{"All"},
