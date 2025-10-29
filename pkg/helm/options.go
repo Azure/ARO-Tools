@@ -2,12 +2,15 @@ package helm
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -39,6 +42,24 @@ import (
 	"github.com/Azure/ARO-Tools/pkg/cmdutils"
 )
 
+// encodeKustoQuery compresses the input text with gzip and then encodes it to base64
+// Necessary to compress long queries to fit in the default browser URI length limits
+// see: https://learn.microsoft.com/en-us/kusto/api/rest/deeplink
+func encodeKustoQuery(text string) (string, error) {
+	var buf bytes.Buffer
+	gzipWriter := gzip.NewWriter(&buf)
+
+	if _, err := gzipWriter.Write([]byte(text)); err != nil {
+		return "", fmt.Errorf("failed to write to gzip writer: %w", err)
+	}
+
+	if err := gzipWriter.Close(); err != nil {
+		return "", fmt.Errorf("failed to close gzip writer: %w", err)
+	}
+
+	return base64.StdEncoding.EncodeToString(buf.Bytes()), nil
+}
+
 func DefaultOptions() *RawOptions {
 	return &RawOptions{
 		Timeout: 5 * time.Minute,
@@ -53,6 +74,10 @@ func BindOptions(opts *RawOptions, cmd *cobra.Command) error {
 	cmd.Flags().StringVar(&opts.ChartDir, "chart-dir", opts.ChartDir, "Path to the directory containing the Helm chart.")
 	cmd.Flags().StringVar(&opts.ValuesFile, "values-file", opts.ValuesFile, "Path to the Helm values file.")
 	cmd.Flags().StringVar(&opts.Ev2RolloutVersion, "ev2-rollout-version", opts.Ev2RolloutVersion, "Version of the Ev2 rollout deploying this Helm chart.")
+
+	cmd.Flags().StringVar(&opts.KustoCluster, "kusto-cluster", opts.KustoCluster, "Name of the Kusto cluster to use for diagnostics.")
+	cmd.Flags().StringVar(&opts.KustoDatabase, "kusto-database", opts.KustoDatabase, "Name of the Kusto database in the given cluster to use for diagnostics.")
+	cmd.Flags().StringVar(&opts.KustoTable, "kusto-table", opts.KustoTable, "Name of the Kusto table in the given database to use for diagnostics.")
 
 	cmd.Flags().DurationVar(&opts.Timeout, "timeout", opts.Timeout, "Timeout for waiting on the Helm release.")
 
@@ -71,6 +96,10 @@ type RawOptions struct {
 	ChartDir          string
 	ValuesFile        string
 	Ev2RolloutVersion string
+
+	KustoCluster  string
+	KustoDatabase string
+	KustoTable    string
 
 	Timeout time.Duration
 
@@ -104,6 +133,10 @@ type completedOptions struct {
 	Chart             *chartv2.Chart
 	Values            map[string]any
 	Ev2RolloutVersion string
+
+	KustoCluster  string
+	KustoDatabase string
+	KustoTable    string
 
 	Timeout time.Duration
 	DryRun  bool
@@ -229,6 +262,10 @@ func (o *ValidatedOptions) Complete() (*Options, error) {
 			Values:            values,
 			Ev2RolloutVersion: o.Ev2RolloutVersion,
 
+			KustoCluster:  o.KustoCluster,
+			KustoDatabase: o.KustoDatabase,
+			KustoTable:    o.KustoTable,
+
 			Timeout: o.Timeout,
 			DryRun:  o.DryRun,
 		},
@@ -251,6 +288,9 @@ func (opts *Options) Deploy(ctx context.Context) error {
 		}
 	}
 
+	// Start a deployment timer to use for finding relevant logs in runDiagnostics
+	deploymentStartTime := time.Now()
+
 	logger.Info("Rolling out Helm release.", "dryRun", opts.DryRun)
 	release, releaseErr := runHelmUpgrade(ctx, logger, opts)
 	if releaseErr != nil {
@@ -269,7 +309,7 @@ func (opts *Options) Deploy(ctx context.Context) error {
 		logger.Info("Finished validating Helm release contents.")
 	} else {
 		logger.Info("Running inline diagnostics.")
-		if err := runDiagnostics(ctx, logger, opts); err != nil {
+		if err := runDiagnostics(ctx, logger, opts, deploymentStartTime); err != nil {
 			return fmt.Errorf("capturing diagnostics failed: %w", err)
 		}
 	}
@@ -373,7 +413,54 @@ func isReleaseUninstalled(versions []*helmreleasev1.Release) bool {
 	return len(versions) > 0 && versions[len(versions)-1].Info.Status == helmreleasev1.StatusUninstalled
 }
 
-func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options) error {
+type PodInfo struct {
+	Name          string
+	Namespace     string
+	Phase         string
+	State         string // container state summary
+	KustoDeepLink string
+}
+type ResourceInfo struct {
+	Kind      string
+	Name      string
+	Namespace string
+}
+
+// extractContainerStateSummary creates a summary string of all container states for easy logging
+// ex: "credential-refresher:Terminated(Error,exit:1)[restarts:2][not-ready]"
+func extractContainerStateSummary(containerStatuses []corev1.ContainerStatus) string {
+	if len(containerStatuses) == 0 {
+		return "no containers found"
+	}
+
+	var states []string
+	for _, contStatus := range containerStatuses {
+		var state string
+		switch {
+		case contStatus.State.Waiting != nil:
+			state = fmt.Sprintf("%s:Waiting(%s)", contStatus.Name, contStatus.State.Waiting.Reason)
+		case contStatus.State.Terminated != nil:
+			state = fmt.Sprintf("%s:Terminated(%s,exit:%d)", contStatus.Name, contStatus.State.Terminated.Reason, contStatus.State.Terminated.ExitCode)
+		case contStatus.State.Running != nil:
+			state = fmt.Sprintf("%s:Running", contStatus.Name)
+		default:
+			state = fmt.Sprintf("%s:Unknown", contStatus.Name)
+		}
+
+		if contStatus.RestartCount > 0 {
+			state += fmt.Sprintf("[restarts:%d]", contStatus.RestartCount)
+		}
+		if !contStatus.Ready {
+			state += "[not-ready]"
+		}
+
+		states = append(states, state)
+	}
+
+	return strings.Join(states, ", ")
+}
+
+func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options, deploymentStartTime time.Time) error {
 	statusClient := action.NewStatus(opts.ActionConfig)
 	release, err := statusClient.Run(opts.ReleaseName)
 	if err != nil {
@@ -389,8 +476,130 @@ func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options) erro
 		"values", release.Config,
 	)
 
-	// TODO: add in Kusto deep-links
-	// TOOD: do we still want/need to dump the YAMLs of the resources that were just created?
+	var resources []ResourceInfo
+	var foundPods []PodInfo
+
+	if release.Info == nil || len(release.Info.Resources) == 0 {
+		return nil
+	}
+
+	// Process all resources in the release
+	for _, resourceList := range release.Info.Resources {
+		for _, resource := range resourceList {
+
+			kind := resource.GetObjectKind().GroupVersionKind().Kind
+
+			if kind == "PodList" {
+				// Process each pod item individually
+				err := meta.EachListItem(resource, func(item runtime.Object) error {
+
+					kind := item.GetObjectKind().GroupVersionKind().Kind
+					var pod corev1.Pod
+
+					if unstructuredItem, ok := item.(*unstructured.Unstructured); kind == "Pod" && ok {
+						err := runtime.DefaultUnstructuredConverter.FromUnstructured(unstructuredItem.Object, &pod)
+						if err != nil {
+							logger.Error(err, "Failed to convert unstructured to Pod")
+							return nil
+						}
+
+						podInfo := PodInfo{
+							Name:      pod.Name,
+							Namespace: pod.Namespace,
+							Phase:     string(pod.Status.Phase),
+							State:     extractContainerStateSummary(pod.Status.ContainerStatuses),
+						}
+						foundPods = append(foundPods, podInfo)
+					}
+					return nil
+				})
+				if err != nil {
+					logger.Error(err, "Failed to process pod list items")
+				}
+			} else { // Not PodList
+				objMeta, err := meta.Accessor(resource)
+				if err == nil {
+					resourceInfo := ResourceInfo{
+						Kind:      kind,
+						Name:      objMeta.GetName(),
+						Namespace: objMeta.GetNamespace(),
+					}
+					resources = append(resources, resourceInfo)
+				}
+			}
+		}
+	}
+
+	deploymentStart := deploymentStartTime.UTC().Format(time.RFC3339)
+	deploymentEnd := time.Now().UTC().Format(time.RFC3339)
+
+	// Log information for all resources in release, and create kusto deep link for kube events if configuration available
+	if len(resources) > 0 {
+		logger.Info("Found resources in release:", "resources", resources)
+
+		if opts.KustoCluster == "" || opts.KustoDatabase == "" || opts.KustoTable == "" {
+			logger.Info("Kusto configuration not provided, skipping Kusto deep link generation for kube events.")
+		} else {
+			// Build resource rows for Kusto query
+			var resourceRows []string
+			for _, resource := range resources {
+				resourceRows = append(resourceRows, fmt.Sprintf(`    "%s", "%s", "%s"`, resource.Kind, resource.Name, resource.Namespace))
+			}
+
+			// Build kusto query with datatable for resources found in the Helm release
+			// Utilizing ['time'] instead of TIMESTAMP since TIMESTAMP rounds down times to the nearest minute,
+			// which can lead to missing logs
+			// 'time' and 'kind' are reserved keywords in Kusto and need to be escaped with brackets to reference the column name
+			kustoQuery := fmt.Sprintf(`
+let resources = datatable(['kind']:string, name:string, namespace:string)[
+%s
+];
+%s
+| where ['time'] between (datetime("%s") .. datetime("%s"))
+| where pod_name startswith "kube-events"
+| extend parsed_log = parse_json(log)
+| extend ['kind'] = tostring(parsed_log.involved_object.kind),
+	name = tostring(parsed_log.involved_object.name),
+	namespace = tostring(parsed_log.involved_object.namespace)
+| join kind=inner resources on ['kind'], name, namespace
+| project ['time'], pod_name, ['kind'], name, namespace, log
+| order by ['time'] desc`, strings.Join(resourceRows, ",\n"), opts.KustoTable, deploymentStart, deploymentEnd)
+
+			encodedQuery, err := encodeKustoQuery(kustoQuery)
+			if err != nil {
+				logger.Error(err, "Failed to encode query for Kusto deep link for kube events")
+			} else {
+				kustoDeepLink := fmt.Sprintf("https://dataexplorer.azure.com/clusters/%s/databases/%s?query=%s", opts.KustoCluster, opts.KustoDatabase, encodedQuery)
+				logger.Info("Kube-events kusto link for troubleshooting:", "url", kustoDeepLink)
+			}
+		}
+	}
+
+	// Log information for individual pods, including kusto deep link if configuration available
+	if len(foundPods) > 0 {
+		for i := range foundPods {
+			if opts.KustoCluster == "" || opts.KustoDatabase == "" || opts.KustoTable == "" {
+				foundPods[i].KustoDeepLink = "Kusto configuration not provided, no deep link available"
+			} else {
+				podQuery := fmt.Sprintf(`%s
+| where ['time'] between (datetime("%s") .. datetime("%s"))
+| where pod_name == "%s"
+| where namespace_name == "%s"
+| project ['time'], log
+| order by ['time'] desc`, opts.KustoTable, deploymentStart, deploymentEnd, foundPods[i].Name, foundPods[i].Namespace)
+
+				encodedQuery, err := encodeKustoQuery(podQuery)
+				if err != nil {
+					logger.Error(err, "Failed to encode query for Kusto deep link for pods")
+					continue
+				}
+				podDeepLink := fmt.Sprintf("https://dataexplorer.azure.com/clusters/%s/databases/%s?query=%s", opts.KustoCluster, opts.KustoDatabase, encodedQuery)
+				foundPods[i].KustoDeepLink = podDeepLink
+			}
+		}
+
+		logger.Info("Found Pod details in release:", "pods", foundPods)
+	}
 
 	return nil
 }

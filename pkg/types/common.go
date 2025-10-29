@@ -476,6 +476,13 @@ type HelmStep struct {
 	// NOTE: This file will be pre-processed as a Go template to resolve configuration fields and input variables.
 	ValuesFile string `json:"valuesFile,omitempty"`
 
+	// KustoCluster is the name of the Kusto cluster that holds the logs for this Helm deployment.
+	KustoCluster string `json:"kustoCluster,omitempty"`
+	// KustoDatabase is the name of the Kusto database within the cluster that holds the logs for this Helm deployment.
+	KustoDatabase string `json:"kustoDatabase,omitempty"`
+	// KustoTable is the name of the Kusto table that holds the logs for this Helm deployment within the appropriate cluster/database.
+	KustoTable string `json:"kustoTable,omitempty"`
+
 	// InputVariables records a mapping from variable names to the output variable that provides the value.
 	// For some input variable like:
 	//     inputVariables:
