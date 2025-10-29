@@ -365,6 +365,7 @@ resourceGroups:
         - additional-ns.yaml
       chartDir: chart
       valuesFile: values.yaml
+      rollbackOnFailure: true
       inputVariables:
         important:
           resourceGroup: regional

@@ -498,6 +498,9 @@ type HelmStep struct {
 
 	// Timeout is the amount of time to wait for the Helm release to be deployed.
 	Timeout string `json:"timeout,omitempty"`
+
+	// RollbackOnFailure indicates whether to rollback to previous version after upgrade failure and uninstall on install failure.
+	RollbackOnFailure bool `json:"rollbackOnFailure,omitempty"`
 }
 
 func (s *HelmStep) Description() string {
