@@ -557,7 +557,7 @@ func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options, depl
 
 	// Log information for all resources in release, and create kusto deep link for kube events if configuration available
 	if len(resources) > 0 {
-		logger.Info("Found resources in release:", "resources", resources)
+		logger.V(4).Info("Found resources in release:", "resources", resources)
 
 		if opts.KustoCluster == "" || opts.KustoDatabase == "" || opts.KustoTable == "" {
 			logger.Info("Kusto configuration not provided, skipping Kusto deep link generation for kube events.")
@@ -592,7 +592,7 @@ let resources = datatable(['kind']:string, name:string, namespace:string)[
 				logger.Error(err, "Failed to encode query for Kusto deep link for kube events")
 			} else {
 				kustoDeepLink := fmt.Sprintf("https://dataexplorer.azure.com/clusters/%s/databases/%s?query=%s", opts.KustoCluster, opts.KustoDatabase, encodedQuery)
-				logger.Info("Kube-events kusto link for troubleshooting:", "url", kustoDeepLink)
+				logger.V(4).Info("Kube-events kusto link for troubleshooting:", "url", kustoDeepLink)
 			}
 		}
 	}
@@ -620,7 +620,7 @@ let resources = datatable(['kind']:string, name:string, namespace:string)[
 			}
 		}
 
-		logger.Info("Found Pod details in release:", "pods", foundPods)
+		logger.V(4).Info("Found Pod details in release:", "pods", foundPods)
 	}
 
 	return nil
