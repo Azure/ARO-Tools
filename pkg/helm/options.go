@@ -444,6 +444,12 @@ type ResourceInfo struct {
 	Namespace string
 }
 
+type OwnerRefInfo struct {
+	Kind      string
+	Name      string
+	Namespace string
+} 
+
 // extractContainerStateSummary creates a summary string of all container states for easy logging
 // ex: "credential-refresher:Terminated(Error,exit:1)[restarts:2][not-ready]"
 func extractContainerStateSummary(containerStatuses []corev1.ContainerStatus) string {
@@ -501,6 +507,9 @@ func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options, depl
 	var resources []ResourceInfo
 	var foundPods []PodInfo
 
+	// Create map to track set of unique OwnerRefInfo instances (bool is negligible)
+	ownerRefs := make(map[OwnerRefInfo]bool)
+
 	if release.Info == nil || len(release.Info.Resources) == 0 {
 		return nil
 	}
@@ -523,6 +532,15 @@ func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options, depl
 						if err != nil {
 							logger.Error(err, "Failed to convert unstructured to Pod")
 							return nil
+						}
+
+						for _, owner := range pod.OwnerReferences {
+							ownerRef := OwnerRefInfo{
+								Kind:      owner.Kind,
+								Name:      owner.Name,
+								Namespace: pod.Namespace,
+							}
+							ownerRefs[ownerRef] = true
 						}
 
 						podInfo := PodInfo{
@@ -607,8 +625,8 @@ let resources = datatable(['kind']:string, name:string, namespace:string)[
 | where ['time'] between (datetime("%s") .. datetime("%s"))
 | where pod_name == "%s"
 | where namespace_name == "%s"
-| project ['time'], log
-| order by ['time'] desc`, opts.KustoTable, deploymentStart, deploymentEnd, foundPods[i].Name, foundPods[i].Namespace)
+| project ['time'], log, pod_name
+| order by ['time'] asc`, opts.KustoTable, deploymentStart, deploymentEnd, foundPods[i].Name, foundPods[i].Namespace)
 
 				encodedQuery, err := encodeKustoQuery(podQuery)
 				if err != nil {
@@ -623,6 +641,27 @@ let resources = datatable(['kind']:string, name:string, namespace:string)[
 		logger.V(4).Info("Found Pod details in release:", "pods", foundPods)
 	}
 
+	// Create kusto deep links for owner references if config available
+	// Check for pods containing owner ref name (e.g., ReplicaSet) in their name
+	if len(ownerRefs) > 0 && (opts.KustoCluster != "" && opts.KustoDatabase != "" && opts.KustoTable != "") {
+
+		for ownerRef := range ownerRefs {
+			ownerQuery := fmt.Sprintf(`%s
+| where ['time'] between (datetime("%s") .. datetime("%s"))
+| where pod_name contains "%s"
+| where namespace_name == "%s"
+| project ['time'], log, pod_name
+| order by ['time'] asc`, opts.KustoTable, deploymentStart, deploymentEnd, ownerRef.Name, ownerRef.Namespace)
+
+			encodedQuery, err := encodeKustoQuery(ownerQuery)
+			if err != nil {
+				logger.Error(err, "Failed to encode query for Kusto deep link for owner references")
+				continue
+			}
+			ownerRefDeepLink := fmt.Sprintf("https://dataexplorer.azure.com/clusters/%s/databases/%s?query=%s", opts.KustoCluster, opts.KustoDatabase, encodedQuery)
+			logger.V(4).Info("Kusto link to pod owner for further troubleshooting:", "ownerKind", ownerRef.Kind, "ownerName", ownerRef.Name, "url", ownerRefDeepLink)
+		}
+	}
 	return nil
 }
 
