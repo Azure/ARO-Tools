@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -34,7 +35,10 @@ import (
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	corev1applyconfigurations "k8s.io/client-go/applyconfigurations/core/v1"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
+
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/utils/ptr"
@@ -132,6 +136,11 @@ type completedOptions struct {
 
 	ActionConfig *action.Configuration
 
+	InformerFactory informers.SharedInformerFactory
+
+	Pods      map[string]PodInfo
+	PodsMutex sync.RWMutex
+
 	ReleaseName       string
 	ReleaseNamespace  string
 	Chart             *chartv2.Chart
@@ -150,6 +159,19 @@ type completedOptions struct {
 type Options struct {
 	// Embed a private pointer that cannot be instantiated outside of this package.
 	*completedOptions
+}
+
+type PodInfo struct {
+	Name          string
+	Namespace     string
+	Phase         string
+	State         string // container state summary
+	KustoDeepLink string
+}
+type ResourceInfo struct {
+	Kind      string
+	Name      string
+	Namespace string
 }
 
 func (o *RawOptions) Validate() (*ValidatedOptions, error) {
@@ -197,6 +219,9 @@ func (o *ValidatedOptions) Complete() (*Options, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Kubernetes client: %w", err)
 	}
+
+	// Create informer factory for pod monitoring during deployment
+	factory := informers.NewSharedInformerFactory(clientset, 0)
 
 	var foundReleaseNamespace bool
 	var namespaces []corev1.Namespace
@@ -261,6 +286,10 @@ func (o *ValidatedOptions) Complete() (*Options, error) {
 
 			ActionConfig: actionCfg,
 
+			InformerFactory: factory,
+
+			Pods: make(map[string]PodInfo),
+
 			ReleaseName:      o.ReleaseName,
 			ReleaseNamespace: o.ReleaseNamespace,
 
@@ -279,10 +308,105 @@ func (o *ValidatedOptions) Complete() (*Options, error) {
 	}, nil
 }
 
+// extractContainerStateSummary creates a summary string of all container states for easy logging
+// ex: "credential-refresher:Terminated(Error,exit:1)[restarts:2][not-ready]"
+func extractContainerStateSummary(containerStatuses []corev1.ContainerStatus) string {
+	if len(containerStatuses) == 0 {
+		return "no containers found"
+	}
+
+	var states []string
+	for _, contStatus := range containerStatuses {
+		var state string
+		switch {
+		case contStatus.State.Waiting != nil:
+			state = fmt.Sprintf("%s:Waiting(%s)", contStatus.Name, contStatus.State.Waiting.Reason)
+		case contStatus.State.Terminated != nil:
+			state = fmt.Sprintf("%s:Terminated(%s,exit:%d)", contStatus.Name, contStatus.State.Terminated.Reason, contStatus.State.Terminated.ExitCode)
+		case contStatus.State.Running != nil:
+			state = fmt.Sprintf("%s:Running", contStatus.Name)
+		default:
+			state = fmt.Sprintf("%s:Unknown", contStatus.Name)
+		}
+
+		if contStatus.RestartCount > 0 {
+			state += fmt.Sprintf("[restarts:%d]", contStatus.RestartCount)
+		}
+		if !contStatus.Ready {
+			state += "[not-ready]"
+		}
+
+		states = append(states, state)
+	}
+
+	return strings.Join(states, ", ")
+}
+
+// createPodInfo creates a PodInfo struct from a corev1.Pod
+func createPodInfo(pod *corev1.Pod) PodInfo {
+	return PodInfo{
+		Name:      pod.Name,
+		Namespace: pod.Namespace,
+		Phase:     string(pod.Status.Phase),
+		State:     extractContainerStateSummary(pod.Status.ContainerStatuses),
+	}
+}
+
+// updatePodInMap creates a PodInfo from the given pod and stores it in the pods map with thread-safe access
+func (opts *Options) updatePodInMap(pod *corev1.Pod) {
+	podInfo := createPodInfo(pod)
+
+	podKey := fmt.Sprintf("%s|%s", pod.Namespace, pod.Name)
+	opts.PodsMutex.Lock()
+	opts.Pods[podKey] = podInfo
+	opts.PodsMutex.Unlock()
+}
+
+// StartPodWatcher starts a pod informer with event handlers for monitoring pod lifecycle
+// Returns a stop channel that should be closed to stop the informer
+func (opts *Options) StartPodWatcher(ctx context.Context) chan struct{} {
+	logger, _ := logr.FromContext(ctx)
+
+	podInformer := opts.InformerFactory.Core().V1().Pods().Informer()
+	stopCh := make(chan struct{}) // create stop channel for informer
+
+	podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			pod, ok := obj.(*corev1.Pod)
+			if !ok {
+				logger.Error(fmt.Errorf("unexpected object type"), "Expected Pod, got", "type", fmt.Sprintf("%T", obj))
+				return
+			}
+			if pod.Namespace == opts.ReleaseNamespace {
+				opts.updatePodInMap(pod)
+			}
+		},
+
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			pod, ok := newObj.(*corev1.Pod)
+			if !ok {
+				logger.Error(fmt.Errorf("unexpected object type"), "Expected Pod, got", "type", fmt.Sprintf("%T", newObj))
+				return
+			}
+			if pod.Namespace == opts.ReleaseNamespace {
+				opts.updatePodInMap(pod)
+			}
+		},
+	})
+
+	go podInformer.Run(stopCh)
+	return stopCh
+}
+
 func (opts *Options) Deploy(ctx context.Context) error {
 	logger, err := logr.FromContext(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to create logger: %w", err)
+	}
+
+	if !opts.DryRun {
+		stopCh := opts.StartPodWatcher(ctx)
+		defer close(stopCh)
 	}
 
 	logger.Info("Resolved input values.", "values", opts.Values)
@@ -431,53 +555,6 @@ func isReleaseUninstalled(logger logr.Logger, versionsi []helmrelease.Releaser) 
 	return len(versions) > 0 && versions[len(versions)-1].Info.Status == helmreleasecommon.StatusUninstalled
 }
 
-type PodInfo struct {
-	Name          string
-	Namespace     string
-	Phase         string
-	State         string // container state summary
-	KustoDeepLink string
-}
-type ResourceInfo struct {
-	Kind      string
-	Name      string
-	Namespace string
-}
-
-// extractContainerStateSummary creates a summary string of all container states for easy logging
-// ex: "credential-refresher:Terminated(Error,exit:1)[restarts:2][not-ready]"
-func extractContainerStateSummary(containerStatuses []corev1.ContainerStatus) string {
-	if len(containerStatuses) == 0 {
-		return "no containers found"
-	}
-
-	var states []string
-	for _, contStatus := range containerStatuses {
-		var state string
-		switch {
-		case contStatus.State.Waiting != nil:
-			state = fmt.Sprintf("%s:Waiting(%s)", contStatus.Name, contStatus.State.Waiting.Reason)
-		case contStatus.State.Terminated != nil:
-			state = fmt.Sprintf("%s:Terminated(%s,exit:%d)", contStatus.Name, contStatus.State.Terminated.Reason, contStatus.State.Terminated.ExitCode)
-		case contStatus.State.Running != nil:
-			state = fmt.Sprintf("%s:Running", contStatus.Name)
-		default:
-			state = fmt.Sprintf("%s:Unknown", contStatus.Name)
-		}
-
-		if contStatus.RestartCount > 0 {
-			state += fmt.Sprintf("[restarts:%d]", contStatus.RestartCount)
-		}
-		if !contStatus.Ready {
-			state += "[not-ready]"
-		}
-
-		states = append(states, state)
-	}
-
-	return strings.Join(states, ", ")
-}
-
 func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options, deploymentStartTime time.Time) error {
 	statusClient := action.NewStatus(opts.ActionConfig)
 	releaser, err := statusClient.Run(opts.ReleaseName)
@@ -499,7 +576,6 @@ func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options, depl
 	)
 
 	var resources []ResourceInfo
-	var foundPods []PodInfo
 
 	if release.Info == nil || len(release.Info.Resources) == 0 {
 		return nil
@@ -525,13 +601,7 @@ func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options, depl
 							return nil
 						}
 
-						podInfo := PodInfo{
-							Name:      pod.Name,
-							Namespace: pod.Namespace,
-							Phase:     string(pod.Status.Phase),
-							State:     extractContainerStateSummary(pod.Status.ContainerStatuses),
-						}
-						foundPods = append(foundPods, podInfo)
+						opts.updatePodInMap(&pod)
 					}
 					return nil
 				})
@@ -597,30 +667,36 @@ let resources = datatable(['kind']:string, name:string, namespace:string)[
 		}
 	}
 
-	// Log information for individual pods, including kusto deep link if configuration available
-	if len(foundPods) > 0 {
-		for i := range foundPods {
+	opts.PodsMutex.Lock()
+	defer opts.PodsMutex.Unlock()
+
+	// Generate Kusto deep links for all pods (hold lock during entire operation)
+	if len(opts.Pods) > 0 {
+		for podKey, podInfo := range opts.Pods {
 			if opts.KustoCluster == "" || opts.KustoDatabase == "" || opts.KustoTable == "" {
-				foundPods[i].KustoDeepLink = "Kusto configuration not provided, no deep link available"
+				podInfo.KustoDeepLink = "Kusto configuration not provided, no deep link available"
 			} else {
 				podQuery := fmt.Sprintf(`%s
 | where ['time'] between (datetime("%s") .. datetime("%s"))
 | where pod_name == "%s"
 | where namespace_name == "%s"
 | project ['time'], log
-| order by ['time'] desc`, opts.KustoTable, deploymentStart, deploymentEnd, foundPods[i].Name, foundPods[i].Namespace)
+| order by ['time'] desc`, opts.KustoTable, deploymentStart, deploymentEnd, podInfo.Name, podInfo.Namespace)
 
 				encodedQuery, err := encodeKustoQuery(podQuery)
 				if err != nil {
-					logger.Error(err, "Failed to encode query for Kusto deep link for pods")
+					logger.Error(err, "Failed to encode query for Kusto deep link for pod")
 					continue
 				}
 				podDeepLink := fmt.Sprintf("https://dataexplorer.azure.com/clusters/%s/databases/%s?query=%s", opts.KustoCluster, opts.KustoDatabase, encodedQuery)
-				foundPods[i].KustoDeepLink = podDeepLink
+				podInfo.KustoDeepLink = podDeepLink
 			}
+
+			// Update the pod in the map with the Kusto deep link
+			opts.Pods[podKey] = podInfo
 		}
 
-		logger.V(4).Info("Found Pod details in release:", "pods", foundPods)
+		logger.V(4).Info("Found Pod details in release:", "pods", opts.Pods)
 	}
 
 	return nil
