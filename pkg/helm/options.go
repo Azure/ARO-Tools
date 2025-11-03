@@ -24,8 +24,10 @@ import (
 	helmrelease "helm.sh/helm/v4/pkg/release"
 	helmreleasecommon "helm.sh/helm/v4/pkg/release/common"
 	helmreleasev1 "helm.sh/helm/v4/pkg/release/v1"
+	releaseutil "helm.sh/helm/v4/pkg/release/v1/util"
 	"helm.sh/helm/v4/pkg/storage/driver"
 
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -136,7 +138,8 @@ type completedOptions struct {
 
 	ActionConfig *action.Configuration
 
-	InformerFactory informers.SharedInformerFactory
+	Clientset       kubernetes.Interface
+	DeploymentSelectors map[string]string // Pod selectors extracted from workload resources (Deployment, StatefulSet, DaemonSet)
 
 	Pods      map[string]PodInfo
 	PodsMutex sync.RWMutex
@@ -220,9 +223,6 @@ func (o *ValidatedOptions) Complete() (*Options, error) {
 		return nil, fmt.Errorf("failed to create Kubernetes client: %w", err)
 	}
 
-	// Create informer factory for pod monitoring during deployment
-	factory := informers.NewSharedInformerFactory(clientset, 0)
-
 	var foundReleaseNamespace bool
 	var namespaces []corev1.Namespace
 	for _, file := range o.NamespaceFiles {
@@ -286,7 +286,8 @@ func (o *ValidatedOptions) Complete() (*Options, error) {
 
 			ActionConfig: actionCfg,
 
-			InformerFactory: factory,
+			Clientset:       clientset,
+			DeploymentSelectors: make(map[string]string),
 
 			Pods: make(map[string]PodInfo),
 
@@ -362,12 +363,52 @@ func (opts *Options) updatePodInMap(pod *corev1.Pod) {
 	opts.PodsMutex.Unlock()
 }
 
+// logTrackedPods logs information about all currently tracked pods
+func (opts *Options) logTrackedPods(logger logr.Logger) {
+	opts.PodsMutex.RLock()
+	defer opts.PodsMutex.RUnlock()
+
+	if len(opts.Pods) == 0 {
+		logger.Info("No pods currently being tracked")
+		return
+	}
+
+	logger.Info("Currently tracking pods", "count", len(opts.Pods))
+	for podKey, podInfo := range opts.Pods {
+		logger.V(1).Info("Tracked pod", "key", podKey, "pod", podInfo.Name, "namespace", podInfo.Namespace, "phase", podInfo.Phase, "state", podInfo.State)
+	}
+}
+
 // StartPodWatcher starts a pod informer with event handlers for monitoring pod lifecycle
 // Returns a stop channel that should be closed to stop the informer
 func (opts *Options) StartPodWatcher(ctx context.Context) chan struct{} {
 	logger, _ := logr.FromContext(ctx)
 
-	podInformer := opts.InformerFactory.Core().V1().Pods().Informer()
+	// Build label selector from pod selectors for precise pod filtering
+	var labelSelectors []string
+	if len(opts.DeploymentSelectors) > 0 {
+		for key, value := range opts.DeploymentSelectors {
+			labelSelectors = append(labelSelectors, fmt.Sprintf("%s=%s", key, value))
+		}
+	} else {
+		// Fallback to Helm release instance label if no pod selectors found
+		labelSelectors = append(labelSelectors, fmt.Sprintf("app.kubernetes.io/instance=%s", opts.ReleaseName))
+	}
+	selectorString := strings.Join(labelSelectors, ",")
+
+	logger.Info("Starting pod watcher with label selector", "selector", selectorString)
+
+	// Create a new informer factory with the precise label selector
+	podInformerFactory := informers.NewSharedInformerFactoryWithOptions(
+		opts.Clientset,
+		0,
+		informers.WithNamespace(opts.ReleaseNamespace),
+		informers.WithTweakListOptions(func(listOpts *metav1.ListOptions) {
+			listOpts.LabelSelector = selectorString
+		}),
+	)
+
+	podInformer := podInformerFactory.Core().V1().Pods().Informer()
 	stopCh := make(chan struct{}) // create stop channel for informer
 
 	podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -378,6 +419,7 @@ func (opts *Options) StartPodWatcher(ctx context.Context) chan struct{} {
 				return
 			}
 			if pod.Namespace == opts.ReleaseNamespace {
+				logger.V(1).Info("Pod added", "pod", pod.Name, "namespace", pod.Namespace, "phase", pod.Status.Phase)
 				opts.updatePodInMap(pod)
 			}
 		},
@@ -389,7 +431,20 @@ func (opts *Options) StartPodWatcher(ctx context.Context) chan struct{} {
 				return
 			}
 			if pod.Namespace == opts.ReleaseNamespace {
+				logger.V(1).Info("Pod updated", "pod", pod.Name, "namespace", pod.Namespace, "phase", pod.Status.Phase)
 				opts.updatePodInMap(pod)
+			}
+		},
+
+		DeleteFunc: func(obj interface{}) {
+			pod, ok := obj.(*corev1.Pod)
+			if !ok {
+				logger.Error(fmt.Errorf("unexpected object type"), "Expected Pod, got", "type", fmt.Sprintf("%T", obj))
+				return
+			}
+			if pod.Namespace == opts.ReleaseNamespace {
+				logger.V(1).Info("Pod deleted", "pod", pod.Name, "namespace", pod.Namespace)
+				// Note: We keep the pod in our map even after deletion for diagnostic purposes
 			}
 		},
 	})
@@ -398,15 +453,186 @@ func (opts *Options) StartPodWatcher(ctx context.Context) chan struct{} {
 	return stopCh
 }
 
+// getTemplate() mirrors logic of `helm template` to get rendered manifest locally
+func (opts *Options) getTemplate(ctx context.Context) (string, error) {
+	client := action.NewInstall(opts.ActionConfig)
+	client.DryRunStrategy = action.DryRunClient // Render templates locally
+	client.ReleaseName = "template-release"     // Placeholder name for templating
+	client.Replace = true                       // Skip release name uniqueness check
+	client.Namespace = opts.ReleaseNamespace
+
+	release, err := client.RunWithContext(ctx, opts.Chart, opts.Values)
+	if err != nil {
+		return "", err
+	}
+
+	rel, err := releaserToV1Release(release)
+	if err != nil {
+		return "", err
+	}
+
+	return rel.Manifest, nil
+}
+
+// // parseManifestForResources parses a YAML manifest and extracts resource information
+// func parseManifestForResources(manifest string) ([]ResourceInfo, error) {
+// 	var resources []ResourceInfo
+
+// 	splitManifests := releaseutil.SplitManifests(manifest)
+
+// 	for _, manifestContent := range splitManifests {
+// 		if strings.TrimSpace(manifestContent) == "" {
+// 			continue
+// 		}
+
+// 		obj := &unstructured.Unstructured{}
+// 		if err := yaml.Unmarshal([]byte(manifestContent), obj); err != nil {
+// 			return nil, fmt.Errorf("failed to unmarshal manifest: %v", err)
+// 		}
+
+// 		resourceInfo := ResourceInfo{
+// 			Kind:      obj.GetKind(),
+// 			Name:      obj.GetName(),
+// 			Namespace: obj.GetNamespace(),
+// 		}
+
+// 		resources = append(resources, resourceInfo)
+// 	}
+
+// 	return resources, nil
+// }
+
+// extractSelectorsAndGetPods combines the functionality of extracting pod selectors and getting pods
+// from workload objects, using Helm's SelectorsForObject for consistent selector logic
+func (opts *Options) extractSelectorsAndGetPods(ctx context.Context, manifest string) (map[string]string, []corev1.Pod, error) {
+	splitManifests := releaseutil.SplitManifests(manifest)
+	allSelectors := make(map[string]string)
+	var allPods []corev1.Pod
+
+	for _, doc := range splitManifests {
+		if strings.TrimSpace(doc) == "" {
+			continue
+		}
+
+		// Try Deployment
+		var dep appsv1.Deployment
+		err := yaml.Unmarshal([]byte(doc), &dep)
+		if err == nil && dep.Kind == "Deployment" {
+			// Get pods using Helm's SelectorsForObject
+			pods, err := opts.getPodsForObject(ctx, dep.Namespace, &dep)
+			if err == nil {
+				allPods = append(allPods, pods...)
+			}
+			// Extract selectors for the pod watcher
+			if dep.Spec.Selector != nil && dep.Spec.Selector.MatchLabels != nil {
+				for k, v := range dep.Spec.Selector.MatchLabels {
+					allSelectors[k] = v
+				}
+			}
+			continue
+		}
+
+		// Try StatefulSet
+		var sts appsv1.StatefulSet
+		err = yaml.Unmarshal([]byte(doc), &sts)
+		if err == nil && sts.Kind == "StatefulSet" {
+			pods, err := opts.getPodsForObject(ctx, sts.Namespace, &sts)
+			if err == nil {
+				allPods = append(allPods, pods...)
+			}
+			if sts.Spec.Selector != nil && sts.Spec.Selector.MatchLabels != nil {
+				for k, v := range sts.Spec.Selector.MatchLabels {
+					allSelectors[k] = v
+				}
+			}
+			continue
+		}
+
+		// Try DaemonSet
+		var ds appsv1.DaemonSet
+		err = yaml.Unmarshal([]byte(doc), &ds)
+		if err == nil && ds.Kind == "DaemonSet" {
+			pods, err := opts.getPodsForObject(ctx, ds.Namespace, &ds)
+			if err == nil {
+				allPods = append(allPods, pods...)
+			}
+			if ds.Spec.Selector != nil && ds.Spec.Selector.MatchLabels != nil {
+				for k, v := range ds.Spec.Selector.MatchLabels {
+					allSelectors[k] = v
+				}
+			}
+			continue
+		}
+	}
+
+	return allSelectors, allPods, nil
+}
+
+// getPodsForObject uses Helm's SelectorsForObject to get pods for a workload object
+// This replaces our custom implementation with Helm's proven selector logic
+func (opts *Options) getPodsForObject(ctx context.Context, namespace string, obj runtime.Object) ([]corev1.Pod, error) {
+	// Use Helm's SelectorsForObject function to get the label selector
+	selector, err := kube.SelectorsForObject(obj)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get selector for object: %w", err)
+	}
+
+	// List pods using the selector
+	podList, err := opts.Clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
+		LabelSelector: selector.String(),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list pods with selector %s: %w", selector.String(), err)
+	}
+
+	return podList.Items, nil
+}
+
 func (opts *Options) Deploy(ctx context.Context) error {
 	logger, err := logr.FromContext(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to create logger: %w", err)
 	}
 
+	// Get list of resources that will be deployed for event tracking
+	manifest, err := opts.getTemplate(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to template release for resource discovery: %w", err)
+	}
+
+	// // Parse the manifest to extract resource info for event tracking
+	// resourcesForEvents, err := parseManifestForResources(manifest)
+	// if err != nil {
+	// 	return fmt.Errorf("failed to parse manifest for resources: %w", err)
+	// }
+
+	// Extract pod selectors and get pods from workload objects in the manifest
+	podSelectors, podsFromManifest, err := opts.extractSelectorsAndGetPods(ctx, manifest)
+	if err != nil {
+		return fmt.Errorf("failed to extract selectors and get pods from manifest: %w", err)
+	}
+
+	// Store pod selectors for use in PodWatcher
+	opts.DeploymentSelectors = podSelectors
+
+	if len(podsFromManifest) > 0 {
+		// Pre-populate the pods map with discovered pods and start tracking them
+		for _, pod := range podsFromManifest {
+			opts.updatePodInMap(&pod)
+		}
+		logger.V(4).Info("Pre-populated pod tracking from manifest", "podCount", len(podsFromManifest))
+	} else {
+		logger.Info("No pods found from workload objects (pods may not exist yet)")
+	}
+
+	logger.Info("Discovered pod selectors for pod tracking", "selectors", podSelectors)
+
 	if !opts.DryRun {
 		stopCh := opts.StartPodWatcher(ctx)
 		defer close(stopCh)
+
+		// Log what pods we're currently tracking
+		opts.logTrackedPods(logger)
 	}
 
 	logger.Info("Resolved input values.", "values", opts.Values)
