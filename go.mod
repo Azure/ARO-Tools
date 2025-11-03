@@ -317,3 +317,5 @@ require (
 tool github.com/golangci/golangci-lint/v2/cmd/golangci-lint
 
 replace github.com/goccy/go-graphviz => github.com/bvolpato-dd/go-graphviz v0.0.0-20250729135100-c7c26c454c9a
+
+replace helm.sh/helm/v4 => github.com/geoberle/helm/v4 v4.0.0-20251102095138-e64345e0f7ed
