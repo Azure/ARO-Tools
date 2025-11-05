@@ -4,6 +4,15 @@ clouds:
       azureContainerRegistry:
         domainNameSuffix: azurecr.us
       cloudName: Fairfax
+      entra:
+        federatedcredentials:
+          audience: api://AzureADTokenExchangeUSGov
+        fqdn:
+          device: device.login.microsoftonline.us
+          login: login.microsoftonline.us
+          logincert: logincert.microsoftonline.us
+          sts: sts.microsoftonline.us
+          windowslogin: login.windows.us
       keyVault:
         domainNameSuffix: vault.usgovcloudapi.net
     regions:
@@ -48,6 +57,15 @@ clouds:
       azureContainerRegistry:
         domainNameSuffix: azurecr.io
       cloudName: Public
+      entra:
+        federatedcredentials:
+          audience: api://AzureADTokenExchange
+        fqdn:
+          device: device.login.microsoftonline.com
+          login: login.microsoftonline.com
+          logincert: logincert.microsoftonline.com
+          sts: sts.windows.net
+          windowslogin: login.windows.net
       keyVault:
         domainNameSuffix: vault.azure.net
     regions:
@@ -279,6 +297,10 @@ clouds:
         availabilityZoneCount: 3
         regionFriendlyName: Southeast Asia
         regionShortName: sg
+      southeastasia3:
+        availabilityZoneCount: 0
+        regionFriendlyName: Southeast Asia 3
+        regionShortName: SG3
       southeastus:
         availabilityZoneCount: 1
         regionFriendlyName: Southeast US
@@ -347,6 +369,10 @@ clouds:
         availabilityZoneCount: 3
         regionFriendlyName: West Central US
         regionShortName: cy
+      westcentralusfre:
+        availabilityZoneCount: 3
+        regionFriendlyName: West Central US FRE
+        regionShortName: cyfre
       westeurope:
         availabilityZoneCount: 3
         regionFriendlyName: West Europe

@@ -24,6 +24,12 @@ func Sanitize(inputs map[string]CentralConfig) SanitizedConfig {
 				AzureContainerRegistry: AzureContainerRegistryValues{
 					DomainNameSuffix: cfg.Settings.AzureContainerRegistry.DomainNameSuffix,
 				},
+				Entra: SanitizedEntraConfig{
+					FederatedCredentials: EntraFederatedCredentials{
+						Audience: cfg.Settings.Entra.FederatedCredentials.Audience,
+					},
+					FQDN: cfg.Settings.Entra.FQDN,
+				},
 			},
 			Regions: regions,
 		}
