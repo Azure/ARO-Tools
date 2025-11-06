@@ -653,7 +653,7 @@ let resources = datatable(['kind']:string, name:string, namespace:string)[
 			for _, ownerRef := range ownerRefs.UnsortedList() {
 				ownerQuery := fmt.Sprintf(`%s
 | where ['time'] between (datetime("%s") .. datetime("%s"))
-| where pod_name contains "%s"
+| where pod_name startswith "%s"
 | where namespace_name == "%s"
 | project ['time'], log, pod_name
 | order by pod_name asc, ['time'] asc`, opts.KustoTable, deploymentStart, deploymentEnd, ownerRef.Name, ownerRef.Namespace)
