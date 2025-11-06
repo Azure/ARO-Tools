@@ -652,11 +652,11 @@ let resources = datatable(['kind']:string, name:string, namespace:string)[
 
 			for _, ownerRef := range ownerRefs.UnsortedList() {
 				ownerQuery := fmt.Sprintf(`%s
-	| where ['time'] between (datetime("%s") .. datetime("%s"))
-	| where pod_name contains "%s"
-	| where namespace_name == "%s"
-	| project ['time'], log, pod_name
-	| order by ['time'] asc`, opts.KustoTable, deploymentStart, deploymentEnd, ownerRef.Name, ownerRef.Namespace)
+| where ['time'] between (datetime("%s") .. datetime("%s"))
+| where pod_name contains "%s"
+| where namespace_name == "%s"
+| project ['time'], log, pod_name
+| order by ['time'] asc`, opts.KustoTable, deploymentStart, deploymentEnd, ownerRef.Name, ownerRef.Namespace)
 
 				ownerRefDeepLink, err := queryToDeepLink(ownerQuery, opts.KustoCluster, opts.KustoDatabase)
 				if err != nil {
@@ -670,6 +670,19 @@ let resources = datatable(['kind']:string, name:string, namespace:string)[
 			logger.V(4).Info("Resource owner references in deployment (unique)", "owners", foundOwners)
 		}
 
+		// Create kusto deep link for entire namespace to catch all pods
+		namespaceQuery := fmt.Sprintf(`%s
+| where ['time'] between (datetime("%s") .. datetime("%s"))
+| where namespace_name == "%s"
+| project ['time'], log, pod_name
+| order by pod_name asc, ['time'] asc`, opts.KustoTable, deploymentStart, deploymentEnd, release.Namespace)
+
+		namespaceDeepLink, err := queryToDeepLink(namespaceQuery, opts.KustoCluster, opts.KustoDatabase)
+		if err != nil {
+			logger.Error(err, "Failed to create Kusto deep link for namespace")
+		} else {
+			logger.V(4).Info("Namespace kusto link for troubleshooting:", "url", namespaceDeepLink)
+		}
 	}
 
 	return nil
