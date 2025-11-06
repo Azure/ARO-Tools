@@ -297,10 +297,6 @@ clouds:
         availabilityZoneCount: 3
         regionFriendlyName: Southeast Asia
         regionShortName: sg
-      southeastasia3:
-        availabilityZoneCount: 0
-        regionFriendlyName: Southeast Asia 3
-        regionShortName: SG3
       southeastus:
         availabilityZoneCount: 1
         regionFriendlyName: Southeast US
