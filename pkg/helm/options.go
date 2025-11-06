@@ -445,9 +445,10 @@ type ResourceInfo struct {
 }
 
 type OwnerRefInfo struct {
-	Kind      string
-	Name      string
-	Namespace string
+	Kind          string
+	Name          string
+	Namespace     string
+	KustoDeepLink string
 } 
 
 // extractContainerStateSummary creates a summary string of all container states for easy logging
@@ -642,8 +643,8 @@ let resources = datatable(['kind']:string, name:string, namespace:string)[
 	}
 
 	// Create kusto deep links for owner references if config available
-	// Check for pods containing owner ref name (e.g., ReplicaSet) in their name
 	if len(ownerRefs) > 0 && (opts.KustoCluster != "" && opts.KustoDatabase != "" && opts.KustoTable != "") {
+		var foundOwners []OwnerRefInfo
 
 		for ownerRef := range ownerRefs {
 			ownerQuery := fmt.Sprintf(`%s
@@ -659,8 +660,11 @@ let resources = datatable(['kind']:string, name:string, namespace:string)[
 				continue
 			}
 			ownerRefDeepLink := fmt.Sprintf("https://dataexplorer.azure.com/clusters/%s/databases/%s?query=%s", opts.KustoCluster, opts.KustoDatabase, encodedQuery)
-			logger.V(4).Info("Kusto link to pod owner for further troubleshooting:", "ownerKind", ownerRef.Kind, "ownerName", ownerRef.Name, "url", ownerRefDeepLink)
+			ownerRef.KustoDeepLink = ownerRefDeepLink
+			foundOwners = append(foundOwners, ownerRef)
 		}
+
+		logger.V(4).Info("Found Owner reference details in release:", "owners", foundOwners)
 	}
 	return nil
 }
