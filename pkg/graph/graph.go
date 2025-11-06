@@ -22,6 +22,10 @@ type Identifier struct {
 	types.StepDependency
 }
 
+func (i Identifier) String() string {
+	return fmt.Sprintf("%s/%s/%s", i.ServiceGroup, i.ResourceGroup, i.Step)
+}
+
 // Node records a step along with references to all parents and children. This structure is intentionally devoid of
 // complex data, pointers to the underlying structures needed to execute the steps, etc. Such a structure helps to
 // make operations that produce or operate over these nodes easy to test and verify.
@@ -198,7 +202,7 @@ func (c *Graph) accumulate(service *topology.Service, pipelines map[string]*type
 	c.Nodes = append(c.Nodes, nodes...)
 
 	var leaves []Identifier
-	for _, node := range c.Nodes {
+	for _, node := range nodes {
 		_, _, step, err := c.lookup(node.Identifier)
 		if err != nil {
 			return fmt.Errorf("failed to lookup node: %v", err)
