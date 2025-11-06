@@ -45,10 +45,11 @@ import (
 	"github.com/Azure/ARO-Tools/pkg/cmdutils"
 )
 
-// encodeKustoQuery compresses the input text with gzip and then encodes it to base64
+// queryToDeepLink compresses the input text with gzip and then encodes it to base64
 // Necessary to compress long queries to fit in the default browser URI length limits
+// Returns a kusto deep link with proper cluster and database
 // see: https://learn.microsoft.com/en-us/kusto/api/rest/deeplink
-func encodeKustoQuery(text string) (string, error) {
+func queryToDeepLink(text, kustoCluster, kustoDatabase string) (string, error) {
 	var buf bytes.Buffer
 	gzipWriter := gzip.NewWriter(&buf)
 
@@ -60,7 +61,9 @@ func encodeKustoQuery(text string) (string, error) {
 		return "", fmt.Errorf("failed to close gzip writer: %w", err)
 	}
 
-	return base64.StdEncoding.EncodeToString(buf.Bytes()), nil
+	encodedQuery := base64.StdEncoding.EncodeToString(buf.Bytes())
+	kustoDeepLink := fmt.Sprintf("https://dataexplorer.azure.com/clusters/%s/databases/%s?query=%s", kustoCluster, kustoDatabase, encodedQuery)
+	return kustoDeepLink, nil
 }
 
 func DefaultOptions() *RawOptions {
@@ -607,11 +610,10 @@ let resources = datatable(['kind']:string, name:string, namespace:string)[
 | project ['time'], pod_name, ['kind'], name, namespace, log
 | order by ['time'] desc`, strings.Join(resourceRows, ",\n"), opts.KustoTable, deploymentStart, deploymentEnd)
 
-			encodedQuery, err := encodeKustoQuery(kustoQuery)
+			kustoDeepLink, err := queryToDeepLink(kustoQuery, opts.KustoCluster, opts.KustoDatabase)
 			if err != nil {
-				logger.Error(err, "Failed to encode query for Kusto deep link for kube events")
+				logger.Error(err, "Failed to create Kusto deep link for kube events")
 			} else {
-				kustoDeepLink := fmt.Sprintf("https://dataexplorer.azure.com/clusters/%s/databases/%s?query=%s", opts.KustoCluster, opts.KustoDatabase, encodedQuery)
 				logger.V(4).Info("Kube-events kusto link for troubleshooting:", "url", kustoDeepLink)
 			}
 		}
@@ -630,43 +632,46 @@ let resources = datatable(['kind']:string, name:string, namespace:string)[
 | project ['time'], log, pod_name
 | order by ['time'] asc`, opts.KustoTable, deploymentStart, deploymentEnd, foundPods[i].Name, foundPods[i].Namespace)
 
-				encodedQuery, err := encodeKustoQuery(podQuery)
+				podDeepLink, err := queryToDeepLink(podQuery, opts.KustoCluster, opts.KustoDatabase)
 				if err != nil {
-					logger.Error(err, "Failed to encode query for Kusto deep link for pods")
+					logger.Error(err, "Failed to create Kusto deep link for pods")
 					continue
 				}
-				podDeepLink := fmt.Sprintf("https://dataexplorer.azure.com/clusters/%s/databases/%s?query=%s", opts.KustoCluster, opts.KustoDatabase, encodedQuery)
 				foundPods[i].KustoDeepLink = podDeepLink
 			}
 		}
 
 		logger.V(4).Info("Found Pod details in release:", "pods", foundPods)
 	}
+	
+	if  (opts.KustoCluster != "" && opts.KustoDatabase != "" && opts.KustoTable != "") {
 
-	// Create kusto deep links for owner references if config available
-	if ownerRefs.Len() > 0 && (opts.KustoCluster != "" && opts.KustoDatabase != "" && opts.KustoTable != "") {
-		var foundOwners []OwnerRefInfo
+		// Create kusto deep links for owner references if config available
+		if ownerRefs.Len() > 0 {
+			var foundOwners []OwnerRefInfo
 
-		for _, ownerRef := range ownerRefs.UnsortedList() {
-			ownerQuery := fmt.Sprintf(`%s
-| where ['time'] between (datetime("%s") .. datetime("%s"))
-| where pod_name contains "%s"
-| where namespace_name == "%s"
-| project ['time'], log, pod_name
-| order by ['time'] asc`, opts.KustoTable, deploymentStart, deploymentEnd, ownerRef.Name, ownerRef.Namespace)
+			for _, ownerRef := range ownerRefs.UnsortedList() {
+				ownerQuery := fmt.Sprintf(`%s
+	| where ['time'] between (datetime("%s") .. datetime("%s"))
+	| where pod_name contains "%s"
+	| where namespace_name == "%s"
+	| project ['time'], log, pod_name
+	| order by ['time'] asc`, opts.KustoTable, deploymentStart, deploymentEnd, ownerRef.Name, ownerRef.Namespace)
 
-			encodedQuery, err := encodeKustoQuery(ownerQuery)
-			if err != nil {
-				logger.Error(err, "Failed to encode query for Kusto deep link for owner references")
-				continue
+				ownerRefDeepLink, err := queryToDeepLink(ownerQuery, opts.KustoCluster, opts.KustoDatabase)
+				if err != nil {
+					logger.Error(err, "Failed to create Kusto deep link for owner references")
+					continue
+				}
+				ownerRef.KustoDeepLink = ownerRefDeepLink
+				foundOwners = append(foundOwners, ownerRef)
 			}
-			ownerRefDeepLink := fmt.Sprintf("https://dataexplorer.azure.com/clusters/%s/databases/%s?query=%s", opts.KustoCluster, opts.KustoDatabase, encodedQuery)
-			ownerRef.KustoDeepLink = ownerRefDeepLink
-			foundOwners = append(foundOwners, ownerRef)
+
+			logger.V(4).Info("Resource owner references in deployment (unique)", "owners", foundOwners)
 		}
 
-		logger.V(4).Info("Found Owner reference details in release:", "owners", foundOwners)
 	}
+
 	return nil
 }
 
