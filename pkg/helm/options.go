@@ -656,7 +656,7 @@ let resources = datatable(['kind']:string, name:string, namespace:string)[
 | where pod_name contains "%s"
 | where namespace_name == "%s"
 | project ['time'], log, pod_name
-| order by ['time'] asc`, opts.KustoTable, deploymentStart, deploymentEnd, ownerRef.Name, ownerRef.Namespace)
+| order by pod_name asc, ['time'] asc`, opts.KustoTable, deploymentStart, deploymentEnd, ownerRef.Name, ownerRef.Namespace)
 
 				ownerRefDeepLink, err := queryToDeepLink(ownerQuery, opts.KustoCluster, opts.KustoDatabase)
 				if err != nil {
