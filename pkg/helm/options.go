@@ -30,6 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	corev1applyconfigurations "k8s.io/client-go/applyconfigurations/core/v1"
@@ -449,7 +450,7 @@ type OwnerRefInfo struct {
 	Name          string
 	Namespace     string
 	KustoDeepLink string
-} 
+}
 
 // extractContainerStateSummary creates a summary string of all container states for easy logging
 // ex: "credential-refresher:Terminated(Error,exit:1)[restarts:2][not-ready]"
@@ -508,8 +509,8 @@ func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options, depl
 	var resources []ResourceInfo
 	var foundPods []PodInfo
 
-	// Create map to track set of unique OwnerRefInfo instances (bool is negligible)
-	ownerRefs := make(map[OwnerRefInfo]bool)
+	// Create set to track unique OwnerRefInfo instances
+	ownerRefs := sets.New[OwnerRefInfo]()
 
 	if release.Info == nil || len(release.Info.Resources) == 0 {
 		return nil
@@ -541,7 +542,7 @@ func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options, depl
 								Name:      owner.Name,
 								Namespace: pod.Namespace,
 							}
-							ownerRefs[ownerRef] = true
+							ownerRefs.Insert(ownerRef)
 						}
 
 						podInfo := PodInfo{
@@ -643,10 +644,10 @@ let resources = datatable(['kind']:string, name:string, namespace:string)[
 	}
 
 	// Create kusto deep links for owner references if config available
-	if len(ownerRefs) > 0 && (opts.KustoCluster != "" && opts.KustoDatabase != "" && opts.KustoTable != "") {
+	if ownerRefs.Len() > 0 && (opts.KustoCluster != "" && opts.KustoDatabase != "" && opts.KustoTable != "") {
 		var foundOwners []OwnerRefInfo
 
-		for ownerRef := range ownerRefs {
+		for _, ownerRef := range ownerRefs.UnsortedList() {
 			ownerQuery := fmt.Sprintf(`%s
 | where ['time'] between (datetime("%s") .. datetime("%s"))
 | where pod_name contains "%s"
