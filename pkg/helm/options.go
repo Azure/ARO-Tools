@@ -644,8 +644,8 @@ let resources = datatable(['kind']:string, name:string, namespace:string)[
 
 		logger.V(4).Info("Found Pod details in release:", "pods", foundPods)
 	}
-	
-	if  (opts.KustoCluster != "" && opts.KustoDatabase != "" && opts.KustoTable != "") {
+
+	if opts.KustoCluster != "" && opts.KustoDatabase != "" && opts.KustoTable != "" {
 
 		// Create kusto deep links for owner references if config available
 		if ownerRefs.Len() > 0 {
