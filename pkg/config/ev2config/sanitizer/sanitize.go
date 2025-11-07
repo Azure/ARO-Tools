@@ -1,5 +1,9 @@
 package main
 
+const (
+	AzureTenantName = "azure"
+)
+
 func Sanitize(inputs map[string]CentralConfig) SanitizedConfig {
 	output := SanitizedConfig{
 		Clouds: map[string]SanitizedCloudConfig{},
@@ -29,6 +33,12 @@ func Sanitize(inputs map[string]CentralConfig) SanitizedConfig {
 						Audience: cfg.Settings.Entra.FederatedCredentials.Audience,
 					},
 					FQDN: cfg.Settings.Entra.FQDN,
+					Tenants: map[string]EntraTenant{
+						AzureTenantName: cfg.Settings.Entra.Tenants[AzureTenantName],
+					},
+				},
+				ARM: SanitizedARMConfig{
+					Endpoint: cfg.Settings.ARM.Endpoint,
 				},
 			},
 			Regions: regions,

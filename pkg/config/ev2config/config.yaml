@@ -1,6 +1,8 @@
 clouds:
   ff:
     defaults:
+      arm:
+        endpoint: management.usgovcloudapi.net
       azureContainerRegistry:
         domainNameSuffix: azurecr.us
       cloudName: Fairfax
@@ -13,6 +15,11 @@ clouds:
           logincert: logincert.microsoftonline.us
           sts: sts.microsoftonline.us
           windowslogin: login.windows.us
+        tenants:
+          azure:
+            tenantdomain: usgovcloud.onmicrosoft.us
+            tenantid: cab8a31a-1906-4287-a0d8-4eef66b95f6e
+            tenantname: usgovcloud
       keyVault:
         domainNameSuffix: vault.usgovcloudapi.net
     regions:
@@ -54,6 +61,8 @@ clouds:
         regionShortName: cy
   public:
     defaults:
+      arm:
+        endpoint: management.azure.com
       azureContainerRegistry:
         domainNameSuffix: azurecr.io
       cloudName: Public
@@ -66,6 +75,11 @@ clouds:
           logincert: logincert.microsoftonline.com
           sts: sts.windows.net
           windowslogin: login.windows.net
+        tenants:
+          azure:
+            tenantdomain: msazurecloud.onmicrosoft.com
+            tenantid: 33e01921-4d64-4f8c-a055-5bdaffd5e33d
+            tenantname: msazurecloud
       keyVault:
         domainNameSuffix: vault.azure.net
     regions:
