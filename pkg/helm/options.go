@@ -31,7 +31,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/sets"
 	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	corev1applyconfigurations "k8s.io/client-go/applyconfigurations/core/v1"
@@ -513,8 +512,8 @@ func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options, depl
 	var resources []ResourceInfo
 	var foundPods []PodInfo
 
-	// Create set to track unique OwnerRefInfo instances
-	ownerRefs := sets.New[OwnerRefInfo]()
+	// Create map with namespace as key to list of owner refs in that namespace
+	ownerRefs := make(map[string][]OwnerRefInfo)
 
 	if release.Info == nil || len(release.Info.Resources) == 0 {
 		return nil
@@ -565,11 +564,30 @@ func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options, depl
 
 					ownerKinds := []string{"ReplicaSet", "Deployment", "StatefulSet", "DaemonSet", "Job", "CronJob"}
 					if slices.Contains(ownerKinds, kind) {
-						ownerRefs.Insert(OwnerRefInfo{
+						namespace := objMeta.GetNamespace()
+						newOwner := OwnerRefInfo{
 							Kind:      kind,
 							Name:      objMeta.GetName(),
-							Namespace: objMeta.GetNamespace(),
-						})
+							Namespace: namespace,
+						}
+
+						// Check for prefix conflicts with existing owners in this namespace
+						shouldAdd := true
+						for i, ownerRef := range ownerRefs[namespace] {
+							if strings.HasPrefix(newOwner.Name, ownerRef.Name) {
+								// New owner has existing owner as prefix, skip adding
+								shouldAdd = false
+								break
+							} else if strings.HasPrefix(ownerRef.Name, newOwner.Name) {
+								// Existing owner has new owner as prefix, remove existing owner
+								ownerRefs[namespace] = append(ownerRefs[namespace][:i], ownerRefs[namespace][i+1:]...)
+								break
+							}
+						}
+
+						if shouldAdd {
+							ownerRefs[namespace] = append(ownerRefs[namespace], newOwner)
+						}
 					}
 				}
 			}
@@ -679,11 +697,13 @@ let resources = datatable(['kind']:string, name:string, namespace:string)[
 
 	// Create catch-all kusto deep links for owner references and namespace logs if config available
 	if kustoConfigured {
-		if ownerRefs.Len() > 0 {
+		if len(ownerRefs) > 0 {
 			var ownerConditions []string
 
-			for _, ownerRef := range ownerRefs.UnsortedList() {
-				ownerConditions = append(ownerConditions, fmt.Sprintf(`(pod_name startswith "%s" and namespace_name == "%s")`, ownerRef.Name, ownerRef.Namespace))
+			for namespace, owners := range ownerRefs {
+				for _, ownerRef := range owners {
+					ownerConditions = append(ownerConditions, fmt.Sprintf(`(pod_name startswith "%s" and namespace_name == "%s")`, ownerRef.Name, namespace))
+				}
 			}
 
 			allOwnersQuery := fmt.Sprintf(`%s
