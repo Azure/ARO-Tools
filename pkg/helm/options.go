@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -539,15 +540,6 @@ func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options, depl
 							return nil
 						}
 
-						for _, owner := range pod.OwnerReferences {
-							ownerRef := OwnerRefInfo{
-								Kind:      owner.Kind,
-								Name:      owner.Name,
-								Namespace: pod.Namespace,
-							}
-							ownerRefs.Insert(ownerRef)
-						}
-
 						podInfo := PodInfo{
 							Name:      pod.Name,
 							Namespace: pod.Namespace,
@@ -570,6 +562,15 @@ func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options, depl
 						Namespace: objMeta.GetNamespace(),
 					}
 					resources = append(resources, resourceInfo)
+
+					ownerKinds := []string{"ReplicaSet", "Deployment", "StatefulSet", "DaemonSet", "Job", "CronJob"}
+					if slices.Contains(ownerKinds, kind) {
+						ownerRefs.Insert(OwnerRefInfo{
+							Kind:      kind,
+							Name:      objMeta.GetName(),
+							Namespace: objMeta.GetNamespace(),
+						})
+					}
 				}
 			}
 		}
@@ -667,7 +668,7 @@ let resources = datatable(['kind']:string, name:string, namespace:string)[
 				foundOwners = append(foundOwners, ownerRef)
 			}
 
-			logger.V(4).Info("Resource owner references in deployment (unique)", "owners", foundOwners)
+			logger.V(4).Info("Resource owner references in deployment", "owners", foundOwners)
 		}
 
 		// Create kusto deep link for entire namespace to catch all pods
