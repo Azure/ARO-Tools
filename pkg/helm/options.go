@@ -437,11 +437,11 @@ func isReleaseUninstalled(logger logr.Logger, versionsi []helmrelease.Releaser) 
 }
 
 type PodInfo struct {
-	Name          string
-	Namespace     string
-	Phase         string
-	State         string // container state summary
-	KustoDeepLink string
+	Name               string
+	Namespace          string
+	Phase              string
+	State              string // container state summary
+	TroubleshootingURL string
 }
 type ResourceInfo struct {
 	Kind      string
@@ -526,8 +526,7 @@ func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options, depl
 
 			kind := resource.GetObjectKind().GroupVersionKind().Kind
 
-			if kind == "PodList" {
-				// Process each pod item individually
+			if meta.IsListType(resource) {
 				err := meta.EachListItem(resource, func(item runtime.Object) error {
 
 					kind := item.GetObjectKind().GroupVersionKind().Kind
@@ -536,6 +535,7 @@ func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options, depl
 					if unstructuredItem, ok := item.(*unstructured.Unstructured); kind == "Pod" && ok {
 						err := runtime.DefaultUnstructuredConverter.FromUnstructured(unstructuredItem.Object, &pod)
 						if err != nil {
+							// TODO: Is it appropriate to log an error here? Are there other list resource types to consider?
 							logger.Error(err, "Failed to convert unstructured to Pod")
 							return nil
 						}
@@ -551,9 +551,9 @@ func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options, depl
 					return nil
 				})
 				if err != nil {
-					logger.Error(err, "Failed to process pod list items")
+					logger.Error(err, "Failed to process list items")
 				}
-			} else { // Not PodList
+			} else {
 				objMeta, err := meta.Accessor(resource)
 				if err == nil {
 					resourceInfo := ResourceInfo{
@@ -576,6 +576,8 @@ func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options, depl
 		}
 	}
 
+	kustoConfigured := opts.KustoCluster != "" && opts.KustoDatabase != "" && opts.KustoTable != ""
+
 	deploymentStart := deploymentStartTime.UTC().Format(time.RFC3339)
 	deploymentEnd := time.Now().UTC().Format(time.RFC3339)
 
@@ -583,7 +585,7 @@ func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options, depl
 	if len(resources) > 0 {
 		logger.V(4).Info("Found resources in release:", "resources", resources)
 
-		if opts.KustoCluster == "" || opts.KustoDatabase == "" || opts.KustoTable == "" {
+		if !kustoConfigured {
 			logger.Info("Kusto configuration not provided, skipping Kusto deep link generation for kube events.")
 		} else {
 			// Build resource rows for Kusto query
@@ -620,58 +622,89 @@ let resources = datatable(['kind']:string, name:string, namespace:string)[
 		}
 	}
 
-	// Log information for individual pods, including kusto deep link if configuration available
+	// Log information for individual pods, including kusto deep link for failing pods if configuration available
+	// Output a kusto query for all pods to catch possible race conditions or false negatives
 	if len(foundPods) > 0 {
+		var podConditions []string
+
 		for i := range foundPods {
-			if opts.KustoCluster == "" || opts.KustoDatabase == "" || opts.KustoTable == "" {
-				foundPods[i].KustoDeepLink = "Kusto configuration not provided, no deep link available"
-			} else {
-				podQuery := fmt.Sprintf(`%s
+			// Add string condition for each pod to find them all in one query later
+			podConditions = append(podConditions, fmt.Sprintf(`(pod_name == "%s" and namespace_name == "%s")`, foundPods[i].Name, foundPods[i].Namespace))
+
+			// Create a kusto link for individual failing pods
+			if kustoConfigured {
+				if (foundPods[i].Phase != "Running" && foundPods[i].Phase != "Succeeded") ||
+					strings.Contains(foundPods[i].State, "CrashLoopBackOff") ||
+					strings.Contains(foundPods[i].State, "Error") ||
+					strings.Contains(foundPods[i].State, "Terminated") {
+
+					podQuery := fmt.Sprintf(`%s
 | where ['time'] between (datetime("%s") .. datetime("%s"))
 | where pod_name == "%s"
 | where namespace_name == "%s"
 | project ['time'], log, pod_name
 | order by ['time'] asc`, opts.KustoTable, deploymentStart, deploymentEnd, foundPods[i].Name, foundPods[i].Namespace)
 
-				podDeepLink, err := queryToDeepLink(podQuery, opts.KustoCluster, opts.KustoDatabase)
-				if err != nil {
-					logger.Error(err, "Failed to create Kusto deep link for pods")
-					continue
+					podDeepLink, err := queryToDeepLink(podQuery, opts.KustoCluster, opts.KustoDatabase)
+					if err != nil {
+						logger.Error(err, "Failed to create Kusto deep link for failing pod")
+						continue
+					}
+					foundPods[i].TroubleshootingURL = podDeepLink
+				} else {
+					foundPods[i].TroubleshootingURL = "Pod is healthy, no deep link generated."
 				}
-				foundPods[i].KustoDeepLink = podDeepLink
+			} else {
+				foundPods[i].TroubleshootingURL = "Kusto configuration not provided, skipping Kusto deep link generation."
 			}
 		}
 
-		logger.V(4).Info("Found Pod details in release:", "pods", foundPods)
+		allPodsQuery := fmt.Sprintf(`%s
+| where ['time'] between (datetime("%s") .. datetime("%s"))
+| where %s
+| project ['time'], log, pod_name, namespace_name
+| order by pod_name asc, ['time'] asc`,
+			opts.KustoTable,
+			deploymentStart,
+			deploymentEnd,
+			strings.Join(podConditions, " or "))
+
+		allPodsDeepLink, err := queryToDeepLink(allPodsQuery, opts.KustoCluster, opts.KustoDatabase)
+		if err != nil {
+			logger.Error(err, "Failed to create Kusto deep link for all pods")
+		} else {
+			logger.V(4).Info("Found pod details in the release", "Pods", foundPods, "Troubleshooting Kusto URL for ALL pods", allPodsDeepLink)
+		}
 	}
 
-	if opts.KustoCluster != "" && opts.KustoDatabase != "" && opts.KustoTable != "" {
-
-		// Create kusto deep links for owner references if config available
+	// Create catch-all kusto deep links for owner references and namespace logs if config available
+	if kustoConfigured {
 		if ownerRefs.Len() > 0 {
-			var foundOwners []OwnerRefInfo
+			var ownerConditions []string
 
 			for _, ownerRef := range ownerRefs.UnsortedList() {
-				ownerQuery := fmt.Sprintf(`%s
-| where ['time'] between (datetime("%s") .. datetime("%s"))
-| where pod_name startswith "%s"
-| where namespace_name == "%s"
-| project ['time'], log, pod_name
-| order by pod_name asc, ['time'] asc`, opts.KustoTable, deploymentStart, deploymentEnd, ownerRef.Name, ownerRef.Namespace)
-
-				ownerRefDeepLink, err := queryToDeepLink(ownerQuery, opts.KustoCluster, opts.KustoDatabase)
-				if err != nil {
-					logger.Error(err, "Failed to create Kusto deep link for owner references")
-					continue
-				}
-				ownerRef.KustoDeepLink = ownerRefDeepLink
-				foundOwners = append(foundOwners, ownerRef)
+				ownerConditions = append(ownerConditions, fmt.Sprintf(`(pod_name startswith "%s" and namespace_name == "%s")`, ownerRef.Name, ownerRef.Namespace))
 			}
 
-			logger.V(4).Info("Resource owner references in deployment", "owners", foundOwners)
+			allOwnersQuery := fmt.Sprintf(`%s
+| where ['time'] between (datetime("%s") .. datetime("%s"))
+| where %s
+| project ['time'], log, pod_name, namespace_name
+| order by pod_name asc, ['time'] asc`,
+				opts.KustoTable,
+				deploymentStart,
+				deploymentEnd,
+				strings.Join(ownerConditions, " or "))
+
+			allOwnersDeepLink, err := queryToDeepLink(allOwnersQuery, opts.KustoCluster, opts.KustoDatabase)
+			if err != nil {
+				logger.Error(err, "Failed to create Kusto deep link for owner references")
+			} else {
+				logger.V(4).Info("Top-level workload resources kusto link to catch any pods that may have been missed", "url", allOwnersDeepLink)
+			}
 		}
 
-		// Create kusto deep link for entire namespace to catch all pods
+		// Create kusto deep link for entire namespace
 		namespaceQuery := fmt.Sprintf(`%s
 | where ['time'] between (datetime("%s") .. datetime("%s"))
 | where namespace_name == "%s"
@@ -682,7 +715,7 @@ let resources = datatable(['kind']:string, name:string, namespace:string)[
 		if err != nil {
 			logger.Error(err, "Failed to create Kusto deep link for namespace")
 		} else {
-			logger.V(4).Info("Namespace kusto link for troubleshooting:", "url", namespaceDeepLink)
+			logger.V(4).Info("All pods in namespace kusto link for comprehensive troubleshooting:", "url", namespaceDeepLink)
 		}
 	}
 
