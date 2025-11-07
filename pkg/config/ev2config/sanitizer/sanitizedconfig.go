@@ -14,6 +14,7 @@ type SanitizedCloudConfigValues struct {
 	KeyVault               KeyVaultValues               `json:"keyVault"`
 	AzureContainerRegistry AzureContainerRegistryValues `json:"azureContainerRegistry"`
 	Entra                  SanitizedEntraConfig         `json:"entra"`
+	ARM                    SanitizedARMConfig           `json:"arm"`
 }
 
 type KeyVaultValues struct {
@@ -23,10 +24,15 @@ type KeyVaultValues struct {
 type SanitizedEntraConfig struct {
 	FederatedCredentials EntraFederatedCredentials `json:"federatedcredentials"`
 	FQDN                 map[string]string         `json:"fqdn"`
+	Tenants              map[string]EntraTenant    `json:"tenants"`
 }
 
 type EntraFederatedCredentialValues struct {
 	Audience string `json:"audience"`
+}
+
+type SanitizedARMConfig struct {
+	Endpoint string `json:"endpoint"`
 }
 
 type SanitizedRegionConfig struct {
