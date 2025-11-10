@@ -516,7 +516,7 @@
             "kustoCluster": {
               "type": "string"
             },
-            "kustoDatabase": { 
+            "kustoDatabase": {
               "type": "string"
             },
             "kustoTable": {
@@ -564,11 +564,19 @@
             },
             "childZone": {
               "$ref": "#/definitions/value"
+            },
+            "secretKeyVault": {
+              "$ref": "#/definitions/value"
+            },
+            "secretName": {
+              "$ref": "#/definitions/value"
             }
           },
           "required": [
             "parentZone",
-            "childZone"
+            "childZone",
+            "secretKeyVault",
+            "secretName"
           ]
         }
       ]
