@@ -18,9 +18,6 @@ import (
 	"github.com/Azure/ARO-Tools/pkg/config/types"
 )
 
-// DEPRECATED: use the exported type from types package instead
-type Configuration = types.Configuration
-
 // configurationOverrides is the internal representation for config stored on disk - we do not export it as we
 // require that users pre-process it first, which the ConfigProvider.GetResolver() will do for them.
 type configurationOverrides struct {

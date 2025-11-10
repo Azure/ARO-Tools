@@ -213,12 +213,6 @@ type configResolver struct {
 	absoluteSchemaPath string
 }
 
-// Merges Configuration, returns merged Configuration
-// DEPRECATED: use the exported function from types package instead
-func MergeConfiguration(base, override Configuration) Configuration {
-	return types.MergeConfiguration(base, override)
-}
-
 func (cr *configResolver) ValidateSchema(config types.Configuration) error {
 	loader := jsonschema.SchemeURLLoader{
 		"file": jsonschema.FileLoader{},
