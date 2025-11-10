@@ -174,9 +174,11 @@ type DryRun struct {
 const StepActionDelegateChildZone = "DelegateChildZone"
 
 type DelegateChildZoneStep struct {
-	StepMeta   `json:",inline"`
-	ParentZone Value `json:"parentZone,omitempty"`
-	ChildZone  Value `json:"childZone,omitempty"`
+	StepMeta       `json:",inline"`
+	ParentZone     Value `json:"parentZone,omitempty"`
+	ChildZone      Value `json:"childZone,omitempty"`
+	SecretKeyVault Value `json:"secretKeyVault,omitempty"`
+	SecretName     Value `json:"secretName,omitempty"`
 }
 
 func (s *DelegateChildZoneStep) Description() string {
@@ -185,7 +187,7 @@ func (s *DelegateChildZoneStep) Description() string {
 
 func (s *DelegateChildZoneStep) RequiredInputs() []StepDependency {
 	var deps []StepDependency
-	for _, val := range []Value{s.ParentZone, s.ChildZone} {
+	for _, val := range []Value{s.ParentZone, s.ChildZone, s.SecretKeyVault, s.SecretName} {
 		if val.Input != nil {
 			deps = append(deps, val.Input.StepDependency)
 		}

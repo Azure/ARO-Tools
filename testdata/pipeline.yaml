@@ -93,6 +93,10 @@ resourceGroups:
       configRef: parentZone
     childZone:
       configRef: childZone
+    secretKeyVault:
+      configRef: ev2.assistedId.certificate.keyVault
+    secretName:
+      configRef: ev2.assistedId.certificate.name
     dependsOn:
     - step: deploy
       resourceGroup: regional
@@ -284,7 +288,7 @@ resourceGroups:
         configRef: ev2.assistedId.certificate.keyVault
       secretName:
         configRef: ev2.assistedId.certificate.name
-      providerConfigRef: svc.subscription.displayName      
+      providerConfigRef: svc.subscription.displayName
     - name: register-ev2-services
       action: Ev2Registration
       identityFrom:
