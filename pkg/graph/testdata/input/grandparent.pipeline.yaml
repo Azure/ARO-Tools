@@ -92,6 +92,8 @@ resourceGroups:
           configRef: ev2.assistedId.certificate.keyVault
         secretName:
           configRef: ev2.assistedId.certificate.name
+        dstsHost:
+          configRef: ev2.assistedId.dstsHost
         dependsOn:
           - resourceGroup: global
             step: infra
@@ -106,6 +108,8 @@ resourceGroups:
           configRef: ev2.assistedId.certificate.keyVault
         secretName:
           configRef: ev2.assistedId.certificate.name
+        dstsHost:
+          configRef: ev2.assistedId.dstsHost
         dependsOn:
           - resourceGroup: global
             step: infra

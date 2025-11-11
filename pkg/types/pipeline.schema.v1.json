@@ -570,13 +570,17 @@
             },
             "secretName": {
               "$ref": "#/definitions/value"
+            },
+            "dstsHost": {
+              "$ref": "#/definitions/value"
             }
           },
           "required": [
             "parentZone",
             "childZone",
             "secretKeyVault",
-            "secretName"
+            "secretName",
+            "dstsHost"
           ]
         }
       ]
