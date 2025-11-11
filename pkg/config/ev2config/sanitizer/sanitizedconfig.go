@@ -45,6 +45,8 @@ type SanitizedGenevaActionsConfig struct {
 }
 
 type SanitizedRegionConfig struct {
+	Geography             string `json:"geography"`
+	GeoShortID            string `json:"geoShortId"`
 	AvailabilityZoneCount int    `json:"availabilityZoneCount"`
 	RegionShortName       string `json:"regionShortName"`
 	RegionFriendlyName    string `json:"regionFriendlyName"`
