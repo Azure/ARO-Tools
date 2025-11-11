@@ -1,7 +1,8 @@
 package main
 
 const (
-	AzureTenantName = "azure"
+	AzureTenantName              = "azure"
+	GenevaActionsHomeDstsPrimary = "primary"
 )
 
 func Sanitize(inputs map[string]CentralConfig) SanitizedConfig {
@@ -39,6 +40,13 @@ func Sanitize(inputs map[string]CentralConfig) SanitizedConfig {
 				},
 				ARM: SanitizedARMConfig{
 					Endpoint: cfg.Settings.ARM.Endpoint,
+				},
+				Geneva: SanitizedGenevaConfig{
+					Actions: SanitizedGenevaActionsConfig{
+						HomeDsts: map[string]string{
+							GenevaActionsHomeDstsPrimary: cfg.Settings.Geneva.Actions.HomeDsts[GenevaActionsHomeDstsPrimary],
+						},
+					},
 				},
 			},
 			Regions: regions,
