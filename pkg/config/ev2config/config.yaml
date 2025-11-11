@@ -20,6 +20,10 @@ clouds:
             tenantdomain: usgovcloud.onmicrosoft.us
             tenantid: cab8a31a-1906-4287-a0d8-4eef66b95f6e
             tenantname: usgovcloud
+      geneva:
+        actions:
+          homeDsts:
+            primary: usgoveast-dsts.dsts.core.usgovcloudapi.net
       keyVault:
         domainNameSuffix: vault.usgovcloudapi.net
     regions:
@@ -80,6 +84,10 @@ clouds:
             tenantdomain: msazurecloud.onmicrosoft.com
             tenantid: 33e01921-4d64-4f8c-a055-5bdaffd5e33d
             tenantname: msazurecloud
+      geneva:
+        actions:
+          homeDsts:
+            primary: usnorth-dsts.dsts.core.windows.net
       keyVault:
         domainNameSuffix: vault.azure.net
     regions:
