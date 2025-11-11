@@ -83,6 +83,8 @@ resourceGroups:
     dependsOn:
     - resourceGroup: regional
       step: deploy
+    dstsHost:
+      configRef: ev2.assistedId.dstsHost
     externalDependsOn:
     - resourceGroup: regional
       serviceGroup: Microsoft.Azure.ARO.Classic.Whatever

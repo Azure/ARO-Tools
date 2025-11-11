@@ -179,6 +179,7 @@ type DelegateChildZoneStep struct {
 	ChildZone      Value `json:"childZone,omitempty"`
 	SecretKeyVault Value `json:"secretKeyVault,omitempty"`
 	SecretName     Value `json:"secretName,omitempty"`
+	DstsHost       Value `json:"dstsHost,omitempty"`
 }
 
 func (s *DelegateChildZoneStep) Description() string {
@@ -187,7 +188,7 @@ func (s *DelegateChildZoneStep) Description() string {
 
 func (s *DelegateChildZoneStep) RequiredInputs() []StepDependency {
 	var deps []StepDependency
-	for _, val := range []Value{s.ParentZone, s.ChildZone, s.SecretKeyVault, s.SecretName} {
+	for _, val := range []Value{s.ParentZone, s.ChildZone, s.SecretKeyVault, s.SecretName, s.DstsHost} {
 		if val.Input != nil {
 			deps = append(deps, val.Input.StepDependency)
 		}
