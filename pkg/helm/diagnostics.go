@@ -241,9 +241,33 @@ func getIndivPodQuery(opts *Options, pod PodInfo, deploymentStart string, deploy
 	}
 }
 
+// PodQueryInfo holds pod information and its associated Kusto query URL for structured logging,
+// struct enables clean JSON serialization when logging multiple pods together
+type PodQueryInfo struct {
+	PodName   string
+	Namespace string
+	Phase     string
+	State     string
+	URLQuery  string
+}
+
+func convertPodMapToSlice(podToQueryMap map[PodInfo]string) []PodQueryInfo {
+	var podQueries []PodQueryInfo
+	for pod, queryURL := range podToQueryMap {
+		podQueries = append(podQueries, PodQueryInfo{
+			PodName:   pod.Name,
+			Namespace: pod.Namespace,
+			Phase:     pod.Phase,
+			State:     pod.State,
+			URLQuery:  queryURL,
+		})
+	}
+	return podQueries
+}
+
 // Create kusto deep link for failing pods if configuration available
 // Output a kusto query for all pods to catch possible race conditions or false negatives
-func getPodsQuery(logger logr.Logger, opts *Options, foundPods []PodInfo, deploymentStart string, deploymentEnd string) (map[PodInfo]string, string, error) {
+func getPodsQuery(logger logr.Logger, opts *Options, foundPods []PodInfo, deploymentStart string, deploymentEnd string) ([]PodQueryInfo, string, error) {
 	if len(foundPods) == 0 {
 		return nil, "", fmt.Errorf("no pods found in release to log")
 	}
@@ -262,9 +286,11 @@ func getPodsQuery(logger logr.Logger, opts *Options, foundPods []PodInfo, deploy
 		}
 	}
 
+	podQueries := convertPodMapToSlice(podToQueryMap)
+
 	// Still want to output logs for individual pods, but no kusto query for all pods
 	if !isKustoConfigured(opts) {
-		return podToQueryMap, "", nil
+		return podQueries, "", nil
 	}
 
 	allPodsQuery := fmt.Sprintf(`%s
@@ -279,9 +305,9 @@ func getPodsQuery(logger logr.Logger, opts *Options, foundPods []PodInfo, deploy
 
 	allPodsLink, err := queryToDeepLink(allPodsQuery, opts.KustoCluster, opts.KustoDatabase)
 	if err != nil {
-		return podToQueryMap, "", err
+		return podQueries, "", err
 	}
-	return podToQueryMap, allPodsLink, nil
+	return podQueries, allPodsLink, nil
 }
 
 // getWorkloadResourcePodsLink creates Kusto deep links for pods managed by workload resources
