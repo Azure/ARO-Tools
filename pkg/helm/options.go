@@ -3,7 +3,6 @@ package helm
 import (
 	"bytes"
 	"context"
-
 	"errors"
 	"fmt"
 	"io"
@@ -451,8 +450,8 @@ func extractContainerStateSummary(containerStatuses []corev1.ContainerStatus) st
 type PodQueryInfo struct {
 	PodName   string
 	Namespace string
-	Phase     string 
-	State     string 
+	Phase     string
+	State     string
 	QueryURL  string
 }
 
@@ -521,13 +520,12 @@ func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options, depl
 			logger.Error(err, "Failed to get pod details in the release")
 		} else if len(podToQueryMap) > 0 {
 			podQueries := convertPodMapToSlice(podToQueryMap)
-			
+
+			logger.V(4).Info("Found pod details in the release", "Pods", podQueries)
 			if allPodsDeepLink != "" {
-				logger.V(4).Info("Found pod details in the release", "Pods", podQueries, "URL for kusto query with all pods", allPodsDeepLink)
-			} else {
-				logger.V(4).Info("Found pod details in the release", "Pods", podQueries)
+				logger.V(4).Info("All pods kusto link for comprehensive troubleshooting", "url", allPodsDeepLink)
 			}
-		} 
+		}
 	} else {
 		logger.V(4).Info("No pods found in release.")
 	}
