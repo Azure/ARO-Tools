@@ -477,11 +477,9 @@ func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options, depl
 	}
 
 	// Process all resources in the release
-	for _, resourceList := range release.Info.Resources {
-		ownerRefs, resources, foundPods, err = evaluateResources(logger, resourceList)
-		if err != nil {
-			logger.Error(err, "Failed to evaluate resources")
-		}
+	ownerRefs, resources, foundPods, err = evaluateResources(logger, release)
+	if err != nil {
+		logger.Error(err, "Failed to evaluate resources")
 	}
 
 	deploymentStart := deploymentStartTime.UTC().Format(time.RFC3339)

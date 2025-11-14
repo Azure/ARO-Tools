@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
+	helmreleasev1 "helm.sh/helm/v4/pkg/release/v1"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -114,54 +115,54 @@ func addOwnerNoDuplicates(ownerRefs map[string][]OwnerRefInfo, newOwner OwnerRef
 	}
 }
 
-func evaluateResources(logger logr.Logger, resourceList []runtime.Object) (map[string][]OwnerRefInfo, []ResourceInfo, []PodInfo, error) {
+func evaluateResources(logger logr.Logger, release *helmreleasev1.Release) (map[string][]OwnerRefInfo, []ResourceInfo, []PodInfo, error) {
 
 	ownerRefs := make(map[string][]OwnerRefInfo)
 	var resources []ResourceInfo
 	var foundPods []PodInfo
 
-	logger.Info("number of resources in list", "count", len(resourceList))
+	for _, resourceList := range release.Info.Resources {
+		for _, resource := range resourceList {
 
-	for _, resource := range resourceList {
-
-		if meta.IsListType(resource) {
-			err := meta.EachListItem(resource, func(item runtime.Object) error {
-				podInfo, err := processListItem(item)
+			if meta.IsListType(resource) {
+				err := meta.EachListItem(resource, func(item runtime.Object) error {
+					podInfo, err := processListItem(item)
+					if err != nil {
+						logger.Error(err, "Failed to process list item")
+						return nil // Continue processing other items
+					}
+					if podInfo != nil {
+						foundPods = append(foundPods, *podInfo)
+					}
+					return nil
+				})
 				if err != nil {
-					logger.Error(err, "Failed to process list item")
-					return nil // Continue processing other items
+					logger.Error(err, "Failed to process list items")
 				}
-				if podInfo != nil {
-					foundPods = append(foundPods, *podInfo)
-				}
-				return nil
-			})
-			if err != nil {
-				logger.Error(err, "Failed to process list items")
-			}
-		} else {
-			kind := resource.GetObjectKind().GroupVersionKind().Kind
+			} else {
+				kind := resource.GetObjectKind().GroupVersionKind().Kind
 
-			objMeta, err := meta.Accessor(resource)
-			if err == nil {
-				resourceInfo := ResourceInfo{
-					Kind:      kind,
-					Name:      objMeta.GetName(),
-					Namespace: objMeta.GetNamespace(),
-				}
-				resources = append(resources, resourceInfo)
-
-				// ownerKinds includes all workload resources that can create pods
-				ownerKinds := []string{"ReplicaSet", "Deployment", "StatefulSet", "DaemonSet", "Job", "CronJob"}
-				if slices.Contains(ownerKinds, kind) {
-					addOwnerNoDuplicates(ownerRefs, OwnerRefInfo{
+				objMeta, err := meta.Accessor(resource)
+				if err == nil {
+					resourceInfo := ResourceInfo{
 						Kind:      kind,
 						Name:      objMeta.GetName(),
 						Namespace: objMeta.GetNamespace(),
-					})
+					}
+					resources = append(resources, resourceInfo)
+
+					// ownerKinds includes all workload resources that can create pods
+					ownerKinds := []string{"ReplicaSet", "Deployment", "StatefulSet", "DaemonSet", "Job", "CronJob"}
+					if slices.Contains(ownerKinds, kind) {
+						addOwnerNoDuplicates(ownerRefs, OwnerRefInfo{
+							Kind:      kind,
+							Name:      objMeta.GetName(),
+							Namespace: objMeta.GetNamespace(),
+						})
+					}
+				} else {
+					logger.Error(err, "Failed to get metadata for resource", "kind", kind)
 				}
-			} else {
-				logger.Error(err, "Failed to get metadata for resource", "kind", kind)
 			}
 		}
 	}
