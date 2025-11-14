@@ -18,10 +18,10 @@ import (
 )
 
 type PodInfo struct {
-	Name               string
-	Namespace          string
-	Phase              string
-	State              string // container state summary
+	Name      string
+	Namespace string
+	Phase     string
+	State     string // container state summary
 }
 type ResourceInfo struct {
 	Kind      string
@@ -212,7 +212,7 @@ func getIndivPodQuery(logger logr.Logger, opts *Options, pod PodInfo, deployment
 	// Create a kusto link for individual failing pods
 	if !isKustoConfigured(opts) {
 		return "Kusto configuration not provided, skipping Kusto deep link generation.", nil
-	} 
+	}
 
 	if (pod.Phase != "Running" && pod.Phase != "Succeeded") ||
 		strings.Contains(pod.State, "CrashLoopBackOff") ||
