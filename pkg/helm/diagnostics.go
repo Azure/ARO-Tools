@@ -62,33 +62,56 @@ func queryToDeepLink(text, kustoCluster, kustoDatabase string) (string, error) {
 	return kustoDeepLink, nil
 }
 
-// processListItem processes a single item from a Kubernetes list resource and extracts pod information if applicable
-func processListItem(item runtime.Object) (*PodInfo, error) {
+// processObject processes a single runtime.Object and extracts pod information if applicable
+func processObject(resources []ResourceInfo, foundPods []PodInfo, ownerRefs map[string][]OwnerRefInfo, item runtime.Object) ([]ResourceInfo, []PodInfo, map[string][]OwnerRefInfo, error) {
+
 	kind := item.GetObjectKind().GroupVersionKind().Kind
 
-	// TODO: process other list item kinds?
-	if kind != "Pod" {
-		return nil, nil
-	}
+	if kind == "Pod" {
 
-	unstructuredItem, ok := item.(*unstructured.Unstructured)
-	if !ok {
-		return nil, fmt.Errorf("failed to convert item to unstructured: item is not *unstructured.Unstructured")
-	}
+		unstructuredItem, ok := item.(*unstructured.Unstructured)
+		if !ok {
+			return resources, foundPods, ownerRefs, fmt.Errorf("failed to convert item to unstructured: item is not *unstructured.Unstructured")
+		}
 
-	var pod corev1.Pod
-	err := runtime.DefaultUnstructuredConverter.FromUnstructured(unstructuredItem.Object, &pod)
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert unstructured to Pod: %w", err)
-	}
+		var pod corev1.Pod
+		err := runtime.DefaultUnstructuredConverter.FromUnstructured(unstructuredItem.Object, &pod)
+		if err != nil {
+			return resources, foundPods, ownerRefs, fmt.Errorf("failed to convert unstructured to Pod: %w", err)
+		}
 
-	podInfo := PodInfo{
-		Name:      pod.Name,
-		Namespace: pod.Namespace,
-		Phase:     string(pod.Status.Phase),
-		State:     extractContainerStateSummary(pod.Status.ContainerStatuses),
+		podInfo := PodInfo{
+			Name:      pod.Name,
+			Namespace: pod.Namespace,
+			Phase:     string(pod.Status.Phase),
+			State:     extractContainerStateSummary(pod.Status.ContainerStatuses),
+		}
+		foundPods = append(foundPods, podInfo)
+	} else {
+
+		objMeta, err := meta.Accessor(item)
+		if err != nil {
+			return resources, foundPods, ownerRefs, fmt.Errorf("failed to get metadata for item of kind %s: %w", kind, err)
+		}
+		// process resources separately from pods
+		resourceInfo := ResourceInfo{
+			Kind:      kind,
+			Name:      objMeta.GetName(),
+			Namespace: objMeta.GetNamespace(),
+		}
+		resources = append(resources, resourceInfo)
+
+		// ownerKinds includes all workload resources that can create pods
+		ownerKinds := []string{"ReplicaSet", "Deployment", "StatefulSet", "DaemonSet", "Job", "CronJob"}
+		if slices.Contains(ownerKinds, kind) {
+			addOwnerNoDuplicates(ownerRefs, OwnerRefInfo{
+				Kind:      kind,
+				Name:      objMeta.GetName(),
+				Namespace: objMeta.GetNamespace(),
+			})
+		}
 	}
-	return &podInfo, nil
+	return resources, foundPods, ownerRefs, nil
 }
 
 // addOwnerNoDuplicates adds a new owner reference to the map, removing any existing owners
@@ -122,48 +145,32 @@ func evaluateResources(logger logr.Logger, release *helmreleasev1.Release) (map[
 	ownerRefs := make(map[string][]OwnerRefInfo)
 	var resources []ResourceInfo
 	var foundPods []PodInfo
+	var err error
 
 	for _, resourceList := range release.Info.Resources {
 		for _, resource := range resourceList {
 
 			if meta.IsListType(resource) {
-				err := meta.EachListItem(resource, func(item runtime.Object) error {
-					podInfo, err := processListItem(item)
-					if err != nil {
-						logger.Error(err, "Failed to process list item")
-						return nil // Continue processing other items
-					}
-					if podInfo != nil {
-						foundPods = append(foundPods, *podInfo)
-					}
-					return nil
-				})
-				if err != nil {
-					logger.Error(err, "Failed to process list items")
+
+				if _, ok := resource.(*unstructured.UnstructuredList); !ok {
+					logger.Error(fmt.Errorf("resource is not UnstructuredList"), "Failed to process list resource", "kind", resource.GetObjectKind().GroupVersionKind().Kind)
 				}
+
+				items, err := meta.ExtractList(resource)
+				if err != nil {
+					logger.Error(err, "Failed to extract items from list resource", "kind", resource.GetObjectKind().GroupVersionKind().Kind)
+				}
+				for _, obj := range items {
+					resources, foundPods, ownerRefs, err = processObject(resources, foundPods, ownerRefs, obj)
+					if err != nil {
+						logger.Error(err, "Failed to process list item", "kind", resource.GetObjectKind().GroupVersionKind().Kind)
+					}
+				}
+
 			} else {
-				kind := resource.GetObjectKind().GroupVersionKind().Kind
-
-				objMeta, err := meta.Accessor(resource)
-				if err == nil {
-					resourceInfo := ResourceInfo{
-						Kind:      kind,
-						Name:      objMeta.GetName(),
-						Namespace: objMeta.GetNamespace(),
-					}
-					resources = append(resources, resourceInfo)
-
-					// ownerKinds includes all workload resources that can create pods
-					ownerKinds := []string{"ReplicaSet", "Deployment", "StatefulSet", "DaemonSet", "Job", "CronJob"}
-					if slices.Contains(ownerKinds, kind) {
-						addOwnerNoDuplicates(ownerRefs, OwnerRefInfo{
-							Kind:      kind,
-							Name:      objMeta.GetName(),
-							Namespace: objMeta.GetNamespace(),
-						})
-					}
-				} else {
-					logger.Error(err, "Failed to get metadata for resource", "kind", kind)
+				resources, foundPods, ownerRefs, err = processObject(resources, foundPods, ownerRefs, resource)
+				if err != nil {
+					logger.Error(err, "Failed to process resource", "kind", resource.GetObjectKind().GroupVersionKind().Kind)
 				}
 			}
 		}
