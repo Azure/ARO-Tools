@@ -452,7 +452,7 @@ type PodQueryInfo struct {
 	Namespace string
 	Phase     string
 	State     string
-	QueryURL  string
+	URLQuery  string
 }
 
 func convertPodMapToSlice(podToQueryMap map[PodInfo]string) []PodQueryInfo {
@@ -463,7 +463,7 @@ func convertPodMapToSlice(podToQueryMap map[PodInfo]string) []PodQueryInfo {
 			Namespace: pod.Namespace,
 			Phase:     pod.Phase,
 			State:     pod.State,
-			QueryURL:  queryURL,
+			URLQuery:  queryURL,
 		})
 	}
 	return podQueries
@@ -514,40 +514,48 @@ func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options, depl
 		logger.V(4).Info("No resources found in release.")
 	}
 
+	// Initialize deep link variables for comprehensive troubleshooting
+	var allPodsDeepLink, allOwnersDeepLink, namespaceDeepLink string
+
 	if len(foundPods) > 0 {
-		podToQueryMap, allPodsDeepLink, err := getPodsQuery(logger, opts, foundPods, deploymentStart, deploymentEnd)
+		podToQueryMap, podLink, err := getPodsQuery(logger, opts, foundPods, deploymentStart, deploymentEnd)
 		if err != nil {
 			logger.Error(err, "Failed to get pod details in the release")
 		} else if len(podToQueryMap) > 0 {
 			podQueries := convertPodMapToSlice(podToQueryMap)
-
 			logger.V(4).Info("Found pod details in the release", "Pods", podQueries)
-			if allPodsDeepLink != "" {
-				logger.V(4).Info("All pods kusto link for comprehensive troubleshooting", "url", allPodsDeepLink)
-			}
+			allPodsDeepLink = podLink
 		}
 	} else {
 		logger.V(4).Info("No pods found in release.")
 	}
 
 	if len(ownerRefs) > 0 {
-		allOwnersDeepLink, err := getWorkloadResourcePodsLink(opts, ownerRefs, deploymentStart, deploymentEnd)
+		ownerLink, err := getWorkloadResourcePodsLink(opts, ownerRefs, deploymentStart, deploymentEnd)
 		if err != nil {
 			logger.Error(err, "Failed to log owner references")
-		} else if allOwnersDeepLink != "" {
-			logger.V(4).Info("Top-level workload resources kusto link to catch any pods that may have been missed", "url", allOwnersDeepLink)
+		} else {
+			allOwnersDeepLink = ownerLink
 		}
 	} else {
 		logger.V(4).Info("No owner references found in release.")
 	}
 
 	if release.Namespace != "" {
-		namespaceDeepLink, err := getNamespaceQuery(opts, release.Namespace, deploymentStart, deploymentEnd)
+		nsLink, err := getNamespaceQuery(opts, release.Namespace, deploymentStart, deploymentEnd)
 		if err != nil {
 			logger.Error(err, "Failed to create Kusto deep link for namespace")
-		} else if namespaceDeepLink != "" {
-			logger.V(4).Info("Kusto query for all pods in the release namespace for comprehensive troubleshooting", "url", namespaceDeepLink)
+		} else {
+			namespaceDeepLink = nsLink
 		}
+	}
+
+	// Log all troubleshooting deep links together if any are available
+	if allPodsDeepLink != "" || allOwnersDeepLink != "" || namespaceDeepLink != "" {
+		logger.V(4).Info("Kusto deep links for comprehensive troubleshooting",
+			"kustoLinkAllPods", allPodsDeepLink,
+			"kustoLinkNamespace", namespaceDeepLink,
+			"kustoLinkWorkloadResources", allOwnersDeepLink)
 	}
 
 	return nil

@@ -110,11 +110,13 @@ func addOwnerNoDuplicates(ownerRefs map[string][]OwnerRefInfo, newOwner OwnerRef
 		}
 	}
 
+	// If not found in the map or no prefix conflicts, add the new owner
 	if shouldAdd {
 		ownerRefs[namespace] = append(ownerRefs[namespace], newOwner)
 	}
 }
 
+// evaluateResources processes the resources in the Helm release to extract owner references, resource info, and pod info
 func evaluateResources(logger logr.Logger, release *helmreleasev1.Release) (map[string][]OwnerRefInfo, []ResourceInfo, []PodInfo, error) {
 
 	ownerRefs := make(map[string][]OwnerRefInfo)
@@ -208,7 +210,7 @@ namespace = tostring(parsed_log.involved_object.namespace)
 	return queryToDeepLink(kustoQuery, opts.KustoCluster, opts.KustoDatabase)
 }
 
-func getIndivPodQuery(logger logr.Logger, opts *Options, pod PodInfo, deploymentStart string, deploymentEnd string) (string, error) {
+func getIndivPodQuery(opts *Options, pod PodInfo, deploymentStart string, deploymentEnd string) (string, error) {
 	// Create a kusto link for individual failing pods
 	if !isKustoConfigured(opts) {
 		return "Kusto configuration not provided, skipping Kusto deep link generation.", nil
@@ -226,17 +228,13 @@ func getIndivPodQuery(logger logr.Logger, opts *Options, pod PodInfo, deployment
 | project ['time'], log, pod_name
 | order by ['time'] asc`, opts.KustoTable, deploymentStart, deploymentEnd, pod.Name, pod.Namespace)
 
-		podDeepLink, err := queryToDeepLink(podQuery, opts.KustoCluster, opts.KustoDatabase)
-		if err != nil {
-			return "", err
-		}
-		return podDeepLink, nil
+		return queryToDeepLink(podQuery, opts.KustoCluster, opts.KustoDatabase)
 	} else {
 		return "Pod is healthy, no deep link generated.", nil
 	}
 }
 
-// Log information for individual pods, including kusto deep link for failing pods if configuration available
+// Create kusto deep link for failing pods if configuration available
 // Output a kusto query for all pods to catch possible race conditions or false negatives
 func getPodsQuery(logger logr.Logger, opts *Options, foundPods []PodInfo, deploymentStart string, deploymentEnd string) (map[PodInfo]string, string, error) {
 	if len(foundPods) == 0 {
@@ -250,7 +248,7 @@ func getPodsQuery(logger logr.Logger, opts *Options, foundPods []PodInfo, deploy
 		// Add string condition for each pod to find them all in one query later
 		podConditions = append(podConditions, fmt.Sprintf(`(pod_name == "%s" and namespace_name == "%s")`, pod.Name, pod.Namespace))
 
-		if podQuery, err := getIndivPodQuery(logger, opts, pod, deploymentStart, deploymentEnd); err != nil {
+		if podQuery, err := getIndivPodQuery(opts, pod, deploymentStart, deploymentEnd); err != nil {
 			logger.Error(err, "Failed to create Kusto deep link for failing pod", "pod", pod.Name, "namespace", pod.Namespace)
 		} else if podQuery != "" {
 			podToQueryMap[pod] = podQuery
@@ -314,6 +312,7 @@ func getWorkloadResourcePodsLink(opts *Options, ownerRefs map[string][]OwnerRefI
 	return queryToDeepLink(allOwnersQuery, opts.KustoCluster, opts.KustoDatabase)
 }
 
+// Create a kusto query to retrieve all pods within the deployment namespace
 func getNamespaceQuery(opts *Options, namespace string, deploymentStart string, deploymentEnd string) (string, error) {
 	if !isKustoConfigured(opts) {
 		return "", nil
