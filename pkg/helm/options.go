@@ -446,6 +446,30 @@ func extractContainerStateSummary(containerStatuses []corev1.ContainerStatus) st
 	return strings.Join(states, ", ")
 }
 
+// PodQueryInfo holds pod information and its associated Kusto query URL for structured logging,
+// struct enables clean JSON serialization when logging multiple pods together
+type PodQueryInfo struct {
+	PodName   string
+	Namespace string
+	Phase     string 
+	State     string 
+	QueryURL  string
+}
+
+func convertPodMapToSlice(podToQueryMap map[PodInfo]string) []PodQueryInfo {
+	var podQueries []PodQueryInfo
+	for pod, queryURL := range podToQueryMap {
+		podQueries = append(podQueries, PodQueryInfo{
+			PodName:   pod.Name,
+			Namespace: pod.Namespace,
+			Phase:     pod.Phase,
+			State:     pod.State,
+			QueryURL:  queryURL,
+		})
+	}
+	return podQueries
+}
+
 func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options, deploymentStartTime time.Time) error {
 	statusClient := action.NewStatus(opts.ActionConfig)
 	releaser, err := statusClient.Run(opts.ReleaseName)
@@ -466,18 +490,12 @@ func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options, depl
 		"values", release.Config,
 	)
 
-	var resources []ResourceInfo
-	var foundPods []PodInfo
-
-	// Create map with namespace as key to list of owner refs in that namespace
-	ownerRefs := make(map[string][]OwnerRefInfo)
-
 	if release.Info == nil || len(release.Info.Resources) == 0 {
 		return nil
 	}
 
 	// Process all resources in the release
-	ownerRefs, resources, foundPods, err = evaluateResources(logger, release)
+	ownerRefs, resources, foundPods, err := evaluateResources(logger, release)
 	if err != nil {
 		logger.Error(err, "Failed to evaluate resources")
 	}
@@ -502,10 +520,12 @@ func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options, depl
 		if err != nil {
 			logger.Error(err, "Failed to get pod details in the release")
 		} else if len(podToQueryMap) > 0 {
+			podQueries := convertPodMapToSlice(podToQueryMap)
+			
 			if allPodsDeepLink != "" {
-				logger.V(4).Info("Found pod details in the release", "Pods", podToQueryMap, "Troubleshooting Kusto URL for ALL pods", allPodsDeepLink)
+				logger.V(4).Info("Found pod details in the release", "Pods", podQueries, "URL for kusto query with all pods", allPodsDeepLink)
 			} else {
-				logger.V(4).Info("Found pod details in the release", "Pods", podToQueryMap)
+				logger.V(4).Info("Found pod details in the release", "Pods", podQueries)
 			}
 		} 
 	} else {
@@ -524,12 +544,11 @@ func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options, depl
 	}
 
 	if release.Namespace != "" {
-		logger.V(4).Info("Logging namespace events for release namespace.", "namespace", release.Namespace)
 		namespaceDeepLink, err := getNamespaceQuery(opts, release.Namespace, deploymentStart, deploymentEnd)
 		if err != nil {
 			logger.Error(err, "Failed to create Kusto deep link for namespace")
 		} else if namespaceDeepLink != "" {
-			logger.V(4).Info("All pods in namespace kusto link for comprehensive troubleshooting:", "url", namespaceDeepLink)
+			logger.V(4).Info("Kusto query for all pods in the release namespace for comprehensive troubleshooting", "url", namespaceDeepLink)
 		}
 	}
 
