@@ -445,30 +445,6 @@ func extractContainerStateSummary(containerStatuses []corev1.ContainerStatus) st
 	return strings.Join(states, ", ")
 }
 
-// PodQueryInfo holds pod information and its associated Kusto query URL for structured logging,
-// struct enables clean JSON serialization when logging multiple pods together
-type PodQueryInfo struct {
-	PodName   string
-	Namespace string
-	Phase     string
-	State     string
-	URLQuery  string
-}
-
-func convertPodMapToSlice(podToQueryMap map[PodInfo]string) []PodQueryInfo {
-	var podQueries []PodQueryInfo
-	for pod, queryURL := range podToQueryMap {
-		podQueries = append(podQueries, PodQueryInfo{
-			PodName:   pod.Name,
-			Namespace: pod.Namespace,
-			Phase:     pod.Phase,
-			State:     pod.State,
-			URLQuery:  queryURL,
-		})
-	}
-	return podQueries
-}
-
 func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options, deploymentStartTime time.Time) error {
 	statusClient := action.NewStatus(opts.ActionConfig)
 	releaser, err := statusClient.Run(opts.ReleaseName)
@@ -518,11 +494,10 @@ func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options, depl
 	var allPodsDeepLink, allOwnersDeepLink, namespaceDeepLink string
 
 	if len(foundPods) > 0 {
-		podToQueryMap, podLink, err := getPodsQuery(logger, opts, foundPods, deploymentStart, deploymentEnd)
+		podQueries, podLink, err := getPodsQuery(logger, opts, foundPods, deploymentStart, deploymentEnd)
 		if err != nil {
 			logger.Error(err, "Failed to get pod details in the release")
-		} else if len(podToQueryMap) > 0 {
-			podQueries := convertPodMapToSlice(podToQueryMap)
+		} else if len(podQueries) > 0 {
 			logger.V(4).Info("Found pod details in the release", "Pods", podQueries)
 			allPodsDeepLink = podLink
 		}
