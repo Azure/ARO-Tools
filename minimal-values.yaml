@@ -1,0 +1,25 @@
+replicaCount: 1
+namespace: "msi-credential-refresher"
+image:
+  digest: "sha256:3d81f77752176084d53dba4442b4973164e0e2fb6427d76c75f710d76abc579e"
+  registry: "arohcpsvcint.azurecr.io"  # __acrFQDN__ resolved
+  repository: "credential-refresher"
+keyvault:
+  name: "arohcpint-svc-ln"
+  tenantId: "72f988bf-86f1-41af-91ab-2d7cd011db47"
+  msiKeyvaultUri: "https://arohcpint-svc-ln.vault.azure.net"  # __msiKeyVaultUri__ resolved
+serviceAccount:
+  workloadIdentityClientId: "CREDENTIAL_REFRESHER_CLIENT_ID_PLACEHOLDER"  # __credentialRefresherClientID__
+  workloadIdentityTenantId: "72f988bf-86f1-41af-91ab-2d7cd011db47"  # __credentialRefresherTenantID__
+identity:
+  audience: "https://serviceidentity.azure.net"
+  fpspCertName: "msi-refresher"
+  fpspClientId: ""  # Empty for int environment
+  fpspTenantId: "72f988bf-86f1-41af-91ab-2d7cd011db47"
+pullBinding:
+  registry: "arohcpsvcint.azurecr.io"  # __acrFQDN__ resolved
+  scope: "repository:credential-refresher:pull"
+  workloadIdentityClientId: "PULLER_MI_CLIENT_ID_PLACEHOLDER"  # __pullerMIClientID__
+  workloadIdentityTenantId: "PULLER_MI_TENANT_ID_PLACEHOLDER"  # __pullerMITenantID__
+refresh:
+  earlyRefreshFrequency: "0"
