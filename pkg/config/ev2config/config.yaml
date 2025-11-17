@@ -451,12 +451,6 @@ clouds:
         geography: Asia Pacific
         regionFriendlyName: Southeast Asia
         regionShortName: sg
-      southeastasia3:
-        availabilityZoneCount: 0
-        geoShortId: my
-        geography: Malaysia
-        regionFriendlyName: Southeast Asia 3
-        regionShortName: SG3
       southeastus:
         availabilityZoneCount: 1
         geoShortId: us
