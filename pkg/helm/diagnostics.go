@@ -173,11 +173,13 @@ func evaluateResources(logger logr.Logger, resourceList []runtime.Object, ownerR
 
 			if _, ok := resource.(*unstructured.UnstructuredList); !ok {
 				logger.Error(fmt.Errorf("resource is not UnstructuredList"), "Failed to process list resource", "kind", resource.GetObjectKind().GroupVersionKind().Kind)
+				continue
 			}
 
 			items, err := meta.ExtractList(resource)
 			if err != nil {
 				logger.Error(err, "Failed to extract items from list resource", "kind", resource.GetObjectKind().GroupVersionKind().Kind)
+				continue
 			}
 			for _, obj := range items {
 				return_owners, return_resources, return_pods, err = processObject(return_owners, return_resources, return_pods, obj)
