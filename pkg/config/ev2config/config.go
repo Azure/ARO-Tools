@@ -14,10 +14,18 @@ import (
 //go:embed config.yaml
 var rawConfig []byte
 
-func AllContexts() (map[string][]string, error) {
+func readConfig() (config, error) {
 	ev2Config := config{}
 	if err := yaml.Unmarshal(rawConfig, &ev2Config); err != nil {
-		return nil, fmt.Errorf("failed to parse embedded Ev2 config: %w", err)
+		return config{}, fmt.Errorf("failed to parse embedded Ev2 config: %w", err)
+	}
+	return ev2Config, nil
+}
+
+func AllContexts() (map[string][]string, error) {
+	ev2Config, err := readConfig()
+	if err != nil {
+		return nil, err
 	}
 	contexts := map[string][]string{}
 	for cloud := range ev2Config.Clouds {
@@ -30,9 +38,9 @@ func AllContexts() (map[string][]string, error) {
 }
 
 func ResolveConfig(cloud, region string) (types.Configuration, error) {
-	ev2Config := config{}
-	if err := yaml.Unmarshal(rawConfig, &ev2Config); err != nil {
-		return nil, fmt.Errorf("failed to parse embedded Ev2 config: %w", err)
+	ev2Config, err := readConfig()
+	if err != nil {
+		return nil, err
 	}
 	cfg := types.Configuration{}
 	cloudCfg, hasCloud := ev2Config.Clouds[cloud]
@@ -49,9 +57,9 @@ func ResolveConfig(cloud, region string) (types.Configuration, error) {
 }
 
 func ResolveConfigForCloud(cloud string) (types.Configuration, error) {
-	ev2Config := config{}
-	if err := yaml.Unmarshal(rawConfig, &ev2Config); err != nil {
-		return nil, fmt.Errorf("failed to parse embedded Ev2 config: %w", err)
+	ev2Config, err := readConfig()
+	if err != nil {
+		return nil, err
 	}
 
 	cloudCfg, hasCloud := ev2Config.Clouds[cloud]
