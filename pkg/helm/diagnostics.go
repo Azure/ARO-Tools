@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	helmreleasev1 "helm.sh/helm/v4/pkg/release/v1"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -63,21 +62,31 @@ func queryToDeepLink(text, kustoCluster, kustoDatabase string) (string, error) {
 }
 
 // processObject processes a single runtime.Object and extracts pod information if applicable
-func processObject(resources []ResourceInfo, foundPods []PodInfo, ownerRefs map[string][]OwnerRefInfo, item runtime.Object) ([]ResourceInfo, []PodInfo, map[string][]OwnerRefInfo, error) {
+func processObject(ownerRefs map[string][]OwnerRefInfo, resources []ResourceInfo, foundPods []PodInfo, item runtime.Object) (map[string][]OwnerRefInfo, []ResourceInfo, []PodInfo, error) {
 
 	kind := item.GetObjectKind().GroupVersionKind().Kind
+
+	// Make copies of objects to avoid modifying input slices/maps
+	return_owners := make(map[string][]OwnerRefInfo)
+	for k, v := range ownerRefs {
+		return_owners[k] = v
+	}
+	var return_resources []ResourceInfo
+	return_resources = append(return_resources, resources...)
+	var return_pods []PodInfo
+	return_pods = append(return_pods, foundPods...)
 
 	if kind == "Pod" {
 
 		unstructuredItem, ok := item.(*unstructured.Unstructured)
 		if !ok {
-			return resources, foundPods, ownerRefs, fmt.Errorf("failed to convert item to unstructured: item is not *unstructured.Unstructured")
+			return return_owners, return_resources, return_pods, fmt.Errorf("failed to convert item to unstructured: item is not *unstructured.Unstructured")
 		}
 
 		var pod corev1.Pod
 		err := runtime.DefaultUnstructuredConverter.FromUnstructured(unstructuredItem.Object, &pod)
 		if err != nil {
-			return resources, foundPods, ownerRefs, fmt.Errorf("failed to convert unstructured to Pod: %w", err)
+			return return_owners, return_resources, return_pods, fmt.Errorf("failed to convert unstructured to Pod: %w", err)
 		}
 
 		podInfo := PodInfo{
@@ -86,12 +95,12 @@ func processObject(resources []ResourceInfo, foundPods []PodInfo, ownerRefs map[
 			Phase:     string(pod.Status.Phase),
 			State:     extractContainerStateSummary(pod.Status.ContainerStatuses),
 		}
-		foundPods = append(foundPods, podInfo)
+		return_pods = append(return_pods, podInfo)
 	} else {
 
 		objMeta, err := meta.Accessor(item)
 		if err != nil {
-			return resources, foundPods, ownerRefs, fmt.Errorf("failed to get metadata for item of kind %s: %w", kind, err)
+			return return_owners, return_resources, return_pods, fmt.Errorf("failed to get metadata for item of kind %s: %w", kind, err)
 		}
 		// process resources separately from pods
 		resourceInfo := ResourceInfo{
@@ -99,83 +108,92 @@ func processObject(resources []ResourceInfo, foundPods []PodInfo, ownerRefs map[
 			Name:      objMeta.GetName(),
 			Namespace: objMeta.GetNamespace(),
 		}
-		resources = append(resources, resourceInfo)
+		return_resources = append(return_resources, resourceInfo)
 
 		// ownerKinds includes all workload resources that can create pods
 		ownerKinds := []string{"ReplicaSet", "Deployment", "StatefulSet", "DaemonSet", "Job", "CronJob"}
 		if slices.Contains(ownerKinds, kind) {
-			addOwnerNoDuplicates(ownerRefs, OwnerRefInfo{
+			return_owners = addOwnerNoDuplicates(return_owners, OwnerRefInfo{
 				Kind:      kind,
 				Name:      objMeta.GetName(),
 				Namespace: objMeta.GetNamespace(),
 			})
 		}
 	}
-	return resources, foundPods, ownerRefs, nil
+	return return_owners, return_resources, return_pods, nil
 }
 
 // addOwnerNoDuplicates adds a new owner reference to the map, removing any existing owners
 // that have a prefix relationship with the new owner to avoid duplicates.
-func addOwnerNoDuplicates(ownerRefs map[string][]OwnerRefInfo, newOwner OwnerRefInfo) {
+func addOwnerNoDuplicates(ownerRefs map[string][]OwnerRefInfo, newOwner OwnerRefInfo) map[string][]OwnerRefInfo {
 	namespace := newOwner.Namespace
+	return_owners := make(map[string][]OwnerRefInfo)
+	for k, v := range ownerRefs {
+		return_owners[k] = v
+	}
 
 	// Check for prefix conflicts with existing owners in this namespace
 	shouldAdd := true
-	for i, ownerRef := range ownerRefs[namespace] {
+	for i, ownerRef := range return_owners[namespace] {
 		if strings.HasPrefix(newOwner.Name, ownerRef.Name) {
 			// New owner has existing owner as prefix, skip adding
 			shouldAdd = false
 			break
 		} else if strings.HasPrefix(ownerRef.Name, newOwner.Name) {
 			// Existing owner has new owner as prefix, remove existing owner (replace with new owner later)
-			ownerRefs[namespace] = append(ownerRefs[namespace][:i], ownerRefs[namespace][i+1:]...)
+			return_owners[namespace] = append(return_owners[namespace][:i], return_owners[namespace][i+1:]...)
 			break
 		}
 	}
 
 	// If not found in the map or no prefix conflicts, add the new owner
 	if shouldAdd {
-		ownerRefs[namespace] = append(ownerRefs[namespace], newOwner)
+		return_owners[namespace] = append(return_owners[namespace], newOwner)
 	}
+	return return_owners
 }
 
 // evaluateResources processes the resources in the Helm release to extract owner references, resource info, and pod info
-func evaluateResources(logger logr.Logger, release *helmreleasev1.Release) (map[string][]OwnerRefInfo, []ResourceInfo, []PodInfo, error) {
+func evaluateResources(logger logr.Logger, resourceList []runtime.Object, ownerRefs map[string][]OwnerRefInfo, resources []ResourceInfo, foundPods []PodInfo) (map[string][]OwnerRefInfo, []ResourceInfo, []PodInfo, error) {
 
-	ownerRefs := make(map[string][]OwnerRefInfo)
-	var resources []ResourceInfo
-	var foundPods []PodInfo
+	// Make copies of objects to avoid modifying input slices/maps
+	return_owners := make(map[string][]OwnerRefInfo)
+	for k, v := range ownerRefs {
+		return_owners[k] = v
+	}
+	var return_resources []ResourceInfo
+	return_resources = append(return_resources, resources...)
+	var return_pods []PodInfo
+	return_pods = append(return_pods, foundPods...)
 	var err error
 
-	for _, resourceList := range release.Info.Resources {
-		for _, resource := range resourceList {
+	for _, resource := range resourceList {
 
-			if meta.IsListType(resource) {
+		if meta.IsListType(resource) {
 
-				if _, ok := resource.(*unstructured.UnstructuredList); !ok {
-					logger.Error(fmt.Errorf("resource is not UnstructuredList"), "Failed to process list resource", "kind", resource.GetObjectKind().GroupVersionKind().Kind)
-				}
+			if _, ok := resource.(*unstructured.UnstructuredList); !ok {
+				logger.Error(fmt.Errorf("resource is not UnstructuredList"), "Failed to process list resource", "kind", resource.GetObjectKind().GroupVersionKind().Kind)
+			}
 
-				items, err := meta.ExtractList(resource)
+			items, err := meta.ExtractList(resource)
+			if err != nil {
+				logger.Error(err, "Failed to extract items from list resource", "kind", resource.GetObjectKind().GroupVersionKind().Kind)
+			}
+			for _, obj := range items {
+				return_owners, return_resources, return_pods, err = processObject(return_owners, return_resources, return_pods, obj)
 				if err != nil {
-					logger.Error(err, "Failed to extract items from list resource", "kind", resource.GetObjectKind().GroupVersionKind().Kind)
+					logger.Error(err, "Failed to process list item", "kind", resource.GetObjectKind().GroupVersionKind().Kind)
 				}
-				for _, obj := range items {
-					resources, foundPods, ownerRefs, err = processObject(resources, foundPods, ownerRefs, obj)
-					if err != nil {
-						logger.Error(err, "Failed to process list item", "kind", resource.GetObjectKind().GroupVersionKind().Kind)
-					}
-				}
+			}
 
-			} else {
-				resources, foundPods, ownerRefs, err = processObject(resources, foundPods, ownerRefs, resource)
-				if err != nil {
-					logger.Error(err, "Failed to process resource", "kind", resource.GetObjectKind().GroupVersionKind().Kind)
-				}
+		} else {
+			return_owners, return_resources, return_pods, err = processObject(return_owners, return_resources, return_pods, resource)
+			if err != nil {
+				logger.Error(err, "Failed to process resource", "kind", resource.GetObjectKind().GroupVersionKind().Kind)
 			}
 		}
 	}
-	return ownerRefs, resources, foundPods, nil
+	return return_owners, return_resources, return_pods, nil
 }
 
 // Create kusto deep link for all kube events if configuration available
