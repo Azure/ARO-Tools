@@ -68,31 +68,21 @@ func queryToDeepLink(text, kustoCluster, kustoDatabase string) (string, error) {
 }
 
 // processObject processes a single runtime.Object and extracts pod information if applicable
-func processObject(ownerRefs map[string][]OwnerRefInfo, resources []ResourceInfo, foundPods []PodInfo, item runtime.Object) (map[string][]OwnerRefInfo, []ResourceInfo, []PodInfo, error) {
+func processObject(item runtime.Object) (*OwnerRefInfo, *ResourceInfo, *PodInfo, error) {
 
 	kind := item.GetObjectKind().GroupVersionKind().Kind
-
-	// Make copies of objects to avoid modifying input slices/maps
-	return_owners := make(map[string][]OwnerRefInfo)
-	for k, v := range ownerRefs {
-		return_owners[k] = v
-	}
-	var return_resources []ResourceInfo
-	return_resources = append(return_resources, resources...)
-	var return_pods []PodInfo
-	return_pods = append(return_pods, foundPods...)
 
 	if kind == "Pod" {
 
 		unstructuredItem, ok := item.(*unstructured.Unstructured)
 		if !ok {
-			return return_owners, return_resources, return_pods, fmt.Errorf("failed to convert item to unstructured: item is not *unstructured.Unstructured")
+			return nil, nil, nil, fmt.Errorf("failed to convert item to unstructured: item is not *unstructured.Unstructured")
 		}
 
 		var pod corev1.Pod
 		err := runtime.DefaultUnstructuredConverter.FromUnstructured(unstructuredItem.Object, &pod)
 		if err != nil {
-			return return_owners, return_resources, return_pods, fmt.Errorf("failed to convert unstructured to Pod: %w", err)
+			return nil, nil, nil, fmt.Errorf("failed to convert unstructured to Pod: %w", err)
 		}
 
 		podInfo := PodInfo{
@@ -101,12 +91,12 @@ func processObject(ownerRefs map[string][]OwnerRefInfo, resources []ResourceInfo
 			Phase:     string(pod.Status.Phase),
 			State:     extractContainerStateSummary(pod.Status.ContainerStatuses),
 		}
-		return_pods = append(return_pods, podInfo)
+		return nil, nil, &podInfo, nil
 	} else {
 
 		objMeta, err := meta.Accessor(item)
 		if err != nil {
-			return return_owners, return_resources, return_pods, fmt.Errorf("failed to get metadata for item of kind %s: %w", kind, err)
+			return nil, nil, nil, fmt.Errorf("failed to get metadata for item of kind %s: %w", kind, err)
 		}
 		// process resources separately from pods
 		resourceInfo := ResourceInfo{
@@ -114,64 +104,52 @@ func processObject(ownerRefs map[string][]OwnerRefInfo, resources []ResourceInfo
 			Name:      objMeta.GetName(),
 			Namespace: objMeta.GetNamespace(),
 		}
-		return_resources = append(return_resources, resourceInfo)
 
 		// ownerKinds includes all workload resources that can create pods
 		ownerKinds := []string{"ReplicaSet", "Deployment", "StatefulSet", "DaemonSet", "Job", "CronJob"}
 		if slices.Contains(ownerKinds, kind) {
-			return_owners = addOwnerNoDuplicates(return_owners, OwnerRefInfo{
+			ownerRef := OwnerRefInfo{
 				Kind:      kind,
 				Name:      objMeta.GetName(),
 				Namespace: objMeta.GetNamespace(),
-			})
+			}
+			return &ownerRef, &resourceInfo, nil, nil
 		}
+		return nil, &resourceInfo, nil, nil
 	}
-	return return_owners, return_resources, return_pods, nil
 }
 
 // addOwnerNoDuplicates adds a new owner reference to the map, removing any existing owners
 // that have a prefix relationship with the new owner to avoid duplicates.
-func addOwnerNoDuplicates(ownerRefs map[string][]OwnerRefInfo, newOwner OwnerRefInfo) map[string][]OwnerRefInfo {
+func addOwnerNoDuplicates(ownerRefs map[string][]OwnerRefInfo, newOwner OwnerRefInfo) {
 	namespace := newOwner.Namespace
-	return_owners := make(map[string][]OwnerRefInfo)
-	for k, v := range ownerRefs {
-		return_owners[k] = v
-	}
 
 	// Check for prefix conflicts with existing owners in this namespace
 	shouldAdd := true
-	for i, ownerRef := range return_owners[namespace] {
+	for i, ownerRef := range ownerRefs[namespace] {
 		if strings.HasPrefix(newOwner.Name, ownerRef.Name) {
 			// New owner has existing owner as prefix, skip adding
 			shouldAdd = false
 			break
 		} else if strings.HasPrefix(ownerRef.Name, newOwner.Name) {
 			// Existing owner has new owner as prefix, remove existing owner (replace with new owner later)
-			return_owners[namespace] = append(return_owners[namespace][:i], return_owners[namespace][i+1:]...)
+			ownerRefs[namespace] = append(ownerRefs[namespace][:i], ownerRefs[namespace][i+1:]...)
 			break
 		}
 	}
 
 	// If not found in the map or no prefix conflicts, add the new owner
 	if shouldAdd {
-		return_owners[namespace] = append(return_owners[namespace], newOwner)
+		ownerRefs[namespace] = append(ownerRefs[namespace], newOwner)
 	}
-	return return_owners
 }
 
 // evaluateResources processes the resources in the Helm release to extract owner references, resource info, and pod info
-func evaluateResources(logger logr.Logger, resourceList []runtime.Object, ownerRefs map[string][]OwnerRefInfo, resources []ResourceInfo, foundPods []PodInfo) (map[string][]OwnerRefInfo, []ResourceInfo, []PodInfo, error) {
+func evaluateResources(logger logr.Logger, resourceList []runtime.Object) ([]OwnerRefInfo, []ResourceInfo, []PodInfo, error) {
 
-	// Make copies of objects to avoid modifying input slices/maps
-	return_owners := make(map[string][]OwnerRefInfo)
-	for k, v := range ownerRefs {
-		return_owners[k] = v
-	}
-	var return_resources []ResourceInfo
-	return_resources = append(return_resources, resources...)
-	var return_pods []PodInfo
-	return_pods = append(return_pods, foundPods...)
-	var err error
+	var ownerRefs []OwnerRefInfo
+	var resources []ResourceInfo
+	var foundPods []PodInfo
 
 	for _, resource := range resourceList {
 
@@ -188,20 +166,39 @@ func evaluateResources(logger logr.Logger, resourceList []runtime.Object, ownerR
 				continue
 			}
 			for _, obj := range items {
-				return_owners, return_resources, return_pods, err = processObject(return_owners, return_resources, return_pods, obj)
+				newOwner, newResource, newPod, err := processObject(obj)
 				if err != nil {
 					logger.Error(err, "Failed to process list item", "kind", resource.GetObjectKind().GroupVersionKind().Kind)
+					continue
+				}
+				if newPod != nil {
+					foundPods = append(foundPods, *newPod)
+				}
+				if newResource != nil {
+					resources = append(resources, *newResource)
+				}
+				if newOwner != nil {
+					ownerRefs = append(ownerRefs, *newOwner)
 				}
 			}
-
 		} else {
-			return_owners, return_resources, return_pods, err = processObject(return_owners, return_resources, return_pods, resource)
+			newOwner, newResource, newPod, err := processObject(resource)
 			if err != nil {
 				logger.Error(err, "Failed to process resource", "kind", resource.GetObjectKind().GroupVersionKind().Kind)
+				continue
+			}
+			if newPod != nil {
+				foundPods = append(foundPods, *newPod)
+			}
+			if newResource != nil {
+				resources = append(resources, *newResource)
+			}
+			if newOwner != nil {
+				ownerRefs = append(ownerRefs, *newOwner)
 			}
 		}
 	}
-	return return_owners, return_resources, return_pods, nil
+	return ownerRefs, resources, foundPods, nil
 }
 
 // Create kusto deep link for all kube events if configuration available

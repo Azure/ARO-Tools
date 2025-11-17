@@ -475,12 +475,18 @@ func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options, depl
 
 	// Process all resources in the release
 	for _, resourceList := range release.Info.Resources {
-		ownerRefs, resources, foundPods, err = evaluateResources(logger, resourceList, ownerRefs, resources, foundPods)
+		newOwners, newResources, newFoundPods, err := evaluateResources(logger, resourceList)
 		if err != nil {
 			logger.Error(err, "Failed to evaluate resources")
+			continue
+		}
+		resources = append(resources, newResources...)
+		foundPods = append(foundPods, newFoundPods...)
+		for _, owner := range newOwners {
+			addOwnerNoDuplicates(ownerRefs, owner)
 		}
 	}
-	
+
 	deploymentStart := deploymentStartTime
 	deploymentEnd := time.Now()
 
