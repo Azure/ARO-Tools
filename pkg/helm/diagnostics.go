@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/go-logr/logr"
 
@@ -38,6 +39,11 @@ type OwnerRefInfo struct {
 // isKustoConfigured checks if necessary options are set for Kusto diagnostics
 func isKustoConfigured(opts *Options) bool {
 	return (opts.KustoCluster != "" && opts.KustoDatabase != "" && opts.KustoTable != "")
+}
+
+// Format time for Kusto queries
+func formatTime(t time.Time) string {
+	return t.UTC().Format(time.RFC3339)
 }
 
 // queryToDeepLink compresses the input text with gzip and then encodes it to base64
@@ -199,7 +205,7 @@ func evaluateResources(logger logr.Logger, resourceList []runtime.Object, ownerR
 }
 
 // Create kusto deep link for all kube events if configuration available
-func getKubeEventsQuery(opts *Options, resources []ResourceInfo, deploymentStart string, deploymentEnd string) (string, error) {
+func getKubeEventsQuery(opts *Options, resources []ResourceInfo, deploymentStart time.Time, deploymentEnd time.Time) (string, error) {
 
 	if len(resources) == 0 {
 		return "", fmt.Errorf("no resources found in release to build kube events query")
@@ -232,12 +238,12 @@ name = tostring(parsed_log.involved_object.name),
 namespace = tostring(parsed_log.involved_object.namespace)
 | join kind=inner resources on ['kind'], name, namespace
 | project ['time'], pod_name, ['kind'], name, namespace, log
-| order by ['time'] desc`, strings.Join(resourceRows, ",\n"), opts.KustoTable, deploymentStart, deploymentEnd)
+| order by ['time'] desc`, strings.Join(resourceRows, ",\n"), opts.KustoTable, formatTime(deploymentStart), formatTime(deploymentEnd))
 
 	return queryToDeepLink(kustoQuery, opts.KustoCluster, opts.KustoDatabase)
 }
 
-func getIndivPodQuery(opts *Options, pod PodInfo, deploymentStart string, deploymentEnd string) (string, error) {
+func getIndivPodQuery(opts *Options, pod PodInfo, deploymentStart time.Time, deploymentEnd time.Time) (string, error) {
 	// Create a kusto link for individual failing pods
 	if !isKustoConfigured(opts) {
 		return "Kusto configuration not provided, skipping Kusto deep link generation.", nil
@@ -253,7 +259,7 @@ func getIndivPodQuery(opts *Options, pod PodInfo, deploymentStart string, deploy
 | where pod_name == "%s"
 | where namespace_name == "%s"
 | project ['time'], log, pod_name
-| order by ['time'] asc`, opts.KustoTable, deploymentStart, deploymentEnd, pod.Name, pod.Namespace)
+| order by ['time'] asc`, opts.KustoTable, formatTime(deploymentStart), formatTime(deploymentEnd), pod.Name, pod.Namespace)
 
 		return queryToDeepLink(podQuery, opts.KustoCluster, opts.KustoDatabase)
 	} else {
@@ -287,7 +293,7 @@ func convertPodMapToSlice(podToQueryMap map[PodInfo]string) []PodQueryInfo {
 
 // Create kusto deep link for failing pods if configuration available
 // Output a kusto query for all pods to catch possible race conditions or false negatives
-func getPodsQuery(logger logr.Logger, opts *Options, foundPods []PodInfo, deploymentStart string, deploymentEnd string) ([]PodQueryInfo, string, error) {
+func getPodsQuery(logger logr.Logger, opts *Options, foundPods []PodInfo, deploymentStart time.Time, deploymentEnd time.Time) ([]PodQueryInfo, string, error) {
 	if len(foundPods) == 0 {
 		return nil, "", fmt.Errorf("no pods found in release to log")
 	}
@@ -319,8 +325,8 @@ func getPodsQuery(logger logr.Logger, opts *Options, foundPods []PodInfo, deploy
 | project ['time'], log, pod_name, namespace_name
 | order by pod_name asc, ['time'] asc`,
 		opts.KustoTable,
-		deploymentStart,
-		deploymentEnd,
+		formatTime(deploymentStart),
+		formatTime(deploymentEnd),
 		strings.Join(podConditions, " or "))
 
 	allPodsLink, err := queryToDeepLink(allPodsQuery, opts.KustoCluster, opts.KustoDatabase)
@@ -334,7 +340,7 @@ func getPodsQuery(logger logr.Logger, opts *Options, foundPods []PodInfo, deploy
 // (Deployments, ReplicaSets, StatefulSets, etc.) using prefix matching. This serves as a
 // safety net to catch any pods that might have been missed during direct pod enumeration,
 // particularly useful for pods created by controllers or in race conditions.
-func getWorkloadResourcePodsLink(opts *Options, ownerRefs map[string][]OwnerRefInfo, deploymentStart string, deploymentEnd string) (string, error) {
+func getWorkloadResourcePodsLink(opts *Options, ownerRefs map[string][]OwnerRefInfo, deploymentStart time.Time, deploymentEnd time.Time) (string, error) {
 
 	if len(ownerRefs) == 0 {
 		return "", fmt.Errorf("no owner references found to build workload resource pods query")
@@ -358,15 +364,15 @@ func getWorkloadResourcePodsLink(opts *Options, ownerRefs map[string][]OwnerRefI
 | project ['time'], log, pod_name, namespace_name
 | order by pod_name asc, ['time'] asc`,
 		opts.KustoTable,
-		deploymentStart,
-		deploymentEnd,
+		formatTime(deploymentStart),
+		formatTime(deploymentEnd),
 		strings.Join(ownerConditions, " or "))
 
 	return queryToDeepLink(allOwnersQuery, opts.KustoCluster, opts.KustoDatabase)
 }
 
 // Create a kusto query to retrieve all pods within the deployment namespace
-func getNamespaceQuery(opts *Options, namespace string, deploymentStart string, deploymentEnd string) (string, error) {
+func getNamespaceQuery(opts *Options, namespace string, deploymentStart time.Time, deploymentEnd time.Time) (string, error) {
 	if !isKustoConfigured(opts) {
 		return "", nil
 	}
@@ -375,7 +381,7 @@ func getNamespaceQuery(opts *Options, namespace string, deploymentStart string, 
 | where ['time'] between (datetime("%s") .. datetime("%s"))
 | where namespace_name == "%s"
 | project ['time'], log, pod_name
-| order by pod_name asc, ['time'] asc`, opts.KustoTable, deploymentStart, deploymentEnd, namespace)
+| order by pod_name asc, ['time'] asc`, opts.KustoTable, formatTime(deploymentStart), formatTime(deploymentEnd), namespace)
 
 	return queryToDeepLink(namespaceQuery, opts.KustoCluster, opts.KustoDatabase)
 }

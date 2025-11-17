@@ -480,9 +480,9 @@ func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options, depl
 			logger.Error(err, "Failed to evaluate resources")
 		}
 	}
-
-	deploymentStart := deploymentStartTime.UTC().Format(time.RFC3339)
-	deploymentEnd := time.Now().UTC().Format(time.RFC3339)
+	
+	deploymentStart := deploymentStartTime
+	deploymentEnd := time.Now()
 
 	if len(resources) > 0 {
 		logger.V(4).Info("Found resources in release:", "resources", resources)
@@ -490,7 +490,7 @@ func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options, depl
 		if err != nil {
 			logger.Error(err, "Failed to log resources")
 		} else if resourcesQuery != "" {
-			logger.V(4).Info("Kube-events kusto link for troubleshooting:", "url", resourcesQuery)
+			logger.Info("Kube-events kusto link for troubleshooting:", "url", resourcesQuery)
 		}
 	} else {
 		logger.V(4).Info("No resources found in release.")
