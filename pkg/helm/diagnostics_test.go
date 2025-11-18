@@ -5,12 +5,15 @@ import (
 	"io"
 	"os"
 	"testing"
+	"github.com/google/go-cmp/cmp"
 
 	"github.com/go-logr/logr/testr"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
+
+	// "github.com/kubernetes-sigs/prow"
 
 	"sigs.k8s.io/yaml"
 )
@@ -68,6 +71,15 @@ func TestProcessObject_Pod(t *testing.T) {
 	if pod.Phase != "Running" {
 		t.Errorf("Expected pod phase Running, got %s", pod.Phase)
 	}
+
+	if diff := cmp.Diff(&PodInfo{
+		Name: "test-pod",
+		Namespace: "test-namespace",
+		Phase: "Running",
+		State: "test-container:Running",
+	}, pod); diff != "" {
+		t.Errorf("got invalid pod: %v", diff)
+	}
 }
 
 func TestProcessObject_Deployment(t *testing.T) {
@@ -99,30 +111,20 @@ func TestProcessObject_Deployment(t *testing.T) {
 		t.Error("Did not expect pod info for Deployment")
 	}
 
-	// Verify owner details
-	if owner != nil {
-		if owner.Kind != "Deployment" {
-			t.Errorf("Expected owner kind Deployment, got %s", owner.Kind)
-		}
-		if owner.Name != "test-deployment" {
-			t.Errorf("Expected owner name test-deployment, got %s", owner.Name)
-		}
-		if owner.Namespace != "test-namespace" {
-			t.Errorf("Expected owner namespace test-namespace, got %s", owner.Namespace)
-		}
+	if diff := cmp.Diff(&OwnerRefInfo{
+		Kind: "Deployment",
+		Name: "test-deployment",
+		Namespace: "test-namespace",
+	}, owner); diff != "" {
+		t.Errorf("got invalid owner: %v", diff)
 	}
 
-	// Verify resource details
-	if resource != nil {
-		if resource.Kind != "Deployment" {
-			t.Errorf("Expected resource kind Deployment, got %s", resource.Kind)
-		}
-		if resource.Name != "test-deployment" {
-			t.Errorf("Expected resource name test-deployment, got %s", resource.Name)
-		}
-		if resource.Namespace != "test-namespace" {
-			t.Errorf("Expected resource namespace test-namespace, got %s", resource.Namespace)
-		}
+	if diff := cmp.Diff(&ResourceInfo{
+		Kind: "Deployment",
+		Name: "test-deployment",
+		Namespace: "test-namespace",
+	}, resource); diff != "" {
+		t.Errorf("got invalid resource: %v", diff)
 	}
 }
 
@@ -166,14 +168,20 @@ func TestProcessObject_Service(t *testing.T) {
 	}
 }
 
+type TestInfoEvalResources struct {
+	name      string
+	inputFile string
+}
+
 func TestEvaluateResources(t *testing.T) {
-	tests := []string{
-		"testdata/resources_info_example.yaml",
-		"testdata/resources_two_deployments.yaml",
+
+	tests := []TestInfoEvalResources{
+		{"resources_info_example", "testdata/resources_info_example.yaml"},
+		{"resources_two_deployments", "testdata/resources_two_deployments.yaml"},
 	}
 
-	for _, filename := range tests {
-		t.Run(filename, evaluateResourcesHelper(filename))
+	for _, test := range tests {
+		t.Run(test.name, evaluateResourcesHelper(test.inputFile))
 	}
 }
 
