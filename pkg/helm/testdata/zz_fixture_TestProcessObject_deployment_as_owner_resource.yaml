@@ -1,0 +1,10 @@
+Owner:
+  Kind: Deployment
+  KustoDeepLink: ""
+  Name: test-deployment
+  Namespace: test-namespace
+Pod: null
+Resource:
+  Kind: Deployment
+  Name: test-deployment
+  Namespace: test-namespace

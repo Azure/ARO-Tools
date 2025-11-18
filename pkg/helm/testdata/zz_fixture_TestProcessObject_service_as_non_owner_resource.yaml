@@ -1,0 +1,6 @@
+Owner: null
+Pod: null
+Resource:
+  Kind: Service
+  Name: test-service
+  Namespace: test-namespace
