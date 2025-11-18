@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"testing"
+
 	"github.com/google/go-cmp/cmp"
 
 	"github.com/go-logr/logr/testr"
@@ -18,153 +19,112 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-func TestProcessObject_Pod(t *testing.T) {
-	// Create a Pod object
-	podObj := &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "v1",
-			"kind":       "Pod",
-			"metadata": map[string]interface{}{
-				"name":      "test-pod",
-				"namespace": "test-namespace",
-			},
-			"status": map[string]interface{}{
-				"phase": "Running",
-				"containerStatuses": []interface{}{
-					map[string]interface{}{
-						"name":  "test-container",
-						"ready": true,
-						"state": map[string]interface{}{
-							"running": map[string]interface{}{
-								"startedAt": "2025-11-17T00:00:00Z",
+func TestProcessObject(t *testing.T) {
+	tests := []struct {
+		name         string
+		inputObject  *unstructured.Unstructured
+		wantOwner    *OwnerRefInfo
+		wantResource *ResourceInfo
+		wantPod      *PodInfo
+	}{
+		{
+			name: "pod with running container",
+			inputObject: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "v1",
+					"kind":       "Pod",
+					"metadata": map[string]interface{}{
+						"name":      "test-pod",
+						"namespace": "test-namespace",
+					},
+					"status": map[string]interface{}{
+						"phase": "Running",
+						"containerStatuses": []interface{}{
+							map[string]interface{}{
+								"name":  "test-container",
+								"ready": true,
+								"state": map[string]interface{}{
+									"running": map[string]interface{}{
+										"startedAt": "2025-11-17T00:00:00Z",
+									},
+								},
 							},
 						},
 					},
 				},
 			},
-		},
-	}
-
-	owner, resource, pod, err := processObject(podObj)
-	if err != nil {
-		t.Fatalf("processObject failed: %v", err)
-	}
-
-	// Should return pod, but not owner or resource
-	if owner != nil {
-		t.Error("Did not expect owner reference for Pod")
-	}
-	if resource != nil {
-		t.Error("Did not expect resource info for Pod")
-	}
-	if pod == nil {
-		t.Fatal("Expected pod info for Pod")
-	}
-
-	// Verify pod details
-	if pod.Name != "test-pod" {
-		t.Errorf("Expected pod name test-pod, got %s", pod.Name)
-	}
-	if pod.Namespace != "test-namespace" {
-		t.Errorf("Expected pod namespace test-namespace, got %s", pod.Namespace)
-	}
-	if pod.Phase != "Running" {
-		t.Errorf("Expected pod phase Running, got %s", pod.Phase)
-	}
-
-	if diff := cmp.Diff(&PodInfo{
-		Name: "test-pod",
-		Namespace: "test-namespace",
-		Phase: "Running",
-		State: "test-container:Running",
-	}, pod); diff != "" {
-		t.Errorf("got invalid pod: %v", diff)
-	}
-}
-
-func TestProcessObject_Deployment(t *testing.T) {
-	// Create a Deployment object
-	deployment := &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "apps/v1",
-			"kind":       "Deployment",
-			"metadata": map[string]interface{}{
-				"name":      "test-deployment",
-				"namespace": "test-namespace",
+			wantOwner:    nil,
+			wantResource: nil,
+			wantPod: &PodInfo{
+				Name:      "test-pod",
+				Namespace: "test-namespace",
+				Phase:     "Running",
+				State:     "test-container:Running",
 			},
 		},
-	}
-
-	owner, resource, pod, err := processObject(deployment)
-	if err != nil {
-		t.Fatalf("processObject failed: %v", err)
-	}
-
-	// Should return owner and resource, but not pod
-	if owner == nil {
-		t.Error("Expected owner reference for Deployment")
-	}
-	if resource == nil {
-		t.Error("Expected resource info for Deployment")
-	}
-	if pod != nil {
-		t.Error("Did not expect pod info for Deployment")
-	}
-
-	if diff := cmp.Diff(&OwnerRefInfo{
-		Kind: "Deployment",
-		Name: "test-deployment",
-		Namespace: "test-namespace",
-	}, owner); diff != "" {
-		t.Errorf("got invalid owner: %v", diff)
-	}
-
-	if diff := cmp.Diff(&ResourceInfo{
-		Kind: "Deployment",
-		Name: "test-deployment",
-		Namespace: "test-namespace",
-	}, resource); diff != "" {
-		t.Errorf("got invalid resource: %v", diff)
-	}
-}
-
-func TestProcessObject_Service(t *testing.T) {
-	// Create a Service object (not a workload owner)
-	service := &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "v1",
-			"kind":       "Service",
-			"metadata": map[string]interface{}{
-				"name":      "test-service",
-				"namespace": "test-namespace",
+		{
+			name: "deployment as owner resource",
+			inputObject: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "apps/v1",
+					"kind":       "Deployment",
+					"metadata": map[string]interface{}{
+						"name":      "test-deployment",
+						"namespace": "test-namespace",
+					},
+				},
 			},
+			wantOwner: &OwnerRefInfo{
+				Kind:      "Deployment",
+				Name:      "test-deployment",
+				Namespace: "test-namespace",
+			},
+			wantResource: &ResourceInfo{
+				Kind:      "Deployment",
+				Name:      "test-deployment",
+				Namespace: "test-namespace",
+			},
+			wantPod: nil,
+		},
+		{
+			name: "service as non-owner resource",
+			inputObject: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "v1",
+					"kind":       "Service",
+					"metadata": map[string]interface{}{
+						"name":      "test-service",
+						"namespace": "test-namespace",
+					},
+				},
+			},
+			wantOwner: nil,
+			wantResource: &ResourceInfo{
+				Kind:      "Service",
+				Name:      "test-service",
+				Namespace: "test-namespace",
+			},
+			wantPod: nil,
 		},
 	}
 
-	owner, resource, pod, err := processObject(service)
-	if err != nil {
-		t.Fatalf("processObject failed: %v", err)
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotOwner, gotResource, gotPod, err := processObject(tt.inputObject)
+			if err != nil {
+				t.Fatalf("processObject() error = %v", err)
+			}
 
-	// Should return only resource (Service is not a workload owner)
-	if owner != nil {
-		t.Error("Did not expect owner reference for Service")
-	}
-	if resource == nil {
-		t.Error("Expected resource info for Service")
-	}
-	if pod != nil {
-		t.Error("Did not expect pod info for Service")
-	}
-
-	// Verify resource details
-	if resource != nil {
-		if resource.Kind != "Service" {
-			t.Errorf("Expected resource kind Service, got %s", resource.Kind)
-		}
-		if resource.Name != "test-service" {
-			t.Errorf("Expected resource name test-service, got %s", resource.Name)
-		}
+			if diff := cmp.Diff(tt.wantOwner, gotOwner); diff != "" {
+				t.Errorf("owner mismatch (-want +got):\n%s", diff)
+			}
+			if diff := cmp.Diff(tt.wantResource, gotResource); diff != "" {
+				t.Errorf("resource mismatch (-want +got):\n%s", diff)
+			}
+			if diff := cmp.Diff(tt.wantPod, gotPod); diff != "" {
+				t.Errorf("pod mismatch (-want +got):\n%s", diff)
+			}
+		})
 	}
 }
 
