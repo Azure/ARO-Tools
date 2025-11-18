@@ -11,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
+
 	"sigs.k8s.io/yaml"
 )
 
@@ -177,111 +178,111 @@ func TestEvaluateResources(t *testing.T) {
 }
 
 func evaluateResourcesHelper(filename string) func(*testing.T) {
-return func(t *testing.T) {
-	
-	logger := testr.New(t)
+	return func(t *testing.T) {
 
-	// Load test data from manifest file
-	manifestBytes, err := os.ReadFile(filename)
-	if err != nil {
-		t.Fatalf("Failed to read %s: %v", filename, err)
-	}
+		logger := testr.New(t)
 
-	// Parse the manifest using the same approach as Helm does
-	inputDecoder := yamlutil.NewYAMLOrJSONDecoder(bytes.NewBuffer(manifestBytes), 4096)
-	var runtimeObjects []runtime.Object
-	
-	for {
-		ext := runtime.RawExtension{}
-		if err := inputDecoder.Decode(&ext); err != nil {
-			if err == io.EOF {
-				break
+		// Load test data from manifest file
+		manifestBytes, err := os.ReadFile(filename)
+		if err != nil {
+			t.Fatalf("Failed to read %s: %v", filename, err)
+		}
+
+		// Parse the manifest using the same approach as Helm does
+		inputDecoder := yamlutil.NewYAMLOrJSONDecoder(bytes.NewBuffer(manifestBytes), 4096)
+		var runtimeObjects []runtime.Object
+
+		for {
+			ext := runtime.RawExtension{}
+			if err := inputDecoder.Decode(&ext); err != nil {
+				if err == io.EOF {
+					break
+				}
+				t.Fatalf("Failed to parse manifest: %v", err)
 			}
-			t.Fatalf("Failed to parse manifest: %v", err)
+
+			ext.Raw = bytes.TrimSpace(ext.Raw)
+			if len(ext.Raw) == 0 || bytes.Equal(ext.Raw, []byte("null")) {
+				continue
+			}
+
+			obj := &unstructured.Unstructured{}
+			if err := yaml.Unmarshal(ext.Raw, obj); err != nil {
+				t.Fatalf("Failed to unmarshal object: %v", err)
+			}
+
+			runtimeObjects = append(runtimeObjects, obj)
+			t.Logf("Added resource of kind %s: %s", obj.GetKind(), obj.GetName())
 		}
-		
-		ext.Raw = bytes.TrimSpace(ext.Raw)
-		if len(ext.Raw) == 0 || bytes.Equal(ext.Raw, []byte("null")) {
-			continue
+
+		t.Logf("Total runtime objects created: %d", len(runtimeObjects))
+
+		// call evaluateResources
+		ownerRefs, resources, foundPods, err := evaluateResources(logger, runtimeObjects)
+		if err != nil {
+			t.Fatalf("evaluateResources failed: %v", err)
 		}
 
-		obj := &unstructured.Unstructured{}
-		if err := yaml.Unmarshal(ext.Raw, obj); err != nil {
-			t.Fatalf("Failed to unmarshal object: %v", err)
+		t.Logf("Found %d owner references", len(ownerRefs))
+		t.Logf("Found %d resources", len(resources))
+		t.Logf("Found %d pods", len(foundPods))
+
+		// Assertions based on the test file content
+		// We expect to find at least one Deployment
+		hasDeployment := false
+		for _, res := range resources {
+			if res.Kind == "Deployment" {
+				hasDeployment = true
+				t.Logf("Found Deployment: %s in namespace %s", res.Name, res.Namespace)
+			}
+		}
+		if !hasDeployment {
+			t.Error("Expected to find at least one Deployment in resources")
 		}
 
-		runtimeObjects = append(runtimeObjects, obj)
-		t.Logf("Added resource of kind %s: %s", obj.GetKind(), obj.GetName())
-	}
+		// We expect to find the Deployment as an owner reference
+		hasDeploymentOwner := false
+		for _, owner := range ownerRefs {
+			if owner.Kind == "Deployment" {
+				hasDeploymentOwner = true
+				t.Logf("Found Deployment owner: %s in namespace %s", owner.Name, owner.Namespace)
+			}
+		}
+		if !hasDeploymentOwner {
+			t.Error("Expected to find at least one Deployment in owner references")
+		}
 
-	t.Logf("Total runtime objects created: %d", len(runtimeObjects))
+		// We expect to find pods
+		if len(foundPods) == 0 {
+			t.Error("Expected to find pods in the resources")
+		}
 
-	// call evaluateResources
-	ownerRefs, resources, foundPods, err := evaluateResources(logger, runtimeObjects)
-	if err != nil {
-		t.Fatalf("evaluateResources failed: %v", err)
-	}
+		for _, pod := range foundPods {
+			t.Logf("Found pod: %s in namespace %s, phase: %s, state: %s",
+				pod.Name, pod.Namespace, pod.Phase, pod.State)
+		}
 
-	t.Logf("Found %d owner references", len(ownerRefs))
-	t.Logf("Found %d resources", len(resources))
-	t.Logf("Found %d pods", len(foundPods))
+		for _, pod := range foundPods {
+			if pod.Name == "" {
+				t.Error("Found pod with empty name")
+			}
+			if pod.Namespace == "" {
+				t.Error("Found pod with empty namespace")
+			}
+			if pod.Phase == "" {
+				t.Error("Found pod with empty phase")
+			}
+			// State might be empty for some pods, so we just log it
+			t.Logf("Pod %s state: %s", pod.Name, pod.State)
+		}
 
-	// Assertions based on the test file content
-	// We expect to find at least one Deployment
-	hasDeployment := false
-	for _, res := range resources {
-		if res.Kind == "Deployment" {
-			hasDeployment = true
-			t.Logf("Found Deployment: %s in namespace %s", res.Name, res.Namespace)
+		for _, res := range resources {
+			if res.Kind == "" {
+				t.Error("Found resource with empty kind")
+			}
+			if res.Name == "" {
+				t.Error("Found resource with empty name")
+			}
 		}
 	}
-	if !hasDeployment {
-		t.Error("Expected to find at least one Deployment in resources")
-	}
-
-	// We expect to find the Deployment as an owner reference
-	hasDeploymentOwner := false
-	for _, owner := range ownerRefs {
-		if owner.Kind == "Deployment" {
-			hasDeploymentOwner = true
-			t.Logf("Found Deployment owner: %s in namespace %s", owner.Name, owner.Namespace)
-		}
-	}
-	if !hasDeploymentOwner {
-		t.Error("Expected to find at least one Deployment in owner references")
-	}
-
-	// We expect to find pods
-	if len(foundPods) == 0 {
-		t.Error("Expected to find pods in the resources")
-	}
-
-	for _, pod := range foundPods {
-		t.Logf("Found pod: %s in namespace %s, phase: %s, state: %s",
-			pod.Name, pod.Namespace, pod.Phase, pod.State)
-	}
-
-	for _, pod := range foundPods {
-		if pod.Name == "" {
-			t.Error("Found pod with empty name")
-		}
-		if pod.Namespace == "" {
-			t.Error("Found pod with empty namespace")
-		}
-		if pod.Phase == "" {
-			t.Error("Found pod with empty phase")
-		}
-		// State might be empty for some pods, so we just log it
-		t.Logf("Pod %s state: %s", pod.Name, pod.State)
-	}
-
-	for _, res := range resources {
-		if res.Kind == "" {
-			t.Error("Found resource with empty kind")
-		}
-		if res.Name == "" {
-			t.Error("Found resource with empty name")
-		}
-	}
-}
 }
