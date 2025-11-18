@@ -67,6 +67,40 @@ func queryToDeepLink(text, kustoCluster, kustoDatabase string) (string, error) {
 	return kustoDeepLink, nil
 }
 
+// extractContainerStateSummary creates a summary string of all container states for easy logging
+// ex: "credential-refresher:Terminated(Error,exit:1)[restarts:2][not-ready]"
+func extractContainerStateSummary(containerStatuses []corev1.ContainerStatus) string {
+	if len(containerStatuses) == 0 {
+		return "no containers found"
+	}
+
+	var states []string
+	for _, contStatus := range containerStatuses {
+		var state string
+		switch {
+		case contStatus.State.Waiting != nil:
+			state = fmt.Sprintf("%s:Waiting(%s)", contStatus.Name, contStatus.State.Waiting.Reason)
+		case contStatus.State.Terminated != nil:
+			state = fmt.Sprintf("%s:Terminated(%s,exit:%d)", contStatus.Name, contStatus.State.Terminated.Reason, contStatus.State.Terminated.ExitCode)
+		case contStatus.State.Running != nil:
+			state = fmt.Sprintf("%s:Running", contStatus.Name)
+		default:
+			state = fmt.Sprintf("%s:Unknown", contStatus.Name)
+		}
+
+		if contStatus.RestartCount > 0 {
+			state += fmt.Sprintf("[restarts:%d]", contStatus.RestartCount)
+		}
+		if !contStatus.Ready {
+			state += "[not-ready]"
+		}
+
+		states = append(states, state)
+	}
+
+	return strings.Join(states, ", ")
+}
+
 // processObject processes a single runtime.Object and extracts pod information if applicable
 func processObject(item runtime.Object) (*OwnerRefInfo, *ResourceInfo, *PodInfo, error) {
 
