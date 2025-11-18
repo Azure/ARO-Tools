@@ -6,17 +6,16 @@ import (
 	"os"
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
-
 	"github.com/go-logr/logr/testr"
+	"github.com/google/go-cmp/cmp"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
 
-	// "github.com/kubernetes-sigs/prow"
-
 	"sigs.k8s.io/yaml"
+
+	"github.com/Azure/ARO-Tools/internal/testutil"
 )
 
 func TestProcessObject(t *testing.T) {
@@ -180,10 +179,7 @@ func evaluateResourcesHelper(filename string) func(*testing.T) {
 			}
 
 			runtimeObjects = append(runtimeObjects, obj)
-			t.Logf("Added resource of kind %s: %s", obj.GetKind(), obj.GetName())
 		}
-
-		t.Logf("Total runtime objects created: %d", len(runtimeObjects))
 
 		// call evaluateResources
 		ownerRefs, resources, foundPods, err := evaluateResources(logger, runtimeObjects)
@@ -195,62 +191,17 @@ func evaluateResourcesHelper(filename string) func(*testing.T) {
 		t.Logf("Found %d resources", len(resources))
 		t.Logf("Found %d pods", len(foundPods))
 
-		// Assertions based on the test file content
-		// We expect to find at least one Deployment
-		hasDeployment := false
-		for _, res := range resources {
-			if res.Kind == "Deployment" {
-				hasDeployment = true
-				t.Logf("Found Deployment: %s in namespace %s", res.Name, res.Namespace)
-			}
-		}
-		if !hasDeployment {
-			t.Error("Expected to find at least one Deployment in resources")
+		// Compare results with golden fixture
+		results := struct {
+			OwnerRefs []OwnerRefInfo
+			Resources []ResourceInfo
+			Pods      []PodInfo
+		}{
+			OwnerRefs: ownerRefs,
+			Resources: resources,
+			Pods:      foundPods,
 		}
 
-		// We expect to find the Deployment as an owner reference
-		hasDeploymentOwner := false
-		for _, owner := range ownerRefs {
-			if owner.Kind == "Deployment" {
-				hasDeploymentOwner = true
-				t.Logf("Found Deployment owner: %s in namespace %s", owner.Name, owner.Namespace)
-			}
-		}
-		if !hasDeploymentOwner {
-			t.Error("Expected to find at least one Deployment in owner references")
-		}
-
-		// We expect to find pods
-		if len(foundPods) == 0 {
-			t.Error("Expected to find pods in the resources")
-		}
-
-		for _, pod := range foundPods {
-			t.Logf("Found pod: %s in namespace %s, phase: %s, state: %s",
-				pod.Name, pod.Namespace, pod.Phase, pod.State)
-		}
-
-		for _, pod := range foundPods {
-			if pod.Name == "" {
-				t.Error("Found pod with empty name")
-			}
-			if pod.Namespace == "" {
-				t.Error("Found pod with empty namespace")
-			}
-			if pod.Phase == "" {
-				t.Error("Found pod with empty phase")
-			}
-			// State might be empty for some pods, so we just log it
-			t.Logf("Pod %s state: %s", pod.Name, pod.State)
-		}
-
-		for _, res := range resources {
-			if res.Kind == "" {
-				t.Error("Found resource with empty kind")
-			}
-			if res.Name == "" {
-				t.Error("Found resource with empty name")
-			}
-		}
+		testutil.CompareWithFixture(t, results)
 	}
 }
