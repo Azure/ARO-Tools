@@ -177,14 +177,15 @@ func TestEvaluateResources(t *testing.T) {
 }
 
 func evaluateResourcesHelper(filename string) func(*testing.T) {
-	return func(t *testing.T) {
-		logger := testr.New(t)
+return func(t *testing.T) {
+	
+	logger := testr.New(t)
 
-		// Load test data from manifest file
-		manifestBytes, err := os.ReadFile(filename)
-		if err != nil {
-			t.Fatalf("Failed to read %s: %v", filename, err)
-		}
+	// Load test data from manifest file
+	manifestBytes, err := os.ReadFile(filename)
+	if err != nil {
+		t.Fatalf("Failed to read %s: %v", filename, err)
+	}
 
 	// Parse the manifest using the same approach as Helm does
 	inputDecoder := yamlutil.NewYAMLOrJSONDecoder(bytes.NewBuffer(manifestBytes), 4096)
@@ -225,7 +226,7 @@ func evaluateResourcesHelper(filename string) func(*testing.T) {
 	t.Logf("Found %d resources", len(resources))
 	t.Logf("Found %d pods", len(foundPods))
 
-	// Assertions based on the resources_info_example.yaml content
+	// Assertions based on the test file content
 	// We expect to find at least one Deployment
 	hasDeployment := false
 	for _, res := range resources {
@@ -282,5 +283,5 @@ func evaluateResourcesHelper(filename string) func(*testing.T) {
 			t.Error("Found resource with empty name")
 		}
 	}
-	}
+}
 }
