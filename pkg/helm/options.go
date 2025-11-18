@@ -410,7 +410,6 @@ func isReleaseUninstalled(logger logr.Logger, versionsi []helmrelease.Releaser) 
 	return len(versions) > 0 && versions[len(versions)-1].Info.Status == helmreleasecommon.StatusUninstalled
 }
 
-
 func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options, deploymentStartTime time.Time) error {
 	statusClient := action.NewStatus(opts.ActionConfig)
 	releaser, err := statusClient.Run(opts.ReleaseName)

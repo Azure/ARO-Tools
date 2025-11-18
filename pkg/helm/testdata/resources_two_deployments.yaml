@@ -1,0 +1,2305 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    deployment.kubernetes.io/revision: '2'
+    meta.helm.sh/release-name: credential-refresher
+    meta.helm.sh/release-namespace: msi-credential-refresher
+  creationTimestamp: '2025-11-18T01:12:35Z'
+  generation: 2
+  labels:
+    app.kubernetes.io/managed-by: Helm
+  managedFields:
+  - apiVersion: apps/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          f:meta.helm.sh/release-name: {}
+          f:meta.helm.sh/release-namespace: {}
+        f:labels:
+          f:app.kubernetes.io/managed-by: {}
+      f:spec:
+        f:replicas: {}
+        f:selector: {}
+        f:strategy:
+          f:rollingUpdate:
+            f:maxSurge: {}
+            f:maxUnavailable: {}
+          f:type: {}
+        f:template:
+          f:metadata:
+            f:annotations:
+              f:rollme: {}
+            f:labels:
+              f:app: {}
+              f:azure.workload.identity/use: {}
+          f:spec:
+            f:containers:
+              k:{"name":"credential-refresher"}:
+                .: {}
+                f:args: {}
+                f:image: {}
+                f:imagePullPolicy: {}
+                f:name: {}
+                f:ports:
+                  k:{"containerPort":8080,"protocol":"TCP"}:
+                    .: {}
+                    f:containerPort: {}
+                    f:name: {}
+                f:readinessProbe:
+                  f:httpGet:
+                    f:path: {}
+                    f:port: {}
+                  f:initialDelaySeconds: {}
+                  f:periodSeconds: {}
+                f:resources:
+                  f:limits:
+                    f:cpu: {}
+                    f:memory: {}
+                  f:requests:
+                    f:cpu: {}
+                    f:memory: {}
+                f:volumeMounts:
+                  k:{"mountPath":"/mnt/secrets"}:
+                    .: {}
+                    f:mountPath: {}
+                    f:name: {}
+                    f:readOnly: {}
+            f:serviceAccountName: {}
+            f:volumes:
+              k:{"name":"secrets-store"}:
+                .: {}
+                f:csi:
+                  f:driver: {}
+                  f:readOnly: {}
+                  f:volumeAttributes:
+                    f:secretProviderClass: {}
+                f:name: {}
+    manager: aro
+    operation: Apply
+    time: '2025-11-18T01:18:17Z'
+  - apiVersion: apps/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:meta.helm.sh/release-name: {}
+          f:meta.helm.sh/release-namespace: {}
+        f:labels:
+          .: {}
+          f:app.kubernetes.io/managed-by: {}
+      f:spec:
+        f:progressDeadlineSeconds: {}
+        f:replicas: {}
+        f:revisionHistoryLimit: {}
+        f:selector: {}
+        f:strategy:
+          f:rollingUpdate:
+            .: {}
+            f:maxSurge: {}
+            f:maxUnavailable: {}
+          f:type: {}
+        f:template:
+          f:metadata:
+            f:annotations: {}
+            f:labels:
+              .: {}
+              f:app: {}
+              f:azure.workload.identity/use: {}
+          f:spec:
+            f:containers:
+              k:{"name":"credential-refresher"}:
+                .: {}
+                f:args: {}
+                f:image: {}
+                f:imagePullPolicy: {}
+                f:name: {}
+                f:ports:
+                  .: {}
+                  k:{"containerPort":8080,"protocol":"TCP"}:
+                    .: {}
+                    f:containerPort: {}
+                    f:name: {}
+                    f:protocol: {}
+                f:readinessProbe:
+                  .: {}
+                  f:failureThreshold: {}
+                  f:httpGet:
+                    .: {}
+                    f:path: {}
+                    f:port: {}
+                    f:scheme: {}
+                  f:initialDelaySeconds: {}
+                  f:periodSeconds: {}
+                  f:successThreshold: {}
+                  f:timeoutSeconds: {}
+                f:resources:
+                  .: {}
+                  f:limits:
+                    .: {}
+                    f:cpu: {}
+                    f:memory: {}
+                  f:requests:
+                    .: {}
+                    f:cpu: {}
+                    f:memory: {}
+                f:terminationMessagePath: {}
+                f:terminationMessagePolicy: {}
+                f:volumeMounts:
+                  .: {}
+                  k:{"mountPath":"/mnt/secrets"}:
+                    .: {}
+                    f:mountPath: {}
+                    f:name: {}
+                    f:readOnly: {}
+            f:dnsPolicy: {}
+            f:restartPolicy: {}
+            f:schedulerName: {}
+            f:securityContext: {}
+            f:serviceAccount: {}
+            f:serviceAccountName: {}
+            f:terminationGracePeriodSeconds: {}
+            f:volumes:
+              .: {}
+              k:{"name":"secrets-store"}:
+                .: {}
+                f:csi:
+                  .: {}
+                  f:driver: {}
+                  f:readOnly: {}
+                  f:volumeAttributes:
+                    .: {}
+                    f:secretProviderClass: {}
+                f:name: {}
+    manager: aro
+    operation: Update
+    time: '2025-11-18T01:12:35Z'
+  - apiVersion: apps/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          f:deployment.kubernetes.io/revision: {}
+      f:status:
+        f:conditions:
+          .: {}
+          k:{"type":"Available"}:
+            .: {}
+            f:lastTransitionTime: {}
+            f:lastUpdateTime: {}
+            f:message: {}
+            f:reason: {}
+            f:status: {}
+            f:type: {}
+          k:{"type":"Progressing"}:
+            .: {}
+            f:lastTransitionTime: {}
+            f:lastUpdateTime: {}
+            f:message: {}
+            f:reason: {}
+            f:status: {}
+            f:type: {}
+        f:observedGeneration: {}
+        f:replicas: {}
+        f:unavailableReplicas: {}
+        f:updatedReplicas: {}
+    manager: kube-controller-manager
+    operation: Update
+    subresource: status
+    time: '2025-11-18T01:18:18Z'
+  name: credential-refresher-1
+  namespace: msi-credential-refresher
+  resourceVersion: '4435972'
+  uid: ea722d1b-950b-4b2a-9bdc-2bc25257b1c1
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 2
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: credential-refresher-1
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        rollme: 2rm3A
+      creationTimestamp: null
+      labels:
+        app: credential-refresher-1
+        azure.workload.identity/use: 'true'
+    spec:
+      containers:
+      - args:
+        - --keyvault-uri=https://ah-int-mi-ln-1.vault.azure.net/
+        - --audience=https://serviceidentity.azure.net
+        - --fpsp-client-id=
+        - --fpsp-tenant-id=72f988bf-86f1-41af-91ab-2d7cd011db47
+        - --fpsp-cert-path=/mnt/secrets/msi-refresher
+        - --early-refresh-frequency=0
+        image: arohcpsvcint.azurecr.io/credential-refresher@sha256:3d81f77752176084d53dba4442b4973164e0e2fb6427d76c75f710d76abc579e
+        imagePullPolicy: IfNotPresent
+        name: credential-refresher
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /healthz
+            port: 8081
+            scheme: HTTP
+          initialDelaySeconds: 2
+          periodSeconds: 5
+          successThreshold: 1
+          timeoutSeconds: 1
+        resources:
+          limits:
+            cpu: 200m
+            memory: 256Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /mnt/secrets
+          name: secrets-store
+          readOnly: true
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      serviceAccount: msi-credential-refresher
+      serviceAccountName: msi-credential-refresher
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - csi:
+          driver: secrets-store.csi.k8s.io
+          readOnly: true
+          volumeAttributes:
+            secretProviderClass: azure-secret-provider-class
+        name: secrets-store
+status:
+  conditions:
+  - lastTransitionTime: '2025-11-18T01:12:35Z'
+    lastUpdateTime: '2025-11-18T01:12:35Z'
+    message: Deployment does not have minimum availability.
+    reason: MinimumReplicasUnavailable
+    status: 'False'
+    type: Available
+  - lastTransitionTime: '2025-11-18T01:12:35Z'
+    lastUpdateTime: '2025-11-18T01:18:18Z'
+    message: ReplicaSet "credential-refresher-1-688d67cbd8" is progressing.
+    reason: ReplicaSetUpdated
+    status: 'True'
+    type: Progressing
+  observedGeneration: 2
+  replicas: 3
+  unavailableReplicas: 3
+  updatedReplicas: 2
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    deployment.kubernetes.io/revision: '2'
+    meta.helm.sh/release-name: credential-refresher
+    meta.helm.sh/release-namespace: msi-credential-refresher
+  creationTimestamp: '2025-11-18T01:12:35Z'
+  generation: 2
+  labels:
+    app.kubernetes.io/managed-by: Helm
+  managedFields:
+  - apiVersion: apps/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          f:meta.helm.sh/release-name: {}
+          f:meta.helm.sh/release-namespace: {}
+        f:labels:
+          f:app.kubernetes.io/managed-by: {}
+      f:spec:
+        f:replicas: {}
+        f:selector: {}
+        f:strategy:
+          f:rollingUpdate:
+            f:maxSurge: {}
+            f:maxUnavailable: {}
+          f:type: {}
+        f:template:
+          f:metadata:
+            f:annotations:
+              f:rollme: {}
+            f:labels:
+              f:app: {}
+              f:azure.workload.identity/use: {}
+          f:spec:
+            f:containers:
+              k:{"name":"credential-refresher"}:
+                .: {}
+                f:args: {}
+                f:image: {}
+                f:imagePullPolicy: {}
+                f:name: {}
+                f:ports:
+                  k:{"containerPort":8080,"protocol":"TCP"}:
+                    .: {}
+                    f:containerPort: {}
+                    f:name: {}
+                f:readinessProbe:
+                  f:httpGet:
+                    f:path: {}
+                    f:port: {}
+                  f:initialDelaySeconds: {}
+                  f:periodSeconds: {}
+                f:resources:
+                  f:limits:
+                    f:cpu: {}
+                    f:memory: {}
+                  f:requests:
+                    f:cpu: {}
+                    f:memory: {}
+                f:volumeMounts:
+                  k:{"mountPath":"/mnt/secrets"}:
+                    .: {}
+                    f:mountPath: {}
+                    f:name: {}
+                    f:readOnly: {}
+            f:serviceAccountName: {}
+            f:volumes:
+              k:{"name":"secrets-store"}:
+                .: {}
+                f:csi:
+                  f:driver: {}
+                  f:readOnly: {}
+                  f:volumeAttributes:
+                    f:secretProviderClass: {}
+                f:name: {}
+    manager: aro
+    operation: Apply
+    time: '2025-11-18T01:18:18Z'
+  - apiVersion: apps/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:meta.helm.sh/release-name: {}
+          f:meta.helm.sh/release-namespace: {}
+        f:labels:
+          .: {}
+          f:app.kubernetes.io/managed-by: {}
+      f:spec:
+        f:progressDeadlineSeconds: {}
+        f:replicas: {}
+        f:revisionHistoryLimit: {}
+        f:selector: {}
+        f:strategy:
+          f:rollingUpdate:
+            .: {}
+            f:maxSurge: {}
+            f:maxUnavailable: {}
+          f:type: {}
+        f:template:
+          f:metadata:
+            f:annotations: {}
+            f:labels:
+              .: {}
+              f:app: {}
+              f:azure.workload.identity/use: {}
+          f:spec:
+            f:containers:
+              k:{"name":"credential-refresher"}:
+                .: {}
+                f:args: {}
+                f:image: {}
+                f:imagePullPolicy: {}
+                f:name: {}
+                f:ports:
+                  .: {}
+                  k:{"containerPort":8080,"protocol":"TCP"}:
+                    .: {}
+                    f:containerPort: {}
+                    f:name: {}
+                    f:protocol: {}
+                f:readinessProbe:
+                  .: {}
+                  f:failureThreshold: {}
+                  f:httpGet:
+                    .: {}
+                    f:path: {}
+                    f:port: {}
+                    f:scheme: {}
+                  f:initialDelaySeconds: {}
+                  f:periodSeconds: {}
+                  f:successThreshold: {}
+                  f:timeoutSeconds: {}
+                f:resources:
+                  .: {}
+                  f:limits:
+                    .: {}
+                    f:cpu: {}
+                    f:memory: {}
+                  f:requests:
+                    .: {}
+                    f:cpu: {}
+                    f:memory: {}
+                f:terminationMessagePath: {}
+                f:terminationMessagePolicy: {}
+                f:volumeMounts:
+                  .: {}
+                  k:{"mountPath":"/mnt/secrets"}:
+                    .: {}
+                    f:mountPath: {}
+                    f:name: {}
+                    f:readOnly: {}
+            f:dnsPolicy: {}
+            f:restartPolicy: {}
+            f:schedulerName: {}
+            f:securityContext: {}
+            f:serviceAccount: {}
+            f:serviceAccountName: {}
+            f:terminationGracePeriodSeconds: {}
+            f:volumes:
+              .: {}
+              k:{"name":"secrets-store"}:
+                .: {}
+                f:csi:
+                  .: {}
+                  f:driver: {}
+                  f:readOnly: {}
+                  f:volumeAttributes:
+                    .: {}
+                    f:secretProviderClass: {}
+                f:name: {}
+    manager: aro
+    operation: Update
+    time: '2025-11-18T01:12:35Z'
+  - apiVersion: apps/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          f:deployment.kubernetes.io/revision: {}
+      f:status:
+        f:conditions:
+          .: {}
+          k:{"type":"Available"}:
+            .: {}
+            f:lastTransitionTime: {}
+            f:lastUpdateTime: {}
+            f:message: {}
+            f:reason: {}
+            f:status: {}
+            f:type: {}
+          k:{"type":"Progressing"}:
+            .: {}
+            f:lastTransitionTime: {}
+            f:lastUpdateTime: {}
+            f:message: {}
+            f:reason: {}
+            f:status: {}
+            f:type: {}
+        f:observedGeneration: {}
+        f:replicas: {}
+        f:unavailableReplicas: {}
+        f:updatedReplicas: {}
+    manager: kube-controller-manager
+    operation: Update
+    subresource: status
+    time: '2025-11-18T01:18:18Z'
+  name: credential-refresher-2
+  namespace: msi-credential-refresher
+  resourceVersion: '4435989'
+  uid: fd7151ff-4027-421b-8b3c-dcfc5ed8b2da
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: credential-refresher-2
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        rollme: qRCvi
+      creationTimestamp: null
+      labels:
+        app: credential-refresher-2
+        azure.workload.identity/use: 'true'
+    spec:
+      containers:
+      - args:
+        - --keyvault-uri=https://ah-int-mi-ln-1.vault.azure.net/
+        - --audience=https://serviceidentity.azure.net
+        - --fpsp-client-id=
+        - --fpsp-tenant-id=72f988bf-86f1-41af-91ab-2d7cd011db47
+        - --fpsp-cert-path=/mnt/secrets/msi-refresher
+        - --early-refresh-frequency=0
+        image: arohcpsvcint.azurecr.io/credential-refresher@sha256:3d81f77752176084d53dba4442b4973164e0e2fb6427d76c75f710d76abc579e
+        imagePullPolicy: IfNotPresent
+        name: credential-refresher
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /healthz
+            port: 8081
+            scheme: HTTP
+          initialDelaySeconds: 2
+          periodSeconds: 5
+          successThreshold: 1
+          timeoutSeconds: 1
+        resources:
+          limits:
+            cpu: 200m
+            memory: 256Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /mnt/secrets
+          name: secrets-store
+          readOnly: true
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      serviceAccount: msi-credential-refresher
+      serviceAccountName: msi-credential-refresher
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - csi:
+          driver: secrets-store.csi.k8s.io
+          readOnly: true
+          volumeAttributes:
+            secretProviderClass: azure-secret-provider-class
+        name: secrets-store
+status:
+  conditions:
+  - lastTransitionTime: '2025-11-18T01:12:35Z'
+    lastUpdateTime: '2025-11-18T01:12:35Z'
+    message: Deployment has minimum availability.
+    reason: MinimumReplicasAvailable
+    status: 'True'
+    type: Available
+  - lastTransitionTime: '2025-11-18T01:12:35Z'
+    lastUpdateTime: '2025-11-18T01:18:18Z'
+    message: ReplicaSet "credential-refresher-2-68469f5ddc" is progressing.
+    reason: ReplicaSetUpdated
+    status: 'True'
+    type: Progressing
+  observedGeneration: 2
+  replicas: 1
+  unavailableReplicas: 1
+  updatedReplicas: 1
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    rollme: 2rm3A
+  creationTimestamp: '2025-11-18T01:18:18Z'
+  generateName: credential-refresher-1-688d67cbd8-
+  labels:
+    app: credential-refresher-1
+    azure.workload.identity/use: 'true'
+    pod-template-hash: 688d67cbd8
+  managedFields:
+  - apiVersion: v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:rollme: {}
+        f:generateName: {}
+        f:labels:
+          .: {}
+          f:app: {}
+          f:azure.workload.identity/use: {}
+          f:pod-template-hash: {}
+        f:ownerReferences:
+          .: {}
+          k:{"uid":"670a344b-07d5-41d6-8ab0-05e9d99d132c"}: {}
+      f:spec:
+        f:containers:
+          k:{"name":"credential-refresher"}:
+            .: {}
+            f:args: {}
+            f:image: {}
+            f:imagePullPolicy: {}
+            f:name: {}
+            f:ports:
+              .: {}
+              k:{"containerPort":8080,"protocol":"TCP"}:
+                .: {}
+                f:containerPort: {}
+                f:name: {}
+                f:protocol: {}
+            f:readinessProbe:
+              .: {}
+              f:failureThreshold: {}
+              f:httpGet:
+                .: {}
+                f:path: {}
+                f:port: {}
+                f:scheme: {}
+              f:initialDelaySeconds: {}
+              f:periodSeconds: {}
+              f:successThreshold: {}
+              f:timeoutSeconds: {}
+            f:resources:
+              .: {}
+              f:limits:
+                .: {}
+                f:cpu: {}
+                f:memory: {}
+              f:requests:
+                .: {}
+                f:cpu: {}
+                f:memory: {}
+            f:terminationMessagePath: {}
+            f:terminationMessagePolicy: {}
+            f:volumeMounts:
+              .: {}
+              k:{"mountPath":"/mnt/secrets"}:
+                .: {}
+                f:mountPath: {}
+                f:name: {}
+                f:readOnly: {}
+        f:dnsPolicy: {}
+        f:enableServiceLinks: {}
+        f:restartPolicy: {}
+        f:schedulerName: {}
+        f:securityContext: {}
+        f:serviceAccount: {}
+        f:serviceAccountName: {}
+        f:terminationGracePeriodSeconds: {}
+        f:volumes:
+          .: {}
+          k:{"name":"secrets-store"}:
+            .: {}
+            f:csi:
+              .: {}
+              f:driver: {}
+              f:readOnly: {}
+              f:volumeAttributes:
+                .: {}
+                f:secretProviderClass: {}
+            f:name: {}
+    manager: kube-controller-manager
+    operation: Update
+    time: '2025-11-18T01:18:18Z'
+  - apiVersion: v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        f:conditions:
+          k:{"type":"ContainersReady"}:
+            .: {}
+            f:lastProbeTime: {}
+            f:lastTransitionTime: {}
+            f:message: {}
+            f:reason: {}
+            f:status: {}
+            f:type: {}
+          k:{"type":"Initialized"}:
+            .: {}
+            f:lastProbeTime: {}
+            f:lastTransitionTime: {}
+            f:status: {}
+            f:type: {}
+          k:{"type":"PodReadyToStartContainers"}:
+            .: {}
+            f:lastProbeTime: {}
+            f:lastTransitionTime: {}
+            f:status: {}
+            f:type: {}
+          k:{"type":"Ready"}:
+            .: {}
+            f:lastProbeTime: {}
+            f:lastTransitionTime: {}
+            f:message: {}
+            f:reason: {}
+            f:status: {}
+            f:type: {}
+        f:containerStatuses: {}
+        f:hostIP: {}
+        f:hostIPs: {}
+        f:phase: {}
+        f:podIP: {}
+        f:podIPs:
+          .: {}
+          k:{"ip":"10.128.64.210"}:
+            .: {}
+            f:ip: {}
+        f:startTime: {}
+    manager: kubelet
+    operation: Update
+    subresource: status
+    time: '2025-11-18T01:18:23Z'
+  name: credential-refresher-1-688d67cbd8-cb5qd
+  namespace: msi-credential-refresher
+  ownerReferences:
+  - apiVersion: apps/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: ReplicaSet
+    name: credential-refresher-1-688d67cbd8
+    uid: 670a344b-07d5-41d6-8ab0-05e9d99d132c
+  resourceVersion: '4436063'
+  uid: 654ded74-b745-46d8-9f31-b3e6456dab0a
+spec:
+  containers:
+  - args:
+    - --keyvault-uri=https://ah-int-mi-ln-1.vault.azure.net/
+    - --audience=https://serviceidentity.azure.net
+    - --fpsp-client-id=
+    - --fpsp-tenant-id=72f988bf-86f1-41af-91ab-2d7cd011db47
+    - --fpsp-cert-path=/mnt/secrets/msi-refresher
+    - --early-refresh-frequency=0
+    env:
+    - name: AZURE_CLIENT_ID
+      value: e9492091-1743-4db8-8840-2d26496fc4ec
+    - name: AZURE_TENANT_ID
+      value: 72f988bf-86f1-41af-91ab-2d7cd011db47
+    - name: AZURE_FEDERATED_TOKEN_FILE
+      value: /var/run/secrets/azure/tokens/azure-identity-token
+    - name: AZURE_AUTHORITY_HOST
+      value: https://login.microsoftonline.com/
+    image: arohcpsvcint.azurecr.io/credential-refresher@sha256:3d81f77752176084d53dba4442b4973164e0e2fb6427d76c75f710d76abc579e
+    imagePullPolicy: IfNotPresent
+    name: credential-refresher
+    ports:
+    - containerPort: 8080
+      name: http
+      protocol: TCP
+    readinessProbe:
+      failureThreshold: 3
+      httpGet:
+        path: /healthz
+        port: 8081
+        scheme: HTTP
+      initialDelaySeconds: 2
+      periodSeconds: 5
+      successThreshold: 1
+      timeoutSeconds: 1
+    resources:
+      limits:
+        cpu: 200m
+        memory: 256Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
+    volumeMounts:
+    - mountPath: /mnt/secrets
+      name: secrets-store
+      readOnly: true
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: kube-api-access-s5297
+      readOnly: true
+    - mountPath: /var/run/secrets/azure/tokens
+      name: azure-identity-token
+      readOnly: true
+  dnsPolicy: ClusterFirst
+  enableServiceLinks: true
+  imagePullSecrets:
+  - name: acr-pull-credential-refresher-pull-binding
+  nodeName: aks-user1-39421975-vmss000000
+  preemptionPolicy: PreemptLowerPriority
+  priority: 0
+  restartPolicy: Always
+  schedulerName: default-scheduler
+  securityContext: {}
+  serviceAccount: msi-credential-refresher
+  serviceAccountName: msi-credential-refresher
+  terminationGracePeriodSeconds: 30
+  tolerations:
+  - effect: NoExecute
+    key: node.kubernetes.io/not-ready
+    operator: Exists
+    tolerationSeconds: 300
+  - effect: NoExecute
+    key: node.kubernetes.io/unreachable
+    operator: Exists
+    tolerationSeconds: 300
+  - effect: NoSchedule
+    key: node.kubernetes.io/memory-pressure
+    operator: Exists
+  volumes:
+  - csi:
+      driver: secrets-store.csi.k8s.io
+      readOnly: true
+      volumeAttributes:
+        secretProviderClass: azure-secret-provider-class
+    name: secrets-store
+  - name: kube-api-access-s5297
+    projected:
+      defaultMode: 420
+      sources:
+      - serviceAccountToken:
+          expirationSeconds: 3607
+          path: token
+      - configMap:
+          items:
+          - key: ca.crt
+            path: ca.crt
+          name: kube-root-ca.crt
+      - downwardAPI:
+          items:
+          - fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+            path: namespace
+  - name: azure-identity-token
+    projected:
+      defaultMode: 420
+      sources:
+      - serviceAccountToken:
+          audience: api://AzureADTokenExchange
+          expirationSeconds: 3600
+          path: azure-identity-token
+status:
+  conditions:
+  - lastProbeTime: null
+    lastTransitionTime: '2025-11-18T01:18:20Z'
+    status: 'True'
+    type: PodReadyToStartContainers
+  - lastProbeTime: null
+    lastTransitionTime: '2025-11-18T01:18:18Z'
+    status: 'True'
+    type: Initialized
+  - lastProbeTime: null
+    lastTransitionTime: '2025-11-18T01:18:18Z'
+    message: 'containers with unready status: [credential-refresher]'
+    reason: ContainersNotReady
+    status: 'False'
+    type: Ready
+  - lastProbeTime: null
+    lastTransitionTime: '2025-11-18T01:18:18Z'
+    message: 'containers with unready status: [credential-refresher]'
+    reason: ContainersNotReady
+    status: 'False'
+    type: ContainersReady
+  - lastProbeTime: null
+    lastTransitionTime: '2025-11-18T01:18:18Z'
+    status: 'True'
+    type: PodScheduled
+  containerStatuses:
+  - containerID: containerd://173c489f5b1d471d85701840d8fa515c17ca5020b95aa8cde2885edc60e1a808
+    image: sha256:575d81b9648d313177851b46772aef2e23971f407197702e0f82eda5ac9c06ed
+    imageID: arohcpsvcint.azurecr.io/credential-refresher@sha256:3d81f77752176084d53dba4442b4973164e0e2fb6427d76c75f710d76abc579e
+    lastState:
+      terminated:
+        containerID: containerd://173c489f5b1d471d85701840d8fa515c17ca5020b95aa8cde2885edc60e1a808
+        exitCode: 1
+        finishedAt: '2025-11-18T01:18:21Z'
+        reason: Error
+        startedAt: '2025-11-18T01:18:21Z'
+    name: credential-refresher
+    ready: false
+    restartCount: 1
+    started: false
+    state:
+      waiting:
+        message: back-off 10s restarting failed container=credential-refresher pod=credential-refresher-1-688d67cbd8-cb5qd_msi-credential-refresher(654ded74-b745-46d8-9f31-b3e6456dab0a)
+        reason: CrashLoopBackOff
+    volumeMounts:
+    - mountPath: /mnt/secrets
+      name: secrets-store
+      readOnly: true
+      recursiveReadOnly: Disabled
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: kube-api-access-s5297
+      readOnly: true
+      recursiveReadOnly: Disabled
+    - mountPath: /var/run/secrets/azure/tokens
+      name: azure-identity-token
+      readOnly: true
+      recursiveReadOnly: Disabled
+  hostIP: 10.128.8.4
+  hostIPs:
+  - ip: 10.128.8.4
+  phase: Running
+  podIP: 10.128.64.210
+  podIPs:
+  - ip: 10.128.64.210
+  qosClass: Burstable
+  startTime: '2025-11-18T01:18:18Z'
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    rollme: 2rm3A
+  creationTimestamp: '2025-11-18T01:18:17Z'
+  generateName: credential-refresher-1-688d67cbd8-
+  labels:
+    app: credential-refresher-1
+    azure.workload.identity/use: 'true'
+    pod-template-hash: 688d67cbd8
+  managedFields:
+  - apiVersion: v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:rollme: {}
+        f:generateName: {}
+        f:labels:
+          .: {}
+          f:app: {}
+          f:azure.workload.identity/use: {}
+          f:pod-template-hash: {}
+        f:ownerReferences:
+          .: {}
+          k:{"uid":"670a344b-07d5-41d6-8ab0-05e9d99d132c"}: {}
+      f:spec:
+        f:containers:
+          k:{"name":"credential-refresher"}:
+            .: {}
+            f:args: {}
+            f:image: {}
+            f:imagePullPolicy: {}
+            f:name: {}
+            f:ports:
+              .: {}
+              k:{"containerPort":8080,"protocol":"TCP"}:
+                .: {}
+                f:containerPort: {}
+                f:name: {}
+                f:protocol: {}
+            f:readinessProbe:
+              .: {}
+              f:failureThreshold: {}
+              f:httpGet:
+                .: {}
+                f:path: {}
+                f:port: {}
+                f:scheme: {}
+              f:initialDelaySeconds: {}
+              f:periodSeconds: {}
+              f:successThreshold: {}
+              f:timeoutSeconds: {}
+            f:resources:
+              .: {}
+              f:limits:
+                .: {}
+                f:cpu: {}
+                f:memory: {}
+              f:requests:
+                .: {}
+                f:cpu: {}
+                f:memory: {}
+            f:terminationMessagePath: {}
+            f:terminationMessagePolicy: {}
+            f:volumeMounts:
+              .: {}
+              k:{"mountPath":"/mnt/secrets"}:
+                .: {}
+                f:mountPath: {}
+                f:name: {}
+                f:readOnly: {}
+        f:dnsPolicy: {}
+        f:enableServiceLinks: {}
+        f:restartPolicy: {}
+        f:schedulerName: {}
+        f:securityContext: {}
+        f:serviceAccount: {}
+        f:serviceAccountName: {}
+        f:terminationGracePeriodSeconds: {}
+        f:volumes:
+          .: {}
+          k:{"name":"secrets-store"}:
+            .: {}
+            f:csi:
+              .: {}
+              f:driver: {}
+              f:readOnly: {}
+              f:volumeAttributes:
+                .: {}
+                f:secretProviderClass: {}
+            f:name: {}
+    manager: kube-controller-manager
+    operation: Update
+    time: '2025-11-18T01:18:17Z'
+  - apiVersion: v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        f:conditions:
+          k:{"type":"ContainersReady"}:
+            .: {}
+            f:lastProbeTime: {}
+            f:lastTransitionTime: {}
+            f:message: {}
+            f:reason: {}
+            f:status: {}
+            f:type: {}
+          k:{"type":"Initialized"}:
+            .: {}
+            f:lastProbeTime: {}
+            f:lastTransitionTime: {}
+            f:status: {}
+            f:type: {}
+          k:{"type":"PodReadyToStartContainers"}:
+            .: {}
+            f:lastProbeTime: {}
+            f:lastTransitionTime: {}
+            f:status: {}
+            f:type: {}
+          k:{"type":"Ready"}:
+            .: {}
+            f:lastProbeTime: {}
+            f:lastTransitionTime: {}
+            f:message: {}
+            f:reason: {}
+            f:status: {}
+            f:type: {}
+        f:containerStatuses: {}
+        f:hostIP: {}
+        f:hostIPs: {}
+        f:phase: {}
+        f:podIP: {}
+        f:podIPs:
+          .: {}
+          k:{"ip":"10.128.64.243"}:
+            .: {}
+            f:ip: {}
+        f:startTime: {}
+    manager: kubelet
+    operation: Update
+    subresource: status
+    time: '2025-11-18T01:18:23Z'
+  name: credential-refresher-1-688d67cbd8-fpg9c
+  namespace: msi-credential-refresher
+  ownerReferences:
+  - apiVersion: apps/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: ReplicaSet
+    name: credential-refresher-1-688d67cbd8
+    uid: 670a344b-07d5-41d6-8ab0-05e9d99d132c
+  resourceVersion: '4436070'
+  uid: b3546137-9d42-45bc-8b71-9c6243054f8d
+spec:
+  containers:
+  - args:
+    - --keyvault-uri=https://ah-int-mi-ln-1.vault.azure.net/
+    - --audience=https://serviceidentity.azure.net
+    - --fpsp-client-id=
+    - --fpsp-tenant-id=72f988bf-86f1-41af-91ab-2d7cd011db47
+    - --fpsp-cert-path=/mnt/secrets/msi-refresher
+    - --early-refresh-frequency=0
+    env:
+    - name: AZURE_CLIENT_ID
+      value: e9492091-1743-4db8-8840-2d26496fc4ec
+    - name: AZURE_TENANT_ID
+      value: 72f988bf-86f1-41af-91ab-2d7cd011db47
+    - name: AZURE_FEDERATED_TOKEN_FILE
+      value: /var/run/secrets/azure/tokens/azure-identity-token
+    - name: AZURE_AUTHORITY_HOST
+      value: https://login.microsoftonline.com/
+    image: arohcpsvcint.azurecr.io/credential-refresher@sha256:3d81f77752176084d53dba4442b4973164e0e2fb6427d76c75f710d76abc579e
+    imagePullPolicy: IfNotPresent
+    name: credential-refresher
+    ports:
+    - containerPort: 8080
+      name: http
+      protocol: TCP
+    readinessProbe:
+      failureThreshold: 3
+      httpGet:
+        path: /healthz
+        port: 8081
+        scheme: HTTP
+      initialDelaySeconds: 2
+      periodSeconds: 5
+      successThreshold: 1
+      timeoutSeconds: 1
+    resources:
+      limits:
+        cpu: 200m
+        memory: 256Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
+    volumeMounts:
+    - mountPath: /mnt/secrets
+      name: secrets-store
+      readOnly: true
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: kube-api-access-pslrz
+      readOnly: true
+    - mountPath: /var/run/secrets/azure/tokens
+      name: azure-identity-token
+      readOnly: true
+  dnsPolicy: ClusterFirst
+  enableServiceLinks: true
+  imagePullSecrets:
+  - name: acr-pull-credential-refresher-pull-binding
+  nodeName: aks-user2-61009598-vmss000000
+  preemptionPolicy: PreemptLowerPriority
+  priority: 0
+  restartPolicy: Always
+  schedulerName: default-scheduler
+  securityContext: {}
+  serviceAccount: msi-credential-refresher
+  serviceAccountName: msi-credential-refresher
+  terminationGracePeriodSeconds: 30
+  tolerations:
+  - effect: NoExecute
+    key: node.kubernetes.io/not-ready
+    operator: Exists
+    tolerationSeconds: 300
+  - effect: NoExecute
+    key: node.kubernetes.io/unreachable
+    operator: Exists
+    tolerationSeconds: 300
+  - effect: NoSchedule
+    key: node.kubernetes.io/memory-pressure
+    operator: Exists
+  volumes:
+  - csi:
+      driver: secrets-store.csi.k8s.io
+      readOnly: true
+      volumeAttributes:
+        secretProviderClass: azure-secret-provider-class
+    name: secrets-store
+  - name: kube-api-access-pslrz
+    projected:
+      defaultMode: 420
+      sources:
+      - serviceAccountToken:
+          expirationSeconds: 3607
+          path: token
+      - configMap:
+          items:
+          - key: ca.crt
+            path: ca.crt
+          name: kube-root-ca.crt
+      - downwardAPI:
+          items:
+          - fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+            path: namespace
+  - name: azure-identity-token
+    projected:
+      defaultMode: 420
+      sources:
+      - serviceAccountToken:
+          audience: api://AzureADTokenExchange
+          expirationSeconds: 3600
+          path: azure-identity-token
+status:
+  conditions:
+  - lastProbeTime: null
+    lastTransitionTime: '2025-11-18T01:18:20Z'
+    status: 'True'
+    type: PodReadyToStartContainers
+  - lastProbeTime: null
+    lastTransitionTime: '2025-11-18T01:18:18Z'
+    status: 'True'
+    type: Initialized
+  - lastProbeTime: null
+    lastTransitionTime: '2025-11-18T01:18:18Z'
+    message: 'containers with unready status: [credential-refresher]'
+    reason: ContainersNotReady
+    status: 'False'
+    type: Ready
+  - lastProbeTime: null
+    lastTransitionTime: '2025-11-18T01:18:18Z'
+    message: 'containers with unready status: [credential-refresher]'
+    reason: ContainersNotReady
+    status: 'False'
+    type: ContainersReady
+  - lastProbeTime: null
+    lastTransitionTime: '2025-11-18T01:18:18Z'
+    status: 'True'
+    type: PodScheduled
+  containerStatuses:
+  - containerID: containerd://6a6c890aedb091ad9aa2a9e420ab6749d8452f830f387cceddd46140f26244d6
+    image: sha256:575d81b9648d313177851b46772aef2e23971f407197702e0f82eda5ac9c06ed
+    imageID: arohcpsvcint.azurecr.io/credential-refresher@sha256:3d81f77752176084d53dba4442b4973164e0e2fb6427d76c75f710d76abc579e
+    lastState:
+      terminated:
+        containerID: containerd://6a6c890aedb091ad9aa2a9e420ab6749d8452f830f387cceddd46140f26244d6
+        exitCode: 1
+        finishedAt: '2025-11-18T01:18:20Z'
+        reason: Error
+        startedAt: '2025-11-18T01:18:20Z'
+    name: credential-refresher
+    ready: false
+    restartCount: 1
+    started: false
+    state:
+      waiting:
+        message: back-off 10s restarting failed container=credential-refresher pod=credential-refresher-1-688d67cbd8-fpg9c_msi-credential-refresher(b3546137-9d42-45bc-8b71-9c6243054f8d)
+        reason: CrashLoopBackOff
+    volumeMounts:
+    - mountPath: /mnt/secrets
+      name: secrets-store
+      readOnly: true
+      recursiveReadOnly: Disabled
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: kube-api-access-pslrz
+      readOnly: true
+      recursiveReadOnly: Disabled
+    - mountPath: /var/run/secrets/azure/tokens
+      name: azure-identity-token
+      readOnly: true
+      recursiveReadOnly: Disabled
+  hostIP: 10.128.8.7
+  hostIPs:
+  - ip: 10.128.8.7
+  phase: Running
+  podIP: 10.128.64.243
+  podIPs:
+  - ip: 10.128.64.243
+  qosClass: Burstable
+  startTime: '2025-11-18T01:18:18Z'
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    rollme: MtBWN
+  creationTimestamp: '2025-11-18T01:12:35Z'
+  generateName: credential-refresher-1-7bd4586655-
+  labels:
+    app: credential-refresher-1
+    azure.workload.identity/use: 'true'
+    pod-template-hash: 7bd4586655
+  managedFields:
+  - apiVersion: v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:rollme: {}
+        f:generateName: {}
+        f:labels:
+          .: {}
+          f:app: {}
+          f:azure.workload.identity/use: {}
+          f:pod-template-hash: {}
+        f:ownerReferences:
+          .: {}
+          k:{"uid":"7adac1db-faeb-4cd6-bc2b-ce7367033d9e"}: {}
+      f:spec:
+        f:containers:
+          k:{"name":"credential-refresher"}:
+            .: {}
+            f:args: {}
+            f:image: {}
+            f:imagePullPolicy: {}
+            f:name: {}
+            f:ports:
+              .: {}
+              k:{"containerPort":8080,"protocol":"TCP"}:
+                .: {}
+                f:containerPort: {}
+                f:name: {}
+                f:protocol: {}
+            f:readinessProbe:
+              .: {}
+              f:failureThreshold: {}
+              f:httpGet:
+                .: {}
+                f:path: {}
+                f:port: {}
+                f:scheme: {}
+              f:initialDelaySeconds: {}
+              f:periodSeconds: {}
+              f:successThreshold: {}
+              f:timeoutSeconds: {}
+            f:resources:
+              .: {}
+              f:limits:
+                .: {}
+                f:cpu: {}
+                f:memory: {}
+              f:requests:
+                .: {}
+                f:cpu: {}
+                f:memory: {}
+            f:terminationMessagePath: {}
+            f:terminationMessagePolicy: {}
+            f:volumeMounts:
+              .: {}
+              k:{"mountPath":"/mnt/secrets"}:
+                .: {}
+                f:mountPath: {}
+                f:name: {}
+                f:readOnly: {}
+        f:dnsPolicy: {}
+        f:enableServiceLinks: {}
+        f:restartPolicy: {}
+        f:schedulerName: {}
+        f:securityContext: {}
+        f:serviceAccount: {}
+        f:serviceAccountName: {}
+        f:terminationGracePeriodSeconds: {}
+        f:volumes:
+          .: {}
+          k:{"name":"secrets-store"}:
+            .: {}
+            f:csi:
+              .: {}
+              f:driver: {}
+              f:readOnly: {}
+              f:volumeAttributes:
+                .: {}
+                f:secretProviderClass: {}
+            f:name: {}
+    manager: kube-controller-manager
+    operation: Update
+    time: '2025-11-18T01:12:35Z'
+  - apiVersion: v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        f:conditions:
+          k:{"type":"ContainersReady"}:
+            .: {}
+            f:lastProbeTime: {}
+            f:lastTransitionTime: {}
+            f:message: {}
+            f:reason: {}
+            f:status: {}
+            f:type: {}
+          k:{"type":"Initialized"}:
+            .: {}
+            f:lastProbeTime: {}
+            f:lastTransitionTime: {}
+            f:status: {}
+            f:type: {}
+          k:{"type":"PodReadyToStartContainers"}:
+            .: {}
+            f:lastProbeTime: {}
+            f:lastTransitionTime: {}
+            f:status: {}
+            f:type: {}
+          k:{"type":"Ready"}:
+            .: {}
+            f:lastProbeTime: {}
+            f:lastTransitionTime: {}
+            f:message: {}
+            f:reason: {}
+            f:status: {}
+            f:type: {}
+        f:containerStatuses: {}
+        f:hostIP: {}
+        f:hostIPs: {}
+        f:phase: {}
+        f:podIP: {}
+        f:podIPs:
+          .: {}
+          k:{"ip":"10.128.64.180"}:
+            .: {}
+            f:ip: {}
+        f:startTime: {}
+    manager: kubelet
+    operation: Update
+    subresource: status
+    time: '2025-11-18T01:16:03Z'
+  name: credential-refresher-1-7bd4586655-7kkgg
+  namespace: msi-credential-refresher
+  ownerReferences:
+  - apiVersion: apps/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: ReplicaSet
+    name: credential-refresher-1-7bd4586655
+    uid: 7adac1db-faeb-4cd6-bc2b-ce7367033d9e
+  resourceVersion: '4434819'
+  uid: dff359ce-6b61-4fff-8101-29d042057b8a
+spec:
+  containers:
+  - args:
+    - --keyvault-uri=https://ah-int-mi-ln-1.vault.azure.net/
+    - --audience=https://serviceidentity.azure.net
+    - --fpsp-client-id=
+    - --fpsp-tenant-id=72f988bf-86f1-41af-91ab-2d7cd011db47
+    - --fpsp-cert-path=/mnt/secrets/msi-refresher
+    - --early-refresh-frequency=0
+    env:
+    - name: AZURE_CLIENT_ID
+      value: e9492091-1743-4db8-8840-2d26496fc4ec
+    - name: AZURE_TENANT_ID
+      value: 72f988bf-86f1-41af-91ab-2d7cd011db47
+    - name: AZURE_FEDERATED_TOKEN_FILE
+      value: /var/run/secrets/azure/tokens/azure-identity-token
+    - name: AZURE_AUTHORITY_HOST
+      value: https://login.microsoftonline.com/
+    image: arohcpsvcint.azurecr.io/credential-refresher@sha256:3d81f77752176084d53dba4442b4973164e0e2fb6427d76c75f710d76abc579e
+    imagePullPolicy: IfNotPresent
+    name: credential-refresher
+    ports:
+    - containerPort: 8080
+      name: http
+      protocol: TCP
+    readinessProbe:
+      failureThreshold: 3
+      httpGet:
+        path: /healthz
+        port: 8081
+        scheme: HTTP
+      initialDelaySeconds: 2
+      periodSeconds: 5
+      successThreshold: 1
+      timeoutSeconds: 1
+    resources:
+      limits:
+        cpu: 200m
+        memory: 256Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
+    volumeMounts:
+    - mountPath: /mnt/secrets
+      name: secrets-store
+      readOnly: true
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: kube-api-access-pxvhr
+      readOnly: true
+    - mountPath: /var/run/secrets/azure/tokens
+      name: azure-identity-token
+      readOnly: true
+  dnsPolicy: ClusterFirst
+  enableServiceLinks: true
+  imagePullSecrets:
+  - name: acr-pull-credential-refresher-pull-binding
+  nodeName: aks-user2-61009598-vmss000001
+  preemptionPolicy: PreemptLowerPriority
+  priority: 0
+  restartPolicy: Always
+  schedulerName: default-scheduler
+  securityContext: {}
+  serviceAccount: msi-credential-refresher
+  serviceAccountName: msi-credential-refresher
+  terminationGracePeriodSeconds: 30
+  tolerations:
+  - effect: NoExecute
+    key: node.kubernetes.io/not-ready
+    operator: Exists
+    tolerationSeconds: 300
+  - effect: NoExecute
+    key: node.kubernetes.io/unreachable
+    operator: Exists
+    tolerationSeconds: 300
+  - effect: NoSchedule
+    key: node.kubernetes.io/memory-pressure
+    operator: Exists
+  volumes:
+  - csi:
+      driver: secrets-store.csi.k8s.io
+      readOnly: true
+      volumeAttributes:
+        secretProviderClass: azure-secret-provider-class
+    name: secrets-store
+  - name: kube-api-access-pxvhr
+    projected:
+      defaultMode: 420
+      sources:
+      - serviceAccountToken:
+          expirationSeconds: 3607
+          path: token
+      - configMap:
+          items:
+          - key: ca.crt
+            path: ca.crt
+          name: kube-root-ca.crt
+      - downwardAPI:
+          items:
+          - fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+            path: namespace
+  - name: azure-identity-token
+    projected:
+      defaultMode: 420
+      sources:
+      - serviceAccountToken:
+          audience: api://AzureADTokenExchange
+          expirationSeconds: 3600
+          path: azure-identity-token
+status:
+  conditions:
+  - lastProbeTime: null
+    lastTransitionTime: '2025-11-18T01:12:37Z'
+    status: 'True'
+    type: PodReadyToStartContainers
+  - lastProbeTime: null
+    lastTransitionTime: '2025-11-18T01:12:35Z'
+    status: 'True'
+    type: Initialized
+  - lastProbeTime: null
+    lastTransitionTime: '2025-11-18T01:12:35Z'
+    message: 'containers with unready status: [credential-refresher]'
+    reason: ContainersNotReady
+    status: 'False'
+    type: Ready
+  - lastProbeTime: null
+    lastTransitionTime: '2025-11-18T01:12:35Z'
+    message: 'containers with unready status: [credential-refresher]'
+    reason: ContainersNotReady
+    status: 'False'
+    type: ContainersReady
+  - lastProbeTime: null
+    lastTransitionTime: '2025-11-18T01:12:35Z'
+    status: 'True'
+    type: PodScheduled
+  containerStatuses:
+  - containerID: containerd://143215a97b708f2a0610020e95c326399e00484ad6b365a73987f381b88f84eb
+    image: sha256:575d81b9648d313177851b46772aef2e23971f407197702e0f82eda5ac9c06ed
+    imageID: arohcpsvcint.azurecr.io/credential-refresher@sha256:3d81f77752176084d53dba4442b4973164e0e2fb6427d76c75f710d76abc579e
+    lastState:
+      terminated:
+        containerID: containerd://143215a97b708f2a0610020e95c326399e00484ad6b365a73987f381b88f84eb
+        exitCode: 1
+        finishedAt: '2025-11-18T01:15:58Z'
+        reason: Error
+        startedAt: '2025-11-18T01:15:58Z'
+    name: credential-refresher
+    ready: false
+    restartCount: 5
+    started: false
+    state:
+      waiting:
+        message: back-off 2m40s restarting failed container=credential-refresher pod=credential-refresher-1-7bd4586655-7kkgg_msi-credential-refresher(dff359ce-6b61-4fff-8101-29d042057b8a)
+        reason: CrashLoopBackOff
+    volumeMounts:
+    - mountPath: /mnt/secrets
+      name: secrets-store
+      readOnly: true
+      recursiveReadOnly: Disabled
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: kube-api-access-pxvhr
+      readOnly: true
+      recursiveReadOnly: Disabled
+    - mountPath: /var/run/secrets/azure/tokens
+      name: azure-identity-token
+      readOnly: true
+      recursiveReadOnly: Disabled
+  hostIP: 10.128.8.8
+  hostIPs:
+  - ip: 10.128.8.8
+  phase: Running
+  podIP: 10.128.64.180
+  podIPs:
+  - ip: 10.128.64.180
+  qosClass: Burstable
+  startTime: '2025-11-18T01:12:35Z'
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    rollme: qRCvi
+  creationTimestamp: '2025-11-18T01:18:18Z'
+  generateName: credential-refresher-2-68469f5ddc-
+  labels:
+    app: credential-refresher-2
+    azure.workload.identity/use: 'true'
+    pod-template-hash: 68469f5ddc
+  managedFields:
+  - apiVersion: v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:rollme: {}
+        f:generateName: {}
+        f:labels:
+          .: {}
+          f:app: {}
+          f:azure.workload.identity/use: {}
+          f:pod-template-hash: {}
+        f:ownerReferences:
+          .: {}
+          k:{"uid":"0f41add3-f582-4fbe-9cae-7aeb99d190c2"}: {}
+      f:spec:
+        f:containers:
+          k:{"name":"credential-refresher"}:
+            .: {}
+            f:args: {}
+            f:image: {}
+            f:imagePullPolicy: {}
+            f:name: {}
+            f:ports:
+              .: {}
+              k:{"containerPort":8080,"protocol":"TCP"}:
+                .: {}
+                f:containerPort: {}
+                f:name: {}
+                f:protocol: {}
+            f:readinessProbe:
+              .: {}
+              f:failureThreshold: {}
+              f:httpGet:
+                .: {}
+                f:path: {}
+                f:port: {}
+                f:scheme: {}
+              f:initialDelaySeconds: {}
+              f:periodSeconds: {}
+              f:successThreshold: {}
+              f:timeoutSeconds: {}
+            f:resources:
+              .: {}
+              f:limits:
+                .: {}
+                f:cpu: {}
+                f:memory: {}
+              f:requests:
+                .: {}
+                f:cpu: {}
+                f:memory: {}
+            f:terminationMessagePath: {}
+            f:terminationMessagePolicy: {}
+            f:volumeMounts:
+              .: {}
+              k:{"mountPath":"/mnt/secrets"}:
+                .: {}
+                f:mountPath: {}
+                f:name: {}
+                f:readOnly: {}
+        f:dnsPolicy: {}
+        f:enableServiceLinks: {}
+        f:restartPolicy: {}
+        f:schedulerName: {}
+        f:securityContext: {}
+        f:serviceAccount: {}
+        f:serviceAccountName: {}
+        f:terminationGracePeriodSeconds: {}
+        f:volumes:
+          .: {}
+          k:{"name":"secrets-store"}:
+            .: {}
+            f:csi:
+              .: {}
+              f:driver: {}
+              f:readOnly: {}
+              f:volumeAttributes:
+                .: {}
+                f:secretProviderClass: {}
+            f:name: {}
+    manager: kube-controller-manager
+    operation: Update
+    time: '2025-11-18T01:18:18Z'
+  - apiVersion: v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        f:conditions:
+          k:{"type":"ContainersReady"}:
+            .: {}
+            f:lastProbeTime: {}
+            f:lastTransitionTime: {}
+            f:message: {}
+            f:reason: {}
+            f:status: {}
+            f:type: {}
+          k:{"type":"Initialized"}:
+            .: {}
+            f:lastProbeTime: {}
+            f:lastTransitionTime: {}
+            f:status: {}
+            f:type: {}
+          k:{"type":"PodReadyToStartContainers"}:
+            .: {}
+            f:lastProbeTime: {}
+            f:lastTransitionTime: {}
+            f:status: {}
+            f:type: {}
+          k:{"type":"Ready"}:
+            .: {}
+            f:lastProbeTime: {}
+            f:lastTransitionTime: {}
+            f:message: {}
+            f:reason: {}
+            f:status: {}
+            f:type: {}
+        f:containerStatuses: {}
+        f:hostIP: {}
+        f:hostIPs: {}
+        f:phase: {}
+        f:podIP: {}
+        f:podIPs:
+          .: {}
+          k:{"ip":"10.128.64.187"}:
+            .: {}
+            f:ip: {}
+        f:startTime: {}
+    manager: kubelet
+    operation: Update
+    subresource: status
+    time: '2025-11-18T01:18:23Z'
+  name: credential-refresher-2-68469f5ddc-jrp9s
+  namespace: msi-credential-refresher
+  ownerReferences:
+  - apiVersion: apps/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: ReplicaSet
+    name: credential-refresher-2-68469f5ddc
+    uid: 0f41add3-f582-4fbe-9cae-7aeb99d190c2
+  resourceVersion: '4436068'
+  uid: df351440-87f8-4d40-bbfe-d6048d52ebf3
+spec:
+  containers:
+  - args:
+    - --keyvault-uri=https://ah-int-mi-ln-1.vault.azure.net/
+    - --audience=https://serviceidentity.azure.net
+    - --fpsp-client-id=
+    - --fpsp-tenant-id=72f988bf-86f1-41af-91ab-2d7cd011db47
+    - --fpsp-cert-path=/mnt/secrets/msi-refresher
+    - --early-refresh-frequency=0
+    env:
+    - name: AZURE_CLIENT_ID
+      value: e9492091-1743-4db8-8840-2d26496fc4ec
+    - name: AZURE_TENANT_ID
+      value: 72f988bf-86f1-41af-91ab-2d7cd011db47
+    - name: AZURE_FEDERATED_TOKEN_FILE
+      value: /var/run/secrets/azure/tokens/azure-identity-token
+    - name: AZURE_AUTHORITY_HOST
+      value: https://login.microsoftonline.com/
+    image: arohcpsvcint.azurecr.io/credential-refresher@sha256:3d81f77752176084d53dba4442b4973164e0e2fb6427d76c75f710d76abc579e
+    imagePullPolicy: IfNotPresent
+    name: credential-refresher
+    ports:
+    - containerPort: 8080
+      name: http
+      protocol: TCP
+    readinessProbe:
+      failureThreshold: 3
+      httpGet:
+        path: /healthz
+        port: 8081
+        scheme: HTTP
+      initialDelaySeconds: 2
+      periodSeconds: 5
+      successThreshold: 1
+      timeoutSeconds: 1
+    resources:
+      limits:
+        cpu: 200m
+        memory: 256Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
+    volumeMounts:
+    - mountPath: /mnt/secrets
+      name: secrets-store
+      readOnly: true
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: kube-api-access-lkdcw
+      readOnly: true
+    - mountPath: /var/run/secrets/azure/tokens
+      name: azure-identity-token
+      readOnly: true
+  dnsPolicy: ClusterFirst
+  enableServiceLinks: true
+  imagePullSecrets:
+  - name: acr-pull-credential-refresher-pull-binding
+  nodeName: aks-user2-61009598-vmss000001
+  preemptionPolicy: PreemptLowerPriority
+  priority: 0
+  restartPolicy: Always
+  schedulerName: default-scheduler
+  securityContext: {}
+  serviceAccount: msi-credential-refresher
+  serviceAccountName: msi-credential-refresher
+  terminationGracePeriodSeconds: 30
+  tolerations:
+  - effect: NoExecute
+    key: node.kubernetes.io/not-ready
+    operator: Exists
+    tolerationSeconds: 300
+  - effect: NoExecute
+    key: node.kubernetes.io/unreachable
+    operator: Exists
+    tolerationSeconds: 300
+  - effect: NoSchedule
+    key: node.kubernetes.io/memory-pressure
+    operator: Exists
+  volumes:
+  - csi:
+      driver: secrets-store.csi.k8s.io
+      readOnly: true
+      volumeAttributes:
+        secretProviderClass: azure-secret-provider-class
+    name: secrets-store
+  - name: kube-api-access-lkdcw
+    projected:
+      defaultMode: 420
+      sources:
+      - serviceAccountToken:
+          expirationSeconds: 3607
+          path: token
+      - configMap:
+          items:
+          - key: ca.crt
+            path: ca.crt
+          name: kube-root-ca.crt
+      - downwardAPI:
+          items:
+          - fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+            path: namespace
+  - name: azure-identity-token
+    projected:
+      defaultMode: 420
+      sources:
+      - serviceAccountToken:
+          audience: api://AzureADTokenExchange
+          expirationSeconds: 3600
+          path: azure-identity-token
+status:
+  conditions:
+  - lastProbeTime: null
+    lastTransitionTime: '2025-11-18T01:18:20Z'
+    status: 'True'
+    type: PodReadyToStartContainers
+  - lastProbeTime: null
+    lastTransitionTime: '2025-11-18T01:18:18Z'
+    status: 'True'
+    type: Initialized
+  - lastProbeTime: null
+    lastTransitionTime: '2025-11-18T01:18:18Z'
+    message: 'containers with unready status: [credential-refresher]'
+    reason: ContainersNotReady
+    status: 'False'
+    type: Ready
+  - lastProbeTime: null
+    lastTransitionTime: '2025-11-18T01:18:18Z'
+    message: 'containers with unready status: [credential-refresher]'
+    reason: ContainersNotReady
+    status: 'False'
+    type: ContainersReady
+  - lastProbeTime: null
+    lastTransitionTime: '2025-11-18T01:18:18Z'
+    status: 'True'
+    type: PodScheduled
+  containerStatuses:
+  - containerID: containerd://36e67caef42f1e1ae0d59d54d297b9b887896c1ede72b18d8c931e6d943eb9c9
+    image: sha256:575d81b9648d313177851b46772aef2e23971f407197702e0f82eda5ac9c06ed
+    imageID: arohcpsvcint.azurecr.io/credential-refresher@sha256:3d81f77752176084d53dba4442b4973164e0e2fb6427d76c75f710d76abc579e
+    lastState:
+      terminated:
+        containerID: containerd://36e67caef42f1e1ae0d59d54d297b9b887896c1ede72b18d8c931e6d943eb9c9
+        exitCode: 1
+        finishedAt: '2025-11-18T01:18:21Z'
+        reason: Error
+        startedAt: '2025-11-18T01:18:21Z'
+    name: credential-refresher
+    ready: false
+    restartCount: 1
+    started: false
+    state:
+      waiting:
+        message: back-off 10s restarting failed container=credential-refresher pod=credential-refresher-2-68469f5ddc-jrp9s_msi-credential-refresher(df351440-87f8-4d40-bbfe-d6048d52ebf3)
+        reason: CrashLoopBackOff
+    volumeMounts:
+    - mountPath: /mnt/secrets
+      name: secrets-store
+      readOnly: true
+      recursiveReadOnly: Disabled
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: kube-api-access-lkdcw
+      readOnly: true
+      recursiveReadOnly: Disabled
+    - mountPath: /var/run/secrets/azure/tokens
+      name: azure-identity-token
+      readOnly: true
+      recursiveReadOnly: Disabled
+  hostIP: 10.128.8.8
+  hostIPs:
+  - ip: 10.128.8.8
+  phase: Running
+  podIP: 10.128.64.187
+  podIPs:
+  - ip: 10.128.64.187
+  qosClass: Burstable
+  startTime: '2025-11-18T01:18:18Z'
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  annotations:
+    meta.helm.sh/release-name: credential-refresher
+    meta.helm.sh/release-namespace: msi-credential-refresher
+  creationTimestamp: '2025-11-13T19:56:51Z'
+  generation: 1
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    release: prometheus
+  managedFields:
+  - apiVersion: monitoring.coreos.com/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          f:meta.helm.sh/release-name: {}
+          f:meta.helm.sh/release-namespace: {}
+        f:labels:
+          f:app.kubernetes.io/managed-by: {}
+          f:release: {}
+      f:spec:
+        f:namespaceSelector:
+          f:matchNames: {}
+        f:podMetricsEndpoints: {}
+        f:selector: {}
+    manager: helm-test
+    operation: Apply
+  - apiVersion: monitoring.coreos.com/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          f:meta.helm.sh/release-name: {}
+          f:meta.helm.sh/release-namespace: {}
+        f:labels:
+          f:app.kubernetes.io/managed-by: {}
+          f:release: {}
+      f:spec:
+        f:namespaceSelector:
+          f:matchNames: {}
+        f:podMetricsEndpoints: {}
+        f:selector: {}
+    manager: helmdeploy
+    operation: Apply
+  - apiVersion: monitoring.coreos.com/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          f:meta.helm.sh/release-name: {}
+          f:meta.helm.sh/release-namespace: {}
+        f:labels:
+          f:app.kubernetes.io/managed-by: {}
+          f:release: {}
+      f:spec:
+        f:namespaceSelector:
+          f:matchNames: {}
+        f:podMetricsEndpoints: {}
+        f:selector: {}
+    manager: aro
+    operation: Apply
+    time: '2025-11-13T19:56:51Z'
+  name: credential-refresher-monitor
+  namespace: msi-credential-refresher
+  resourceVersion: '4338952'
+  uid: 35ed2a53-0c2d-4386-90d4-99fa702021b5
+spec:
+  namespaceSelector:
+    matchNames:
+    - msi-credential-refresher
+  podMetricsEndpoints:
+  - interval: 30s
+    path: /metrics
+    port: http
+  selector:
+    matchLabels:
+      app: credential-refresher
+---
+apiVersion: secrets-store.csi.x-k8s.io/v1
+kind: SecretProviderClass
+metadata:
+  annotations:
+    meta.helm.sh/release-name: credential-refresher
+    meta.helm.sh/release-namespace: msi-credential-refresher
+  creationTimestamp: '2025-11-13T19:56:52Z'
+  generation: 3
+  labels:
+    app.kubernetes.io/managed-by: Helm
+  managedFields:
+  - apiVersion: secrets-store.csi.x-k8s.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          f:meta.helm.sh/release-name: {}
+          f:meta.helm.sh/release-namespace: {}
+        f:labels:
+          f:app.kubernetes.io/managed-by: {}
+      f:spec:
+        f:parameters:
+          f:clientID: {}
+          f:keyvaultName: {}
+          f:objects: {}
+          f:tenantId: {}
+          f:usePodIdentity: {}
+        f:provider: {}
+    manager: helmdeploy
+    operation: Apply
+  - apiVersion: secrets-store.csi.x-k8s.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          f:meta.helm.sh/release-name: {}
+          f:meta.helm.sh/release-namespace: {}
+        f:labels:
+          f:app.kubernetes.io/managed-by: {}
+      f:spec:
+        f:parameters:
+          f:keyvaultName: {}
+          f:objects: {}
+          f:tenantId: {}
+          f:usePodIdentity: {}
+        f:provider: {}
+    manager: helm-test
+    operation: Apply
+    time: '2025-11-14T22:43:24Z'
+  - apiVersion: secrets-store.csi.x-k8s.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          f:meta.helm.sh/release-name: {}
+          f:meta.helm.sh/release-namespace: {}
+        f:labels:
+          f:app.kubernetes.io/managed-by: {}
+      f:spec:
+        f:parameters:
+          f:clientID: {}
+          f:keyvaultName: {}
+          f:objects: {}
+          f:tenantId: {}
+          f:usePodIdentity: {}
+        f:provider: {}
+    manager: aro
+    operation: Apply
+    time: '2025-11-14T23:58:48Z'
+  name: azure-secret-provider-class
+  namespace: msi-credential-refresher
+  resourceVersion: '4338963'
+  uid: 0bd1a967-db9f-4388-81e4-a22682b71e4a
+spec:
+  parameters:
+    clientID: e9492091-1743-4db8-8840-2d26496fc4ec
+    keyvaultName: arohcpint-svc-ln
+    objects: "array:\n  - |\n    objectName: \"msi-refresher\"\n    objectType: \"\
+      secret\"\n"
+    tenantId: 72f988bf-86f1-41af-91ab-2d7cd011db47
+    usePodIdentity: 'false'
+  provider: azure
+---
+apiVersion: v1
+imagePullSecrets:
+- name: acr-pull-credential-refresher-pull-binding
+kind: ServiceAccount
+metadata:
+  annotations:
+    azure.workload.identity/client-id: e9492091-1743-4db8-8840-2d26496fc4ec
+    azure.workload.identity/tenant-id: 72f988bf-86f1-41af-91ab-2d7cd011db47
+    meta.helm.sh/release-name: credential-refresher
+    meta.helm.sh/release-namespace: msi-credential-refresher
+  creationTimestamp: '2025-11-13T19:56:50Z'
+  labels:
+    app.kubernetes.io/managed-by: Helm
+  managedFields:
+  - apiVersion: v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          f:azure.workload.identity/client-id: {}
+          f:azure.workload.identity/tenant-id: {}
+          f:meta.helm.sh/release-name: {}
+          f:meta.helm.sh/release-namespace: {}
+        f:labels:
+          f:app.kubernetes.io/managed-by: {}
+    manager: helmdeploy
+    operation: Apply
+  - apiVersion: v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          f:azure.workload.identity/tenant-id: {}
+          f:meta.helm.sh/release-name: {}
+          f:meta.helm.sh/release-namespace: {}
+        f:labels:
+          f:app.kubernetes.io/managed-by: {}
+    manager: helm-test
+    operation: Apply
+    time: '2025-11-14T22:43:20Z'
+  - apiVersion: v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          f:azure.workload.identity/client-id: {}
+          f:azure.workload.identity/tenant-id: {}
+          f:meta.helm.sh/release-name: {}
+          f:meta.helm.sh/release-namespace: {}
+        f:labels:
+          f:app.kubernetes.io/managed-by: {}
+    manager: aro
+    operation: Apply
+    time: '2025-11-14T23:58:46Z'
+  - apiVersion: v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:imagePullSecrets: {}
+    manager: manager
+    operation: Update
+    time: '2025-11-13T19:56:51Z'
+  name: msi-credential-refresher
+  namespace: msi-credential-refresher
+  resourceVersion: '4338908'
+  uid: 5af02b04-cedd-4d64-8762-cb1255f01d73
+---
+apiVersion: acrpull.microsoft.com/v1beta2
+kind: AcrPullBinding
+metadata:
+  annotations:
+    meta.helm.sh/release-name: credential-refresher
+    meta.helm.sh/release-namespace: msi-credential-refresher
+  creationTimestamp: '2025-11-13T19:56:51Z'
+  finalizers:
+  - msi-acrpull.microsoft.com
+  generation: 3
+  labels:
+    app.kubernetes.io/managed-by: Helm
+  managedFields:
+  - apiVersion: acrpull.microsoft.com/v1beta2
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          f:meta.helm.sh/release-name: {}
+          f:meta.helm.sh/release-namespace: {}
+        f:labels:
+          f:app.kubernetes.io/managed-by: {}
+      f:spec:
+        f:acr:
+          f:environment: {}
+          f:scope: {}
+          f:server: {}
+        f:auth:
+          f:workloadIdentity:
+            f:clientID: {}
+            f:serviceAccountRef: {}
+            f:tenantID: {}
+        f:serviceAccountName: {}
+    manager: helmdeploy
+    operation: Apply
+  - apiVersion: acrpull.microsoft.com/v1beta2
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          f:meta.helm.sh/release-name: {}
+          f:meta.helm.sh/release-namespace: {}
+        f:labels:
+          f:app.kubernetes.io/managed-by: {}
+      f:spec:
+        f:acr:
+          f:environment: {}
+          f:scope: {}
+          f:server: {}
+        f:auth:
+          f:workloadIdentity:
+            f:serviceAccountRef: {}
+        f:serviceAccountName: {}
+    manager: helm-test
+    operation: Apply
+    time: '2025-11-14T22:43:22Z'
+  - apiVersion: acrpull.microsoft.com/v1beta2
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          f:meta.helm.sh/release-name: {}
+          f:meta.helm.sh/release-namespace: {}
+        f:labels:
+          f:app.kubernetes.io/managed-by: {}
+      f:spec:
+        f:acr:
+          f:environment: {}
+          f:scope: {}
+          f:server: {}
+        f:auth:
+          f:workloadIdentity:
+            f:clientID: {}
+            f:serviceAccountRef: {}
+            f:tenantID: {}
+        f:serviceAccountName: {}
+    manager: aro
+    operation: Apply
+    time: '2025-11-14T23:58:47Z'
+  - apiVersion: acrpull.microsoft.com/v1beta2
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:finalizers:
+          .: {}
+          v:"msi-acrpull.microsoft.com": {}
+    manager: manager
+    operation: Update
+    time: '2025-11-13T19:56:51Z'
+  - apiVersion: acrpull.microsoft.com/v1beta2
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        .: {}
+        f:lastTokenRefreshTime: {}
+        f:tokenExpirationTime: {}
+    manager: manager
+    operation: Update
+    subresource: status
+    time: '2025-11-18T01:02:02Z'
+  name: credential-refresher-pull-binding
+  namespace: msi-credential-refresher
+  resourceVersion: '4427312'
+  uid: 9e8d56e6-0ef1-48e4-9981-1fb25946f4f2
+spec:
+  acr:
+    environment: PublicCloud
+    scope: repository:credential-refresher:pull
+    server: arohcpsvcint.azurecr.io
+  auth:
+    workloadIdentity:
+      clientID: 3f9f879a-4686-4b25-be44-26e4ff0d5dff
+      serviceAccountRef: msi-credential-refresher
+      tenantID: 72f988bf-86f1-41af-91ab-2d7cd011db47
+  serviceAccountName: msi-credential-refresher
+status:
+  lastTokenRefreshTime: '2025-11-18T01:02:02Z'
+  tokenExpirationTime: '2025-11-18T02:02:02Z'
