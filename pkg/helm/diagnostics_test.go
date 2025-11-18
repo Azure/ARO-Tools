@@ -6,12 +6,15 @@ import (
 	"os"
 	"testing"
 
-	"github.com/Azure/ARO-Tools/internal/testutil"
 	"github.com/go-logr/logr/testr"
+
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
+
 	"sigs.k8s.io/yaml"
+
+	"github.com/Azure/ARO-Tools/internal/testutil"
 )
 
 func TestProcessObject(t *testing.T) {
