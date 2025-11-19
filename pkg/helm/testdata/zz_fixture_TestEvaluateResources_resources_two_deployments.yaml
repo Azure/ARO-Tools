@@ -1,0 +1,43 @@
+OwnerRefs:
+- kind: Deployment
+  name: credential-refresher-1
+  namespace: msi-credential-refresher
+- kind: Deployment
+  name: credential-refresher-2
+  namespace: msi-credential-refresher
+Pods:
+- name: credential-refresher-1-688d67cbd8-cb5qd
+  namespace: msi-credential-refresher
+  phase: Running
+  state: credential-refresher:Waiting(CrashLoopBackOff)[restarts:1][not-ready]
+- name: credential-refresher-1-688d67cbd8-fpg9c
+  namespace: msi-credential-refresher
+  phase: Running
+  state: credential-refresher:Waiting(CrashLoopBackOff)[restarts:1][not-ready]
+- name: credential-refresher-1-7bd4586655-7kkgg
+  namespace: msi-credential-refresher
+  phase: Running
+  state: credential-refresher:Waiting(CrashLoopBackOff)[restarts:5][not-ready]
+- name: credential-refresher-2-68469f5ddc-jrp9s
+  namespace: msi-credential-refresher
+  phase: Running
+  state: credential-refresher:Waiting(CrashLoopBackOff)[restarts:1][not-ready]
+Resources:
+- kind: Deployment
+  name: credential-refresher-1
+  namespace: msi-credential-refresher
+- kind: Deployment
+  name: credential-refresher-2
+  namespace: msi-credential-refresher
+- kind: PodMonitor
+  name: credential-refresher-monitor
+  namespace: msi-credential-refresher
+- kind: SecretProviderClass
+  name: azure-secret-provider-class
+  namespace: msi-credential-refresher
+- kind: ServiceAccount
+  name: msi-credential-refresher
+  namespace: msi-credential-refresher
+- kind: AcrPullBinding
+  name: credential-refresher-pull-binding
+  namespace: msi-credential-refresher
