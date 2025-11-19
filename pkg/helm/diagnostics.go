@@ -18,22 +18,22 @@ import (
 )
 
 type PodInfo struct {
-	Name      string
-	Namespace string
-	Phase     string
-	State     string // container state summary
+	Name      string `json:"name,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
+	Phase     string `json:"phase,omitempty"`
+	State     string `json:"state,omitempty"` // container state summary
 }
 type ResourceInfo struct {
-	Kind      string
-	Name      string
-	Namespace string
+	Kind      string `json:"kind,omitempty"`
+	Name      string `json:"name,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
 }
 
 type OwnerRefInfo struct {
-	Kind          string
-	Name          string
-	Namespace     string
-	KustoDeepLink string
+	Kind          string `json:"kind,omitempty"`
+	Name          string `json:"name,omitempty"`
+	Namespace     string `json:"namespace,omitempty"`
+	KustoDeepLink string `json:"kustoDeepLink,omitempty"`
 }
 
 // isKustoConfigured checks if necessary options are set for Kusto diagnostics
