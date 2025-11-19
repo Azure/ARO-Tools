@@ -1,7 +1,0 @@
-Owner: null
-Pod:
-  Name: test-pod
-  Namespace: test-namespace
-  Phase: Running
-  State: test-container:Running
-Resource: null

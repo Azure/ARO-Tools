@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr/testr"
+	"github.com/google/go-cmp/cmp"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -19,8 +20,11 @@ import (
 
 func TestProcessObject(t *testing.T) {
 	tests := []struct {
-		name        string
-		inputObject *unstructured.Unstructured
+		name         string
+		inputObject  *unstructured.Unstructured
+		wantOwner    *OwnerRefInfo
+		wantResource *ResourceInfo
+		wantPod      *PodInfo
 	}{
 		{
 			name: "pod with running container",
@@ -48,6 +52,14 @@ func TestProcessObject(t *testing.T) {
 					},
 				},
 			},
+			wantOwner:    nil,
+			wantResource: nil,
+			wantPod: &PodInfo{
+				Name:      "test-pod",
+				Namespace: "test-namespace",
+				Phase:     "Running",
+				State:     "test-container:Running",
+			},
 		},
 		{
 			name: "deployment as owner resource",
@@ -61,6 +73,17 @@ func TestProcessObject(t *testing.T) {
 					},
 				},
 			},
+			wantOwner: &OwnerRefInfo{
+				Kind:      "Deployment",
+				Name:      "test-deployment",
+				Namespace: "test-namespace",
+			},
+			wantResource: &ResourceInfo{
+				Kind:      "Deployment",
+				Name:      "test-deployment",
+				Namespace: "test-namespace",
+			},
+			wantPod: nil,
 		},
 		{
 			name: "service as non-owner resource",
@@ -74,6 +97,13 @@ func TestProcessObject(t *testing.T) {
 					},
 				},
 			},
+			wantOwner: nil,
+			wantResource: &ResourceInfo{
+				Kind:      "Service",
+				Name:      "test-service",
+				Namespace: "test-namespace",
+			},
+			wantPod: nil,
 		},
 	}
 
@@ -84,17 +114,15 @@ func TestProcessObject(t *testing.T) {
 				t.Fatalf("processObject() error = %v", err)
 			}
 
-			results := struct {
-				Owner    *OwnerRefInfo
-				Resource *ResourceInfo
-				Pod      *PodInfo
-			}{
-				Owner:    gotOwner,
-				Resource: gotResource,
-				Pod:      gotPod,
+			if diff := cmp.Diff(tt.wantOwner, gotOwner); diff != "" {
+				t.Errorf("owner mismatch (-want +got):\n%s", diff)
 			}
-
-			testutil.CompareWithFixture(t, results)
+			if diff := cmp.Diff(tt.wantResource, gotResource); diff != "" {
+				t.Errorf("resource mismatch (-want +got):\n%s", diff)
+			}
+			if diff := cmp.Diff(tt.wantPod, gotPod); diff != "" {
+				t.Errorf("pod mismatch (-want +got):\n%s", diff)
+			}
 		})
 	}
 }
