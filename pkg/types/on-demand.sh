@@ -11,6 +11,7 @@ copyImageFromRegistry() {
             exit 1
         fi
     done
+    echo "Mirroring the source image '${SOURCE_REGISTRY}/${REPOSITORY}@${DIGEST}' to target registry '${TARGET_ACR}'."
     ACR_DOMAIN_SUFFIX="$(az cloud show --query "suffixes.acrLoginServerEndpoint" --output tsv)"
     if [[ "${SOURCE_REGISTRY}" == "${TARGET_ACR}${ACR_DOMAIN_SUFFIX}" ]]; then
         echo "Source and target registry are the same. No mirroring needed."
@@ -25,7 +26,6 @@ copyImageFromRegistry() {
             exit 1
         fi
     done
-    echo "Mirroring the source image '${SOURCE_REGISTRY}/${REPOSITORY}@${DIGEST}' to target registry '${TARGET_ACR}'."
 
     # create temporary FS structure
     TMP_DIR="$(mktemp -d)"
