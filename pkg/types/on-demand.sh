@@ -25,6 +25,7 @@ copyImageFromRegistry() {
             exit 1
         fi
     done
+    echo "Mirroring the source image '${SOURCE_REGISTRY}/${REPOSITORY}@${DIGEST}' to target registry '${TARGET_ACR}'."
 
     # create temporary FS structure
     TMP_DIR="$(mktemp -d)"
@@ -70,7 +71,7 @@ copyImageFromRegistry() {
     # it is crucial though, that the tagged image is not used in favor of the @sha256:digest one
     # as the tag is NOT guaranteed to be immutable
     TARGET_IMAGE="${TARGET_ACR_LOGIN_SERVER}/${REPOSITORY}:${DIGEST_NO_PREFIX}"
-    echo "Mirroring image ${SRC_IMAGE} to ${TARGET_IMAGE}."
+    echo "Executing Mirroring of image ${SRC_IMAGE} to ${TARGET_IMAGE}."
     echo "The image will still be available under it's original digest ${DIGEST} in the target registry."
     oras cp "${SRC_IMAGE}" "${TARGET_IMAGE}" --from-registry-config "${AUTH_JSON}" --to-registry-config "${AUTH_JSON}"
 }
