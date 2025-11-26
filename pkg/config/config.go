@@ -22,9 +22,12 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"text/template"
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
+
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"sigs.k8s.io/yaml"
 
@@ -188,6 +191,27 @@ func (cp *configProvider) GetResolver(configReplacements *ConfigReplacements) (C
 		}
 	}
 
+	// Validate schema against ev2 config for collisions before proceeding
+	if configReplacements.Ev2Config != nil {
+		sch, err := compileConfigSchema(cp.absoluteSchemaPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to compile schema during ev2 config collision detection: %w", err)
+		}
+
+		// Find the intersection of ev2 config keys and schema property names
+		ev2Keys := sets.KeySet(configReplacements.Ev2Config)
+		schemaKeys := sets.KeySet(sch.Properties)
+		collisions := ev2Keys.Intersection(schemaKeys).UnsortedList()
+
+		if len(collisions) > 0 {
+			sort.Strings(collisions) // Sort for deterministic error messages
+			return nil, fmt.Errorf("schema %q defines properties that collide with reserved ev2 config fields: %v. "+
+				"These fields are automatically provided by the sanitized ev2 config and cannot be redefined. "+
+				"Please rename these properties in your schema to avoid conflicts",
+				cp.absoluteSchemaPath, collisions)
+		}
+	}
+
 	// TODO validate that field names are unique regardless of casing
 	// parse, execute and unmarshal the config file as a template to generate the final config file
 	rawContent, err := PreprocessContent(cp.raw, configReplacements.AsMap())
@@ -214,14 +238,9 @@ type configResolver struct {
 }
 
 func (cr *configResolver) ValidateSchema(config types.Configuration) error {
-	loader := jsonschema.SchemeURLLoader{
-		"file": jsonschema.FileLoader{},
-	}
-	c := jsonschema.NewCompiler()
-	c.UseLoader(loader)
-	sch, err := c.Compile(cr.absoluteSchemaPath)
+	sch, err := compileConfigSchema(cr.absoluteSchemaPath)
 	if err != nil {
-		return fmt.Errorf("failed to compile schema: %v", err)
+		return err
 	}
 
 	err = sch.Validate(map[string]any(config))
@@ -229,6 +248,20 @@ func (cr *configResolver) ValidateSchema(config types.Configuration) error {
 		return fmt.Errorf("failed to validate schema: %v", err)
 	}
 	return nil
+}
+
+// compileConfigSchema compiles a config schema from a file path
+func compileConfigSchema(schemaPath string) (*jsonschema.Schema, error) {
+	loader := jsonschema.SchemeURLLoader{
+		"file": jsonschema.FileLoader{},
+	}
+	c := jsonschema.NewCompiler()
+	c.UseLoader(loader)
+	sch, err := c.Compile(schemaPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to compile schema: %w", err)
+	}
+	return sch, nil
 }
 
 func (cr *configResolver) SchemaPath() (string, error) {

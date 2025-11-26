@@ -1,0 +1,15 @@
+{
+    "type": "object",
+    "properties": {
+      "key1": {
+        "const": "uksouth-ln"
+      },
+      "key2": {
+        "type": "integer"
+      },
+      "geoShortId": {
+        "type": "string"
+      }
+    },
+    "additionalProperties": false
+  }
