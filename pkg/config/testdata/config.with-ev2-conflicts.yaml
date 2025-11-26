@@ -1,0 +1,9 @@
+$schema: config.schema.with-ev2-conflicts.json
+clouds:
+  public:
+    environments:
+      int:
+        defaults:
+          key1: "uksouth-ln"
+          key2: 42
+          geoShortId: "uksouth-ln"
