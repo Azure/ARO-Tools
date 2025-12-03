@@ -35,9 +35,39 @@ copyImageFromRegistry() {
     mkdir -p "${ORAS_CACHE}"
     trap 'rm -rf ${TMP_DIR}' EXIT
 
-    # get pull secret for source registry
-    echo "Fetch pull secret for source registry ${SOURCE_REGISTRY} from ${PULL_SECRET_KV} KV."
-    az keyvault secret download --vault-name "${PULL_SECRET_KV}" --name "${PULL_SECRET}" -e base64 --file "${AUTH_JSON}"
+    # Check if source registry is an OpenShift CI registry https://docs.ci.openshift.org/docs/how-tos/use-registries-in-build-farm/#summary-of-available-registries
+    CI_REGISTRIES=(
+        "registry.build01.ci.openshift.org"
+        "registry.build02.ci.openshift.org"
+        "registry.build03.ci.openshift.org"
+        "registry.build04.ci.openshift.org"
+        "registry.build05.ci.openshift.org"
+        "registry.build06.ci.openshift.org"
+        "registry.build07.ci.openshift.org"
+        "registry.build08.ci.openshift.org"
+        "registry.build09.ci.openshift.org"
+        "registry.build10.ci.openshift.org"
+        "registry.build11.ci.openshift.org"
+        "registry.core.ci.openshift.org"
+        "test-disruption-ct59n-openshift-image-registry.apps.build02.vmc.ci.openshift.org"
+    )
+
+    IS_CI_REGISTRY=false
+    for CI_REG in "${CI_REGISTRIES[@]}"; do
+        if [[ "${SOURCE_REGISTRY}" == "${CI_REG}" ]]; then
+            IS_CI_REGISTRY=true
+            break
+        fi
+    done
+
+    if [[ "${IS_CI_REGISTRY}" == "true" ]]; then
+        echo "Setting up registry authentication for CI source registry."
+        cp ~/.docker/config.json "${AUTH_JSON}" 2>/dev/null || echo '{}' > "${AUTH_JSON}"
+        oc registry login --to "${AUTH_JSON}"
+    else
+        echo "Fetch pull secret for source registry ${SOURCE_REGISTRY} from ${PULL_SECRET_KV} KV."
+        az keyvault secret download --vault-name "${PULL_SECRET_KV}" --name "${PULL_SECRET}" -e base64 --file "${AUTH_JSON}"
+    fi
 
     # ACR login to target registry
     echo "Logging into target ACR ${TARGET_ACR}."
