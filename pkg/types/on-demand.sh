@@ -35,15 +35,16 @@ copyImageFromRegistry() {
     mkdir -p "${ORAS_CACHE}"
     trap 'rm -rf ${TMP_DIR}' EXIT
 
-    # Check if source registry is an OpenShift CI registry by examining imagestreams
+    # Check if source registry should use oc login , ENV variable is set in Release job.
     IS_CI_REGISTRY=false
-    if imagestream=$(oc get imagestream -n openshift -o yaml 2>/dev/null | yq '.items[0].status.publicDockerImageRepository // "none"' 2>/dev/null); then
-        if [[ "${imagestream}" != "none" ]]; then
-            CI_REGISTRY=$(echo "${imagestream}" | cut -d'/' -f1)
-            if [[ "${SOURCE_REGISTRY}" == "${CI_REGISTRY}" ]]; then
+    if [[ -n "${USE_OC_LOGIN_REGISTRIES:-}" ]]; then
+        echo "Checking USE_OC_LOGIN_REGISTRIES: ${USE_OC_LOGIN_REGISTRIES}"
+        for registry in ${USE_OC_LOGIN_REGISTRIES}; do
+            if [[ "${SOURCE_REGISTRY}" == "${registry}" ]]; then
                 IS_CI_REGISTRY=true
+                break
             fi
-        fi
+        done
     fi
 
     if [[ "${IS_CI_REGISTRY}" == "true" ]]; then
