@@ -35,9 +35,25 @@ copyImageFromRegistry() {
     mkdir -p "${ORAS_CACHE}"
     trap 'rm -rf ${TMP_DIR}' EXIT
 
-    # get pull secret for source registry
-    echo "Fetch pull secret for source registry ${SOURCE_REGISTRY} from ${PULL_SECRET_KV} KV."
-    az keyvault secret download --vault-name "${PULL_SECRET_KV}" --name "${PULL_SECRET}" -e base64 --file "${AUTH_JSON}"
+    # Check if source registry should use oc login , ENV variable is set in Release job.
+    IS_CI_REGISTRY=false
+    if [[ -n "${USE_OC_LOGIN_REGISTRIES:-}" ]]; then
+        echo "Checking USE_OC_LOGIN_REGISTRIES: ${USE_OC_LOGIN_REGISTRIES}"
+        for registry in ${USE_OC_LOGIN_REGISTRIES}; do
+            if [[ "${SOURCE_REGISTRY}" == "${registry}" ]]; then
+                IS_CI_REGISTRY=true
+                break
+            fi
+        done
+    fi
+
+    if [[ "${IS_CI_REGISTRY}" == "true" ]]; then
+        echo "Setting up registry authentication for CI source registry."
+        oc registry login --to "${AUTH_JSON}"
+    else
+        echo "Fetch pull secret for source registry ${SOURCE_REGISTRY} from ${PULL_SECRET_KV} KV."
+        az keyvault secret download --vault-name "${PULL_SECRET_KV}" --name "${PULL_SECRET}" -e base64 --file "${AUTH_JSON}"
+    fi
 
     # ACR login to target registry
     echo "Logging into target ACR ${TARGET_ACR}."
