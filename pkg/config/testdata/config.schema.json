@@ -6,6 +6,21 @@
     },
     "key2": {
       "type": "integer"
+    },
+    "geneva": {
+      "type": "object",
+      "properties": {
+        "actions": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "nonConflictingField": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": false

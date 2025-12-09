@@ -23,6 +23,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"text/template"
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
@@ -36,6 +37,19 @@ import (
 
 	_ "embed"
 )
+
+// SchemaCollisionError represents a collision between schema properties and ev2 config fields
+type SchemaCollisionError struct {
+	SchemaPath string
+	Collisions []string
+}
+
+func (e *SchemaCollisionError) Error() string {
+	return fmt.Sprintf("schema %q defines properties that collide with reserved ev2 config fields: %v. "+
+		"These fields are automatically provided by the sanitized ev2 config and cannot be redefined. "+
+		"Please rename these properties in your schema to avoid conflicts",
+		e.SchemaPath, strings.Join(e.Collisions, ", "))
+}
 
 // ConfigReplacements holds replacement values
 type ConfigReplacements struct {
@@ -198,17 +212,15 @@ func (cp *configProvider) GetResolver(configReplacements *ConfigReplacements) (C
 			return nil, fmt.Errorf("failed to compile schema during ev2 config collision detection: %w", err)
 		}
 
-		// Find the intersection of ev2 config keys and schema property names
-		ev2Keys := sets.KeySet(configReplacements.Ev2Config)
-		schemaKeys := sets.KeySet(sch.Properties)
-		collisions := ev2Keys.Intersection(schemaKeys).UnsortedList()
+		// Recursively find all leaf collisions between ev2 config and schema
+		collisions := findLeafCollisions(configReplacements.Ev2Config, sch.Properties, "")
 
 		if len(collisions) > 0 {
 			sort.Strings(collisions) // Sort for deterministic error messages
-			return nil, fmt.Errorf("schema %q defines properties that collide with reserved ev2 config fields: %v. "+
-				"These fields are automatically provided by the sanitized ev2 config and cannot be redefined. "+
-				"Please rename these properties in your schema to avoid conflicts",
-				cp.absoluteSchemaPath, collisions)
+			return nil, &SchemaCollisionError{
+				SchemaPath: cp.absoluteSchemaPath,
+				Collisions: collisions,
+			}
 		}
 	}
 
@@ -478,4 +490,54 @@ func compileSchema() (*jsonschema.Schema, error) {
 	}
 
 	return pipelineSchema, nil
+}
+
+// findLeafCollisions recursively finds all paths where ev2Config and schema properties
+// collide, but only reports collisions where at least one side is a leaf (simple type).
+func findLeafCollisions(ev2Config map[string]interface{}, schemaProps map[string]*jsonschema.Schema, prefix string) []string {
+	var collisions []string
+
+	// Find common keys
+	ev2Keys := sets.KeySet(ev2Config)
+	schemaKeys := sets.KeySet(schemaProps)
+	commonKeys := ev2Keys.Intersection(schemaKeys).UnsortedList()
+
+	for _, key := range commonKeys {
+		currentPath := key
+		if prefix != "" {
+			currentPath = prefix + "." + key
+		}
+
+		ev2Value := ev2Config[key]
+		schemaProp := schemaProps[key]
+
+		ev2IsMap := isMapValue(ev2Value)
+		schemaIsObject := isObjectSchema(schemaProp)
+
+		// If both are objects/maps, recurse into them
+		if ev2IsMap && schemaIsObject {
+			ev2Map, _ := ev2Value.(map[string]interface{})
+			collisions = append(collisions, findLeafCollisions(ev2Map, schemaProp.Properties, currentPath)...)
+		} else {
+			// At least one is a leaf - this is a collision
+			collisions = append(collisions, currentPath)
+		}
+	}
+
+	return collisions
+}
+
+// isMapValue checks if a value is a map[string]interface{}
+func isMapValue(value interface{}) bool {
+	_, ok := value.(map[string]interface{})
+	return ok
+}
+
+// isObjectSchema checks if a schema represents an object type with properties
+func isObjectSchema(sch *jsonschema.Schema) bool {
+	if sch == nil {
+		return false
+	}
+	// Check if the schema has properties defined (object type)
+	return len(sch.Properties) > 0
 }

@@ -9,6 +9,36 @@
       },
       "geoShortId": {
         "type": "string"
+      },
+      "entra": {
+        "type": "object",
+        "properties": {
+          "fqdn": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "geneva": {
+        "type": "object",
+        "properties": {
+          "actions": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "homeDsts": {
+                "type": "object",
+                "properties": {
+                  "primary": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "additionalProperties": false
       }
     },
     "additionalProperties": false

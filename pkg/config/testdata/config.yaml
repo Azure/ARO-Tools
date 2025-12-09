@@ -6,3 +6,6 @@ clouds:
         defaults:
           key1: '{{ .ctx.region }}-{{ .ctx.regionShort }}'
           key2: 42
+          geneva:
+            actions:
+              nonConflictingField: 'foo'

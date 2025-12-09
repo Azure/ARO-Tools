@@ -4,5 +4,8 @@ clouds:
     environments:
       int:
         defaults:
+          geneva:
+            actions:
+              nonConflictingField: foo
           key1: '{{ .ctx.region }}-{{ .ctx.regionShort }}'
           key2: 99

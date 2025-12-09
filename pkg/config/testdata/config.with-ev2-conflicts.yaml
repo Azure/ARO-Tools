@@ -7,3 +7,9 @@ clouds:
           key1: "uksouth-ln"
           key2: 42
           geoShortId: "uksouth-ln"
+          geneva:
+            actions:
+              homeDsts:
+                primary: "conflict!"
+          entra:
+            fqdn: "conflict!"

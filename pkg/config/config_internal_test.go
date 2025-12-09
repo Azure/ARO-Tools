@@ -12,11 +12,15 @@ func TestValidateSchema(t *testing.T) {
 	provider, err := NewConfigProvider("./testdata/config.yaml")
 	require.NoError(t, err)
 
+	ev2Cfg, err := ev2config.ResolveConfig("public", "uksouth")
+	require.NoError(t, err)
+
 	resolver, err := provider.GetResolver(&ConfigReplacements{
 		CloudReplacement:       "public",
 		EnvironmentReplacement: "int",
 		RegionReplacement:      "uksouth",
 		RegionShortReplacement: "ln",
+		Ev2Config:              ev2Cfg,
 	})
 	require.NoError(t, err)
 
@@ -43,7 +47,10 @@ func TestValidateEV2SchemaCollisionDetection(t *testing.T) {
 		Ev2Config:              ev2Cfg,
 	})
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "collide with reserved ev2 config fields")
-	require.Contains(t, err.Error(), "geoShortId")
-	require.Contains(t, err.Error(), "config.schema.with-ev2-conflicts.json")
+
+	// Verify the error is the correct type and contains expected collision paths
+	var collisionErr *SchemaCollisionError
+	require.ErrorAs(t, err, &collisionErr)
+	require.Contains(t, collisionErr.SchemaPath, "config.schema.with-ev2-conflicts.json")
+	require.ElementsMatch(t, []string{"geoShortId", "geneva.actions.homeDsts.primary", "entra.fqdn"}, collisionErr.Collisions)
 }
