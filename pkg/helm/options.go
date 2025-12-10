@@ -550,7 +550,7 @@ func validateHelmResources(ctx context.Context, logger logr.Logger, opts *Option
 		}
 
 		if _, err := opts.DynamicClient.Resource(mapping.Resource).Namespace(obj.GetNamespace()).Apply(ctx, obj.GetName(), obj, metav1.ApplyOptions{
-			FieldManager: getManagedFieldsManager(), DryRun: []string{"All"},
+			FieldManager: getManagedFieldsManager(), DryRun: []string{"All"}, Force: true,
 		}); err != nil {
 			failed = true
 			objLogger.Error(err, "Failed to validate resource using server-side dry-run.")
