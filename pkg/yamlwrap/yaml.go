@@ -16,10 +16,15 @@ package yamlwrap
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
+	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
+
+	"golang.org/x/sync/errgroup"
 
 	"sigs.k8s.io/yaml"
 )
@@ -40,6 +45,30 @@ var (
 	yamlLinePattern = regexp.MustCompile(`^(\s*(?:[^:\s]+:\s*|-\s+(?:[^:\s]+:\s*)?))(.*)$`)
 )
 
+func WrapDirectory(inputDir string, validateResult bool) error {
+	group := errgroup.Group{}
+	group.SetLimit(runtime.NumCPU())
+	if err := fs.WalkDir(os.DirFS(inputDir), ".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		ext := filepath.Ext(path)
+		if ext != ".yaml" && ext != ".yml" {
+			return nil
+		}
+		group.Go(func() error {
+			return WrapFile(path, path, validateResult)
+		})
+		return nil
+	}); err != nil {
+		return err
+	}
+	return group.Wait()
+}
+
 func WrapFile(inputPath string, outputPath string, validateResult bool) error {
 	data, err := os.ReadFile(inputPath)
 	if err != nil {
@@ -57,6 +86,30 @@ func WrapFile(inputPath string, outputPath string, validateResult bool) error {
 	}
 
 	return nil
+}
+
+func UnwrapDirectory(inputDir string) error {
+	group := errgroup.Group{}
+	group.SetLimit(runtime.NumCPU())
+	if err := fs.WalkDir(os.DirFS(inputDir), ".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		ext := filepath.Ext(path)
+		if ext != ".yaml" && ext != ".yml" {
+			return nil
+		}
+		group.Go(func() error {
+			return UnwrapFile(path, path)
+		})
+		return nil
+	}); err != nil {
+		return err
+	}
+	return group.Wait()
 }
 
 func UnwrapFile(inputPath string, outputPath string) error {

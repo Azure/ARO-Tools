@@ -30,6 +30,7 @@ func DefaultOptions() *RawOptions {
 func BindOptions(opts *RawOptions, cmd *cobra.Command) error {
 	cmd.Flags().StringVar(&opts.InputPath, "input", opts.InputPath, "Path to the input file.")
 	cmd.Flags().StringVar(&opts.OutputPath, "output", opts.OutputPath, "Path to the output file (defaults to input file).")
+	cmd.Flags().StringVar(&opts.Directory, "dir", opts.Directory, "Directory to walk. Ignored if --file is provided.")
 	cmd.Flags().BoolVar(&opts.SkipResultValidation, "no-validate-result", false, "Skip validation of the result YAML (default is to validate).")
 
 	for _, flag := range []string{
@@ -47,6 +48,7 @@ func BindOptions(opts *RawOptions, cmd *cobra.Command) error {
 type RawOptions struct {
 	InputPath            string
 	OutputPath           string
+	Directory            string
 	SkipResultValidation bool
 }
 
@@ -54,6 +56,7 @@ type RawOptions struct {
 type validatedOptions struct {
 	InputPath            string
 	OutputPath           string
+	Directory            string
 	SkipResultValidation bool
 }
 
@@ -66,6 +69,7 @@ type ValidatedOptions struct {
 type completedOptions struct {
 	InputPath            string
 	OutputPath           string
+	Directory            string
 	SkipResultValidation bool
 }
 
@@ -75,21 +79,23 @@ type Options struct {
 }
 
 func (o *RawOptions) Validate() (*ValidatedOptions, error) {
-	// input file must be specified
-	if o.InputPath == "" {
-		return nil, fmt.Errorf("the file to process must be provided with --input")
-	}
+	if o.Directory == "" {
+		// input file must be specified
+		if o.InputPath == "" {
+			return nil, fmt.Errorf("the file to process must be provided with --input")
+		}
 
-	// default output to input if not specified
-	outputPath := o.OutputPath
-	if outputPath == "" {
-		outputPath = o.InputPath
+		// default output to input if not specified
+		if o.OutputPath == "" {
+			o.OutputPath = o.InputPath
+		}
 	}
 
 	return &ValidatedOptions{
 		validatedOptions: &validatedOptions{
 			InputPath:            o.InputPath,
-			OutputPath:           outputPath,
+			OutputPath:           o.OutputPath,
+			Directory:            o.Directory,
 			SkipResultValidation: o.SkipResultValidation,
 		},
 	}, nil
@@ -100,15 +106,22 @@ func (o *ValidatedOptions) Complete() (*Options, error) {
 		completedOptions: &completedOptions{
 			InputPath:            o.InputPath,
 			OutputPath:           o.OutputPath,
+			Directory:            o.Directory,
 			SkipResultValidation: o.SkipResultValidation,
 		},
 	}, nil
 }
 
 func (opts *Options) Wrap(ctx context.Context) error {
+	if opts.Directory != "" {
+		return WrapDirectory(opts.Directory, !opts.SkipResultValidation)
+	}
 	return WrapFile(opts.InputPath, opts.OutputPath, !opts.SkipResultValidation)
 }
 
 func (opts *Options) Unwrap(ctx context.Context) error {
+	if opts.Directory != "" {
+		return UnwrapDirectory(opts.Directory)
+	}
 	return UnwrapFile(opts.InputPath, opts.OutputPath)
 }
