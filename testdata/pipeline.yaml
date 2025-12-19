@@ -166,7 +166,7 @@ resourceGroups:
       - Microsoft.Storage
       - Microsoft.EventHub
       - Microsoft.Insights
-  - name: rpAccount
+  - name: rpAccountOld
     action: RPLogsAccount
     rolloutKind: FluentBit
     typeName:
@@ -197,6 +197,39 @@ resourceGroups:
       value: version
     events:
       akskubesystem: kubesystem
+  - name: rpAccount
+    action: RPLogsAccount
+    rolloutKind: FluentBit
+    typeName:
+      configRef: geneva.logs.typeName
+    secretKeyVault:
+      configRef: ev2.assistedId.certificate.keyVault
+    secretName:
+      configRef: ev2.assistedId.certificate.name
+    environment:
+      configRef: geneva.logs.environment
+    accountName:
+      configRef: geneva.logs.rp.accountName
+    metricsAccount:
+      configRef: geneva.metrics.rp.account
+    adminAlias:
+      configRef: geneva.logs.administrators.alias
+    adminGroup:
+      configRef: geneva.logs.administrators.securityGroup
+    subscriptionId:
+      value: sub
+    namespace:
+      value: ns
+    certsan:
+      value: san
+    certdescription:
+      value: HCP Service Cluster
+    configVersion:
+      value: version
+    eventSources:
+      akskubesystem:
+        name: kubesystem
+        account: kubesystemAccount
   - name: clusterAccount
     action: ClusterLogsAccount
     rolloutKind: FluentBit
