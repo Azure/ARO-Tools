@@ -929,6 +929,17 @@
                 }
               },
               "additionalProperties": false
+            },
+            "eventSources": {
+              "type": "object",
+              "description": "A map of event configurations where keys represent the fluent bit tag and values are their corresponding Geneva Event config. Refer to https://eng.ms/docs/products/geneva/collect/instrument/linux/fluentd for details",
+              "patternProperties": {
+                "^.*$": {
+                  "$ref": "#/definitions/EventConfig",
+                  "description": "Geneva Event configuration for the corresponding fluent bit tag"
+                }
+              },
+              "additionalProperties": false
             }
           },
           "allOf": [
@@ -941,17 +952,41 @@
                 }
               },
               "then": {
-                "required": [
-                  "rolloutKind",
-                  "secretKeyVault",
-                  "secretName",
-                  "environment",
-                  "accountName",
-                  "namespace",
-                  "certsan",
-                  "certdescription",
-                  "configVersion",
-                  "events"
+                "oneOf": [
+                  {
+                    "required": [
+                      "rolloutKind",
+                      "secretKeyVault",
+                      "secretName",
+                      "environment",
+                      "accountName",
+                      "namespace",
+                      "certsan",
+                      "certdescription",
+                      "configVersion",
+                      "events"
+                    ],
+                    "not": {
+                      "required": ["eventSources"]
+                    }
+                  },
+                  {
+                    "required": [
+                      "rolloutKind",
+                      "secretKeyVault",
+                      "secretName",
+                      "environment",
+                      "accountName",
+                      "namespace",
+                      "certsan",
+                      "certdescription",
+                      "configVersion",
+                      "eventSources"
+                    ],
+                    "not": {
+                      "required": ["events"]
+                    }
+                  }
                 ]
               }
             },
@@ -1214,6 +1249,23 @@
             "identityFrom"
           ]
         }
+      ]
+    },
+    "EventConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The name of the Geneva table for this event source."
+        },
+        "account": {
+          "type": "string",
+          "description": "The name of the geneva account for this event source. If not specified, the default account will be used."
+        }
+      },
+      "required": [
+        "name"
       ]
     }
   },
