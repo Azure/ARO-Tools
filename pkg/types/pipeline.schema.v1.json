@@ -919,17 +919,6 @@
             "database": {
               "$ref": "#/definitions/value"
             },
-            "events": {
-              "type": "object",
-              "description": "A map of event configurations where keys represent the fluent bit tag and values are their corresponding Geneva table name. Refer to https://eng.ms/docs/products/geneva/collect/instrument/linux/fluentd for details",
-              "patternProperties": {
-                "^.*$": {
-                  "type": "string",
-                  "description": "Geneva table name for the corresponding fluent bit tag"
-                }
-              },
-              "additionalProperties": false
-            },
             "eventSources": {
               "type": "object",
               "description": "A map of event configurations where keys represent the fluent bit tag and values are their corresponding Geneva Event config. Refer to https://eng.ms/docs/products/geneva/collect/instrument/linux/fluentd for details",
@@ -952,41 +941,17 @@
                 }
               },
               "then": {
-                "oneOf": [
-                  {
-                    "required": [
-                      "rolloutKind",
-                      "secretKeyVault",
-                      "secretName",
-                      "environment",
-                      "accountName",
-                      "namespace",
-                      "certsan",
-                      "certdescription",
-                      "configVersion",
-                      "events"
-                    ],
-                    "not": {
-                      "required": ["eventSources"]
-                    }
-                  },
-                  {
-                    "required": [
-                      "rolloutKind",
-                      "secretKeyVault",
-                      "secretName",
-                      "environment",
-                      "accountName",
-                      "namespace",
-                      "certsan",
-                      "certdescription",
-                      "configVersion",
-                      "eventSources"
-                    ],
-                    "not": {
-                      "required": ["events"]
-                    }
-                  }
+                "required": [
+                  "rolloutKind",
+                  "secretKeyVault",
+                  "secretName",
+                  "environment",
+                  "accountName",
+                  "namespace",
+                  "certsan",
+                  "certdescription",
+                  "configVersion",
+                  "eventSources"
                 ]
               }
             },

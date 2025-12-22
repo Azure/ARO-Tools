@@ -195,8 +195,9 @@ resourceGroups:
       value: HCP Service Cluster
     configVersion:
       value: version
-    events:
-      akskubesystem: kubesystem
+    eventSources:
+      akskubesystem:
+        name: kubesystem
   - name: rpAccount
     action: RPLogsAccount
     rolloutKind: FluentBit
@@ -259,8 +260,9 @@ resourceGroups:
       value: HCP Management Cluster
     configVersion:
       value: version
-    events:
-      akskubesystem: kubesystem
+    eventSources:
+      akskubesystem:
+        name: kubesystem
   - name: rpAccountSetup
     action: RPLogsAccount
     rolloutKind: AccountSetup
