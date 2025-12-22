@@ -172,8 +172,9 @@ resourceGroups:
     database: {}
     environment:
       configRef: geneva.logs.environment
-    events:
-      akskubesystem: kubesystem
+    eventSources:
+      akskubesystem:
+        name: kubesystem
     metricsAccount:
       configRef: geneva.metrics.rp.account
     monikerDefaultRegion: {}
@@ -240,8 +241,9 @@ resourceGroups:
     database: {}
     environment:
       configRef: geneva.logs.environment
-    events:
-      akskubesystem: kubesystem
+    eventSources:
+      akskubesystem:
+        name: kubesystem
     metricsAccount:
       configRef: geneva.metrics.cluster.account
     monikerDefaultRegion: {}

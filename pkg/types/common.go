@@ -286,26 +286,23 @@ const (
 
 type LogsStep struct {
 	StepMeta             `json:",inline"`
-	RolloutKind          string `json:"rolloutKind,omitempty"`
-	TypeName             Value  `json:"typeName"`
-	SecretKeyVault       Value  `json:"secretKeyVault,omitempty"`
-	SecretName           Value  `json:"secretName,omitempty"`
-	Environment          Value  `json:"environment"`
-	AccountName          Value  `json:"accountName"`
-	MetricsAccount       Value  `json:"metricsAccount"`
-	AdminAlias           Value  `json:"adminAlias"`
-	AdminGroup           Value  `json:"adminGroup"`
-	SubscriptionId       Value  `json:"subscriptionId,omitempty"`
-	Namespace            Value  `json:"namespace,omitempty"`
-	CertSAN              Value  `json:"certsan,omitempty"`
-	CertDescription      Value  `json:"certdescription,omitempty"`
-	ConfigVersion        Value  `json:"configVersion,omitempty"`
-	MonikerDefaultRegion Value  `json:"monikerDefaultRegion,omitempty"`
-	Database             Value  `json:"database,omitempty"`
-	// Events will be deprecated in favor of EventSources, but don't want to break existing pipelines.
-	// TODO: Once all pipelines have been migrated, remove Events.
-	Events       map[string]string `json:"events,omitempty"`
-	EventSources map[string]Event  `json:"eventSources,omitempty"`
+	RolloutKind          string           `json:"rolloutKind,omitempty"`
+	TypeName             Value            `json:"typeName"`
+	SecretKeyVault       Value            `json:"secretKeyVault,omitempty"`
+	SecretName           Value            `json:"secretName,omitempty"`
+	Environment          Value            `json:"environment"`
+	AccountName          Value            `json:"accountName"`
+	MetricsAccount       Value            `json:"metricsAccount"`
+	AdminAlias           Value            `json:"adminAlias"`
+	AdminGroup           Value            `json:"adminGroup"`
+	SubscriptionId       Value            `json:"subscriptionId,omitempty"`
+	Namespace            Value            `json:"namespace,omitempty"`
+	CertSAN              Value            `json:"certsan,omitempty"`
+	CertDescription      Value            `json:"certdescription,omitempty"`
+	ConfigVersion        Value            `json:"configVersion,omitempty"`
+	MonikerDefaultRegion Value            `json:"monikerDefaultRegion,omitempty"`
+	Database             Value            `json:"database,omitempty"`
+	EventSources         map[string]Event `json:"eventSources,omitempty"`
 }
 
 type Event struct {
