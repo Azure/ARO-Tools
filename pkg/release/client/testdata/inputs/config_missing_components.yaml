@@ -1,0 +1,62 @@
+clustersService:
+  image:
+    digest:
+acrPull:
+  image:
+    digest: sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+secretSyncController:
+  image:
+    digest: sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+pko:
+  imagePackage:
+    digest: sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+  imageManager:
+    digest: sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+  remotePhaseManager:
+    digest: sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+svc:
+  prometheus:
+    prometheusOperator:
+      image:
+        sha: ggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg
+    prometheusSpec:
+      image:
+        sha: hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
+mgmt:
+  prometheus:
+    prometheusOperator:
+      image:
+        sha: iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
+    prometheusSpec:
+      image:
+        sha: jjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+frontend:
+  image:
+    digest: sha256:kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk
+backend:
+  image:
+    digest: sha256:llllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllll
+adminAPI:
+  image:
+    digest: sha256:rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+hypershift:
+  image:
+    digest: sha256:mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+maestro:
+  image:
+    digest: sha256:nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
+  agent:
+    sidecar:
+      image:
+        digest: sha256:oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo
+acm:
+  operator:
+    bundle:
+      digest: sha256:pppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+  mce:
+    bundle:
+      digest: sha256:qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+imageSync:
+  ocMirror:
+    image:
+      digest: sha256:ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss

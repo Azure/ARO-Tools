@@ -1,0 +1,14 @@
+branch: main
+cloud: public
+environment: stg
+pullRequestId: 12345678
+regionConfigs:
+- region1
+- region2
+- region3
+revision: aaaaaaaaaaaa
+serviceGroup: Microsoft.Azure.ARO.HCP.Global
+serviceGroupBase: Microsoft.Azure.ARO.HCP
+timestamp: "2025-11-05T10:00:00Z"
+upstreamRevision: bbbbbbbbbbbb
+
