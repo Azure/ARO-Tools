@@ -38,7 +38,7 @@ type OwnerRefInfo struct {
 
 // isKustoConfigured checks if necessary options are set for Kusto diagnostics
 func isKustoConfigured(opts *Options) bool {
-	return (opts.KustoCluster != "" && opts.KustoDatabase != "" && opts.KustoTable != "")
+	return (opts.KustoEndpoint != "" && opts.KustoDatabase != "" && opts.KustoTable != "")
 }
 
 // Format time for Kusto queries
@@ -46,15 +46,15 @@ func formatTime(t time.Time) string {
 	return t.UTC().Format(time.RFC3339)
 }
 
-// queryToDeepLink compresses the input text with gzip and then encodes it to base64
+// queryToDeepLink compresses the input query with gzip and then encodes it to base64
 // Necessary to compress long queries to fit in the default browser URI length limits
-// Returns a kusto deep link with proper cluster and database
+// Returns a kusto deep link with encoded query and proper kusto cluster/database
 // see: https://learn.microsoft.com/en-us/kusto/api/rest/deeplink
-func queryToDeepLink(text, kustoCluster, kustoDatabase string) (string, error) {
+func queryToDeepLink(kustoEndpoint, kustoDatabase, query string) (string, error) {
 	var buf bytes.Buffer
 	gzipWriter := gzip.NewWriter(&buf)
 
-	if _, err := gzipWriter.Write([]byte(text)); err != nil {
+	if _, err := gzipWriter.Write([]byte(query)); err != nil {
 		return "", fmt.Errorf("failed to write to gzip writer: %w", err)
 	}
 
@@ -63,7 +63,8 @@ func queryToDeepLink(text, kustoCluster, kustoDatabase string) (string, error) {
 	}
 
 	encodedQuery := base64.StdEncoding.EncodeToString(buf.Bytes())
-	kustoDeepLink := fmt.Sprintf("https://dataexplorer.azure.com/clusters/%s/databases/%s?query=%s", kustoCluster, kustoDatabase, encodedQuery)
+
+	kustoDeepLink := fmt.Sprintf("%s/%s?query=%s", kustoEndpoint, kustoDatabase, encodedQuery)
 	return kustoDeepLink, nil
 }
 
@@ -253,25 +254,18 @@ func getKubeEventsQuery(opts *Options, resources []ResourceInfo, deploymentStart
 	}
 
 	// Build kusto query with datatable for resources found in the Helm release
-	// Utilizing ['time'] instead of TIMESTAMP since TIMESTAMP rounds down times to the nearest minute,
-	// which can lead to missing logs
-	// 'time' and 'kind' are reserved keywords in Kusto and need to be escaped with brackets to reference the column name
+	// Queries on kubernetesEvents table for pre-processed event logs
 	kustoQuery := fmt.Sprintf(`
-let resources = datatable(['kind']:string, name:string, namespace:string)[
+let resources = datatable(objectKind:string, objectName:string, eventNamespace:string)[
 %s
 ];
-%s
-| where ['time'] between (datetime("%s") .. datetime("%s"))
-| where pod_name startswith "kube-events"
-| extend parsed_log = parse_json(log)
-| extend ['kind'] = tostring(parsed_log.involved_object.kind),
-name = tostring(parsed_log.involved_object.name),
-namespace = tostring(parsed_log.involved_object.namespace)
-| join kind=inner resources on ['kind'], name, namespace
-| project ['time'], pod_name, ['kind'], name, namespace, log
-| order by ['time'] desc`, strings.Join(resourceRows, ",\n"), opts.KustoTable, formatTime(deploymentStart), formatTime(deploymentEnd))
+kubernetesEvents
+| where timestamp between (datetime("%s") .. datetime("%s"))
+| join kind=inner resources on objectKind, objectName, eventNamespace
+| project timestamp, podName, objectKind, objectName, eventNamespace, log, message
+| order by timestamp desc`, strings.Join(resourceRows, ",\n"), formatTime(deploymentStart), formatTime(deploymentEnd))
 
-	return queryToDeepLink(kustoQuery, opts.KustoCluster, opts.KustoDatabase)
+	return queryToDeepLink(opts.KustoEndpoint, opts.KustoDatabase, kustoQuery)
 }
 
 func getIndivPodQuery(opts *Options, pod PodInfo, deploymentStart time.Time, deploymentEnd time.Time) (string, error) {
@@ -286,13 +280,13 @@ func getIndivPodQuery(opts *Options, pod PodInfo, deploymentStart time.Time, dep
 		strings.Contains(pod.State, "Terminated") {
 
 		podQuery := fmt.Sprintf(`%s
-| where ['time'] between (datetime("%s") .. datetime("%s"))
+| where timestamp between (datetime("%s") .. datetime("%s"))
 | where pod_name == "%s"
 | where namespace_name == "%s"
-| project ['time'], log, pod_name
-| order by ['time'] asc`, opts.KustoTable, formatTime(deploymentStart), formatTime(deploymentEnd), pod.Name, pod.Namespace)
+| project timestamp, log, pod_name
+| order by timestamp asc`, opts.KustoTable, formatTime(deploymentStart), formatTime(deploymentEnd), pod.Name, pod.Namespace)
 
-		return queryToDeepLink(podQuery, opts.KustoCluster, opts.KustoDatabase)
+		return queryToDeepLink(opts.KustoEndpoint, opts.KustoDatabase, podQuery)
 	} else {
 		return "Pod is healthy, no deep link generated.", nil
 	}
@@ -351,16 +345,16 @@ func getPodsQuery(logger logr.Logger, opts *Options, foundPods []PodInfo, deploy
 	}
 
 	allPodsQuery := fmt.Sprintf(`%s
-| where ['time'] between (datetime("%s") .. datetime("%s"))
+| where timestamp between (datetime("%s") .. datetime("%s"))
 | where %s
-| project ['time'], log, pod_name, namespace_name
-| order by pod_name asc, ['time'] asc`,
+| project timestamp, log, pod_name, namespace_name
+| order by pod_name asc, timestamp asc`,
 		opts.KustoTable,
 		formatTime(deploymentStart),
 		formatTime(deploymentEnd),
 		strings.Join(podConditions, " or "))
 
-	allPodsLink, err := queryToDeepLink(allPodsQuery, opts.KustoCluster, opts.KustoDatabase)
+	allPodsLink, err := queryToDeepLink(opts.KustoEndpoint, opts.KustoDatabase, allPodsQuery)
 	if err != nil {
 		return podQueries, "", err
 	}
@@ -390,16 +384,17 @@ func getWorkloadResourcePodsLink(opts *Options, ownerRefs map[string][]OwnerRefI
 	}
 
 	allOwnersQuery := fmt.Sprintf(`%s
-| where ['time'] between (datetime("%s") .. datetime("%s"))
+| where timestamp between (datetime("%s") .. datetime("%s"))
 | where %s
-| project ['time'], log, pod_name, namespace_name
-| order by pod_name asc, ['time'] asc`,
+| project timestamp, log, pod_name, namespace_name
+| order by pod_name asc, timestamp asc`,
 		opts.KustoTable,
 		formatTime(deploymentStart),
 		formatTime(deploymentEnd),
 		strings.Join(ownerConditions, " or "))
 
-	return queryToDeepLink(allOwnersQuery, opts.KustoCluster, opts.KustoDatabase)
+	return queryToDeepLink(opts.KustoEndpoint, opts.KustoDatabase, allOwnersQuery)
+
 }
 
 // Create a kusto query to retrieve all pods within the deployment namespace
@@ -409,10 +404,10 @@ func getNamespaceQuery(opts *Options, namespace string, deploymentStart time.Tim
 	}
 	// Create kusto deep link for entire namespace
 	namespaceQuery := fmt.Sprintf(`%s
-| where ['time'] between (datetime("%s") .. datetime("%s"))
+| where timestamp between (datetime("%s") .. datetime("%s"))
 | where namespace_name == "%s"
-| project ['time'], log, pod_name
-| order by pod_name asc, ['time'] asc`, opts.KustoTable, formatTime(deploymentStart), formatTime(deploymentEnd), namespace)
+| project timestamp, log, pod_name
+| order by pod_name asc, timestamp asc`, opts.KustoTable, formatTime(deploymentStart), formatTime(deploymentEnd), namespace)
 
-	return queryToDeepLink(namespaceQuery, opts.KustoCluster, opts.KustoDatabase)
+	return queryToDeepLink(opts.KustoEndpoint, opts.KustoDatabase, namespaceQuery)
 }

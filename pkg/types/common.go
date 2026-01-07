@@ -484,12 +484,12 @@ type HelmStep struct {
 	// NOTE: This file will be pre-processed as a Go template to resolve configuration fields and input variables.
 	ValuesFile string `json:"valuesFile,omitempty"`
 
-	// KustoCluster is the name of the Kusto cluster that holds the logs for this Helm deployment.
-	KustoCluster string `json:"kustoCluster,omitempty"`
 	// KustoDatabase is the name of the Kusto database within the cluster that holds the logs for this Helm deployment.
 	KustoDatabase string `json:"kustoDatabase,omitempty"`
 	// KustoTable is the name of the Kusto table that holds the logs for this Helm deployment within the appropriate cluster/database.
 	KustoTable string `json:"kustoTable,omitempty"`
+	// KustoEndpoint is the input that provides the Kusto endpoint URI for this Helm deployment.
+	KustoEndpoint *Input `json:"kustoEndpoint,omitempty"`
 
 	// InputVariables records a mapping from variable names to the output variable that provides the value.
 	// For some input variable like:
@@ -517,6 +517,9 @@ func (s *HelmStep) Description() string {
 
 func (s *HelmStep) RequiredInputs() []StepDependency {
 	deps := []StepDependency{s.IdentityFrom.StepDependency}
+	if s.KustoEndpoint != nil {
+		deps = append(deps, s.KustoEndpoint.StepDependency)
+	}
 	for _, val := range s.InputVariables {
 		deps = append(deps, val.StepDependency)
 	}
