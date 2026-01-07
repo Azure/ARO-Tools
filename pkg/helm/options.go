@@ -56,9 +56,9 @@ func BindOptions(opts *RawOptions, cmd *cobra.Command) error {
 	cmd.Flags().StringVar(&opts.ValuesFile, "values-file", opts.ValuesFile, "Path to the Helm values file.")
 	cmd.Flags().StringVar(&opts.Ev2RolloutVersion, "ev2-rollout-version", opts.Ev2RolloutVersion, "Version of the Ev2 rollout deploying this Helm chart.")
 
-	cmd.Flags().StringVar(&opts.KustoCluster, "kusto-cluster", opts.KustoCluster, "Name of the Kusto cluster to use for diagnostics.")
 	cmd.Flags().StringVar(&opts.KustoDatabase, "kusto-database", opts.KustoDatabase, "Name of the Kusto database in the given cluster to use for diagnostics.")
 	cmd.Flags().StringVar(&opts.KustoTable, "kusto-table", opts.KustoTable, "Name of the Kusto table in the given database to use for diagnostics.")
+	cmd.Flags().StringVar(&opts.KustoEndpoint, "kusto-endpoint", opts.KustoEndpoint, "URI of the Kusto endpoint to use for diagnostics.")
 
 	cmd.Flags().DurationVar(&opts.Timeout, "timeout", opts.Timeout, "Timeout for waiting on the Helm release.")
 
@@ -79,9 +79,9 @@ type RawOptions struct {
 	ValuesFile        string
 	Ev2RolloutVersion string
 
-	KustoCluster  string
 	KustoDatabase string
 	KustoTable    string
+	KustoEndpoint string
 
 	Timeout time.Duration
 
@@ -117,9 +117,9 @@ type completedOptions struct {
 	Values            map[string]any
 	Ev2RolloutVersion string
 
-	KustoCluster  string
 	KustoDatabase string
 	KustoTable    string
+	KustoEndpoint string
 
 	Timeout           time.Duration
 	DryRun            bool
@@ -247,9 +247,9 @@ func (o *ValidatedOptions) Complete() (*Options, error) {
 			Values:            values,
 			Ev2RolloutVersion: o.Ev2RolloutVersion,
 
-			KustoCluster:  o.KustoCluster,
 			KustoDatabase: o.KustoDatabase,
 			KustoTable:    o.KustoTable,
+			KustoEndpoint: o.KustoEndpoint,
 
 			Timeout:           o.Timeout,
 			DryRun:            o.DryRun,
