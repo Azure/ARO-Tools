@@ -513,14 +513,14 @@
             "rollbackOnFailure": {
               "type": "boolean"
             },
-            "kustoCluster": {
-              "type": "string"
-            },
             "kustoDatabase": {
               "type": "string"
             },
             "kustoTable": {
               "type": "string"
+            },
+            "kustoEndpoint": {
+              "$ref": "#/definitions/input"
             },
             "timeout": {
               "$ref": "#/definitions/durationString"
