@@ -543,7 +543,10 @@
             "releaseNamespace",
             "chartDir",
             "valuesFile",
-            "identityFrom"
+            "identityFrom",
+            "kustoEndpoint",
+            "kustoDatabase",
+            "kustoTable"
           ]
         }
       ]
