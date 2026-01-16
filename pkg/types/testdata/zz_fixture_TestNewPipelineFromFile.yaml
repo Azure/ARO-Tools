@@ -316,6 +316,16 @@ resourceGroups:
     displayName:
       configRef: svc.subscription.displayName
     roleAssignment: test.bicepparam
+- name: kusto
+  resourceGroup: aro-kusto-public-int-us
+  steps:
+  - action: ARM
+    deploymentLevel: ResourceGroup
+    name: kusto-lookup
+    outputOnly: true
+    parameters: test.bicepparam
+    template: templates/kusto-lookup.bicep
+  subscription: hcp-uksouth
 - name: global
   resourceGroup: global
   steps:
@@ -426,6 +436,12 @@ resourceGroups:
         name: whatever
         resourceGroup: regional
         step: deploy
+    kustoDatabase: containerLogs
+    kustoEndpoint:
+      name: kustoUri
+      resourceGroup: kusto
+      step: kusto-lookup
+    kustoTable: tableNameTest
     name: workload
     namespaceFiles:
     - additional-ns.yaml

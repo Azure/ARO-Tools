@@ -304,6 +304,16 @@ resourceGroups:
       value: pullSecretName
     shellIdentity:
       value: shellIdentity
+- name: kusto
+  resourceGroup: '{{ .kusto.resourceGroup }}'
+  subscription: '{{ .managementClusterSubscription }}'
+  steps:
+  - name: kusto-lookup
+    action: ARM
+    template: templates/kusto-lookup.bicep
+    parameters: test.bicepparam
+    deploymentLevel: ResourceGroup
+    outputOnly: true
 - name: global
   resourceGroup: '{{ .globalRG  }}'
   subscription: '{{ .managementClusterSubscription }}'
@@ -407,6 +417,12 @@ resourceGroups:
       chartDir: chart
       valuesFile: values.yaml
       rollbackOnFailure: true
+      kustoEndpoint:
+        resourceGroup: kusto
+        step: kusto-lookup
+        name: kustoUri
+      kustoDatabase: '{{ .kusto.serviceLogsDatabase }}'
+      kustoTable: 'tableNameTest'
       inputVariables:
         important:
           resourceGroup: regional
