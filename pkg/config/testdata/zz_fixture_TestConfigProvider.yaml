@@ -43,6 +43,7 @@ imageSyncRG: hcp-underlay-uks-imagesync
 kusto:
   cluster: aroINT
   resourceGroup: aro-kusto-public-int-us
+  serviceLogsDatabase: containerLogs
 maestro_helm_chart: oci://aro-hcp-int.azurecr.io/helm/server
 maestro_image: aro-hcp-int.azurecr.io/maestro-server:the-stable-one
 managementClusterRG: hcp-underlay-uks-mgmt-1
