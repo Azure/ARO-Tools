@@ -32,6 +32,9 @@ resourceGroups:
     aksCluster: aro-hcp-aks
     command: make deploy
     dryRun: {}
+    jsonsFromConfig:
+    - configPath: configuration.path.to.segment
+      destinationFilePath: config-segment.json
     name: deploy
     shellIdentity:
       configRef: aroDevopsMsiId
