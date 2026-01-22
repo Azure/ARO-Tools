@@ -243,7 +243,8 @@ func getKubeEventsQuery(opts *Options, resources []ResourceInfo, deploymentStart
 		return "", fmt.Errorf("no resources found in release to build kube events query")
 	}
 
-	if !isKustoConfigured(opts) {
+	// For kube events query, kustoTable does NOT need to be configured (using kubernetesEvents table directly)
+	if opts.KustoDatabase == "" || opts.KustoEndpoint == "" {
 		return "", nil
 	}
 
