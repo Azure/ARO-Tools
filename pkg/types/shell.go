@@ -40,6 +40,8 @@ type ShellStep struct {
 	ShellIdentity Value `json:"shellIdentity"`
 	// AdoArtifacts is a list of Azure DevOps artifacts to download before executing the shell step.
 	AdoArtifacts []AdoArtifactDownloadPipelineReference `json:"adoArtifacts,omitempty"`
+	// JsonsFromConfig is a json files to be created from config content before executing the shell step.
+	JsonsFromConfig []ConfigFileReference `json:"jsonsFromConfig,omitempty"`
 }
 
 // Reference represents a configurable reference
@@ -58,6 +60,13 @@ type AdoArtifactDownloadPipelineReference struct {
 
 	// FileSourceToDestination is a mapping of source file paths within the artifact to destination file paths in the local filesystem.
 	FileSourceToDestination map[string]string `json:"fileSourceToDestination,omitempty"`
+}
+
+type ConfigFileReference struct {
+	// configPath is the config path with the content to be placed in the destination file.
+	ConfigPath string `json:"configPath,omitempty"`
+	// DestinationFilePath is the file path where the config content will be placed.
+	DestinationFilePath string `json:"destinationFilePath,omitempty"`
 }
 
 // Description

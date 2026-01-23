@@ -48,6 +48,9 @@ resourceGroups:
       buildId: '{{ .imageMirror.buildId }}'
       fileSourceToDestination:
         'path/in/artifact/file1.txt': 'local/path/file1.txt'
+    jsonsFromConfig:
+    - destinationFilePath: config-segment.json
+      configPath: configuration.path.to.segment
   - name: dry-run
     action: Shell
     command: make deploy
