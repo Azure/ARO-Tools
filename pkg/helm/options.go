@@ -300,7 +300,7 @@ func (opts *Options) Deploy(ctx context.Context) error {
 	} else {
 		logger.Info("Running inline diagnostics.")
 		if err := runDiagnostics(ctx, logger, opts, deploymentStartTime); err != nil {
-			return fmt.Errorf("capturing diagnostics failed: %w", err)
+			logger.Error(err, "Failed to capture diagnostics for Helm release")
 		}
 	}
 
