@@ -298,6 +298,20 @@
         }
       }
     },
+    "jsonConfigReference": {
+      "properties": {
+        "configPath": {
+          "type": "string"
+        },
+        "destinationFilePath": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "configPath",
+        "destinationFilePath"
+      ]
+    },
     "armStep": {
       "unevaluatedProperties": false,
       "allOf": [
@@ -443,6 +457,12 @@
           "type": "array",
           "items": {
             "$ref": "#/definitions/adoArtifactDownloadReference"
+          }
+        },
+        "jsonsFromConfig": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/jsonConfigReference"
           }
         }
       },
