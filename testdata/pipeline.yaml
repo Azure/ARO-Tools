@@ -436,6 +436,24 @@ resourceGroups:
         resourceGroup: regional
         step: deploy
         name: whatever
+    - name: publishGA
+      action: PublishGenevaAction
+      secretKeyVault:
+        configRef: ev2.assistedId.certificate.keyVault
+      secretName:
+        configRef: ev2.assistedId.certificate.name
+      gaExtensionName:
+        value: extensionName
+      gaNamespace:
+        value: namespace
+      gaPackagePath:
+        value: path/to/package
+      gaEndpointName:
+        value: endpointName
+      genevaActionArtifact:
+        adoProject: "myproject"
+        artifactName: "myartifact"
+        buildId: 12345
   validationSteps:
   - name: validation
     action: Shell

@@ -527,3 +527,37 @@ func (s *HelmStep) RequiredInputs() []StepDependency {
 	deps = slices.Compact(deps)
 	return deps
 }
+
+const StepActionPublishGenevaAction = "PublishGenevaAction"
+
+type PublishGenevaActionStep struct {
+	StepMeta        `json:",inline"`
+	SecretKeyVault  Value `json:"secretKeyVault,omitempty"`
+	SecretName      Value `json:"secretName,omitempty"`
+	GAExtensionName Value `json:"gaExtensionName,omitempty"`
+	GAPackagePath   Value `json:"gaPackagePath,omitempty"`
+	GAEndpointName  Value `json:"gaEndpointName,omitempty"`
+
+	GenevaActionArtifact AdoArtifactDownloadPipelineReference `json:"genevaActionArtifact,omitempty"`
+}
+
+func (s *PublishGenevaActionStep) Description() string {
+	return fmt.Sprintf("Step %s\n  Kind: %s\n  Action: %s\n", s.Name, s.Action, s.GAExtensionName.Value)
+}
+
+func (s *PublishGenevaActionStep) RequiredInputs() []StepDependency {
+	var deps []StepDependency
+	for _, val := range []Value{s.SecretKeyVault, s.SecretName, s.GAExtensionName, s.GAPackagePath, s.GAEndpointName} {
+		if val.Input != nil {
+			deps = append(deps, val.Input.StepDependency)
+		}
+	}
+
+	slices.SortFunc(deps, SortDependencies)
+	deps = slices.Compact(deps)
+	return deps
+}
+
+func (s *PublishGenevaActionStep) IsWellFormedOverInputs() bool {
+	return true
+}

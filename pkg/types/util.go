@@ -91,3 +91,13 @@ func compileSchema(schemaRef string, schemaBytes []byte) (*jsonschema.Schema, er
 
 	return pipelineSchema, nil
 }
+
+type AdoArtifactDownloadPipelineReference struct {
+	ADOProject    string `json:"adoProject,omitempty"`
+	ArtifactName  string `json:"artifactName,omitempty"`
+	BuildID       string `json:"buildId,omitempty"`
+	GAPackagePath string `json:"gaPackagePath,omitempty"`
+
+	// FileSourceToDestination is a mapping of source file paths within the artifact to destination file paths in the local filesystem.
+	FileSourceToDestination map[string]string `json:"fileSourceToDestination,omitempty"`
+}
