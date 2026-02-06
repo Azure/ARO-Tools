@@ -475,6 +475,47 @@
         }
       ]
     },
+    "publishGenevaActionStep": {
+      "unevaluatedProperties": false,
+      "allOf": [
+        {
+          "$ref": "#/definitions/stepMeta"
+        },
+        {
+          "properties": {
+            "action": {
+              "const": "PublishGenevaAction"
+            },
+            "secretKeyVault": {
+              "$ref": "#/definitions/value"
+            },
+            "secretName": {
+              "$ref": "#/definitions/value"
+            },
+            "gaExtensionName": {
+              "$ref": "#/definitions/value"
+            },
+            "gaPackagePath": {
+              "$ref": "#/definitions/value"
+            },
+            "gaEndpointName": {
+              "$ref": "#/definitions/value"
+            },
+            "genevaActionArtifact": {
+              "$ref": "#/definitions/adoArtifactDownloadReference"
+            }
+          },
+          "required": [
+            "secretKeyVault",
+            "secretName",
+            "gaExtensionName",
+            "gaPackagePath",
+            "gaEndpointName",
+            "genevaActionArtifact"
+          ]
+        }
+      ]
+    },
     "helmStep": {
       "unevaluatedProperties": false,
       "allOf": [
