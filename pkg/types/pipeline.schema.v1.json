@@ -496,10 +496,10 @@
               "$ref": "#/definitions/value"
             },
             "gaPackagePath": {
-              "$ref": "#/definitions/value"
+              "type": "string"
             },
-            "gaEndpointName": {
-              "$ref": "#/definitions/value"
+            "useBetaEndpoint": {
+              "type": "boolean"
             },
             "genevaActionArtifact": {
               "$ref": "#/definitions/adoArtifactDownloadReference"
@@ -510,7 +510,6 @@
             "secretName",
             "gaExtensionName",
             "gaPackagePath",
-            "gaEndpointName",
             "genevaActionArtifact"
           ]
         }
