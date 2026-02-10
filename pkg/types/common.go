@@ -561,3 +561,35 @@ func (s *PublishGenevaActionStep) RequiredInputs() []StepDependency {
 func (s *PublishGenevaActionStep) IsWellFormedOverInputs() bool {
 	return true
 }
+
+const StepActionGenevaHealth = "GenevaHealth"
+
+type GenevaHealthStep struct {
+	StepMeta              `json:",inline"`
+	SecretKeyVault        Value                                `json:"secretKeyVault,omitempty"`
+	SecretName            Value                                `json:"secretName,omitempty"`
+	MonitoringAccountName Value                                `json:"monitoringAccountName,omitempty"`
+	MonitorConfigPath     string                               `json:"monitorConfigPath,omitempty"`
+	ConfigPackagePath     string                               `json:"configPackagePath,omitempty"`
+	GenevaConfigsArtifact AdoArtifactDownloadPipelineReference `json:"genevaConfigsArtifact,omitempty"`
+}
+
+func (s *GenevaHealthStep) Description() string {
+	return fmt.Sprintf("Step %s\n  Kind: %s\n  Account: %s\n", s.Name, s.Action, s.MonitoringAccountName.Value)
+}
+
+func (s *GenevaHealthStep) RequiredInputs() []StepDependency {
+	var deps []StepDependency
+	for _, val := range []Value{s.SecretKeyVault, s.SecretName, s.MonitoringAccountName} {
+		if val.Input != nil {
+			deps = append(deps, val.Input.StepDependency)
+		}
+	}
+	slices.SortFunc(deps, SortDependencies)
+	deps = slices.Compact(deps)
+	return deps
+}
+
+func (s *GenevaHealthStep) IsWellFormedOverInputs() bool {
+	return true
+}

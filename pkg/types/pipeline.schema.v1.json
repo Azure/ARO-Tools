@@ -516,6 +516,45 @@
         }
       ]
     },
+    "genevaHealthStep": {
+      "unevaluatedProperties": false,
+      "allOf": [
+        {
+          "$ref": "#/definitions/stepMeta"
+        },
+        {
+          "properties": {
+            "action": {
+              "const": "GenevaHealth"
+            },
+            "secretKeyVault": {
+              "$ref": "#/definitions/value"
+            },
+            "secretName": {
+              "$ref": "#/definitions/value"
+            },
+            "monitoringAccountName": {
+              "$ref": "#/definitions/value"
+            },
+            "monitorConfigPath": {
+              "type": "string"
+            },
+            "configPackagePath": {
+              "type": "string"
+            },
+            "genevaConfigsArtifact": {
+              "$ref": "#/definitions/adoArtifactDownloadReference"
+            }
+          },
+          "required": [
+            "secretKeyVault",
+            "secretName",
+            "monitoringAccountName",
+            "genevaConfigsArtifact"
+          ]
+        }
+      ]
+    },
     "helmStep": {
       "unevaluatedProperties": false,
       "allOf": [
@@ -1613,6 +1652,22 @@
                   },
                   "then": {
                     "$ref": "#/definitions/ev2RegistrationStep"
+                  }
+                },
+                {
+                  "if": {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "GenevaHealth"
+                      }
+                    },
+                    "required": [
+                      "action"
+                    ]
+                  },
+                  "then": {
+                    "$ref": "#/definitions/genevaHealthStep"
                   }
                 }
               ],

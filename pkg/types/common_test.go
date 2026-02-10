@@ -296,6 +296,7 @@ func TestIsWellFormedOverInputs(t *testing.T) {
 		{in: &KustoStep{}, expected: true},
 		{in: &Pav2Step{}, expected: true},
 		{in: &PublishGenevaActionStep{}, expected: true},
+		{in: &GenevaHealthStep{}, expected: true},
 		{in: &GenericStep{}, expected: false},
 		{in: &GenericValidationStep{}, expected: false},
 		{in: &ShellValidationStep{}, expected: false},
