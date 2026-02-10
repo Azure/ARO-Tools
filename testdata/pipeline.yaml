@@ -446,10 +446,8 @@ resourceGroups:
         value: extensionName
       gaNamespace:
         value: namespace
-      gaPackagePath:
-        value: path/to/package
-      gaEndpointName:
-        value: endpointName
+      gaPackagePath: path/to/package
+      useBetaEndpoint: false
       genevaActionArtifact:
         adoProject: "myproject"
         artifactName: "myartifact"

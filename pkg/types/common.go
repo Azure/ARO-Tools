@@ -532,11 +532,11 @@ const StepActionPublishGenevaAction = "PublishGenevaAction"
 
 type PublishGenevaActionStep struct {
 	StepMeta        `json:",inline"`
-	SecretKeyVault  Value `json:"secretKeyVault,omitempty"`
-	SecretName      Value `json:"secretName,omitempty"`
-	GAExtensionName Value `json:"gaExtensionName,omitempty"`
-	GAPackagePath   Value `json:"gaPackagePath,omitempty"`
-	GAEndpointName  Value `json:"gaEndpointName,omitempty"`
+	SecretKeyVault  Value  `json:"secretKeyVault,omitempty"`
+	SecretName      Value  `json:"secretName,omitempty"`
+	GAExtensionName Value  `json:"gaExtensionName,omitempty"`
+	GAPackagePath   string `json:"gaPackagePath,omitempty"`
+	UseBetaEndpoint bool   `json:"useBetaEndpoint,omitempty"`
 
 	GenevaActionArtifact AdoArtifactDownloadPipelineReference `json:"genevaActionArtifact,omitempty"`
 }
@@ -547,7 +547,7 @@ func (s *PublishGenevaActionStep) Description() string {
 
 func (s *PublishGenevaActionStep) RequiredInputs() []StepDependency {
 	var deps []StepDependency
-	for _, val := range []Value{s.SecretKeyVault, s.SecretName, s.GAExtensionName, s.GAPackagePath, s.GAEndpointName} {
+	for _, val := range []Value{s.SecretKeyVault, s.SecretName, s.GAExtensionName} {
 		if val.Input != nil {
 			deps = append(deps, val.Input.StepDependency)
 		}

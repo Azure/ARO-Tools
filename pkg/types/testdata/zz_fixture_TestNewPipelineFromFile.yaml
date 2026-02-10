@@ -451,12 +451,9 @@ resourceGroups:
     timeout: 1h
     valuesFile: values.yaml
   - action: PublishGenevaAction
-    gaEndpointName:
-      value: endpointName
     gaExtensionName:
       value: extensionName
-    gaPackagePath:
-      value: path/to/package
+    gaPackagePath: path/to/package
     genevaActionArtifact:
       adoProject: myproject
       artifactName: myartifact
