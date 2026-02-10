@@ -466,6 +466,22 @@ resourceGroups:
       configRef: ev2.assistedId.certificate.keyVault
     secretName:
       configRef: ev2.assistedId.certificate.name
+  - action: GenevaHealth
+    configPackagePath: geneva-configs.zip
+    genevaConfigsArtifact:
+      adoProject: myproject
+      artifactName: myartifact
+      buildId: "12345"
+      fileSourceToDestination:
+        geneva-configs.zip: geneva-configs.zip
+    monitorConfigPath: MonitorsV2
+    monitoringAccountName:
+      configRef: geneva.metrics.rp.account
+    name: deployMonitors
+    secretKeyVault:
+      configRef: geneva.logs.accountCert.keyVault
+    secretName:
+      configRef: geneva.monitors.rpCert.name
   subscription: hcp-uksouth
   subscriptionProvisioning:
     displayName:

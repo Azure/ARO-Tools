@@ -454,6 +454,22 @@ resourceGroups:
         adoProject: "myproject"
         artifactName: "myartifact"
         buildId: 12345
+    - name: deployMonitors
+      action: GenevaHealth
+      secretKeyVault:
+        configRef: geneva.logs.accountCert.keyVault
+      secretName:
+        configRef: geneva.monitors.rpCert.name
+      monitoringAccountName:
+        configRef: geneva.metrics.rp.account
+      monitorConfigPath: MonitorsV2
+      configPackagePath: geneva-configs.zip
+      genevaConfigsArtifact:
+        adoProject: "myproject"
+        artifactName: "myartifact"
+        buildId: "12345"
+        fileSourceToDestination:
+          "geneva-configs.zip": "geneva-configs.zip"
   validationSteps:
   - name: validation
     action: Shell

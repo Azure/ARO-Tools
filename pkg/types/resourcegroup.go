@@ -131,6 +131,8 @@ func (s *Steps) UnmarshalJSON(data []byte) error {
 			step = &Pav2Step{}
 		case StepActionPublishGenevaAction:
 			step = &PublishGenevaActionStep{}
+		case StepActionGenevaHealth:
+			step = &GenevaHealthStep{}
 		default:
 			step = &GenericStep{}
 		}
