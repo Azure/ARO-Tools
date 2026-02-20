@@ -479,6 +479,23 @@ resourceGroups:
       configRef: geneva.logs.accountCert.keyVault
     secretName:
       configRef: geneva.monitors.rpCert.name
+  - action: PublishGenevaAutomation
+    genevaAutomationArtifact:
+      adoProject: myproject
+      artifactName: automation-artifact
+      buildId: "67890"
+      fileSourceToDestination:
+        workflow.zip: workflow.zip
+    genevaAutomationSecretName:
+      value: secretName
+    icmServiceId:
+      value: "12345"
+    kustoClientSecretName:
+      configRef: ev2.assistedId.certificate.name
+    name: publishGenevaAutomation
+    secretKeyVault:
+      configRef: ev2.assistedId.certificate.keyVault
+    workflowPath: path/to/workflow
   subscription: hcp-uksouth
   subscriptionProvisioning:
     displayName:

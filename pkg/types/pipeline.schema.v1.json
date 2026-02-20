@@ -554,6 +554,47 @@
         }
       ]
     },
+    "publishGenevaAutomationStep": {
+      "unevaluatedProperties": false,
+      "allOf": [
+        {
+          "$ref": "#/definitions/stepMeta"
+        },
+        {
+          "properties": {
+            "action": {
+              "const": "PublishGenevaAutomation"
+            },
+            "secretKeyVault": {
+              "$ref": "#/definitions/value"
+            },
+            "kustoClientSecretName": {
+              "$ref": "#/definitions/value"
+            },
+            "genevaAutomationSecretName": {
+              "$ref": "#/definitions/value"
+            },
+            "icmServiceId": {
+              "$ref": "#/definitions/value"
+            },
+            "workflowPath": {
+              "type": "string"
+            },
+            "genevaAutomationArtifact": {
+              "$ref": "#/definitions/adoArtifactDownloadReference"
+            }
+          },
+          "required": [
+            "secretKeyVault",
+            "kustoClientSecretName",
+            "genevaAutomationSecretName",
+            "icmServiceId",
+            "workflowPath",
+            "genevaAutomationArtifact"
+          ]
+        }
+      ]
+    },
     "helmStep": {
       "unevaluatedProperties": false,
       "allOf": [
@@ -1667,6 +1708,38 @@
                   },
                   "then": {
                     "$ref": "#/definitions/genevaHealthStep"
+                  }
+                },
+                {
+                  "if": {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "PublishGenevaAction"
+                      }
+                    },
+                    "required": [
+                      "action"
+                    ]
+                  },
+                  "then": {
+                    "$ref": "#/definitions/publishGenevaActionStep"
+                  }
+                },
+                {
+                  "if": {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "PublishGenevaAutomation"
+                      }
+                    },
+                    "required": [
+                      "action"
+                    ]
+                  },
+                  "then": {
+                    "$ref": "#/definitions/publishGenevaAutomationStep"
                   }
                 }
               ],
