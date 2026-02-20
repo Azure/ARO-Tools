@@ -444,14 +444,12 @@ resourceGroups:
         configRef: ev2.assistedId.certificate.name
       gaExtensionName:
         value: extensionName
-      gaNamespace:
-        value: namespace
       gaPackagePath: path/to/package
       useBetaEndpoint: false
       genevaActionArtifact:
         adoProject: "myproject"
         artifactName: "myartifact"
-        buildId: 12345
+        buildId: "12345"
     - name: deployMonitors
       action: GenevaHealth
       secretKeyVault:
@@ -468,6 +466,23 @@ resourceGroups:
         buildId: "12345"
         fileSourceToDestination:
           "geneva-configs.zip": "geneva-configs.zip"
+    - name: publishGenevaAutomation
+      action: PublishGenevaAutomation
+      secretKeyVault:
+        configRef: ev2.assistedId.certificate.keyVault
+      kustoClientSecretName:
+        configRef: ev2.assistedId.certificate.name
+      genevaAutomationSecretName:
+        value: secretName
+      icmServiceId:
+        value: "12345"
+      workflowPath: path/to/workflow
+      genevaAutomationArtifact:
+        adoProject: "myproject"
+        artifactName: "automation-artifact"
+        buildId: "67890"
+        fileSourceToDestination:
+          "workflow.zip": "workflow.zip"
   validationSteps:
   - name: validation
     action: Shell
