@@ -496,21 +496,16 @@ resourceGroups:
     secretKeyVault:
       configRef: ev2.assistedId.certificate.keyVault
     workflowPath: path/to/workflow
+  - action: GrafanaDashboards
+    name: dashboards
   subscription: hcp-uksouth
   subscriptionProvisioning:
     displayName:
       configRef: svc.subscription.displayName
     roleAssignment: test.bicepparam
   validationSteps:
-  - action: Shell
-    command: make e2e
-    dryRun:
-      variables:
-      - name: DRY_RUN
-        value: A very dry one
-    name: validation
-    shellIdentity:
-      configRef: aroDevopsMsiId
+  - action: ProwJob
+    name: e2e
     validation:
     - Internal
 rolloutName: Test Rollout

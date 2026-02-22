@@ -595,6 +595,80 @@
         }
       ]
     },
+    "prowJobStep": {
+      "unevaluatedProperties": false,
+      "allOf": [
+        {
+          "$ref": "#/definitions/stepMeta"
+        },
+        {
+          "properties": {
+            "action": {
+              "const": "ProwJob"
+            },
+            "tokenKeyvault": {
+              "type": "string"
+            },
+            "tokenKeyvaultDNSSuffix": {
+              "type": "string"
+            },
+            "tokenSecret": {
+              "type": "string"
+            },
+            "jobName": {
+              "type": "string"
+            },
+            "gatePromotion": {
+              "type": "boolean"
+            },
+            "identityFrom": {
+              "$ref": "#/definitions/input"
+            }
+          },
+          "required": [
+            "tokenKeyvault",
+            "tokenKeyvaultDNSSuffix",
+            "tokenSecret",
+            "jobName",
+            "gatePromotion",
+            "identityFrom"
+          ]
+        }
+      ]
+    },
+    "grafanaDashboardsStep": {
+      "unevaluatedProperties": false,
+      "allOf": [
+        {
+          "$ref": "#/definitions/stepMeta"
+        },
+        {
+          "properties": {
+            "action": {
+              "const": "GrafanaDashboards"
+            },
+            "grafanaName": {
+              "$ref": "#/definitions/input"
+            },
+            "observabilityConfig": {
+              "type": "string"
+            },
+            "dashboardDirectory": {
+              "type": "string"
+            },
+            "identityFrom": {
+              "$ref": "#/definitions/input"
+            }
+          },
+          "required": [
+            "grafanaName",
+            "observabilityConfig",
+            "dashboardDirectory",
+            "identityFrom"
+          ]
+        }
+      ]
+    },
     "helmStep": {
       "unevaluatedProperties": false,
       "allOf": [
@@ -1740,6 +1814,38 @@
                   },
                   "then": {
                     "$ref": "#/definitions/publishGenevaAutomationStep"
+                  }
+                },
+                {
+                  "if": {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "ProwJob"
+                      }
+                    },
+                    "required": [
+                      "action"
+                    ]
+                  },
+                  "then": {
+                    "$ref": "#/definitions/prowJobStep"
+                  }
+                },
+                {
+                  "if": {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "GrafanaDashboards"
+                      }
+                    },
+                    "required": [
+                      "action"
+                    ]
+                  },
+                  "then": {
+                    "$ref": "#/definitions/grafanaDashboardsStep"
                   }
                 }
               ],
