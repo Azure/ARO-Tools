@@ -21,7 +21,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/spf13/cobra"
 
-	"github.com/Azure/ARO-HCP/tooling/grafanactl/internal/grafana"
+	"github.com/Azure/ARO-Tools/tools/grafanactl/internal/grafana"
 )
 
 const dashboardsGroupID = "dashboards"

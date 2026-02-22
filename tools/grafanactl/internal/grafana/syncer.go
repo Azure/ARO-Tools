@@ -25,7 +25,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/grafana-tools/sdk"
 
-	"github.com/Azure/ARO-HCP/tooling/grafanactl/internal/config"
+	"github.com/Azure/ARO-Tools/tools/grafanactl/internal/config"
 )
 
 // DashboardSyncer handles syncing dashboards from the filesystem to Grafana.

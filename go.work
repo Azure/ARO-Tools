@@ -1,11 +1,13 @@
-go 1.25.0
+go 1.25.5
 
 use (
 	./config
 	./pipelines
 	./testutil
 	./tools/cmdutils
+	./tools/grafanactl
 	./tools/helm
+	./tools/prow-job-executor
 	./tools/registration
 	./tools/release
 	./tools/secret-sync

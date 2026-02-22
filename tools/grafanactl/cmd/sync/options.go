@@ -22,12 +22,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/Azure/ARO-Tools/pkg/cmdutils"
-
-	"github.com/Azure/ARO-HCP/tooling/grafanactl/cmd/base"
-	"github.com/Azure/ARO-HCP/tooling/grafanactl/internal/azure"
-	"github.com/Azure/ARO-HCP/tooling/grafanactl/internal/config"
-	"github.com/Azure/ARO-HCP/tooling/grafanactl/internal/grafana"
+	"github.com/Azure/ARO-Tools/tools/cmdutils"
+	"github.com/Azure/ARO-Tools/tools/grafanactl/cmd/base"
+	"github.com/Azure/ARO-Tools/tools/grafanactl/internal/azure"
+	"github.com/Azure/ARO-Tools/tools/grafanactl/internal/config"
+	"github.com/Azure/ARO-Tools/tools/grafanactl/internal/grafana"
 )
 
 // RawSyncDashboardsOptions represents the initial, unvalidated configuration for sync operations.
