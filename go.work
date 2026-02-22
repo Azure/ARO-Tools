@@ -1,8 +1,10 @@
 go 1.25.0
 
 use (
+	./config
 	./pipelines
 	./testutil
+	./tools/cmdutils
 	./tools/helm
 	./tools/secret-sync
 	./tools/yamlwrap

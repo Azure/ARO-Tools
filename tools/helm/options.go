@@ -38,7 +38,7 @@ import (
 
 	"sigs.k8s.io/yaml"
 
-	"github.com/Azure/ARO-Tools/pkg/cmdutils"
+	"github.com/Azure/ARO-Tools/tools/cmdutils"
 )
 
 func DefaultOptions() *RawOptions {

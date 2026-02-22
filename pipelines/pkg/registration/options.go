@@ -11,7 +11,7 @@ import (
 
 	"sigs.k8s.io/yaml"
 
-	"github.com/Azure/ARO-Tools/pkg/cmdutils"
+	"github.com/Azure/ARO-Tools/tools/cmdutils"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armfeatures"
