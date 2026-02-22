@@ -37,7 +37,7 @@ func TestConfigProvider(t *testing.T) {
 	ev2, err := ev2config.ResolveConfig(cloud, region)
 	require.NoError(t, err)
 
-	configProvider, err := config.NewConfigProvider("../../testdata/config.yaml")
+	configProvider, err := config.NewConfigProvider("./testdata/pipelines/config.yaml")
 	require.NoError(t, err)
 	configResolver, err := configProvider.GetResolver(&config.ConfigReplacements{
 		RegionReplacement:      region,
@@ -66,7 +66,7 @@ func TestConfigProvenance(t *testing.T) {
 	ev2, err := ev2config.ResolveConfig(cloud, region)
 	require.NoError(t, err)
 
-	configProvider, err := config.NewConfigProvider("../../testdata/config.yaml")
+	configProvider, err := config.NewConfigProvider("./testdata/pipelines/config.yaml")
 	require.NoError(t, err)
 	configResolver, err := configProvider.GetResolver(&config.ConfigReplacements{
 		RegionReplacement:      region,
@@ -403,7 +403,7 @@ func TestTruncateConfiguration(t *testing.T) {
 }
 
 func TestPreprocessContent(t *testing.T) {
-	fileContent, err := os.ReadFile("../../testdata/test.bicepparam")
+	fileContent, err := os.ReadFile("./testdata/pipelines/test.bicepparam")
 	require.Nil(t, err)
 
 	processed, err := config.PreprocessContent(

@@ -1,0 +1,98 @@
+$schema: schema.json
+defaults:
+  aroDevopsMsiId: '/subscriptions/9a53d80e-dae0-4c8a-af90-30575d253127/resourceGroups/global-shared-resources/providers/Microsoft.ManagedIdentity/userAssignedIdentities/global-ev2-identity'
+  region: '{{ .ctx.region  }}'
+  serviceClusterSubscription: hcp-{{ .ctx.region }}
+  svc:
+    subscription:
+      key: "hcp-{{ .ctx.environment }}-svc-{{ .ctx.region }}"
+      displayName: "Red Hat OpenShift HCP Service - {{ .ctx.environment }}: {{ .ctx.region }}"
+      airsRegisteredUserPrincipalId: some-uuid
+      certificateDomains:
+        - "*.aro-hcp.app.io"
+        - "something-else"
+      afecFlags:
+        - a
+        - b
+        - c
+  managementClusterSubscription: hcp-{{ .ctx.region }}
+  global:
+    keyVault:
+      name: 'arohcp{{ .ctx.environment }}-global'
+  globalRG: global
+  regionRG: hcp-underlay-{{ .ctx.regionShort }}
+  serviceClusterRG: hcp-underlay-{{ .ctx.regionShort }}-svc
+  managementClusterRG: hcp-underlay-{{ .ctx.regionShort }}-mgmt-{{ .ctx.stamp }}
+  imageSyncRG: hcp-underlay-{{ .ctx.regionShort }}-imagesync
+  aksName: aro-hcp-aks
+  subnetName: subnet
+  clustersService:
+    imageTag: abcdef
+    replicas: 3
+  parentZone: example.com
+  childZone: child.example.com
+  vaultBaseUrl: myvault.azure.com
+  provider: Self
+  cloudEnv: '{{ .ctx.cloud }}-{{ .ctx.environment }}'
+  vaultDomainSuffix: '{{ .ev2.keyVault.domainNameSuffix }}'
+  availabilityZoneCount: {{ .ev2.availabilityZoneCount }}
+  enableOptionalStep: false
+  ev2:
+    assistedId:
+      certificate:
+        keyVault: aro-ev2-admin-int-kv
+        name: aro-ev2-admin-int-cert
+      applicationId: 0cfe7b03-3a43-4f68-84a0-2a4d9227d5ee
+  geneva:
+    logs:
+      administrators:
+        alias: AME\WEINONGW
+        securityGroup: AME\TM-AzureRedHatOpenShift-Leads
+      typeName: whatever
+      environment: firstpartyprod
+      rp:
+        accountName: rpLogsAccount
+        accountCert: rpLogsCert
+      cluster:
+        accountName: clusterLogsAccount
+        accountCert: clusterLogsCert
+    metrics:
+      rp:
+        account: rpMetricsAccount
+      cluster:
+        account: clusterMetricsAccount
+  kusto:
+    resourceGroup: aro-kusto-public-int-us
+    cluster: aroINT
+    serviceLogsDatabase: containerLogs
+  storage:
+    accountName: arotestaccount
+    storageSuffix: aro-int
+  ubiquitousValue: global-value
+  partialValue: global-value
+  imageMirror:
+    adoProject: adoProject
+    artifactName: artifactName
+    buildId: 12345
+clouds:
+  ff:
+    defaults: {}
+  public:
+    defaults:
+      ubiquitousValue: public-value
+    environments:
+      dev:
+        defaults:
+          regionRG: hcp-underlay-{{ .ctx.region }}-dev
+          maestro_helm_chart: ../maestro/deploy/helm/server
+          maestro_image: aro-hcp-dev.azurecr.io/maestro-server:the-new-one
+      int:
+        defaults:
+          maestro_helm_chart: oci://aro-hcp-int.azurecr.io/helm/server
+          maestro_image: aro-hcp-int.azurecr.io/maestro-server:the-stable-one
+          ubiquitousValue: public-int-value
+        regions:
+          uksouth:
+            test: uksouth
+            ubiquitousValue: public-int-uksouth-value
+            partialValue: public-int-uksouth-value
