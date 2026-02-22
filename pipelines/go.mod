@@ -2,8 +2,11 @@ module github.com/Azure/ARO-Tools/pipelines
 
 go 1.24.0
 
+replace github.com/Azure/ARO-Tools/testutil => ./../testutil
+
 require (
 	github.com/Azure/ARO-Tools v0.0.0-20260220215005-a8fc514a5b08
+	github.com/Azure/ARO-Tools/testutil v0.0.0-00010101000000-000000000000
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.19.1
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.13.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armfeatures v1.2.0
