@@ -4,4 +4,5 @@ use (
 	./pipelines
 	./testutil
 	./tools/helm
+	./tools/yamlwrap
 )
