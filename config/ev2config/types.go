@@ -1,7 +1,7 @@
 package ev2config
 
 import (
-	"github.com/Azure/ARO-Tools/pkg/config/types"
+	"github.com/Azure/ARO-Tools/config/types"
 )
 
 type config struct {

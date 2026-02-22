@@ -15,7 +15,7 @@
 package config
 
 import (
-	"github.com/Azure/ARO-Tools/pkg/config/types"
+	"github.com/Azure/ARO-Tools/config/types"
 )
 
 // configurationOverrides is the internal representation for config stored on disk - we do not export it as we

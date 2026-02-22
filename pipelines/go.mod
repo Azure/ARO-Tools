@@ -4,11 +4,17 @@ go 1.25.0
 
 replace github.com/Azure/ARO-Tools/testutil => ./../testutil
 
+replace github.com/Azure/ARO-Tools/tools/cmdutils => ./../tools/cmdutils
+
+replace github.com/Azure/ARO-Tools/tools/yamlwrap => ./../tools/yamlwrap
+
+replace github.com/Azure/ARO-Tools/config => ./../config
+
 require (
-	github.com/Azure/ARO-Tools v0.0.0-20260220215005-a8fc514a5b08
+	github.com/Azure/ARO-Tools/config v0.0.0-00010101000000-000000000000
 	github.com/Azure/ARO-Tools/testutil v0.0.0-00010101000000-000000000000
+	github.com/Azure/ARO-Tools/tools/cmdutils v0.0.0-00010101000000-000000000000
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.21.0
-	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.13.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armfeatures v1.2.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources/v3 v3.0.0
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.6.3
@@ -33,8 +39,10 @@ require (
 	github.com/Antonboom/errname v1.1.0 // indirect
 	github.com/Antonboom/nilnil v1.1.0 // indirect
 	github.com/Antonboom/testifylint v1.6.0 // indirect
+	github.com/Azure/ARO-Tools/tools/yamlwrap v0.0.0-00010101000000-000000000000 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.13.1 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.11.2 // indirect
-	github.com/AzureAD/microsoft-authentication-library-for-go v1.5.0 // indirect
+	github.com/AzureAD/microsoft-authentication-library-for-go v1.6.0 // indirect
 	github.com/BurntSushi/toml v1.6.0 // indirect
 	github.com/Crocmagnon/fatcontext v0.7.1 // indirect
 	github.com/Djarvur/go-err113 v0.0.0-20210108212216-aea10b59be24 // indirect
@@ -225,6 +233,8 @@ require (
 	golang.org/x/sys v0.40.0 // indirect
 	golang.org/x/text v0.33.0 // indirect
 	golang.org/x/tools v0.40.0 // indirect
+	golang.org/x/tools/go/expect v0.1.1-deprecated // indirect
+	golang.org/x/tools/go/packages/packagestest v0.1.1-deprecated // indirect
 	google.golang.org/protobuf v1.36.8 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect

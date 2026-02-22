@@ -65,8 +65,8 @@ package main
 
 import (
     "fmt"
-    "github.com/Azure/ARO-Tools/pkg/config"
-    "github.com/Azure/ARO-Tools/pkg/config/ev2config"
+    "github.com/Azure/ARO-Tools/config"
+    "github.com/Azure/ARO-Tools/config/ev2config"
 )
 
 func main() {

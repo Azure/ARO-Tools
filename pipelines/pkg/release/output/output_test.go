@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Azure/ARO-Tools/pkg/release/client"
+	"github.com/Azure/ARO-Tools/pipelines/pkg/release/client"
 )
 
 func TestParseFormat(t *testing.T) {

@@ -17,7 +17,7 @@ package config
 import (
 	"testing"
 
-	"github.com/Azure/ARO-Tools/pkg/config/types"
+	"github.com/Azure/ARO-Tools/config/types"
 )
 
 func TestGetByPath(t *testing.T) {

@@ -11,7 +11,7 @@ import (
 
 	"sigs.k8s.io/yaml"
 
-	"github.com/Azure/ARO-Tools/pkg/yamlwrap"
+	"github.com/Azure/ARO-Tools/tools/yamlwrap"
 )
 
 // Configuration is the top-level container for all values for all services. See an example at: https://github.com/Azure/ARO-HCP/blob/main/config/config.yaml

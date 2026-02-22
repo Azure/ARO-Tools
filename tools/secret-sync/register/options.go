@@ -18,9 +18,9 @@ import (
 
 	"sigs.k8s.io/yaml"
 
-	"github.com/Azure/ARO-Tools/pkg/cmdutils"
-	"github.com/Azure/ARO-Tools/pkg/config/ev2config"
-	"github.com/Azure/ARO-Tools/pkg/secret-sync/config"
+	"github.com/Azure/ARO-Tools/config/ev2config"
+	"github.com/Azure/ARO-Tools/tools/cmdutils"
+	"github.com/Azure/ARO-Tools/tools/secretsync/config"
 )
 
 func DefaultOptions() *RawOptions {

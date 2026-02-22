@@ -12,9 +12,9 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/spf13/cobra"
 
-	"github.com/Azure/ARO-Tools/pkg/cmdutils"
-	"github.com/Azure/ARO-Tools/pkg/config/ev2config"
-	"github.com/Azure/ARO-Tools/pkg/secret-sync/config"
+	"github.com/Azure/ARO-Tools/config/ev2config"
+	"github.com/Azure/ARO-Tools/tools/cmdutils"
+	"github.com/Azure/ARO-Tools/tools/secretsync/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azkeys"
