@@ -12,8 +12,8 @@ BUILD_DATE ?= $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
 
 # Build flags
 LDFLAGS = -ldflags "\
-	-X github.com/Azure/ARO-HCP/tooling/grafanactl/pkg/version.commit=${CURRENT_COMMIT} \
-	-X github.com/Azure/ARO-HCP/tooling/grafanactl/pkg/version.buildDate=${BUILD_DATE}"
+	-X github.com/Azure/ARO-Tools/tools/grafanactl/pkg/version.commit=${CURRENT_COMMIT} \
+	-X github.com/Azure/ARO-Tools/tools/grafanactl/pkg/version.buildDate=${BUILD_DATE}"
 
 # Source files
 SOURCES = $(shell find . -name '*.go' -o -name 'go.mod' -o -name 'go.sum')

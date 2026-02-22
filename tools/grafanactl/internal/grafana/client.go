@@ -23,10 +23,9 @@ import (
 	"github.com/grafana-tools/sdk"
 	"github.com/hashicorp/go-retryablehttp"
 
+	"github.com/Azure/ARO-Tools/tools/grafanactl/internal/azure"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
-
-	"github.com/Azure/ARO-HCP/tooling/grafanactl/internal/azure"
 )
 
 const (
