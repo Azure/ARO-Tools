@@ -26,6 +26,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/go-logr/logr"
+
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	prowjobs "sigs.k8s.io/prow/pkg/apis/prowjobs/v1"
@@ -60,6 +62,10 @@ func NewClient(token, gangwayURL, prowURL string) *Client {
 
 // SubmitJob submits a job to Prow and returns the job execution ID
 func (c *Client) SubmitJob(ctx context.Context, request *prowgangway.CreateJobExecutionRequest) (string, error) {
+	logger, err := logr.FromContext(ctx)
+	if err != nil {
+		return "", err
+	}
 
 	data, err := json.Marshal(request)
 	if err != nil {
@@ -78,7 +84,11 @@ func (c *Client) SubmitJob(ctx context.Context, request *prowgangway.CreateJobEx
 	if err != nil {
 		return "", fmt.Errorf("failed to submit job: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			logger.Error(err, "failed to close body")
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -132,6 +142,11 @@ func (c *Client) GetJobStatus(ctx context.Context, prowExecutionID string) (*pro
 
 // getJobStatusOnce performs a single job status request without retry logic
 func (c *Client) getJobStatusOnce(ctx context.Context, prowExecutionID string) (*prowjobs.ProwJob, error) {
+	logger, err := logr.FromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	url := fmt.Sprintf("%s?prowjob=%s", c.prowURL, prowExecutionID)
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
@@ -142,7 +157,11 @@ func (c *Client) getJobStatusOnce(ctx context.Context, prowExecutionID string) (
 	if err != nil {
 		return nil, fmt.Errorf("failed to get job status: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			logger.Error(err, "failed to close body")
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
