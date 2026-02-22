@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package prowjobexecutor
 
 import (
 	"context"
@@ -28,7 +28,7 @@ import (
 
 	prowgangway "sigs.k8s.io/prow/pkg/gangway"
 
-	"github.com/Azure/ARO-HCP/test/pkg/prowjob"
+	"github.com/Azure/ARO-Tools/tools/prow-job-executor/prowjob"
 )
 
 const (
