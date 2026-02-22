@@ -8,8 +8,8 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/Azure/ARO-Tools/pipelines/pkg/release/client"
-	"github.com/Azure/ARO-Tools/pipelines/pkg/release/timeparse"
+	"github.com/Azure/ARO-Tools/tools/release/client"
+	"github.com/Azure/ARO-Tools/tools/release/timeparse"
 )
 
 type Format string
