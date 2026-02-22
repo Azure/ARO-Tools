@@ -4,5 +4,6 @@ use (
 	./pipelines
 	./testutil
 	./tools/helm
+	./tools/secret-sync
 	./tools/yamlwrap
 )

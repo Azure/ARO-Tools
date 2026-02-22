@@ -1,4 +1,4 @@
-package secretsync
+package secret_sync
 
 import (
 	"fmt"
