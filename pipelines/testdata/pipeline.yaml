@@ -483,15 +483,29 @@ resourceGroups:
         buildId: "67890"
         fileSourceToDestination:
           "workflow.zip": "workflow.zip"
+    - name: dashboards
+      action: GrafanaDashboards
+      grafanaName:
+        resourceGroup: regional
+        step: deploy
+        name: whatever
+      observabilityConfig: ./observability.yaml
+      dashboardDirectory: ./grafana-dashboards
+      identityFrom:
+        resourceGroup: regional
+        step: deploy
+        name: whatever
   validationSteps:
-  - name: validation
-    action: Shell
-    command: make e2e
-    shellIdentity:
-      configRef: aroDevopsMsiId
-    dryRun:
-      variables:
-      - name: DRY_RUN
-        value: "A very dry one"
+  - name: e2e
+    action: ProwJob
+    tokenKeyvault: "{{ .global.keyVault.name }}"
+    tokenKeyvaultDNSSuffix: "vault.azure.net"
+    tokenSecret: "{{ .e2e.prow.globalKeyVaultTokenSecret }}"
+    jobName: "{{ .e2e.regionTest.prowJobName }}"
+    gatePromotion: {{ .e2e.regionTest.gatePromotion }}
+    identityFrom:
+      resourceGroup: regional
+      step: deploy
+      name: whatever
     validation:
     - Internal

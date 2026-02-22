@@ -627,3 +627,62 @@ func (s *PublishGenevaAutomationStep) RequiredInputs() []StepDependency {
 func (s *PublishGenevaAutomationStep) IsWellFormedOverInputs() bool {
 	return true
 }
+
+const StepActionProwJob = "ProwJob"
+
+type ProwJobStep struct {
+	StepMeta `json:",inline"`
+
+	TokenKeyvault          string `json:"tokenKeyvault"`
+	TokenKeyvaultDNSSuffix string `json:"tokenKeyvaultDNSSuffix"`
+	TokenSecret            string `json:"tokenSecret"`
+	JobName                string `json:"jobName"`
+	GatePromotion          bool   `json:"gatePromotion"`
+
+	// IdentityFrom specifies the managed identity with which this deployment will run in Ev2.
+	IdentityFrom Input `json:"identityFrom,omitempty"`
+}
+
+func (s *ProwJobStep) Description() string {
+	return fmt.Sprintf("Step %s\n  Kind: %s\n", s.Name, s.Action)
+}
+
+func (s *ProwJobStep) RequiredInputs() []StepDependency {
+	return nil
+}
+
+func (s *ProwJobStep) IsWellFormedOverInputs() bool {
+	return true
+}
+
+const StepActionGrafanaDashboards = "GrafanaDashboards"
+
+type GrafanaDashboardsStep struct {
+	StepMeta `json:",inline"`
+
+	GrafanaName         Input  `json:"grafanaName"`
+	ObservabilityConfig string `json:"observabilityConfig"`
+	DashboardDirectory  string `json:"dashboardDirectory"`
+
+	// IdentityFrom specifies the managed identity with which this deployment will run in Ev2.
+	IdentityFrom Input `json:"identityFrom,omitempty"`
+}
+
+func (s *GrafanaDashboardsStep) Description() string {
+	return fmt.Sprintf("Step %s\n  Kind: %s\n", s.Name, s.Action)
+}
+
+func (s *GrafanaDashboardsStep) RequiredInputs() []StepDependency {
+	var deps []StepDependency
+	for _, val := range []Input{s.GrafanaName} {
+		deps = append(deps, val.StepDependency)
+	}
+
+	slices.SortFunc(deps, SortDependencies)
+	deps = slices.Compact(deps)
+	return deps
+}
+
+func (s *GrafanaDashboardsStep) IsWellFormedOverInputs() bool {
+	return true
+}
