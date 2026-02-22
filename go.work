@@ -6,6 +6,7 @@ use (
 	./testutil
 	./tools/cmdutils
 	./tools/helm
+	./tools/registration
 	./tools/secret-sync
 	./tools/yamlwrap
 )
