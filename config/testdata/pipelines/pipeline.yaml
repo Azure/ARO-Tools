@@ -1,0 +1,497 @@
+$schema: pipeline.schema.v1
+serviceGroup: Microsoft.Azure.ARO.Test
+rolloutName: Test Rollout
+buildStep:
+  command: 'make'
+  args:
+    - build
+resourceGroups:
+- name: regional
+  resourceGroup: '{{ .regionRG  }}'
+  subscription: '{{ .svc.subscription.key }}'
+  executionConstraints:
+    - singleton: true
+      clouds:
+        - ff
+        - usnat
+      environments:
+        - int
+        - stg
+    - clouds:
+        - public
+      environments:
+        - prod
+      regions:
+        - uksouth
+  subscriptionProvisioning:
+    displayName:
+      configRef: svc.subscription.displayName
+    airsRegisteredUserPrincipalId:
+      configRef: svc.subscription.airsRegisteredUserPrincipalId
+    certificateDomains:
+      configRef: svc.subscription.certificateDomains
+    roleAssignment: 'test.bicepparam'
+  steps:
+  - name: deploy
+    action: Shell
+    command: make deploy
+    aksCluster: '{{ .aksName  }}'
+    subnetName: '{{ .subnetName }}'
+    shellIdentity:
+      configRef: aroDevopsMsiId
+    variables:
+    - name: MAESTRO_IMAGE
+      configRef: maestro_image
+    adoArtifacts:
+    - adoProject: '{{ .imageMirror.adoProject }}'
+      artifactName: '{{ .imageMirror.artifactName }}'
+      buildId: '{{ .imageMirror.buildId }}'
+      fileSourceToDestination:
+        'path/in/artifact/file1.txt': 'local/path/file1.txt'
+  - name: dry-run
+    action: Shell
+    command: make deploy
+    workingDir: something
+    shellIdentity:
+      configRef: aroDevopsMsiId
+    dryRun:
+      variables:
+      - name: DRY_RUN
+        value: "A very dry one"
+      - name: FROM_EV2_REGION
+        value: '{{ .availabilityZoneCount }}'
+      - name: FROM_EV2_CORE
+        value: '{{ .vaultDomainSuffix }}'
+  - name: svc
+    action: ARM
+    template: templates/svc-cluster.bicep
+    parameters: test.bicepparam
+    deploymentLevel: ResourceGroup
+    variables:
+      - name: MAESTRO_IMAGE
+        input:
+          resourceGroup: regional
+          step: deploy
+          name: whatever
+  - name: svc-stack
+    action: ARMStack
+    template: templates/svc-cluster.bicep
+    parameters: test.bicepparam
+    deploymentLevel: ResourceGroup
+    variables:
+      - name: MAESTRO_IMAGE
+        input:
+          resourceGroup: regional
+          step: deploy
+          name: whatever
+    actionOnUnmanage: delete
+    bypassStackOutOfSyncError: false
+    omitFromServiceGroupCompletion: true
+  - name: cxChildZone
+    action: DelegateChildZone
+    parentZone:
+      configRef: parentZone
+    childZone:
+      configRef: childZone
+    secretKeyVault:
+      configRef: ev2.assistedId.certificate.keyVault
+    secretName:
+      configRef: ev2.assistedId.certificate.name
+    dstsHost:
+      configRef: ev2.assistedId.dstsHost
+    dependsOn:
+    - step: deploy
+      resourceGroup: regional
+    externalDependsOn:
+      - step: deploy
+        resourceGroup: regional
+        serviceGroup: Microsoft.Azure.ARO.Classic.Whatever
+  - name: issuerTest
+    action: SetCertificateIssuer
+    secretKeyVault:
+      configRef: ev2.assistedId.certificate.keyVault
+    secretName:
+      configRef: ev2.assistedId.certificate.name
+    applicationId:
+      configRef: ev2.assistedId.applicationId
+    vaultBaseUrl:
+      configRef: vaultBaseUrl
+    issuer:
+      configRef: provider
+    dependsOn:
+    - step: deploy
+      resourceGroup: regional
+  - name: issuerTestOutputChaining
+    action: SetCertificateIssuer
+    secretKeyVault:
+      configRef: ev2.assistedId.certificate.keyVault
+    secretName:
+      configRef: ev2.assistedId.certificate.name
+    applicationId:
+      configRef: ev2.assistedId.applicationId
+    vaultBaseUrl:
+      input:
+        resourceGroup: regional
+        name: kvUrl
+        step: deploy
+    issuer:
+      value: provider
+    dependsOn:
+    - step: deploy
+      resourceGroup: regional
+  - name: cert
+    action: CreateCertificate
+    secretKeyVault:
+      configRef: ev2.assistedId.certificate.keyVault
+    secretName:
+      configRef: ev2.assistedId.certificate.name
+    applicationId:
+      configRef: ev2.assistedId.applicationId
+    vaultBaseUrl:
+      value: https://arohcp-svc-ln.vault.azure.net
+    certificateName:
+      value: hcp-mdsd
+    contentType:
+      value: x-pem-file # GCS certificate file in PEM format
+    san:
+      value: hcp-mdsd.geneva.keyvault.aro-int.azure.com
+    issuer:
+      value: OneCertV2-PrivateCA
+    commonName:
+      value: hcp-mdsd.geneva.keyvault.aro-int.azure.com
+  - name: rpRegistration
+    action: ResourceProviderRegistration
+    resourceProviderNamespaces:
+      value:
+      - Microsoft.Storage
+      - Microsoft.EventHub
+      - Microsoft.Insights
+  - name: rpAccountOld
+    action: RPLogsAccount
+    rolloutKind: FluentBit
+    typeName:
+      configRef: geneva.logs.typeName
+    secretKeyVault:
+      configRef: ev2.assistedId.certificate.keyVault
+    secretName:
+      configRef: ev2.assistedId.certificate.name
+    environment:
+      configRef: geneva.logs.environment
+    accountName:
+      configRef: geneva.logs.rp.accountName
+    metricsAccount:
+      configRef: geneva.metrics.rp.account
+    adminAlias:
+      configRef: geneva.logs.administrators.alias
+    adminGroup:
+      configRef: geneva.logs.administrators.securityGroup
+    subscriptionId:
+      value: sub
+    namespace:
+      value: ns
+    certsan:
+      value: san
+    certdescription:
+      value: HCP Service Cluster
+    configVersion:
+      value: version
+    eventSources:
+      akskubesystem:
+        name: kubesystem
+  - name: rpAccount
+    action: RPLogsAccount
+    rolloutKind: FluentBit
+    typeName:
+      configRef: geneva.logs.typeName
+    secretKeyVault:
+      configRef: ev2.assistedId.certificate.keyVault
+    secretName:
+      configRef: ev2.assistedId.certificate.name
+    environment:
+      configRef: geneva.logs.environment
+    accountName:
+      configRef: geneva.logs.rp.accountName
+    metricsAccount:
+      configRef: geneva.metrics.rp.account
+    adminAlias:
+      configRef: geneva.logs.administrators.alias
+    adminGroup:
+      configRef: geneva.logs.administrators.securityGroup
+    subscriptionId:
+      value: sub
+    namespace:
+      value: ns
+    certsan:
+      value: san
+    certdescription:
+      value: HCP Service Cluster
+    configVersion:
+      value: version
+    eventSources:
+      akskubesystem:
+        name: kubesystem
+        account: kubesystemAccount
+  - name: clusterAccount
+    action: ClusterLogsAccount
+    rolloutKind: FluentBit
+    typeName:
+      configRef: geneva.logs.typeName
+    secretKeyVault:
+      configRef: ev2.assistedId.certificate.keyVault
+    secretName:
+      configRef: ev2.assistedId.certificate.name
+    environment:
+      configRef: geneva.logs.environment
+    accountName:
+      configRef: geneva.logs.cluster.accountName
+    metricsAccount:
+      configRef: geneva.metrics.cluster.account
+    adminAlias:
+      configRef: geneva.logs.administrators.alias
+    adminGroup:
+      configRef: geneva.logs.administrators.securityGroup
+    subscriptionId:
+      value: sub
+    namespace:
+      value: ns
+    certsan:
+      value: san
+    certdescription:
+      value: HCP Management Cluster
+    configVersion:
+      value: version
+    eventSources:
+      akskubesystem:
+        name: kubesystem
+  - name: rpAccountSetup
+    action: RPLogsAccount
+    rolloutKind: AccountSetup
+    secretKeyVault:
+      configRef: ev2.assistedId.certificate.keyVault
+    secretName:
+      configRef: ev2.assistedId.certificate.name
+    environment:
+      configRef: geneva.logs.environment
+    accountName:
+      configRef: geneva.logs.cluster.accountName
+    metricsAccount:
+      configRef: geneva.metrics.cluster.account
+    adminAlias:
+      configRef: geneva.logs.administrators.alias
+    adminGroup:
+      configRef: geneva.logs.administrators.securityGroup
+    subscriptionId:
+      value: sub
+    namespace:
+      value: ns
+    monikerDefaultRegion:
+      value: region
+    database:
+      value: database
+  - name: image-mirror
+    action: ImageMirror
+    targetACR:
+      value: targetACR
+    sourceRegistry:
+      value: sourceRegistry
+    repository:
+      value: repository
+    digest:
+      value: digest
+    pullSecretKeyVault:
+      value: pullSecretKeyVault
+    pullSecretName:
+      value: pullSecretName
+    shellIdentity:
+      value: shellIdentity
+- name: kusto
+  resourceGroup: '{{ .kusto.resourceGroup }}'
+  subscription: '{{ .managementClusterSubscription }}'
+  steps:
+  - name: kusto-lookup
+    action: ARM
+    template: templates/kusto-lookup.bicep
+    parameters: test.bicepparam
+    deploymentLevel: ResourceGroup
+    outputOnly: true
+- name: global
+  resourceGroup: '{{ .globalRG  }}'
+  subscription: '{{ .managementClusterSubscription }}'
+  subscriptionProvisioning:
+    displayName:
+      configRef: svc.subscription.displayName
+    roleAssignment: 'test.bicepparam'
+  steps:
+    - name: register-providers-afec-flags
+      action: ProviderFeatureRegistration
+      identityFrom:
+        resourceGroup: regional
+        step: deploy
+        name: whatever
+      providerConfigRef: svc.subscription.displayName
+    - name: register-providers-feature-flags
+      action: FeatureRegistration
+      secretKeyVault:
+        configRef: ev2.assistedId.certificate.keyVault
+      secretName:
+        configRef: ev2.assistedId.certificate.name
+      providerConfigRef: svc.subscription.displayName
+    - name: register-ev2-services
+      action: Ev2Registration
+      identityFrom:
+        resourceGroup: regional
+        step: deploy
+        name: whatever
+    - name: sync-secrets
+      action: SecretSync
+      keyVault: '{{ .global.keyVault.name }}'
+      configurationFile: 'data/encryptedsecrets/config.yaml'
+      encryptionKey: 'secretSyncKey'
+      identityFrom:
+        resourceGroup: regional
+        step: deploy
+        name: whatever
+    - name: image-mirror
+      action: ImageMirror
+      targetACR:
+        value: targetACR
+      sourceRegistry:
+        value: sourceRegistry
+      repository:
+        value: repository
+      digest:
+        value: digest
+      pullSecretKeyVault:
+        value: pullSecretKeyVault
+      pullSecretName:
+        value: pullSecretName
+      shellIdentity:
+        value: shellIdentity
+      automatedRetry:
+        errorContainsAny:
+        - "Transient error"
+        maximumRetryCount: 8
+        durationBetweenRetries: 1h
+    - name: image-mirror-oci-layout
+      action: ImageMirror
+      targetACR:
+        value: targetACR
+      repository:
+        value: repository
+      copyFrom: oci-layout
+      imageFilePath:
+        value: "path/to/image-tar-file"
+      imageTarFileName:
+        value: "image-tar-file-name"
+      imageMetadataFileName:
+        value: "image-metadata-file-name"
+      shellIdentity:
+        value: shellIdentity
+      adoProject: '{{ .imageMirror.adoProject }}'
+      artifactName: '{{ .imageMirror.artifactName }}'
+      buildId: '{{ .imageMirror.buildId }}'
+    - name: pav2
+      action: Pav2
+      operation: All
+      secretKeyVault:
+        configRef: ev2.assistedId.certificate.keyVault
+      secretName:
+        configRef: ev2.assistedId.certificate.name
+      storageAccount:
+        configRef: storage.accountName
+      smeEndpointSuffixParameter:
+        configRef: storage.storageSuffix
+      smeAppidParameter:
+        input:
+          resourceGroup: regional
+          name: kvUrl
+          step: deploy
+    - name: workload
+      action: Helm
+      aksCluster: whatever
+      releaseName: workload
+      releaseNamespace: kube-system
+      timeout: 1h
+      namespaceFiles:
+        - additional-ns.yaml
+      chartDir: chart
+      valuesFile: values.yaml
+      rollbackOnFailure: true
+      kustoEndpoint:
+        resourceGroup: kusto
+        step: kusto-lookup
+        name: kustoUri
+      kustoDatabase: '{{ .kusto.serviceLogsDatabase }}'
+      kustoTable: 'tableNameTest'
+      inputVariables:
+        important:
+          resourceGroup: regional
+          step: deploy
+          name: whatever
+        other:
+          resourceGroup: regional
+          step: deploy
+          name: whatever
+      identityFrom:
+        resourceGroup: regional
+        step: deploy
+        name: whatever
+    - name: publishGA
+      action: PublishGenevaAction
+      secretKeyVault:
+        configRef: ev2.assistedId.certificate.keyVault
+      secretName:
+        configRef: ev2.assistedId.certificate.name
+      gaExtensionName:
+        value: extensionName
+      gaPackagePath: path/to/package
+      useBetaEndpoint: false
+      genevaActionArtifact:
+        adoProject: "myproject"
+        artifactName: "myartifact"
+        buildId: "12345"
+    - name: deployMonitors
+      action: GenevaHealth
+      secretKeyVault:
+        configRef: geneva.logs.accountCert.keyVault
+      secretName:
+        configRef: geneva.monitors.rpCert.name
+      monitoringAccountName:
+        configRef: geneva.metrics.rp.account
+      monitorConfigPath: MonitorsV2
+      configPackagePath: geneva-configs.zip
+      genevaConfigsArtifact:
+        adoProject: "myproject"
+        artifactName: "myartifact"
+        buildId: "12345"
+        fileSourceToDestination:
+          "geneva-configs.zip": "geneva-configs.zip"
+    - name: publishGenevaAutomation
+      action: PublishGenevaAutomation
+      secretKeyVault:
+        configRef: ev2.assistedId.certificate.keyVault
+      kustoClientSecretName:
+        configRef: ev2.assistedId.certificate.name
+      genevaAutomationSecretName:
+        value: secretName
+      icmServiceId:
+        value: "12345"
+      workflowPath: path/to/workflow
+      genevaAutomationArtifact:
+        adoProject: "myproject"
+        artifactName: "automation-artifact"
+        buildId: "67890"
+        fileSourceToDestination:
+          "workflow.zip": "workflow.zip"
+  validationSteps:
+  - name: validation
+    action: Shell
+    command: make e2e
+    shellIdentity:
+      configRef: aroDevopsMsiId
+    dryRun:
+      variables:
+      - name: DRY_RUN
+        value: "A very dry one"
+    validation:
+    - Internal
