@@ -13,14 +13,10 @@ replace github.com/Azure/ARO-Tools/config => ./../config
 require (
 	github.com/Azure/ARO-Tools/config v0.0.0-00010101000000-000000000000
 	github.com/Azure/ARO-Tools/testutil v0.0.0-00010101000000-000000000000
-	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.6.3
-	github.com/go-logr/logr v1.4.3
 	github.com/goccy/go-graphviz v0.2.9
 	github.com/google/go-cmp v0.7.0
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
-	github.com/stoewer/go-strcase v1.3.0
 	github.com/stretchr/testify v1.11.1
-	gopkg.in/yaml.v3 v3.0.1
 	gotest.tools/v3 v3.5.2
 	k8s.io/apimachinery v0.35.1
 	sigs.k8s.io/yaml v1.6.0
@@ -236,6 +232,7 @@ require (
 	google.golang.org/protobuf v1.36.8 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 	honnef.co/go/tools v0.6.1 // indirect
 	mvdan.cc/gofumpt v0.7.0 // indirect
 	mvdan.cc/unparam v0.0.0-20250301125049-0df0534333a4 // indirect
