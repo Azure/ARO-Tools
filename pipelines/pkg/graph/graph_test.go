@@ -13,9 +13,9 @@ import (
 
 	"sigs.k8s.io/yaml"
 
-	"github.com/Azure/ARO-Tools/internal/testutil"
 	"github.com/Azure/ARO-Tools/pkg/topology"
 	"github.com/Azure/ARO-Tools/pkg/types"
+	"github.com/Azure/ARO-Tools/testutil"
 )
 
 //go:embed testdata/input

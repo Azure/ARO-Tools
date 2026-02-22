@@ -12,12 +12,12 @@ test-compile:
 	go test -c -o /dev/null $(MODULES)
 .PHONY: test-compile
 
-lint: $(GOLANGCI_LINT)
-	$(GOLANGCI_LINT) run -v $(MODULES)
+lint:
+	go tool golangci-lint run -v $(MODULES)
 .PHONY: lint
 
-lint-fix: $(GOLANGCI_LINT)
-	$(GOLANGCI_LINT) run --fix -v $(MODULES)
+lint-fix:
+	go tool golangci-lint run --fix -v $(MODULES)
 .PHONY: lint-fix
 
 work-sync:

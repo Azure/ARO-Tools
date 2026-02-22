@@ -17,7 +17,7 @@ package types
 import (
 	"testing"
 
-	"github.com/Azure/ARO-Tools/internal/testutil"
+	"github.com/Azure/ARO-Tools/testutil"
 )
 
 func TestResolveImageMirrorStep(t *testing.T) {

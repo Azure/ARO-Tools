@@ -7,7 +7,7 @@ import (
 
 	"github.com/go-logr/logr/testr"
 
-	"github.com/Azure/ARO-Tools/internal/testutil"
+	"github.com/Azure/ARO-Tools/testutil"
 )
 
 func TestParseComponentsYAML(t *testing.T) {
