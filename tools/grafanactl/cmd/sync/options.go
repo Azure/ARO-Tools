@@ -24,8 +24,8 @@ import (
 
 	"github.com/Azure/ARO-Tools/tools/cmdutils"
 	"github.com/Azure/ARO-Tools/tools/grafanactl/cmd/base"
+	"github.com/Azure/ARO-Tools/tools/grafanactl/config"
 	"github.com/Azure/ARO-Tools/tools/grafanactl/internal/azure"
-	"github.com/Azure/ARO-Tools/tools/grafanactl/internal/config"
 	"github.com/Azure/ARO-Tools/tools/grafanactl/internal/grafana"
 )
 
