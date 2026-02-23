@@ -609,9 +609,6 @@
             "tokenKeyvault": {
               "type": "string"
             },
-            "tokenKeyvaultDNSSuffix": {
-              "type": "string"
-            },
             "tokenSecret": {
               "type": "string"
             },
@@ -627,7 +624,6 @@
           },
           "required": [
             "tokenKeyvault",
-            "tokenKeyvaultDNSSuffix",
             "tokenSecret",
             "jobName",
             "gatePromotion",
