@@ -34,7 +34,7 @@ func TestNewPipelineFromFile(t *testing.T) {
 
 	ev2, err := ev2config.ResolveConfig(cloud, region)
 	require.NoError(t, err)
-	provider, err := config.NewConfigProvider("../../testdata/config.yaml")
+	provider, err := config.NewConfigProvider("../testdata/config.yaml")
 	require.NoError(t, err)
 	resolver, err := provider.GetResolver(&config.ConfigReplacements{
 		RegionReplacement:      region,
@@ -49,7 +49,7 @@ func TestNewPipelineFromFile(t *testing.T) {
 	cfg, err := resolver.GetRegionConfiguration(region)
 	assert.NoError(t, err)
 
-	pipeline, err := NewPipelineFromFile("../../testdata/pipeline.yaml", cfg)
+	pipeline, err := NewPipelineFromFile("../testdata/pipeline.yaml", cfg)
 	assert.NoError(t, err)
 
 	testutil.CompareWithFixture(t, pipeline, testutil.WithExtension(".yaml"))
@@ -210,7 +210,7 @@ resourceGroups:
 
 			ev2, err := ev2config.ResolveConfig(cloud, region)
 			require.NoError(t, err)
-			provider, err := config.NewConfigProvider("../../testdata/config.yaml")
+			provider, err := config.NewConfigProvider("../testdata/config.yaml")
 			require.NoError(t, err)
 			resolver, err := provider.GetResolver(&config.ConfigReplacements{
 				RegionReplacement:      region,

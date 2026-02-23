@@ -633,11 +633,10 @@ const StepActionProwJob = "ProwJob"
 type ProwJobStep struct {
 	StepMeta `json:",inline"`
 
-	TokenKeyvault          string `json:"tokenKeyvault"`
-	TokenKeyvaultDNSSuffix string `json:"tokenKeyvaultDNSSuffix"`
-	TokenSecret            string `json:"tokenSecret"`
-	JobName                string `json:"jobName"`
-	GatePromotion          bool   `json:"gatePromotion"`
+	TokenKeyvault string `json:"tokenKeyvault"`
+	TokenSecret   string `json:"tokenSecret"`
+	JobName       string `json:"jobName"`
+	GatePromotion bool   `json:"gatePromotion"`
 
 	// IdentityFrom specifies the managed identity with which this deployment will run in Ev2.
 	IdentityFrom Input `json:"identityFrom,omitempty"`

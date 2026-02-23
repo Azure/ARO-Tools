@@ -498,8 +498,7 @@ resourceGroups:
   validationSteps:
   - name: e2e
     action: ProwJob
-    tokenKeyvault: "{{ .global.keyVault.name }}"
-    tokenKeyvaultDNSSuffix: "vault.azure.net"
+    tokenKeyvault: "{{ .global.keyVault.name }}.vault.azure.net"
     tokenSecret: "{{ .e2e.prow.globalKeyVaultTokenSecret }}"
     jobName: "{{ .e2e.regionTest.prowJobName }}"
     gatePromotion: {{ .e2e.regionTest.gatePromotion }}
