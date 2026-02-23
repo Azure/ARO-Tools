@@ -497,7 +497,16 @@ resourceGroups:
       configRef: ev2.assistedId.certificate.keyVault
     workflowPath: path/to/workflow
   - action: GrafanaDashboards
+    grafanaName:
+      name: whatever
+      resourceGroup: regional
+      step: deploy
+    identityFrom:
+      name: whatever
+      resourceGroup: regional
+      step: deploy
     name: dashboards
+    observabilityConfig: ./observability.yaml
   subscription: hcp-uksouth
   subscriptionProvisioning:
     displayName:
@@ -505,7 +514,15 @@ resourceGroups:
     roleAssignment: test.bicepparam
   validationSteps:
   - action: ProwJob
+    gatePromotion: true
+    identityFrom:
+      name: whatever
+      resourceGroup: regional
+      step: deploy
+    jobName: test-me
     name: e2e
+    tokenKeyvault: arohcpint-global.vault.azure.net
+    tokenSecret: prow-token
     validation:
     - Internal
 rolloutName: Test Rollout

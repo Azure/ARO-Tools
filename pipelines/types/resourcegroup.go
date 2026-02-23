@@ -135,6 +135,10 @@ func (s *Steps) UnmarshalJSON(data []byte) error {
 			step = &GenevaHealthStep{}
 		case StepActionPublishGenevaAutomation:
 			step = &PublishGenevaAutomationStep{}
+		case StepActionProwJob:
+			step = &ProwJobStep{}
+		case StepActionGrafanaDashboards:
+			step = &GrafanaDashboardsStep{}
 		default:
 			step = &GenericStep{}
 		}
@@ -166,6 +170,8 @@ func (s *ValidationSteps) UnmarshalJSON(data []byte) error {
 		switch stepMeta.Action {
 		case StepActionShell:
 			step = &ShellValidationStep{}
+		case StepActionProwJob:
+			step = &ProwJobValidationStep{}
 		default:
 			step = &GenericValidationStep{}
 		}
