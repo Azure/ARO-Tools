@@ -661,7 +661,6 @@ type GrafanaDashboardsStep struct {
 
 	GrafanaName         Input  `json:"grafanaName"`
 	ObservabilityConfig string `json:"observabilityConfig"`
-	DashboardDirectory  string `json:"dashboardDirectory"`
 
 	// IdentityFrom specifies the managed identity with which this deployment will run in Ev2.
 	IdentityFrom Input `json:"identityFrom,omitempty"`

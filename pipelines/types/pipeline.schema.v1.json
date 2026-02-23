@@ -649,9 +649,6 @@
             "observabilityConfig": {
               "type": "string"
             },
-            "dashboardDirectory": {
-              "type": "string"
-            },
             "identityFrom": {
               "$ref": "#/definitions/input"
             }
@@ -659,7 +656,6 @@
           "required": [
             "grafanaName",
             "observabilityConfig",
-            "dashboardDirectory",
             "identityFrom"
           ]
         }
