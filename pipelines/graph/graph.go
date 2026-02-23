@@ -11,8 +11,8 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/Azure/ARO-Tools/pipelines/pkg/topology"
-	"github.com/Azure/ARO-Tools/pipelines/pkg/types"
+	"github.com/Azure/ARO-Tools/pipelines/topology"
+	"github.com/Azure/ARO-Tools/pipelines/types"
 )
 
 // Dependency records a dependency on a step in a particular service group and resource group.

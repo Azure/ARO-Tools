@@ -13,8 +13,8 @@ import (
 
 	"sigs.k8s.io/yaml"
 
-	"github.com/Azure/ARO-Tools/pipelines/pkg/topology"
-	"github.com/Azure/ARO-Tools/pipelines/pkg/types"
+	"github.com/Azure/ARO-Tools/pipelines/topology"
+	"github.com/Azure/ARO-Tools/pipelines/types"
 	"github.com/Azure/ARO-Tools/testutil"
 )
 
