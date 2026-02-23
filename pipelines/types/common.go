@@ -654,6 +654,21 @@ func (s *ProwJobStep) IsWellFormedOverInputs() bool {
 	return true
 }
 
+// ProwJobValidationStep represents a shell step that is a validation step.
+type ProwJobValidationStep struct {
+	ProwJobStep `json:",inline"`
+	Validation  []string `json:"validation,omitempty"`
+}
+
+func (s *ProwJobValidationStep) Validations() []string {
+	return s.Validation
+}
+
+func (s *ProwJobValidationStep) IsWellFormedOverInputs() bool {
+	// raw shell steps capture the whole repository as an archive input, so they are not well-formed
+	return false
+}
+
 const StepActionGrafanaDashboards = "GrafanaDashboards"
 
 type GrafanaDashboardsStep struct {
