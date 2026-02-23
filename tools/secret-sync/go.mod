@@ -1,4 +1,4 @@
-module github.com/Azure/ARO-Tools/tools/secretsync
+module github.com/Azure/ARO-Tools/tools/secret-sync
 
 go 1.25.0
 

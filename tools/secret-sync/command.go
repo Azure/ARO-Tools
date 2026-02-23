@@ -5,8 +5,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/Azure/ARO-Tools/tools/secretsync/populate"
-	"github.com/Azure/ARO-Tools/tools/secretsync/register"
+	"github.com/Azure/ARO-Tools/tools/secret-sync/populate"
+	"github.com/Azure/ARO-Tools/tools/secret-sync/register"
 )
 
 func NewCommand() (*cobra.Command, error) {

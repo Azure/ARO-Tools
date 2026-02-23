@@ -20,7 +20,7 @@ import (
 
 	"github.com/Azure/ARO-Tools/config/ev2config"
 	"github.com/Azure/ARO-Tools/tools/cmdutils"
-	"github.com/Azure/ARO-Tools/tools/secretsync/config"
+	"github.com/Azure/ARO-Tools/tools/secret-sync/config"
 )
 
 func DefaultOptions() *RawOptions {
