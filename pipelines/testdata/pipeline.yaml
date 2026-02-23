@@ -490,7 +490,6 @@ resourceGroups:
         step: deploy
         name: whatever
       observabilityConfig: ./observability.yaml
-      dashboardDirectory: ./grafana-dashboards
       identityFrom:
         resourceGroup: regional
         step: deploy
