@@ -4,13 +4,13 @@ go 1.25.0
 
 require (
 	github.com/Azure/ARO-Tools/testutil v0.0.0-20260224014929-d4c403940022
-	github.com/Azure/ARO-Tools/tools/cmdutils v0.0.0-20260224014929-d4c403940022
+	github.com/Azure/ARO-Tools/tools/cmdutils v0.0.0-20260224191138-e5196c495168
 	github.com/Azure/ARO-Tools/tools/yamlwrap v0.0.0-20260224014929-d4c403940022
 	github.com/google/go-cmp v0.7.0
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.11.1
-	k8s.io/apimachinery v0.35.1
+	k8s.io/apimachinery v0.34.3
 	sigs.k8s.io/yaml v1.6.0
 )
 

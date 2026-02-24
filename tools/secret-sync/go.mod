@@ -4,7 +4,7 @@ go 1.25.0
 
 require (
 	github.com/Azure/ARO-Tools/config v0.0.0-20260224014929-d4c403940022
-	github.com/Azure/ARO-Tools/tools/cmdutils v0.0.0-20260224014929-d4c403940022
+	github.com/Azure/ARO-Tools/tools/cmdutils v0.0.0-20260224191138-e5196c495168
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.21.0
 	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azkeys v1.4.0
 	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azsecrets v1.4.0
