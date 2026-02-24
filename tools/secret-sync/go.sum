@@ -2,8 +2,8 @@ github.com/Azure/ARO-Tools/config v0.0.0-20260224014929-d4c403940022 h1:687BnWA6
 github.com/Azure/ARO-Tools/config v0.0.0-20260224014929-d4c403940022/go.mod h1:v8fomgurZu9eLxDvea8GFF7Wz5AoT6RbuFzP3SmHCsw=
 github.com/Azure/ARO-Tools/testutil v0.0.0-20260224013330-2a1f3e163e45 h1:1z62OV0/dpBVa1crqqIEEH2PPdy+qmgTa8G5c87obBs=
 github.com/Azure/ARO-Tools/testutil v0.0.0-20260224013330-2a1f3e163e45/go.mod h1:6V1kLTbkz3TLTspxt7fAI8Xy4EdBdsvLR5mk0gkry7k=
-github.com/Azure/ARO-Tools/tools/cmdutils v0.0.0-20260224014929-d4c403940022 h1:suMVpQKVox0Pg6JdHn1f7LGUlJY2qHbAC1mHtUjcj0Y=
-github.com/Azure/ARO-Tools/tools/cmdutils v0.0.0-20260224014929-d4c403940022/go.mod h1:tepofLearVYpykT+xPKD4ls+z4PpjujbXQAxiL/8A9E=
+github.com/Azure/ARO-Tools/tools/cmdutils v0.0.0-20260224191138-e5196c495168 h1:2evukiW5y53TEOfXROQR0WKYANU42OzNyVKABX9DV/I=
+github.com/Azure/ARO-Tools/tools/cmdutils v0.0.0-20260224191138-e5196c495168/go.mod h1:bBo5YOjQf47SHTl5ohULLUin2PAEt6s5D5GQZQRgO5w=
 github.com/Azure/ARO-Tools/tools/yamlwrap v0.0.0-20260224014929-d4c403940022 h1:k1opER2t+jMaWS0InyKmWlN2JY32Upwk6eG9TM2bjhg=
 github.com/Azure/ARO-Tools/tools/yamlwrap v0.0.0-20260224014929-d4c403940022/go.mod h1:2rJMYGA4o3k3FNWxqvzMmODE7286XrP7/1lGpQclG+Y=
 github.com/Azure/azure-sdk-for-go/sdk/azcore v1.21.0 h1:fou+2+WFTib47nS+nz/ozhEBnvU96bKHy6LjRsY4E28=

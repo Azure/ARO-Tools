@@ -1,7 +1,7 @@
 github.com/Azure/ARO-Tools/testutil v0.0.0-20260224014929-d4c403940022 h1:vpFNLATrAHjiiKCZ86xOyVeYUdMpzj8TJifZhrkDqTc=
 github.com/Azure/ARO-Tools/testutil v0.0.0-20260224014929-d4c403940022/go.mod h1:6V1kLTbkz3TLTspxt7fAI8Xy4EdBdsvLR5mk0gkry7k=
-github.com/Azure/ARO-Tools/tools/cmdutils v0.0.0-20260224014929-d4c403940022 h1:suMVpQKVox0Pg6JdHn1f7LGUlJY2qHbAC1mHtUjcj0Y=
-github.com/Azure/ARO-Tools/tools/cmdutils v0.0.0-20260224014929-d4c403940022/go.mod h1:tepofLearVYpykT+xPKD4ls+z4PpjujbXQAxiL/8A9E=
+github.com/Azure/ARO-Tools/tools/cmdutils v0.0.0-20260224191138-e5196c495168 h1:2evukiW5y53TEOfXROQR0WKYANU42OzNyVKABX9DV/I=
+github.com/Azure/ARO-Tools/tools/cmdutils v0.0.0-20260224191138-e5196c495168/go.mod h1:bBo5YOjQf47SHTl5ohULLUin2PAEt6s5D5GQZQRgO5w=
 github.com/Azure/ARO-Tools/tools/yamlwrap v0.0.0-20260224014929-d4c403940022 h1:k1opER2t+jMaWS0InyKmWlN2JY32Upwk6eG9TM2bjhg=
 github.com/Azure/ARO-Tools/tools/yamlwrap v0.0.0-20260224014929-d4c403940022/go.mod h1:2rJMYGA4o3k3FNWxqvzMmODE7286XrP7/1lGpQclG+Y=
 github.com/Azure/azure-sdk-for-go/sdk/azcore v1.21.0 h1:fou+2+WFTib47nS+nz/ozhEBnvU96bKHy6LjRsY4E28=
@@ -73,7 +73,7 @@ gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c h1:Hei/4ADfdWqJk1ZMxUNpqntN
 gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c/go.mod h1:JHkPIbrfpd72SG/EVd6muEfDQjcINNoR0C8j2r3qZ4Q=
 gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=
 gopkg.in/yaml.v3 v3.0.1/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
-k8s.io/apimachinery v0.35.1 h1:yxO6gV555P1YV0SANtnTjXYfiivaTPvCTKX6w6qdDsU=
-k8s.io/apimachinery v0.35.1/go.mod h1:jQCgFZFR1F4Ik7hvr2g84RTJSZegBc8yHgFWKn//hns=
+k8s.io/apimachinery v0.34.3 h1:/TB+SFEiQvN9HPldtlWOTp0hWbJ+fjU+wkxysf/aQnE=
+k8s.io/apimachinery v0.34.3/go.mod h1:/GwIlEcWuTX9zKIg2mbw0LRFIsXwrfoVxn+ef0X13lw=
 sigs.k8s.io/yaml v1.6.0 h1:G8fkbMSAFqgEFgh4b1wmtzDnioxFCUgTZhlbj5P9QYs=
 sigs.k8s.io/yaml v1.6.0/go.mod h1:796bPqUfzR/0jLAl6XjHl3Ck7MiyVv8dbTdyT3/pMf4=
