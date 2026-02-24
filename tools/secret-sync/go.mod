@@ -2,15 +2,13 @@ module github.com/Azure/ARO-Tools/tools/secret-sync
 
 go 1.25.0
 
-replace github.com/Azure/ARO-Tools/tools/cmdutils => ./../cmdutils
-
 replace github.com/Azure/ARO-Tools/tools/yamlwrap => ./../yamlwrap
 
 replace github.com/Azure/ARO-Tools/config => ./../../config
 
 require (
 	github.com/Azure/ARO-Tools/config v0.0.0-00010101000000-000000000000
-	github.com/Azure/ARO-Tools/tools/cmdutils v0.0.0-00010101000000-000000000000
+	github.com/Azure/ARO-Tools/tools/cmdutils v0.0.0-20260223232408-d2d595acc2e6
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.21.0
 	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azkeys v1.4.0
 	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azsecrets v1.4.0

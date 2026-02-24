@@ -2,8 +2,6 @@ module github.com/Azure/ARO-Tools/pipelines
 
 go 1.25.0
 
-replace github.com/Azure/ARO-Tools/tools/cmdutils => ./../tools/cmdutils
-
 replace github.com/Azure/ARO-Tools/tools/yamlwrap => ./../tools/yamlwrap
 
 replace github.com/Azure/ARO-Tools/config => ./../config
@@ -28,7 +26,7 @@ require (
 	github.com/Antonboom/errname v1.1.0 // indirect
 	github.com/Antonboom/nilnil v1.1.0 // indirect
 	github.com/Antonboom/testifylint v1.6.0 // indirect
-	github.com/Azure/ARO-Tools/tools/cmdutils v0.0.0-00010101000000-000000000000 // indirect
+	github.com/Azure/ARO-Tools/tools/cmdutils v0.0.0-20260223232408-d2d595acc2e6 // indirect
 	github.com/Azure/ARO-Tools/tools/yamlwrap v0.0.0-00010101000000-000000000000 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.21.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.13.1 // indirect
