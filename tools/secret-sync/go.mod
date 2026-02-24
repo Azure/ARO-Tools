@@ -5,8 +5,8 @@ go 1.25.0
 replace github.com/Azure/ARO-Tools/config => ./../../config
 
 require (
-	github.com/Azure/ARO-Tools/config v0.0.0-00010101000000-000000000000
-	github.com/Azure/ARO-Tools/tools/cmdutils v0.0.0-20260223232408-d2d595acc2e6
+	github.com/Azure/ARO-Tools/config v0.0.0-20260224013330-2a1f3e163e45
+	github.com/Azure/ARO-Tools/tools/cmdutils v0.0.0-20260224013330-2a1f3e163e45
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.21.0
 	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azkeys v1.4.0
 	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azsecrets v1.4.0
@@ -16,7 +16,7 @@ require (
 )
 
 require (
-	github.com/Azure/ARO-Tools/tools/yamlwrap v0.0.0-20260223232408-d2d595acc2e6 // indirect
+	github.com/Azure/ARO-Tools/tools/yamlwrap v0.0.0-20260224013330-2a1f3e163e45 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.13.1 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.11.2 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/internal v1.2.0 // indirect

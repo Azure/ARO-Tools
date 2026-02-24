@@ -63,8 +63,8 @@ contrib.go.opencensus.io/exporter/ocagent v0.7.1-0.20200907061046-05415f1de66d/g
 contrib.go.opencensus.io/exporter/prometheus v0.4.2 h1:sqfsYl5GIY/L570iT+l93ehxaWJs2/OwXtiWwew3oAg=
 contrib.go.opencensus.io/exporter/prometheus v0.4.2/go.mod h1:dvEHbiKmgvbr5pjaF9fpw1KeYcjrnC1J8B+JKjsZyRQ=
 dmitri.shuralyov.com/gpu/mtl v0.0.0-20190408044501-666a987793e9/go.mod h1:H6x//7gZCb22OMCxBHrMx7a5I7Hp++hsVxbQ4BYO7hU=
-github.com/Azure/ARO-Tools/tools/cmdutils v0.0.0-20260223232408-d2d595acc2e6 h1:/dl6ceNu9D00di9b0IxBWWs0Qi3XlAgigabdwvZWY30=
-github.com/Azure/ARO-Tools/tools/cmdutils v0.0.0-20260223232408-d2d595acc2e6/go.mod h1:tepofLearVYpykT+xPKD4ls+z4PpjujbXQAxiL/8A9E=
+github.com/Azure/ARO-Tools/tools/cmdutils v0.0.0-20260224013330-2a1f3e163e45 h1:mI6wHESo4DLTBFZPmNxg7oF5YGpNKwRCmVoxYoozBDU=
+github.com/Azure/ARO-Tools/tools/cmdutils v0.0.0-20260224013330-2a1f3e163e45/go.mod h1:tepofLearVYpykT+xPKD4ls+z4PpjujbXQAxiL/8A9E=
 github.com/Azure/azure-sdk-for-go v68.0.0+incompatible h1:fcYLmCpyNYRnvJbPerq7U0hS+6+I79yEDJBqVNcqUzU=
 github.com/Azure/azure-sdk-for-go/sdk/azcore v1.21.0 h1:fou+2+WFTib47nS+nz/ozhEBnvU96bKHy6LjRsY4E28=
 github.com/Azure/azure-sdk-for-go/sdk/azcore v1.21.0/go.mod h1:t76Ruy8AHvUAC8GfMWJMa0ElSbuIcO03NLpynfbgsPA=

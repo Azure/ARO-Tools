@@ -5,8 +5,8 @@ go 1.25.0
 replace github.com/Azure/ARO-Tools/config => ./../config
 
 require (
-	github.com/Azure/ARO-Tools/config v0.0.0-00010101000000-000000000000
-	github.com/Azure/ARO-Tools/testutil v0.0.0-20260223232408-d2d595acc2e6
+	github.com/Azure/ARO-Tools/config v0.0.0-20260224013330-2a1f3e163e45
+	github.com/Azure/ARO-Tools/testutil v0.0.0-20260224013330-2a1f3e163e45
 	github.com/goccy/go-graphviz v0.2.9
 	github.com/google/go-cmp v0.7.0
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
@@ -24,8 +24,8 @@ require (
 	github.com/Antonboom/errname v1.1.0 // indirect
 	github.com/Antonboom/nilnil v1.1.0 // indirect
 	github.com/Antonboom/testifylint v1.6.0 // indirect
-	github.com/Azure/ARO-Tools/tools/cmdutils v0.0.0-20260223232408-d2d595acc2e6 // indirect
-	github.com/Azure/ARO-Tools/tools/yamlwrap v0.0.0-20260223232408-d2d595acc2e6 // indirect
+	github.com/Azure/ARO-Tools/tools/cmdutils v0.0.0-20260224013330-2a1f3e163e45 // indirect
+	github.com/Azure/ARO-Tools/tools/yamlwrap v0.0.0-20260224013330-2a1f3e163e45 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.21.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.13.1 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.11.2 // indirect

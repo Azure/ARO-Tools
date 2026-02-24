@@ -3,9 +3,9 @@ module github.com/Azure/ARO-Tools/config
 go 1.25.0
 
 require (
-	github.com/Azure/ARO-Tools/testutil v0.0.0-20260223232408-d2d595acc2e6
-	github.com/Azure/ARO-Tools/tools/cmdutils v0.0.0-20260223232408-d2d595acc2e6
-	github.com/Azure/ARO-Tools/tools/yamlwrap v0.0.0-20260223232408-d2d595acc2e6
+	github.com/Azure/ARO-Tools/testutil v0.0.0-20260224013330-2a1f3e163e45
+	github.com/Azure/ARO-Tools/tools/cmdutils v0.0.0-20260224013330-2a1f3e163e45
+	github.com/Azure/ARO-Tools/tools/yamlwrap v0.0.0-20260224013330-2a1f3e163e45
 	github.com/google/go-cmp v0.7.0
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
 	github.com/spf13/cobra v1.10.2
