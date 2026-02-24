@@ -18,24 +18,24 @@ import (
 	"fmt"
 	"os"
 
-	"gopkg.in/yaml.v3"
+	"sigs.k8s.io/yaml"
 )
 
 // ObservabilityConfig represents the full observability configuration file
 type ObservabilityConfig struct {
-	GrafanaDashboards GrafanaDashboardsConfig `yaml:"grafana-dashboards"`
+	GrafanaDashboards GrafanaDashboardsConfig `json:"grafana-dashboards"`
 }
 
 // GrafanaDashboardsConfig represents the grafana-dashboards section
 type GrafanaDashboardsConfig struct {
-	AzureManagedFolders []string          `yaml:"azureManagedFolders"`
-	DashboardFolders    []DashboardFolder `yaml:"dashboardFolders"`
+	AzureManagedFolders []string          `json:"azureManagedFolders"`
+	DashboardFolders    []DashboardFolder `json:"dashboardFolders"`
 }
 
 // DashboardFolder represents a folder containing dashboards to sync
 type DashboardFolder struct {
-	Name string `yaml:"name"`
-	Path string `yaml:"path"`
+	Name string `json:"name"`
+	Path string `json:"path"`
 }
 
 // LoadFromFile reads and parses the observability config from a file
