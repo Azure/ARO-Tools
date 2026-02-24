@@ -28,3 +28,8 @@ tidy: $(MODULES:/...=.tidy) work-sync
 
 %.tidy:
 	cd $(basename $@) && go mod tidy
+
+bump: $(MODULES:/...=.bump) tidy
+
+%.bump:
+	cd $(basename $@) && go mod edit -json | jq --raw-output '.Require[] | select(.Path | contains("github.com/Azure/ARO-Tools") ) | .Path' | xargs -I{} go get {}@main
