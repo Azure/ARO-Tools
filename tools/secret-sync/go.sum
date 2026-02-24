@@ -1,7 +1,7 @@
-github.com/Azure/ARO-Tools/config v0.0.0-20260224014929-d4c403940022 h1:687BnWA6FVMZZEKmheb2SjUrcwpHXL0HxkzOa1E8hJY=
-github.com/Azure/ARO-Tools/config v0.0.0-20260224014929-d4c403940022/go.mod h1:v8fomgurZu9eLxDvea8GFF7Wz5AoT6RbuFzP3SmHCsw=
-github.com/Azure/ARO-Tools/testutil v0.0.0-20260224013330-2a1f3e163e45 h1:1z62OV0/dpBVa1crqqIEEH2PPdy+qmgTa8G5c87obBs=
-github.com/Azure/ARO-Tools/testutil v0.0.0-20260224013330-2a1f3e163e45/go.mod h1:6V1kLTbkz3TLTspxt7fAI8Xy4EdBdsvLR5mk0gkry7k=
+github.com/Azure/ARO-Tools/config v0.0.0-20260224195034-f5e8116c18b8 h1:b3wMm7oVOJnnC+7kibq+5EkJSjtaZp48fIqSc46wMjo=
+github.com/Azure/ARO-Tools/config v0.0.0-20260224195034-f5e8116c18b8/go.mod h1:j6S5kuu6Fqu9mcqehqQDZ+BoTcCHzZoRWSL0ldDNGrY=
+github.com/Azure/ARO-Tools/testutil v0.0.0-20260224014929-d4c403940022 h1:vpFNLATrAHjiiKCZ86xOyVeYUdMpzj8TJifZhrkDqTc=
+github.com/Azure/ARO-Tools/testutil v0.0.0-20260224014929-d4c403940022/go.mod h1:6V1kLTbkz3TLTspxt7fAI8Xy4EdBdsvLR5mk0gkry7k=
 github.com/Azure/ARO-Tools/tools/cmdutils v0.0.0-20260224191138-e5196c495168 h1:2evukiW5y53TEOfXROQR0WKYANU42OzNyVKABX9DV/I=
 github.com/Azure/ARO-Tools/tools/cmdutils v0.0.0-20260224191138-e5196c495168/go.mod h1:bBo5YOjQf47SHTl5ohULLUin2PAEt6s5D5GQZQRgO5w=
 github.com/Azure/ARO-Tools/tools/yamlwrap v0.0.0-20260224014929-d4c403940022 h1:k1opER2t+jMaWS0InyKmWlN2JY32Upwk6eG9TM2bjhg=
@@ -49,8 +49,8 @@ github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c h1:+mdjkGKdHQG3305AYmd
 github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c/go.mod h1:7rwL4CYBLnjLxUqIJNnCWiEdr3bn6IUYi15bNlnbCCU=
 github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 h1:Jamvg5psRIccs7FGNTlIRMkT8wgtp5eCXdBlqhYGL6U=
 github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
-github.com/rogpeppe/go-internal v1.14.1 h1:UQB4HGPB6osV0SQTLymcB4TgvyWu6ZyliaW0tI/otEQ=
-github.com/rogpeppe/go-internal v1.14.1/go.mod h1:MaRKkUm5W0goXpeCfT7UZI6fk/L7L7so1lCWt35ZSgc=
+github.com/rogpeppe/go-internal v1.13.1 h1:KvO1DLK/DRN07sQ1LQKScxyZJuNnedQ5/wKSR38lUII=
+github.com/rogpeppe/go-internal v1.13.1/go.mod h1:uMEvuHeurkdAXX61udpOXGD/AzZDWNMNyH2VO9fmH0o=
 github.com/russross/blackfriday/v2 v2.1.0/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQDYRxCVz55jmeOWTM=
 github.com/spf13/cobra v1.10.2 h1:DMTTonx5m65Ic0GOoRY2c16WCbHxOOw6xxezuLaBpcU=
 github.com/spf13/cobra v1.10.2/go.mod h1:7C1pvHqHw5A4vrJfjNwvOdzYu0Gml16OCs2GRiTUUS4=
@@ -79,7 +79,7 @@ gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c h1:Hei/4ADfdWqJk1ZMxUNpqntN
 gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c/go.mod h1:JHkPIbrfpd72SG/EVd6muEfDQjcINNoR0C8j2r3qZ4Q=
 gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=
 gopkg.in/yaml.v3 v3.0.1/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
-k8s.io/apimachinery v0.35.1 h1:yxO6gV555P1YV0SANtnTjXYfiivaTPvCTKX6w6qdDsU=
-k8s.io/apimachinery v0.35.1/go.mod h1:jQCgFZFR1F4Ik7hvr2g84RTJSZegBc8yHgFWKn//hns=
+k8s.io/apimachinery v0.34.3 h1:/TB+SFEiQvN9HPldtlWOTp0hWbJ+fjU+wkxysf/aQnE=
+k8s.io/apimachinery v0.34.3/go.mod h1:/GwIlEcWuTX9zKIg2mbw0LRFIsXwrfoVxn+ef0X13lw=
 sigs.k8s.io/yaml v1.6.0 h1:G8fkbMSAFqgEFgh4b1wmtzDnioxFCUgTZhlbj5P9QYs=
 sigs.k8s.io/yaml v1.6.0/go.mod h1:796bPqUfzR/0jLAl6XjHl3Ck7MiyVv8dbTdyT3/pMf4=
