@@ -3,7 +3,7 @@ module github.com/Azure/ARO-Tools/tools/yamlwrap
 go 1.25.0
 
 require (
-	github.com/Azure/ARO-Tools/testutil v0.0.0-20260224013330-2a1f3e163e45
+	github.com/Azure/ARO-Tools/testutil v0.0.0-20260224014929-d4c403940022
 	github.com/google/go-cmp v0.7.0
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.11.1
