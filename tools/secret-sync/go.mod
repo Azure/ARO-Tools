@@ -2,8 +2,6 @@ module github.com/Azure/ARO-Tools/tools/secret-sync
 
 go 1.25.0
 
-replace github.com/Azure/ARO-Tools/config => ./../../config
-
 require (
 	github.com/Azure/ARO-Tools/config v0.0.0-20260224013330-2a1f3e163e45
 	github.com/Azure/ARO-Tools/tools/cmdutils v0.0.0-20260224013330-2a1f3e163e45
