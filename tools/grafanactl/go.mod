@@ -3,7 +3,7 @@ module github.com/Azure/ARO-Tools/tools/grafanactl
 go 1.25.0
 
 require (
-	github.com/Azure/ARO-Tools/tools/cmdutils v0.0.0-20260224013330-2a1f3e163e45
+	github.com/Azure/ARO-Tools/tools/cmdutils v0.0.0-20260224014929-d4c403940022
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.21.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/dashboard/armdashboard v1.2.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/monitor/armmonitor v0.11.0
