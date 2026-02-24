@@ -6,7 +6,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.21.0
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.13.1
 	github.com/spf13/cobra v1.10.2
-	k8s.io/apimachinery v0.35.1
+	k8s.io/apimachinery v0.34.3
 )
 
 require (
