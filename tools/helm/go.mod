@@ -2,12 +2,10 @@ module github.com/Azure/ARO-Tools/tools/helm
 
 go 1.25.0
 
-replace github.com/Azure/ARO-Tools/testutil => ./../../testutil
-
 replace github.com/Azure/ARO-Tools/tools/cmdutils => ./../cmdutils
 
 require (
-	github.com/Azure/ARO-Tools/testutil v0.0.0-00010101000000-000000000000
+	github.com/Azure/ARO-Tools/testutil v0.0.0-20260223232408-d2d595acc2e6
 	github.com/Azure/ARO-Tools/tools/cmdutils v0.0.0-00010101000000-000000000000
 	github.com/go-logr/logr v1.4.3
 	github.com/google/go-cmp v0.7.0

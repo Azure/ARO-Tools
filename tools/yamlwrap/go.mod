@@ -2,10 +2,8 @@ module github.com/Azure/ARO-Tools/tools/yamlwrap
 
 go 1.25.0
 
-replace github.com/Azure/ARO-Tools/testutil => ./../../testutil
-
 require (
-	github.com/Azure/ARO-Tools/testutil v0.0.0-00010101000000-000000000000
+	github.com/Azure/ARO-Tools/testutil v0.0.0-20260223232408-d2d595acc2e6
 	github.com/google/go-cmp v0.7.0
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.11.1

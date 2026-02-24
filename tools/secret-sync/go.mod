@@ -8,8 +8,6 @@ replace github.com/Azure/ARO-Tools/tools/yamlwrap => ./../yamlwrap
 
 replace github.com/Azure/ARO-Tools/config => ./../../config
 
-replace github.com/Azure/ARO-Tools/testutil => ./../../testutil
-
 require (
 	github.com/Azure/ARO-Tools/config v0.0.0-00010101000000-000000000000
 	github.com/Azure/ARO-Tools/tools/cmdutils v0.0.0-00010101000000-000000000000

@@ -6,10 +6,8 @@ replace github.com/Azure/ARO-Tools/tools/cmdutils => ./../tools/cmdutils
 
 replace github.com/Azure/ARO-Tools/tools/yamlwrap => ./../tools/yamlwrap
 
-replace github.com/Azure/ARO-Tools/testutil => ./../testutil
-
 require (
-	github.com/Azure/ARO-Tools/testutil v0.0.0-00010101000000-000000000000
+	github.com/Azure/ARO-Tools/testutil v0.0.0-20260223232408-d2d595acc2e6
 	github.com/Azure/ARO-Tools/tools/cmdutils v0.0.0-00010101000000-000000000000
 	github.com/Azure/ARO-Tools/tools/yamlwrap v0.0.0-00010101000000-000000000000
 	github.com/google/go-cmp v0.7.0
