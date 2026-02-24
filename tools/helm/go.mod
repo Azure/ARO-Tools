@@ -3,8 +3,8 @@ module github.com/Azure/ARO-Tools/tools/helm
 go 1.25.0
 
 require (
-	github.com/Azure/ARO-Tools/testutil v0.0.0-20260224014929-d4c403940022
-	github.com/Azure/ARO-Tools/tools/cmdutils v0.0.0-20260224191138-e5196c495168
+	github.com/Azure/ARO-Tools/testutil v0.0.0-20260224200806-c0318c58a192
+	github.com/Azure/ARO-Tools/tools/cmdutils v0.0.0-20260224200806-c0318c58a192
 	github.com/go-logr/logr v1.4.3
 	github.com/google/go-cmp v0.7.0
 	github.com/spf13/cobra v1.10.2
