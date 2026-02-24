@@ -11,7 +11,7 @@ require (
 	github.com/grafana-tools/sdk v0.0.0-20220919052116-6562121319fc
 	github.com/hashicorp/go-retryablehttp v0.7.8
 	github.com/spf13/cobra v1.10.2
-	gopkg.in/yaml.v3 v3.0.1
+	sigs.k8s.io/yaml v1.6.0
 )
 
 require (
@@ -34,6 +34,7 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/rainycape/unidecode v0.0.0-20150907023854-cb7f23ec59be // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
+	go.yaml.in/yaml/v2 v2.4.3 // indirect
 	golang.org/x/crypto v0.47.0 // indirect
 	golang.org/x/net v0.49.0 // indirect
 	golang.org/x/sys v0.40.0 // indirect
