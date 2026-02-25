@@ -472,6 +472,7 @@ resourceGroups:
       fileSourceToDestination:
         geneva-configs.zip: geneva-configs.zip
     monitorConfigPath: MonitorsV2
+    monitorV2ScopeBindingFile: MonitorsV2ScopeBindings.json
     monitoringAccountName:
       configRef: geneva.metrics.rp.account
     name: deployMonitors

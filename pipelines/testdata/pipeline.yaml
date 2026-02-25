@@ -460,6 +460,7 @@ resourceGroups:
         configRef: geneva.metrics.rp.account
       monitorConfigPath: MonitorsV2
       configPackagePath: geneva-configs.zip
+      monitorV2ScopeBindingFile: MonitorsV2ScopeBindings.json
       genevaConfigsArtifact:
         adoProject: "myproject"
         artifactName: "myartifact"

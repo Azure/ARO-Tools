@@ -565,13 +565,14 @@ func (s *PublishGenevaActionStep) IsWellFormedOverInputs() bool {
 const StepActionGenevaHealth = "GenevaHealth"
 
 type GenevaHealthStep struct {
-	StepMeta              `json:",inline"`
-	SecretKeyVault        Value                                `json:"secretKeyVault,omitempty"`
-	SecretName            Value                                `json:"secretName,omitempty"`
-	MonitoringAccountName Value                                `json:"monitoringAccountName,omitempty"`
-	MonitorConfigPath     string                               `json:"monitorConfigPath,omitempty"`
-	ConfigPackagePath     string                               `json:"configPackagePath,omitempty"`
-	GenevaConfigsArtifact AdoArtifactDownloadPipelineReference `json:"genevaConfigsArtifact,omitempty"`
+	StepMeta                  `json:",inline"`
+	SecretKeyVault            Value                                `json:"secretKeyVault,omitempty"`
+	SecretName                Value                                `json:"secretName,omitempty"`
+	MonitoringAccountName     Value                                `json:"monitoringAccountName,omitempty"`
+	MonitorConfigPath         string                               `json:"monitorConfigPath,omitempty"`
+	ConfigPackagePath         string                               `json:"configPackagePath,omitempty"`
+	MonitorV2ScopeBindingFile string                               `json:"monitorV2ScopeBindingFile,omitempty"`
+	GenevaConfigsArtifact     AdoArtifactDownloadPipelineReference `json:"genevaConfigsArtifact,omitempty"`
 }
 
 func (s *GenevaHealthStep) Description() string {
