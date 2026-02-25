@@ -541,6 +541,9 @@
             "configPackagePath": {
               "type": "string"
             },
+            "monitorV2ScopeBindingFile": {
+              "type": "string"
+            },
             "genevaConfigsArtifact": {
               "$ref": "#/definitions/adoArtifactDownloadReference"
             }
