@@ -23,6 +23,7 @@ import (
 	"helm.sh/helm/v4/pkg/storage/driver"
 
 	corev1 "k8s.io/api/core/v1"
+	kapierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -272,6 +273,26 @@ func (opts *Options) Deploy(ctx context.Context) error {
 		if err := applyNamespace(ctx, logger, opts.NamespacesClient, namespace, opts.DryRun); err != nil {
 			return err
 		}
+	}
+
+	// we need to clear out previous `helm` managed field owners - but to do that, we need to know what is in our release;
+	// to do *that*, we can run a dry-run first
+	if !opts.DryRun {
+		opts.DryRun = true
+		logger.Info("Doing dry-run of Helm release.")
+		releaser, releaseErr := runHelmUpgrade(ctx, logger, opts)
+		if releaseErr != nil {
+			logger.Error(releaseErr, "Failed to dry-run the Helm release.")
+		}
+		release, err := releaserToV1Release(releaser)
+		if err != nil {
+			return fmt.Errorf("failed to convert release to v1: %w", err)
+		}
+
+		if err := removeOldFieldManager(ctx, logger, opts, release); err != nil {
+			return fmt.Errorf("failed to remove old field manager from Helm release: %w", err)
+		}
+		opts.DryRun = false
 	}
 
 	// Start a deployment timer to use for finding relevant logs in runDiagnostics
@@ -611,4 +632,64 @@ func releaseListToV1List(ls []helmrelease.Releaser) ([]*helmreleasev1.Release, e
 	}
 
 	return rls, nil
+}
+
+func removeOldFieldManager(ctx context.Context, logger logr.Logger, opts *Options, release *helmreleasev1.Release) error {
+	logger.Info("Removing old field manager from objects in release manifest.")
+	inputDecoder := yamlutil.NewYAMLOrJSONDecoder(bytes.NewBuffer([]byte(release.Manifest)), 4096)
+	for {
+		ext := runtime.RawExtension{}
+		if err := inputDecoder.Decode(&ext); err != nil {
+			if err == io.EOF {
+				break
+			}
+			return fmt.Errorf("failed to parse release manifest: %v", err)
+		}
+		ext.Raw = bytes.TrimSpace(ext.Raw)
+		if len(ext.Raw) == 0 || bytes.Equal(ext.Raw, []byte("null")) {
+			continue
+		}
+
+		obj := &unstructured.Unstructured{}
+		if err := yaml.Unmarshal(ext.Raw, obj); err != nil {
+			return fmt.Errorf("failed to unmarshal release manifest: %v", err)
+		}
+
+		objLogger := logger.WithValues("gvk", obj.GroupVersionKind().String(), "namespace", obj.GetNamespace(), "name", obj.GetName())
+		objLogger.Info("Decoded resource from manifests.")
+
+		mapping, err := opts.RESTMapper.RESTMapping(obj.GroupVersionKind().GroupKind(), obj.GroupVersionKind().Version)
+		if err != nil {
+			return fmt.Errorf("unable to determine GVR mapping for GVK %s: %v", obj.GroupVersionKind(), err)
+		}
+		// for whatever reason, in dry-run mode Helm does not make the `{{ .Release }}` object available, so we need to set namespaces manually
+		// for any resources that used the template `{{ .Release.namespace }}` - we can approximate this by looking for namespaces resources
+		// that have no resource set
+		if mapping.Scope.Name() == meta.RESTScopeNameNamespace && obj.GetNamespace() == "" {
+			obj.SetNamespace(opts.ReleaseNamespace)
+		}
+
+		current, err := opts.DynamicClient.Resource(mapping.Resource).Namespace(obj.GetNamespace()).Get(ctx, obj.GetName(), metav1.GetOptions{})
+		if err != nil && !kapierrors.IsNotFound(err) {
+			return fmt.Errorf("failed to fetch current resource state: %v", err)
+		}
+		var toKeep []metav1.ManagedFieldsEntry
+		fields := current.GetManagedFields()
+		found := false
+		for _, field := range fields {
+			if field.Manager == "helm" {
+				found = true
+				continue
+			}
+			toKeep = append(toKeep, field)
+		}
+		current.SetManagedFields(toKeep)
+		if _, err := opts.DynamicClient.Resource(mapping.Resource).Namespace(obj.GetNamespace()).Update(ctx, current, metav1.UpdateOptions{}); err != nil {
+			return fmt.Errorf("failed to remove old field manager from release manifest: %v", err)
+		}
+		if found {
+			objLogger.Info("Removed old field manager from release manifest.")
+		}
+	}
+	return nil
 }
