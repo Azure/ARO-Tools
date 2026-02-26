@@ -486,10 +486,7 @@ resourceGroups:
           "workflow.zip": "workflow.zip"
     - name: dashboards
       action: GrafanaDashboards
-      grafanaName:
-        resourceGroup: regional
-        step: deploy
-        name: whatever
+      grafanaName: "{{ .global.keyVault.name }}"
       observabilityConfig: ./observability.yaml
       identityFrom:
         resourceGroup: regional
