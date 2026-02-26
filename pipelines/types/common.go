@@ -648,7 +648,15 @@ func (s *ProwJobStep) Description() string {
 }
 
 func (s *ProwJobStep) RequiredInputs() []StepDependency {
-	return nil
+
+	var deps []StepDependency
+	for _, val := range []Input{s.IdentityFrom} {
+		deps = append(deps, val.StepDependency)
+	}
+
+	slices.SortFunc(deps, SortDependencies)
+	deps = slices.Compact(deps)
+	return deps
 }
 
 func (s *ProwJobStep) IsWellFormedOverInputs() bool {
@@ -675,7 +683,7 @@ const StepActionGrafanaDashboards = "GrafanaDashboards"
 type GrafanaDashboardsStep struct {
 	StepMeta `json:",inline"`
 
-	GrafanaName         Input  `json:"grafanaName"`
+	GrafanaName         string `json:"grafanaName"`
 	ObservabilityConfig string `json:"observabilityConfig"`
 
 	// IdentityFrom specifies the managed identity with which this deployment will run in Ev2.
@@ -688,7 +696,7 @@ func (s *GrafanaDashboardsStep) Description() string {
 
 func (s *GrafanaDashboardsStep) RequiredInputs() []StepDependency {
 	var deps []StepDependency
-	for _, val := range []Input{s.GrafanaName} {
+	for _, val := range []Input{s.IdentityFrom} {
 		deps = append(deps, val.StepDependency)
 	}
 

@@ -647,7 +647,7 @@
               "const": "GrafanaDashboards"
             },
             "grafanaName": {
-              "$ref": "#/definitions/input"
+              "type": "string"
             },
             "observabilityConfig": {
               "type": "string"

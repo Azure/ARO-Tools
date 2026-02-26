@@ -498,10 +498,7 @@ resourceGroups:
       configRef: ev2.assistedId.certificate.keyVault
     workflowPath: path/to/workflow
   - action: GrafanaDashboards
-    grafanaName:
-      name: whatever
-      resourceGroup: regional
-      step: deploy
+    grafanaName: arohcpint-global
     identityFrom:
       name: whatever
       resourceGroup: regional
