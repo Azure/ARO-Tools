@@ -670,8 +670,11 @@ func removeOldFieldManager(ctx context.Context, logger logr.Logger, opts *Option
 		}
 
 		current, err := opts.DynamicClient.Resource(mapping.Resource).Namespace(obj.GetNamespace()).Get(ctx, obj.GetName(), metav1.GetOptions{})
-		if err != nil && !kapierrors.IsNotFound(err) {
-			return fmt.Errorf("failed to fetch current resource state: %v", err)
+		if err != nil {
+			if !kapierrors.IsNotFound(err) {
+				return fmt.Errorf("failed to fetch current resource state: %v", err)
+			}
+			continue
 		}
 		var toKeep []metav1.ManagedFieldsEntry
 		fields := current.GetManagedFields()
