@@ -278,21 +278,29 @@ func (opts *Options) Deploy(ctx context.Context) error {
 	// we need to clear out previous `helm` managed field owners - but to do that, we need to know what is in our release;
 	// to do *that*, we can run a dry-run first
 	if !opts.DryRun {
-		opts.DryRun = true
-		logger.Info("Doing dry-run of Helm release.")
-		releaser, releaseErr := runHelmUpgrade(ctx, logger, opts)
-		if releaseErr != nil {
-			logger.Error(releaseErr, "Failed to dry-run the Helm release.")
-		}
-		release, err := releaserToV1Release(releaser)
-		if err != nil {
-			return fmt.Errorf("failed to convert release to v1: %w", err)
-		}
+		historyClient := action.NewHistory(opts.ActionConfig)
+		historyClient.Max = 1
+		versions, err := historyClient.Run(opts.ReleaseName)
+		noReleaseYet := errors.Is(err, driver.ErrReleaseNotFound) || isReleaseUninstalled(logger, versions)
 
-		if err := removeOldFieldManager(ctx, logger, opts, release); err != nil {
-			return fmt.Errorf("failed to remove old field manager from Helm release: %w", err)
+		if !noReleaseYet {
+			// only when a previous release exists, do we need to fixup managed fields
+			opts.DryRun = true
+			logger.Info("Doing dry-run of Helm release.")
+			releaser, releaseErr := runHelmUpgrade(ctx, logger, opts)
+			if releaseErr != nil {
+				logger.Error(releaseErr, "Failed to dry-run the Helm release.")
+			}
+			release, err := releaserToV1Release(releaser)
+			if err != nil {
+				return fmt.Errorf("failed to convert release to v1: %w", err)
+			}
+
+			if err := removeOldFieldManager(ctx, logger, opts, release); err != nil {
+				return fmt.Errorf("failed to remove old field manager from Helm release: %w", err)
+			}
+			opts.DryRun = false
 		}
-		opts.DryRun = false
 	}
 
 	// Start a deployment timer to use for finding relevant logs in runDiagnostics
