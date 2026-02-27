@@ -18,5 +18,5 @@ func GetAzureTokenCredentials() (azcore.TokenCredential, error) {
 		return azidentity.NewAzureCLICredential(nil)
 	}
 
-	return azidentity.NewDefaultAzureCredential(nil)
+	return azidentity.NewDefaultAzureCredential(&azidentity.DefaultAzureCredentialOptions{RequireAzureTokenCredentials: true})
 }
