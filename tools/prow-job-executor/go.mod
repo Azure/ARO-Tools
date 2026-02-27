@@ -3,7 +3,7 @@ module github.com/Azure/ARO-Tools/tools/prow-job-executor
 go 1.25.5
 
 require (
-	github.com/Azure/ARO-Tools/tools/cmdutils v0.0.0-20260224200806-c0318c58a192
+	github.com/Azure/ARO-Tools/tools/cmdutils v0.0.0-20260227032723-11f678744bf9
 	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azsecrets v1.4.0
 	github.com/go-logr/logr v1.4.3
 	github.com/google/uuid v1.6.0

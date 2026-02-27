@@ -3,8 +3,8 @@ module github.com/Azure/ARO-Tools/pipelines
 go 1.25.0
 
 require (
-	github.com/Azure/ARO-Tools/config v0.0.0-20260224195034-f5e8116c18b8
-	github.com/Azure/ARO-Tools/testutil v0.0.0-20260224200806-c0318c58a192
+	github.com/Azure/ARO-Tools/config v0.0.0-20260227032723-11f678744bf9
+	github.com/Azure/ARO-Tools/testutil v0.0.0-20260227032723-11f678744bf9
 	github.com/goccy/go-graphviz v0.2.9
 	github.com/google/go-cmp v0.7.0
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
@@ -22,8 +22,8 @@ require (
 	github.com/Antonboom/errname v1.1.0 // indirect
 	github.com/Antonboom/nilnil v1.1.0 // indirect
 	github.com/Antonboom/testifylint v1.6.0 // indirect
-	github.com/Azure/ARO-Tools/tools/cmdutils v0.0.0-20260224200806-c0318c58a192 // indirect
-	github.com/Azure/ARO-Tools/tools/yamlwrap v0.0.0-20260224200806-c0318c58a192 // indirect
+	github.com/Azure/ARO-Tools/tools/cmdutils v0.0.0-20260227032723-11f678744bf9 // indirect
+	github.com/Azure/ARO-Tools/tools/yamlwrap v0.0.0-20260227032723-11f678744bf9 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.21.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.13.1 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.11.2 // indirect

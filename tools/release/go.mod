@@ -3,7 +3,7 @@ module github.com/Azure/ARO-Tools/tools/release
 go 1.25.0
 
 require (
-	github.com/Azure/ARO-Tools/testutil v0.0.0-20260224200806-c0318c58a192
+	github.com/Azure/ARO-Tools/testutil v0.0.0-20260227032723-11f678744bf9
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.6.4
 	github.com/go-logr/logr v1.4.3
 	github.com/google/go-cmp v0.7.0
