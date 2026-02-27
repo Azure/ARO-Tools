@@ -512,7 +512,7 @@ resourceGroups:
     roleAssignment: test.bicepparam
   validationSteps:
   - action: ProwJob
-    gatePromotion: true
+    gatePromotion: "true"
     identityFrom:
       name: whatever
       resourceGroup: regional
