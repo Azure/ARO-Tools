@@ -498,7 +498,7 @@ resourceGroups:
     tokenKeyvault: "{{ .global.keyVault.name }}.vault.azure.net"
     tokenSecret: "{{ .e2e.prow.globalKeyVaultTokenSecret }}"
     jobName: "{{ .e2e.regionTest.prowJobName }}"
-    gatePromotion: {{ .e2e.regionTest.gatePromotion }}
+    gatePromotion: "{{ .e2e.regionTest.gatePromotion }}"
     identityFrom:
       resourceGroup: regional
       step: deploy

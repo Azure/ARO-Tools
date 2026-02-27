@@ -619,7 +619,7 @@
               "type": "string"
             },
             "gatePromotion": {
-              "type": "boolean"
+              "type": "string"
             },
             "identityFrom": {
               "$ref": "#/definitions/input"

@@ -637,7 +637,7 @@ type ProwJobStep struct {
 	TokenKeyvault string `json:"tokenKeyvault"`
 	TokenSecret   string `json:"tokenSecret"`
 	JobName       string `json:"jobName"`
-	GatePromotion bool   `json:"gatePromotion"`
+	GatePromotion string `json:"gatePromotion"` // string-encoded boolean, passed to command as a flag
 
 	// IdentityFrom specifies the managed identity with which this deployment will run in Ev2.
 	IdentityFrom Input `json:"identityFrom,omitempty"`
