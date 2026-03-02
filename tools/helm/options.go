@@ -304,7 +304,7 @@ func (opts *Options) Deploy(ctx context.Context) error {
 	}
 
 	// Start a deployment timer to use for finding relevant logs in runDiagnostics
-	deploymentStartTime := time.Now()
+	deploymentStart := time.Now()
 
 	logger.Info("Rolling out Helm release.", "dryRun", opts.DryRun)
 	releaser, releaseErr := runHelmUpgrade(ctx, logger, opts)
@@ -328,7 +328,7 @@ func (opts *Options) Deploy(ctx context.Context) error {
 		logger.Info("Finished validating Helm release contents.")
 	} else {
 		logger.Info("Running inline diagnostics.")
-		if err := runDiagnostics(ctx, logger, opts, deploymentStartTime); err != nil {
+		if err := runDiagnostics(ctx, logger, opts, deploymentStart); err != nil {
 			logger.Error(err, "Failed to capture diagnostics for Helm release")
 		}
 	}
@@ -439,7 +439,9 @@ func isReleaseUninstalled(logger logr.Logger, versionsi []helmrelease.Releaser) 
 	return len(versions) > 0 && versions[len(versions)-1].Info.Status == helmreleasecommon.StatusUninstalled
 }
 
-func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options, deploymentStartTime time.Time) error {
+func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options, deploymentStart time.Time) error {
+	deploymentEnd := time.Now()
+
 	statusClient := action.NewStatus(opts.ActionConfig)
 	releaser, err := statusClient.Run(opts.ReleaseName)
 	if err != nil {
@@ -459,7 +461,23 @@ func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options, depl
 		"values", release.Config,
 	)
 
-	if release.Info == nil || len(release.Info.Resources) == 0 {
+	resourceCount := 0
+	if release.Info != nil {
+		resourceCount = len(release.Info.Resources)
+	}
+	if release.Info == nil || resourceCount == 0 {
+		logger.Info("No resource info available in release, skipping resource diagnostics.",
+			"infoNil", release.Info == nil,
+			"resourceCount", resourceCount,
+		)
+		if release.Namespace != "" {
+			nsLink, err := getNamespaceQuery(opts, release.Namespace, deploymentStart, deploymentEnd)
+			if err != nil {
+				logger.Error(err, "Failed to create Kusto deep link for namespace")
+			} else if nsLink != "" {
+				logger.Info("Kusto deep link for namespace-level troubleshooting", "kustoLinkNamespace", nsLink)
+			}
+		}
 		return nil
 	}
 
@@ -480,9 +498,6 @@ func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options, depl
 			addOwnerNoDuplicates(ownerRefs, owner)
 		}
 	}
-
-	deploymentStart := deploymentStartTime
-	deploymentEnd := time.Now()
 
 	if len(resources) > 0 {
 		logger.V(4).Info("Found resources in release:", "resources", resources)
