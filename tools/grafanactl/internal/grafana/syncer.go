@@ -378,15 +378,32 @@ func (s *DashboardSyncer) deleteStale(ctx context.Context, existingFolders []sdk
 		}
 	}
 
-	for _, d := range existingDashboards {
-		// Check if dashboard was visited by its UID
-		if dashboardsVisited[d.UID] {
-			continue
+	currentConfigDashboardFolders := make(map[string]bool)
+	for _, folder := range s.config.GrafanaDashboards.DashboardFolders {
+		for _, f := range existingFolders {
+			if f.Title == folder.Name {
+				currentConfigDashboardFolders[f.UID] = true
+				break
+			}
 		}
+	}
+
+	for _, d := range existingDashboards {
 
 		// Skip Azure managed folders
 		if azureManagedFolderUIDs[d.FolderUID] {
 			logger.V(1).Info("Skipping deletion, dashboard is in Azure managed folder", "title", d.Title)
+			continue
+		}
+
+		// skip folders not in current config to avoid deleting dashboards that are outside of our management scope
+		if !currentConfigDashboardFolders[d.FolderUID] {
+			logger.V(1).Info("Skipping deletion, dashboard is in a folder not managed by current config", "title", d.Title)
+			continue
+		}
+
+		// Check if dashboard was visited by its UID
+		if dashboardsVisited[d.UID] {
 			continue
 		}
 
