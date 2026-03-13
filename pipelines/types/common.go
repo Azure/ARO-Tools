@@ -570,8 +570,10 @@ type GenevaHealthStep struct {
 	SecretName                Value                                `json:"secretName,omitempty"`
 	MonitoringAccountName     Value                                `json:"monitoringAccountName,omitempty"`
 	MonitorConfigPath         string                               `json:"monitorConfigPath,omitempty"`
+	TopologyConfigPath        string                               `json:"topologyConfigPath,omitempty"`
 	ConfigPackagePath         string                               `json:"configPackagePath,omitempty"`
 	MonitorV2ScopeBindingFile string                               `json:"monitorV2ScopeBindingFile,omitempty"`
+	AdditionalScopeBindings   map[string]Value                     `json:"additionalScopeBindings,omitempty"`
 	GenevaConfigsArtifact     AdoArtifactDownloadPipelineReference `json:"genevaConfigsArtifact,omitempty"`
 }
 
