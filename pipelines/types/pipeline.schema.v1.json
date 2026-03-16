@@ -538,11 +538,20 @@
             "monitorConfigPath": {
               "type": "string"
             },
+            "topologyConfigPath": {
+              "type": "string"
+            },
             "configPackagePath": {
               "type": "string"
             },
             "monitorV2ScopeBindingFile": {
               "type": "string"
+            },
+            "additionalScopeBindings": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/definitions/value"
+              }
             },
             "genevaConfigsArtifact": {
               "$ref": "#/definitions/adoArtifactDownloadReference"

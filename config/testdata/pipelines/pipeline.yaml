@@ -459,8 +459,12 @@ resourceGroups:
       monitoringAccountName:
         configRef: geneva.metrics.rp.account
       monitorConfigPath: MonitorsV2
+      topologyConfigPath: Topology/config.json
       configPackagePath: geneva-configs.zip
       monitorV2ScopeBindingFile: MonitorsV2ScopeBindings.json
+      additionalScopeBindings:
+        kustoEndpoint:
+          configRef: geneva.kusto.endpoint
       genevaConfigsArtifact:
         adoProject: "myproject"
         artifactName: "myartifact"
