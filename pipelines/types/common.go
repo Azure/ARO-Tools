@@ -588,6 +588,11 @@ func (s *GenevaHealthStep) RequiredInputs() []StepDependency {
 			deps = append(deps, val.Input.StepDependency)
 		}
 	}
+	for _, val := range s.AdditionalScopeBindings {
+		if val.Input != nil {
+			deps = append(deps, val.Input.StepDependency)
+		}
+	}
 	slices.SortFunc(deps, SortDependencies)
 	deps = slices.Compact(deps)
 	return deps
