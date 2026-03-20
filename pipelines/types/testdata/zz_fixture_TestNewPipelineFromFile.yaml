@@ -83,6 +83,7 @@ resourceGroups:
     dependsOn:
     - resourceGroup: regional
       step: deploy
+    deploymentMode: {}
     dstsHost:
       configRef: ev2.assistedId.dstsHost
     externalDependsOn:

@@ -766,6 +766,9 @@
             "childZone": {
               "$ref": "#/definitions/value"
             },
+            "deploymentMode": {
+              "$ref": "#/definitions/value"
+            },
             "secretKeyVault": {
               "$ref": "#/definitions/value"
             },
