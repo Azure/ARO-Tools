@@ -39,6 +39,11 @@ const (
 	// EV2 rollout annotation prefix
 	ev2RolloutPrefix           = "ev2.rollout/"
 	ev2RolloutRegionAnnotation = ev2RolloutPrefix + "region"
+
+	// Default git ref values for postsubmit execution
+	defaultBaseRef = "main"
+	defaultOrg     = "Azure"
+	defaultRepo    = "ARO-HCP"
 )
 
 //
@@ -55,6 +60,9 @@ func DefaultExecuteOptions() *RawExecuteOptions {
 		Timeout:             3 * time.Hour,
 		GangwayURL:          defaultGangwayURL,
 		ProwURL:             defaultProwURL,
+		BaseRef:             defaultBaseRef,
+		Org:                 defaultOrg,
+		Repo:                defaultRepo,
 	}
 }
 
@@ -71,6 +79,10 @@ func (o *RawExecuteOptions) BindFlags(cmd *cobra.Command) error {
 	cmd.Flags().StringVar(&o.ProwURL, "prow-url", o.ProwURL, "Prow API URL for job status monitoring")
 	cmd.Flags().BoolVar(&o.DryRun, "dry-run", o.DryRun, "Print which job would be started, but do not start one.")
 	cmd.Flags().BoolVar(&o.GatePromotion, "gate-promotion", o.GatePromotion, "Exit with an error code if the job fails.")
+	cmd.Flags().StringVar(&o.BaseSha, "base-sha", o.BaseSha, "Git commit SHA to test against. When set, the job is triggered as a postsubmit with this specific commit instead of HEAD.")
+	cmd.Flags().StringVar(&o.BaseRef, "base-ref", o.BaseRef, "Git base ref (branch) for the postsubmit job (requires --base-sha)")
+	cmd.Flags().StringVar(&o.Org, "org", o.Org, "GitHub org for the postsubmit job (requires --base-sha)")
+	cmd.Flags().StringVar(&o.Repo, "repo", o.Repo, "GitHub repo for the postsubmit job (requires --base-sha)")
 
 	// Mark required flags
 	for _, flag := range []string{
@@ -101,6 +113,13 @@ type RawExecuteOptions struct {
 	ProwURL           string
 	DryRun            bool
 	GatePromotion     bool
+
+	// Git ref options for postsubmit execution pinned to a specific commit.
+	// When BaseSha is set, the job is triggered as a postsubmit instead of a periodic.
+	BaseSha string
+	BaseRef string
+	Org     string
+	Repo    string
 }
 
 // validatedExecuteOptions is a private wrapper that enforces a call of Validate() before Complete() can be invoked.
@@ -131,6 +150,12 @@ type completedExecuteOptions struct {
 	ProwURL         string
 	DryRun          bool
 	GatePromotion   bool
+
+	// Git ref options for postsubmit execution
+	BaseSha string
+	BaseRef string
+	Org     string
+	Repo    string
 }
 
 type ExecuteOptions struct {
@@ -194,6 +219,23 @@ func (o *RawExecuteOptions) Validate(ctx context.Context) (*ValidatedExecuteOpti
 		}
 	}
 
+	// When base-sha is set, org, repo and base-ref are required for postsubmit execution
+	if o.BaseSha != "" {
+		for _, item := range []struct {
+			flag  string
+			name  string
+			value *string
+		}{
+			{flag: "base-ref", name: "base ref", value: &o.BaseRef},
+			{flag: "org", name: "GitHub org", value: &o.Org},
+			{flag: "repo", name: "GitHub repo", value: &o.Repo},
+		} {
+			if item.value == nil || *item.value == "" {
+				return nil, fmt.Errorf("the %s must be provided with --%s when --base-sha is set", item.name, item.flag)
+			}
+		}
+	}
+
 	if o.PollInterval <= 0 {
 		return nil, fmt.Errorf("poll-interval must be greater than 0")
 	}
@@ -233,6 +275,10 @@ func (o *ValidatedExecuteOptions) Complete(ctx context.Context) (*ExecuteOptions
 			ProwURL:         o.ProwURL,
 			DryRun:          o.DryRun,
 			GatePromotion:   o.GatePromotion,
+			BaseSha:         o.BaseSha,
+			BaseRef:         o.BaseRef,
+			Org:             o.Org,
+			Repo:            o.Repo,
 		},
 	}, nil
 }
@@ -254,15 +300,28 @@ func (o *ExecuteOptions) Execute(ctx context.Context) error {
 	maps.Copy(envs, o.EnvironmentVars)
 	envs["MULTISTAGE_PARAM_OVERRIDE_LOCATION"] = o.Region
 
-	return monitor.ExecuteAndWait(ctx, logger, &prowgangway.CreateJobExecutionRequest{
+	request := &prowgangway.CreateJobExecutionRequest{
 		JobName:          o.ProwJobName,
-		JobExecutionType: prowgangway.JobExecutionType_PERIODIC, // hardcode periodic for now
+		JobExecutionType: prowgangway.JobExecutionType_PERIODIC,
 		PodSpecOptions: &prowgangway.PodSpecOptions{
 			Envs:        envs,
 			Labels:      o.Labels,
 			Annotations: o.Annotations,
 		},
-	})
+	}
+
+	if o.BaseSha != "" {
+		request.JobExecutionType = prowgangway.JobExecutionType_POSTSUBMIT
+		request.Refs = &prowgangway.Refs{
+			Org:     o.Org,
+			Repo:    o.Repo,
+			BaseRef: o.BaseRef,
+			BaseSha: o.BaseSha,
+		}
+		logger.Info("Using postsubmit execution with pinned commit", "org", o.Org, "repo", o.Repo, "baseRef", o.BaseRef, "baseSha", o.BaseSha)
+	}
+
+	return monitor.ExecuteAndWait(ctx, logger, request)
 }
 
 // parseEV2RolloutVersionAsAnnotations parses a flexible tag.value.tag.value format and returns annotations
