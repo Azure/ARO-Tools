@@ -6,6 +6,8 @@ clouds:
       azureContainerRegistry:
         domainNameSuffix: azurecr.us
       cloudName: Fairfax
+      cosmosDB:
+        dnsSuffix: .documents.azure.us
       entra:
         federatedcredentials:
           audience: api://AzureADTokenExchangeUSGov
@@ -88,6 +90,8 @@ clouds:
       azureContainerRegistry:
         domainNameSuffix: azurecr.io
       cloudName: Public
+      cosmosDB:
+        dnsSuffix: .documents.azure.com
       entra:
         federatedcredentials:
           audience: api://AzureADTokenExchange
