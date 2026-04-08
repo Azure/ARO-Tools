@@ -496,6 +496,13 @@ resourceGroups:
         resourceGroup: regional
         step: deploy
         name: whatever
+    - name: datasources
+      action: GrafanaDatasources
+      grafanaName: "{{ .global.keyVault.name }}"
+      identityFrom:
+        resourceGroup: regional
+        step: deploy
+        name: whatever
   validationSteps:
   - name: e2e
     action: ProwJob
