@@ -673,6 +673,31 @@
         }
       ]
     },
+    "grafanaDatasourcesStep": {
+      "unevaluatedProperties": false,
+      "allOf": [
+        {
+          "$ref": "#/definitions/stepMeta"
+        },
+        {
+          "properties": {
+            "action": {
+              "const": "GrafanaDatasources"
+            },
+            "grafanaName": {
+              "type": "string"
+            },
+            "identityFrom": {
+              "$ref": "#/definitions/input"
+            }
+          },
+          "required": [
+            "grafanaName",
+            "identityFrom"
+          ]
+        }
+      ]
+    },
     "helmStep": {
       "unevaluatedProperties": false,
       "allOf": [
@@ -1853,6 +1878,22 @@
                   },
                   "then": {
                     "$ref": "#/definitions/grafanaDashboardsStep"
+                  }
+                },
+                {
+                  "if": {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "GrafanaDatasources"
+                      }
+                    },
+                    "required": [
+                      "action"
+                    ]
+                  },
+                  "then": {
+                    "$ref": "#/definitions/grafanaDatasourcesStep"
                   }
                 }
               ],

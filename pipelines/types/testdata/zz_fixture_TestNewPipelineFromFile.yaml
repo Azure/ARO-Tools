@@ -510,6 +510,13 @@ resourceGroups:
       step: deploy
     name: dashboards
     observabilityConfig: ./observability.yaml
+  - action: GrafanaDatasources
+    grafanaName: arohcpint-global
+    identityFrom:
+      name: whatever
+      resourceGroup: regional
+      step: deploy
+    name: datasources
   subscription: hcp-uksouth
   subscriptionProvisioning:
     displayName:

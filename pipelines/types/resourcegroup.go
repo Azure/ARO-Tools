@@ -139,6 +139,8 @@ func (s *Steps) UnmarshalJSON(data []byte) error {
 			step = &ProwJobStep{}
 		case StepActionGrafanaDashboards:
 			step = &GrafanaDashboardsStep{}
+		case StepActionGrafanaDatasources:
+			step = &GrafanaDatasourcesStep{}
 		default:
 			step = &GenericStep{}
 		}

@@ -716,3 +716,33 @@ func (s *GrafanaDashboardsStep) RequiredInputs() []StepDependency {
 func (s *GrafanaDashboardsStep) IsWellFormedOverInputs() bool {
 	return true
 }
+
+const StepActionGrafanaDatasources = "GrafanaDatasources"
+
+type GrafanaDatasourcesStep struct {
+	StepMeta `json:",inline"`
+
+	GrafanaName string `json:"grafanaName"`
+
+	// IdentityFrom specifies the managed identity with which this deployment will run in Ev2.
+	IdentityFrom Input `json:"identityFrom,omitempty"`
+}
+
+func (s *GrafanaDatasourcesStep) Description() string {
+	return fmt.Sprintf("Step %s\n  Kind: %s\n", s.Name, s.Action)
+}
+
+func (s *GrafanaDatasourcesStep) RequiredInputs() []StepDependency {
+	var deps []StepDependency
+	for _, val := range []Input{s.IdentityFrom} {
+		deps = append(deps, val.StepDependency)
+	}
+
+	slices.SortFunc(deps, SortDependencies)
+	deps = slices.Compact(deps)
+	return deps
+}
+
+func (s *GrafanaDatasourcesStep) IsWellFormedOverInputs() bool {
+	return true
+}
