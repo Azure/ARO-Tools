@@ -93,9 +93,12 @@ func (o *CompletedAddDatasourceOptions) getMatchingWorkspaceIDs(ctx context.Cont
 	}
 
 	for _, workspace := range monitorWorkspaces {
+		if workspace.Properties == nil || workspace.Properties.ProvisioningState == nil || workspace.ID == nil {
+			continue
+		}
 		if *workspace.Properties.ProvisioningState == armmonitor.ProvisioningStateSucceeded {
 			logger.Info("Found", "workspace-id", *workspace.ID, "provisioning-state", *workspace.Properties.ProvisioningState)
-			validWorkspaceIDs.Insert(*workspace.ID)
+			validWorkspaceIDs.Insert(strings.ToLower(*workspace.ID))
 		}
 	}
 
@@ -123,10 +126,11 @@ func (o *CompletedAddDatasourceOptions) Run(ctx context.Context) error {
 			return fmt.Errorf("got nil resource ID for integration, this looks like a bug")
 		}
 		integrationID := strings.ToLower(*integration.AzureMonitorWorkspaceResourceID)
-		if !validWorkspaceIDs.Has(integrationID) {
+		if validWorkspaceIDs.Has(integrationID) {
+			integrationList.Insert(integrationID)
+		} else {
 			logger.Info("Removing", "workspace-id", integrationID)
 		}
-		integrationList.Insert(*integration.AzureMonitorWorkspaceResourceID)
 	}
 
 	for _, workspaceID := range validWorkspaceIDs.UnsortedList() {
@@ -137,13 +141,13 @@ func (o *CompletedAddDatasourceOptions) Run(ctx context.Context) error {
 	}
 
 	if o.DryRun {
-		logger.Info("Dry run - would add Azure Monitor Workspace integration", "total-integrations", validWorkspaceIDs.Len())
+		logger.Info("Dry run - would reconcile Azure Monitor Workspace integrations", "total-integrations", integrationList.Len())
 		return nil
 	}
 
-	logger.Info("Adding Azure Monitor Workspace integration", "total-integrations", len(validWorkspaceIDs))
+	logger.Info("Reconciling Azure Monitor Workspace integrations", "total-integrations", integrationList.Len())
 
-	err = o.ManagedGrafanaClient.UpdateGrafanaIntegrations(ctx, o.ResourceGroup, o.GrafanaName, validWorkspaceIDs.UnsortedList())
+	err = o.ManagedGrafanaClient.UpdateGrafanaIntegrations(ctx, o.ResourceGroup, o.GrafanaName, integrationList.UnsortedList())
 	if err != nil {
 		return fmt.Errorf("failed to update Grafana integrations: %w", err)
 	}

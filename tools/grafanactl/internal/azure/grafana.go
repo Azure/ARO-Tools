@@ -114,10 +114,23 @@ func (c *ManagedGrafanaClient) waitForReadyGrafana(ctx context.Context, resource
 		if err != nil {
 			return fmt.Errorf("failed to get Grafana instance: %w", err)
 		}
-		if *grafana.Properties.ProvisioningState == armdashboard.ProvisioningStateSucceeded {
-			return nil
+		if grafana.Properties == nil || grafana.Properties.ProvisioningState == nil {
+			logger.Info("Grafana properties or provisioning state not available yet, retrying...")
+		} else {
+			state := *grafana.Properties.ProvisioningState
+			switch state {
+			case armdashboard.ProvisioningStateSucceeded:
+				return nil
+			case armdashboard.ProvisioningStateFailed, armdashboard.ProvisioningStateCanceled, armdashboard.ProvisioningStateDeleted:
+				return fmt.Errorf("grafana instance provisioning ended in non-ready state: %s", state)
+			default:
+				logger.Info("Waiting for Grafana to be ready", "provisioningState", string(state))
+			}
 		}
-		logger.Info("Waiting for Grafana to be ready", "resourceGroup", resourceGroup, "grafanaName", grafanaName)
-		time.Sleep(10 * time.Second)
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("context cancelled while waiting for Grafana to be ready: %w", ctx.Err())
+		case <-time.After(10 * time.Second):
+		}
 	}
 }

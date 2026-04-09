@@ -69,7 +69,6 @@ func BindAddDatasourceOptions(opts *RawAddDatasourceOptions, cmd *cobra.Command)
 	flags := cmd.Flags()
 	flags.StringVar(&opts.TagKey, "tag-key", opts.TagKey, "Azure Monitor Workspace tag key to filter by")
 	flags.StringVar(&opts.TagValue, "tag-value", opts.TagValue, "Azure Monitor Workspace tag value to filter by")
-	flags.BoolVar(&opts.DryRun, "dry-run", opts.DryRun, "Perform a dry run without making changes (default: false)")
 
 	return nil
 }
