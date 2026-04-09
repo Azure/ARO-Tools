@@ -22,7 +22,7 @@ func CompareFileWithFixture(t *testing.T, outputFile string, opts ...option) {
 }
 
 // CompareWithFixture will compare output with a test fixture and allows to automatically update them
-// by setting the UPDATE env var.
+// by setting the UPDATE env var (or a custom env var via WithUpdateEnv).
 // If output is not a []byte or string, it will get serialized as yaml prior to the comparison.
 // The fixtures are stored in $PWD/testdata/prefix${testName}.yaml
 func CompareWithFixture(t *testing.T, output interface{}, opts ...option) string {
@@ -70,7 +70,7 @@ func CompareWithFixture(t *testing.T, output interface{}, opts ...option) string
 	}
 
 	if diff := cmp.Diff(string(expected), string(serializedOutput)); diff != "" {
-		t.Errorf("got diff between expected and actual result:\nfile: %s\ndiff:\n%s\n\nIf this is expected, re-run the test with `UPDATE=true go test ./...` to update the fixtures.", golden, diff)
+		t.Errorf("got diff between expected and actual result:\nfile: %s\ndiff:\n%s\n\nIf this is expected, re-run the test with `%s=true go test ./...` to update the fixtures.", golden, diff, updateEnv)
 	}
 
 	return golden
