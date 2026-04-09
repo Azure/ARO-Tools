@@ -52,7 +52,11 @@ func CompareWithFixture(t *testing.T, output interface{}, opts ...option) string
 	if err != nil {
 		t.Fatalf("failed to get absolute path to testdata file: %v", err)
 	}
-	if os.Getenv("UPDATE") != "" {
+	updateEnv := "UPDATE"
+	if options.UpdateEnv != "" {
+		updateEnv = options.UpdateEnv
+	}
+	if os.Getenv(updateEnv) != "" {
 		if err := os.MkdirAll(filepath.Dir(golden), 0755); err != nil {
 			t.Fatalf("failed to create fixture directory: %v", err)
 		}
@@ -77,7 +81,8 @@ type options struct {
 	Suffix    string
 	Extension string
 
-	SubDir string
+	SubDir    string
+	UpdateEnv string
 }
 
 type option func(*options)
@@ -97,6 +102,12 @@ func WithSuffix(suffix string) option {
 func WithSubDir(subDir string) option {
 	return func(opts *options) {
 		opts.SubDir = subDir
+	}
+}
+
+func WithUpdateEnv(env string) option {
+	return func(opts *options) {
+		opts.UpdateEnv = env
 	}
 }
 
