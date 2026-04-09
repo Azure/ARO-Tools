@@ -48,6 +48,7 @@ func BindBaseOptions(opts *BaseOptions, cmd *cobra.Command) error {
 	flags.StringVar(&opts.GrafanaName, "grafana-name", opts.GrafanaName, "Azure Managed Grafana instance name ")
 	flags.StringVar(&opts.GrafanaResourceID, "grafana-resource-id", opts.GrafanaResourceID, "Azure Managed Grafana instance resource ID")
 	flags.StringVar(&opts.OutputFormat, "output", opts.OutputFormat, "Output format: table or json")
+	flags.BoolVar(&opts.DryRun, "dry-run", opts.DryRun, "Print actions without executing them")
 
 	return nil
 }
