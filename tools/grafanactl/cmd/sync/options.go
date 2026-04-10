@@ -32,7 +32,6 @@ import (
 // RawSyncDashboardsOptions represents the initial, unvalidated configuration for sync operations.
 type RawSyncDashboardsOptions struct {
 	*base.BaseOptions
-	DryRun         bool
 	ConfigFilePath string
 }
 
@@ -59,7 +58,6 @@ type CompletedSyncDashboardsOptions struct {
 func DefaultSyncDashboardsOptions() *RawSyncDashboardsOptions {
 	return &RawSyncDashboardsOptions{
 		BaseOptions: base.DefaultBaseOptions(),
-		DryRun:      false,
 	}
 }
 
@@ -70,7 +68,6 @@ func BindSyncDashboardsOptions(opts *RawSyncDashboardsOptions, cmd *cobra.Comman
 	}
 
 	flags := cmd.Flags()
-	flags.BoolVar(&opts.DryRun, "dry-run", false, "Perform a dry run without making changes")
 	flags.StringVar(&opts.ConfigFilePath, "config-file", "", "Path to config file with Grafana dashboard references (absolute or relative path, required)")
 
 	_ = cmd.MarkFlagRequired("config-file")
