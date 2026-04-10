@@ -22,7 +22,7 @@ func CompareFileWithFixture(t *testing.T, outputFile string, opts ...option) {
 }
 
 // CompareWithFixture will compare output with a test fixture and allows to automatically update them
-// by setting the UPDATE env var.
+// by setting the UPDATE env var (or a custom env var via WithUpdateEnv).
 // If output is not a []byte or string, it will get serialized as yaml prior to the comparison.
 // The fixtures are stored in $PWD/testdata/prefix${testName}.yaml
 func CompareWithFixture(t *testing.T, output interface{}, opts ...option) string {
@@ -52,7 +52,11 @@ func CompareWithFixture(t *testing.T, output interface{}, opts ...option) string
 	if err != nil {
 		t.Fatalf("failed to get absolute path to testdata file: %v", err)
 	}
-	if os.Getenv("UPDATE") != "" {
+	updateEnv := "UPDATE"
+	if options.UpdateEnv != "" {
+		updateEnv = options.UpdateEnv
+	}
+	if os.Getenv(updateEnv) != "" {
 		if err := os.MkdirAll(filepath.Dir(golden), 0755); err != nil {
 			t.Fatalf("failed to create fixture directory: %v", err)
 		}
@@ -66,7 +70,7 @@ func CompareWithFixture(t *testing.T, output interface{}, opts ...option) string
 	}
 
 	if diff := cmp.Diff(string(expected), string(serializedOutput)); diff != "" {
-		t.Errorf("got diff between expected and actual result:\nfile: %s\ndiff:\n%s\n\nIf this is expected, re-run the test with `UPDATE=true go test ./...` to update the fixtures.", golden, diff)
+		t.Errorf("got diff between expected and actual result:\nfile: %s\ndiff:\n%s\n\nIf this is expected, re-run the test with `%s=true go test ./...` to update the fixtures.", golden, diff, updateEnv)
 	}
 
 	return golden
@@ -77,7 +81,8 @@ type options struct {
 	Suffix    string
 	Extension string
 
-	SubDir string
+	SubDir    string
+	UpdateEnv string
 }
 
 type option func(*options)
@@ -97,6 +102,12 @@ func WithSuffix(suffix string) option {
 func WithSubDir(subDir string) option {
 	return func(opts *options) {
 		opts.SubDir = subDir
+	}
+}
+
+func WithUpdateEnv(env string) option {
+	return func(opts *options) {
+		opts.UpdateEnv = env
 	}
 }
 
