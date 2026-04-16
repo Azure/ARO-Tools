@@ -9,12 +9,12 @@ retry() {
     until "$@"; do
         count=$((count + 1))
         if [[ "${count}" -ge "${retries}" ]]; then
-            echo "Command failed after ${retries} attempts: $*"
+            echo "Command failed after ${retries} attempts: $*" >&2
             return 1
         fi
-        local wait=$((2 ** count))
-        echo "Command failed (attempt ${count}/${retries}). Retrying in ${wait}s..."
-        sleep "${wait}"
+        local delay=$((2 ** count))
+        echo "Command failed (attempt ${count}/${retries}). Retrying in ${delay}s..." >&2
+        sleep "${delay}"
     done
 }
 
@@ -156,7 +156,7 @@ copyImageFromOciLayout() {
     USERNAME="00000000-0000-0000-0000-000000000000"
     acr_login_oci() {
       if ! PASSWORD=$(az acr login --name "$TARGET_ACR" --expose-token --only-show-errors --output tsv --query accessToken); then
-        echo "Failed to get ACR access token for ${TARGET_ACR}"
+        echo "Failed to get ACR access token for ${TARGET_ACR}" >&2
         return 1
       fi
     }
