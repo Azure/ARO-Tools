@@ -77,7 +77,7 @@ copyImageFromRegistry() {
       if output="$( az acr login --name "${TARGET_ACR}" --expose-token --only-show-errors --output json 2>&1 )"; then
         RESPONSE="${output}"
       else
-        echo "Failed to log in to ACR ${TARGET_ACR}: ${output}"
+        echo "Failed to log in to ACR ${TARGET_ACR}: ${output}" >&2
         return 1
       fi
     }
