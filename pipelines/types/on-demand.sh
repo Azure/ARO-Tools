@@ -155,7 +155,10 @@ copyImageFromOciLayout() {
     echo "Getting the ACR access token."
     USERNAME="00000000-0000-0000-0000-000000000000"
     acr_login_oci() {
-      PASSWORD=$(az acr login --name "$TARGET_ACR" --expose-token --output tsv --query accessToken)
+      if ! PASSWORD=$(az acr login --name "$TARGET_ACR" --expose-token --only-show-errors --output tsv --query accessToken); then
+        echo "Failed to get ACR access token for ${TARGET_ACR}"
+        return 1
+      fi
     }
     retry 5 acr_login_oci
 
