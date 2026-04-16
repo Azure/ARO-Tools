@@ -2,6 +2,22 @@
 
 set -euo pipefail
 
+retry() {
+    local retries="${1}"
+    shift
+    local count=0
+    until "$@"; do
+        count=$((count + 1))
+        if [[ "${count}" -ge "${retries}" ]]; then
+            echo "Command failed after ${retries} attempts: $*" >&2
+            return 1
+        fi
+        local delay=$((2 ** count))
+        echo "Command failed (attempt ${count}/${retries}). Retrying in ${delay}s..." >&2
+        sleep "${delay}"
+    done
+}
+
 copyImageFromRegistry() {
     # shortcut mirroring if the source registry is the same as the target ACR
     REQUIRED_REGISTRY_VARS=("TARGET_ACR" "SOURCE_REGISTRY")
@@ -57,12 +73,15 @@ copyImageFromRegistry() {
 
     # ACR login to target registry
     echo "Logging into target ACR ${TARGET_ACR}."
-    if output="$( az acr login --name "${TARGET_ACR}" --expose-token --only-show-errors --output json 2>&1 )"; then
-      RESPONSE="${output}"
-    else
-      echo "Failed to log in to ACR ${TARGET_ACR}: ${output}"
-      exit 1
-    fi
+    acr_login_target() {
+      if output="$( az acr login --name "${TARGET_ACR}" --expose-token --only-show-errors --output json 2>&1 )"; then
+        RESPONSE="${output}"
+      else
+        echo "Failed to log in to ACR ${TARGET_ACR}: ${output}" >&2
+        return 1
+      fi
+    }
+    retry 5 acr_login_target
     TARGET_ACR_LOGIN_SERVER="$(jq --raw-output .loginServer <<<"${RESPONSE}" )"
     oras login --registry-config "${AUTH_JSON}" \
                --username 00000000-0000-0000-0000-000000000000 \
@@ -135,8 +154,14 @@ copyImageFromOciLayout() {
 
     echo "Getting the ACR access token."
     USERNAME="00000000-0000-0000-0000-000000000000"
-    PASSWORD=$(az acr login --name "$TARGET_ACR" --expose-token --output tsv --query accessToken)
- 
+    acr_login_oci() {
+      if ! PASSWORD=$(az acr login --name "$TARGET_ACR" --expose-token --only-show-errors --output tsv --query accessToken); then
+        echo "Failed to get ACR access token for ${TARGET_ACR}" >&2
+        return 1
+      fi
+    }
+    retry 5 acr_login_oci
+
     echo "Logging in with ORAS."
     oras login $TARGET_ACR_LOGIN_SERVER --username $USERNAME  --password-stdin <<< $PASSWORD
    
