@@ -214,11 +214,18 @@ type configResolver struct {
 }
 
 func (cr *configResolver) ValidateSchema(config types.Configuration) error {
+	celVocab, err := NewCELVocabulary()
+	if err != nil {
+		return fmt.Errorf("failed to create CEL vocabulary: %w", err)
+	}
+
 	loader := jsonschema.SchemeURLLoader{
 		"file": jsonschema.FileLoader{},
 	}
 	c := jsonschema.NewCompiler()
 	c.UseLoader(loader)
+	c.RegisterVocabulary(celVocab)
+	c.AssertVocabs()
 	sch, err := c.Compile(cr.absoluteSchemaPath)
 	if err != nil {
 		return fmt.Errorf("failed to compile schema: %v", err)

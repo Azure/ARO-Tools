@@ -230,6 +230,74 @@ cfg, err := resolver.GetRegionConfiguration("nonexistent")
 // Error: the cloud nonexistent is not found in the config
 ```
 
+## CEL Validation
+
+In addition to JSON Schema structural validation, configuration schemas support [CEL (Common Expression Language)](https://cel.dev/) rules via `x-cel-validations` annotations. This mirrors the [Kubernetes CRD `x-kubernetes-validations`](https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/#validation-rules) pattern, enabling cross-field validation and custom constraints that JSON Schema alone cannot express.
+
+### Syntax
+
+CEL rules are declared as an array of objects on any schema node using the `x-cel-validations` key. Each rule has two required fields:
+
+- **`rule`**: A CEL expression that must evaluate to `bool`. The value at the schema node where the rule is declared is bound to `self`.
+- **`message`**: The error message shown when the rule evaluates to `false`.
+
+Rules can be placed at any depth in the schema. A rule on a nested object receives that object as `self`. For example, validating that the Istio `targetVersion` is included in the `versions` CSV list:
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "versions": {
+      "description": "The current istio versions in the AKS cluster as CSV",
+      "type": "string"
+    },
+    "targetVersion": {
+      "description": "The target istio version that will be updated to",
+      "type": "string"
+    }
+  },
+  "required": ["targetVersion", "versions"],
+  "x-cel-validations": [
+    {
+      "rule": "self.versions.split(',').exists(v, v == self.targetVersion)",
+      "message": "targetVersion must be included in the versions list"
+    }
+  ]
+}
+```
+
+### Built-in CEL Functions
+
+The standard CEL operators, macros, and functions are available. In addition, the [cel-go strings](https://pkg.go.dev/github.com/google/cel-go/ext#Strings) and [lists](https://pkg.go.dev/github.com/google/cel-go/ext#Lists) extensions are enabled, providing functions like `startsWith()`, `endsWith()`, `contains()`, `matches()`, `size()`, `filter()`, `map()`, and others.
+
+The `has()` macro is useful for guarding optional fields — `has(self.fieldName)` returns `true` only when the field is present, letting you skip validation for absent optional fields.
+
+### Semver Functions
+
+Custom semver functions are available for validating and comparing semantic version strings. Versions are parsed and normalized via `golang.org/x/mod/semver` -- both `"1.2.3"` and `"v1.2.3"` are accepted as input.
+
+| Function | Signature | Description |
+|---|---|---|
+| `semver()` | `semver(string) -> Semver` | Parses a string into a Semver value. Returns an error if the string is not a valid semver. |
+| `isSemver()` | `isSemver(string) -> bool` | Returns `true` if the string is a valid semver, `false` otherwise. |
+| `.major()` | `Semver.major() -> int` | Returns the major version component. |
+| `.minor()` | `Semver.minor() -> int` | Returns the minor version component. |
+| `.patch()` | `Semver.patch() -> int` | Returns the patch version component. |
+
+Semver values support the comparison operators `<`, `<=`, `>`, `>=`, and `==`.
+
+For example, enforcing that an Istio service mesh version is compatible with the AKS Kubernetes version:
+```json
+{
+  "x-cel-validations": [
+    {
+      "rule": "self.istio.targetVersion == 'asm-1-26' ? semver(self.aks.kubernetesVersion) >= semver('1.29.0') && semver(self.aks.kubernetesVersion) < semver('1.35.0') : true",
+      "message": "asm-1-26 requires AKS Kubernetes version between 1.29.0 (inclusive) and 1.35.0 (exclusive)"
+    }
+  ]
+}
+```
+
 ## Best Practices
 
 1. **Validate schemas**: Use `ValidateSchema()` to catch configuration errors early  
