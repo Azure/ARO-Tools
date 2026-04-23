@@ -535,5 +535,18 @@ resourceGroups:
     tokenSecret: prow-token
     validation:
     - Internal
+  - action: ProwJob
+    dryRun: true
+    gatePromotion: "true"
+    identityFrom:
+      name: whatever
+      resourceGroup: regional
+      step: deploy
+    jobName: test-me
+    name: e2e2
+    tokenKeyvault: arohcpint-global.vault.azure.net
+    tokenSecret: prow-token
+    validation:
+    - Internal
 rolloutName: Test Rollout
 serviceGroup: Microsoft.Azure.ARO.Test

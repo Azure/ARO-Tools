@@ -632,6 +632,9 @@
             },
             "identityFrom": {
               "$ref": "#/definitions/input"
+            },
+            "dryRun": {
+              "type": "boolean"
             }
           },
           "required": [
