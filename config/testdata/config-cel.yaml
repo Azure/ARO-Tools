@@ -1,0 +1,9 @@
+$schema: config-cel.schema.json
+clouds:
+  public:
+    environments:
+      int:
+        defaults:
+          key1: '{{ .ctx.region }}-{{ .ctx.regionShort }}'
+          key2: 42
+          version: '1.2.3'

@@ -1,0 +1,19 @@
+{
+  "type": "object",
+  "properties": {
+    "key1": {
+      "type": "string"
+    },
+    "key2": {
+      "type": "integer"
+    },
+    "version": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "x-cel-validations": [
+    {"rule": "self.key2 > 0", "message": "key2 must be positive"},
+    {"rule": "isSemver(self.version)", "message": "version must be valid semver"}
+  ]
+}
