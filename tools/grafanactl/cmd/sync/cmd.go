@@ -61,6 +61,11 @@ func NewSyncCommand(group string) (*cobra.Command, error) {
 }
 
 func (opts *RawSyncDashboardsOptions) Run(ctx context.Context) error {
+	logger := logr.FromContextOrDiscard(ctx)
+	if opts.SkipSync {
+		logger.Info("Skipping dashboard sync")
+		return nil
+	}
 	validated, err := opts.Validate(ctx)
 	if err != nil {
 		return fmt.Errorf("validation failed: %w", err)
