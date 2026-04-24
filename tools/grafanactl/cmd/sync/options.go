@@ -33,6 +33,7 @@ import (
 type RawSyncDashboardsOptions struct {
 	*base.BaseOptions
 	ConfigFilePath string
+	SkipSync       bool
 }
 
 // validatedSyncDashboardsOptions is a private struct that enforces the options validation pattern.
@@ -69,6 +70,7 @@ func BindSyncDashboardsOptions(opts *RawSyncDashboardsOptions, cmd *cobra.Comman
 
 	flags := cmd.Flags()
 	flags.StringVar(&opts.ConfigFilePath, "config-file", "", "Path to config file with Grafana dashboard references (absolute or relative path, required)")
+	flags.BoolVar(&opts.SkipSync, "skip-sync", false, "Skip syncing dashboards")
 
 	_ = cmd.MarkFlagRequired("config-file")
 	return nil
