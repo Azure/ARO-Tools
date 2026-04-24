@@ -690,6 +690,9 @@
             "grafanaName": {
               "type": "string"
             },
+            "skipSync": {
+              "type": "string"
+            },
             "identityFrom": {
               "$ref": "#/definitions/input"
             }
