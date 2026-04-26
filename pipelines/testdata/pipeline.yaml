@@ -519,7 +519,10 @@ resourceGroups:
   - name: e2e2
     action: ProwJob
     tokenKeyvault: "{{ .global.keyVault.name }}.vault.azure.net"
-    dryRun: true
+    dryRun:
+      variables:
+      - name: DRY_RUN
+        value: "true"
     tokenSecret: "{{ .e2e.prow.globalKeyVaultTokenSecret }}"
     jobName: "{{ .e2e.regionTest.prowJobName }}"
     gatePromotion: "{{ .e2e.regionTest.gatePromotion }}"

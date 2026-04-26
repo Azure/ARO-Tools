@@ -524,6 +524,7 @@ resourceGroups:
     roleAssignment: test.bicepparam
   validationSteps:
   - action: ProwJob
+    dryRun: {}
     gatePromotion: "true"
     identityFrom:
       name: whatever
@@ -536,7 +537,10 @@ resourceGroups:
     validation:
     - Internal
   - action: ProwJob
-    dryRun: true
+    dryRun:
+      variables:
+      - name: DRY_RUN
+        value: "true"
     gatePromotion: "true"
     identityFrom:
       name: whatever
