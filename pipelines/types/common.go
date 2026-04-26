@@ -659,6 +659,11 @@ func (s *ProwJobStep) Description() string {
 func (s *ProwJobStep) RequiredInputs() []StepDependency {
 
 	var deps []StepDependency
+	for _, val := range s.DryRun.Variables {
+		if val.Input != nil {
+			deps = append(deps, val.Input.StepDependency)
+		}
+	}
 	for _, val := range []Input{s.IdentityFrom} {
 		deps = append(deps, val.StepDependency)
 	}
