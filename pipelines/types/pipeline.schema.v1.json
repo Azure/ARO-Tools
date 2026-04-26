@@ -634,7 +634,19 @@
               "$ref": "#/definitions/input"
             },
             "dryRun": {
-              "type": "boolean"
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "command": {
+                  "type": "string"
+                },
+                "variables": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/definitions/variable"
+                  }
+                }
+              }
             }
           },
           "required": [
