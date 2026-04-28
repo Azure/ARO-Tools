@@ -57,7 +57,7 @@ func DefaultExecuteOptions() *RawExecuteOptions {
 		Annotations:         make(map[string]string),
 		EnvironmentVars:     make(map[string]string),
 		PollInterval:        300 * time.Second,
-		Timeout:             3 * time.Hour,
+		Timeout:             4 * time.Hour,
 		GangwayURL:          defaultGangwayURL,
 		ProwURL:             defaultProwURL,
 		BaseRef:             defaultBaseRef,
@@ -371,7 +371,7 @@ func DefaultMonitorOptions() *RawMonitorOptions {
 	return &RawMonitorOptions{
 		RawProwTokenOptions: NewDefaultRawProwTokenOptions(),
 		PollInterval:        300 * time.Second,
-		Timeout:             3 * time.Hour,
+		Timeout:             4 * time.Hour,
 		GangwayURL:          defaultGangwayURL,
 		ProwURL:             defaultProwURL,
 	}
