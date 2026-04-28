@@ -15,8 +15,15 @@
 package grafana
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"path"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -36,6 +43,9 @@ const (
 // Client provides methods to interact with Azure Managed Grafana instances.
 type Client struct {
 	grafanaClient *sdk.Client
+	endpoint      string
+	token         string
+	httpClient    *http.Client
 }
 
 type retryableLogger struct {
@@ -59,18 +69,22 @@ func NewClient(ctx context.Context, credential azcore.TokenCredential, managedGr
 		return nil, fmt.Errorf("failed to get API token: %w", err)
 	}
 
-	httpClient := retryablehttp.NewClient()
-	httpClient.RetryMax = grafanaAPIRetryMax
-	httpClient.Logger = &retryableLogger{logger: logr.FromContextOrDiscard(ctx).WithName("grafana").WithValues("endpoint", endpoint)}
-	httpClient.HTTPClient.Timeout = grafanaAPITimeout
+	retryableClient := retryablehttp.NewClient()
+	retryableClient.RetryMax = grafanaAPIRetryMax
+	retryableClient.Logger = &retryableLogger{logger: logr.FromContextOrDiscard(ctx).WithName("grafana").WithValues("endpoint", endpoint)}
+	retryableClient.HTTPClient.Timeout = grafanaAPITimeout
+	httpClient := retryableClient.StandardClient()
 
-	grafanaClient, err := sdk.NewClient(endpoint, token, httpClient.StandardClient())
+	grafanaClient, err := sdk.NewClient(endpoint, token, httpClient)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Grafana SDK client: %w", err)
 	}
 
 	return &Client{
 		grafanaClient: grafanaClient,
+		endpoint:      endpoint,
+		token:         token,
+		httpClient:    httpClient,
 	}, nil
 }
 
@@ -96,6 +110,86 @@ func (c *Client) ListDataSources(ctx context.Context) ([]sdk.Datasource, error) 
 	}
 
 	return datasources, nil
+}
+
+// ListDataSourceTypes returns all datasource plugins available in the Grafana instance.
+func (c *Client) ListDataSourceTypes(ctx context.Context) (map[string]sdk.DatasourceType, error) {
+	dataSourceTypes, err := c.grafanaClient.GetDatasourceTypes(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get datasource types: %w", err)
+	}
+
+	return dataSourceTypes, nil
+}
+
+// CreateDataSource creates a datasource and fails on non-successful Grafana API responses.
+func (c *Client) CreateDataSource(ctx context.Context, dataSource sdk.Datasource) error {
+	if _, err := c.doGrafanaRequest(ctx, http.MethodPost, "api/datasources", dataSource, http.StatusOK, http.StatusCreated); err != nil {
+		return fmt.Errorf("failed to create datasource %q: %w", dataSource.Name, err)
+	}
+
+	return nil
+}
+
+// UpdateDataSource updates a datasource and fails on non-successful Grafana API responses.
+func (c *Client) UpdateDataSource(ctx context.Context, dataSource sdk.Datasource) error {
+	if dataSource.ID == 0 {
+		return fmt.Errorf("datasource ID is required for update")
+	}
+
+	if _, err := c.doGrafanaRequest(ctx, http.MethodPut, fmt.Sprintf("api/datasources/%d", dataSource.ID), dataSource, http.StatusOK); err != nil {
+		return fmt.Errorf("failed to update datasource %q: %w", dataSource.Name, err)
+	}
+
+	return nil
+}
+
+func (c *Client) doGrafanaRequest(ctx context.Context, method, apiPath string, body interface{}, allowedStatusCodes ...int) ([]byte, error) {
+	endpoint, err := url.Parse(c.endpoint)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse Grafana endpoint: %w", err)
+	}
+	endpoint.Path = path.Join(endpoint.Path, apiPath)
+	if !strings.HasPrefix(endpoint.Path, "/") {
+		endpoint.Path = "/" + endpoint.Path
+	}
+
+	raw, err := json.Marshal(body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to serialize request body: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, endpoint.String(), bytes.NewReader(raw))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", "grafanactl")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("grafana API %s /%s request failed: %w", method, apiPath, err)
+	}
+	defer resp.Body.Close()
+
+	responseBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read Grafana API response: %w", err)
+	}
+
+	for _, allowedStatusCode := range allowedStatusCodes {
+		if resp.StatusCode == allowedStatusCode {
+			return responseBody, nil
+		}
+	}
+
+	message := fmt.Sprintf("grafana API %s /%s failed with status %d: %s", method, apiPath, resp.StatusCode, strings.TrimSpace(string(responseBody)))
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		message += "; verify the caller has Grafana Admin permissions"
+	}
+	return nil, fmt.Errorf("%s", message)
 }
 
 // DeleteDataSource removes a datasource from the Grafana instance by name.

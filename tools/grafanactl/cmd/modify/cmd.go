@@ -30,7 +30,8 @@ import (
 const datasourceGroupID = "datasource"
 
 func NewModifyCommand(group string) (*cobra.Command, error) {
-	opts := DefaultAddDatasourceOptions()
+	addDatasourceOpts := DefaultAddDatasourceOptions()
+	reconcileADXDatasourceOpts := DefaultReconcileADXDatasourceOptions()
 
 	modifyCmd := &cobra.Command{
 		Use:     "modify",
@@ -56,15 +57,29 @@ func NewModifyCommand(group string) (*cobra.Command, error) {
 		Short: "Reconcile Azure Monitor Workspace datasources in Grafana",
 		Long:  "Reconcile Azure Monitor Workspace datasources in the Azure Managed Grafana instance. This integrates the workspaces with Grafana and creates the necessary datasource configuration.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return opts.Run(cmd.Context())
+			return addDatasourceOpts.Run(cmd.Context())
 		},
 	}
 
-	if err := BindAddDatasourceOptions(opts, addDatasourceCmd); err != nil {
+	reconcileADXDatasourceCmd := &cobra.Command{
+		Use:   "reconcile-adx",
+		Short: "Reconcile an Azure Data Explorer datasource in Grafana",
+		Long:  "Reconcile one Azure Data Explorer datasource in the Azure Managed Grafana instance using the Grafana API.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return reconcileADXDatasourceOpts.Run(cmd.Context())
+		},
+	}
+
+	if err := BindAddDatasourceOptions(addDatasourceOpts, addDatasourceCmd); err != nil {
+		return nil, err
+	}
+
+	if err := BindReconcileADXDatasourceOptions(reconcileADXDatasourceOpts, reconcileADXDatasourceCmd); err != nil {
 		return nil, err
 	}
 
 	datasourceCmd.AddCommand(addDatasourceCmd)
+	datasourceCmd.AddCommand(reconcileADXDatasourceCmd)
 	modifyCmd.AddCommand(datasourceCmd)
 
 	return modifyCmd, nil
