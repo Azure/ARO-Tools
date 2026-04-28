@@ -49,7 +49,7 @@ func (o *CompletedReconcileADXDatasourceOptions) Run(ctx context.Context) error 
 
 	dataSourceTypes, err := o.GrafanaClient.ListDataSourceTypes(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to list Grafana datasource plugins; verify the caller has Grafana Admin permissions: %w", err)
+		return fmt.Errorf("failed to list Grafana datasource plugins: %w", err)
 	}
 	if _, ok := dataSourceTypes[adxDatasourceType]; !ok {
 		return fmt.Errorf("Grafana datasource plugin %q is not available", adxDatasourceType)
@@ -57,7 +57,7 @@ func (o *CompletedReconcileADXDatasourceOptions) Run(ctx context.Context) error 
 
 	dataSources, err := o.GrafanaClient.ListDataSources(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to list Grafana datasources; verify the caller has Grafana Admin permissions: %w", err)
+		return fmt.Errorf("failed to list Grafana datasources: %w", err)
 	}
 
 	var existing *sdk.Datasource

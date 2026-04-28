@@ -67,7 +67,14 @@ func TestCreateDataSourceUsesStatusAwareRequest(t *testing.T) {
 }
 
 func TestUpdateDataSourceReportsForbiddenAsAdminPermissionError(t *testing.T) {
+	var gotAuthHeader string
+	var gotMethod string
+	var gotPath string
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotMethod = r.Method
+		gotPath = r.URL.Path
+		gotAuthHeader = r.Header.Get("Authorization")
 		w.WriteHeader(http.StatusForbidden)
 		_, _ = w.Write([]byte(`{"message":"forbidden"}`))
 	}))
@@ -88,5 +95,42 @@ func TestUpdateDataSourceReportsForbiddenAsAdminPermissionError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "Grafana Admin permissions") {
 		t.Fatalf("expected Grafana Admin permissions error, got %v", err)
+	}
+	if gotMethod != http.MethodPut {
+		t.Fatalf("expected method %s, got %s", http.MethodPut, gotMethod)
+	}
+	if gotPath != "/api/datasources/42" {
+		t.Fatalf("expected path /api/datasources/42, got %s", gotPath)
+	}
+	if gotAuthHeader != "Bearer token" {
+		t.Fatalf("expected bearer token auth header, got %q", gotAuthHeader)
+	}
+}
+
+func TestCreateDataSourceReportsUnauthorizedAsAuthError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(`{"message":"unauthorized"}`))
+	}))
+	defer server.Close()
+
+	client := &Client{
+		endpoint:   server.URL,
+		token:      "token",
+		httpClient: server.Client(),
+	}
+
+	err := client.CreateDataSource(context.Background(), sdk.Datasource{
+		Name: "kusto-int-uksouth",
+		Type: "grafana-azure-data-explorer-datasource",
+	})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "authentication token") {
+		t.Fatalf("expected authentication token error, got %v", err)
+	}
+	if strings.Contains(err.Error(), "Grafana Admin permissions") {
+		t.Fatalf("did not expect Grafana Admin permissions error, got %v", err)
 	}
 }

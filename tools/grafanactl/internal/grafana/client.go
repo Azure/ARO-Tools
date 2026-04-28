@@ -104,9 +104,14 @@ func getGrafanaAPIToken(ctx context.Context, credential azcore.TokenCredential) 
 
 // ListDataSources returns all datasources configured in the Grafana instance.
 func (c *Client) ListDataSources(ctx context.Context) ([]sdk.Datasource, error) {
-	datasources, err := c.grafanaClient.GetAllDatasources(ctx)
+	raw, err := c.doGrafanaRequest(ctx, http.MethodGet, "api/datasources", nil, http.StatusOK)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get datasources: %w", err)
+	}
+
+	var datasources []sdk.Datasource
+	if err := json.Unmarshal(raw, &datasources); err != nil {
+		return nil, fmt.Errorf("failed to decode datasources: %w", err)
 	}
 
 	return datasources, nil
@@ -114,9 +119,14 @@ func (c *Client) ListDataSources(ctx context.Context) ([]sdk.Datasource, error) 
 
 // ListDataSourceTypes returns all datasource plugins available in the Grafana instance.
 func (c *Client) ListDataSourceTypes(ctx context.Context) (map[string]sdk.DatasourceType, error) {
-	dataSourceTypes, err := c.grafanaClient.GetDatasourceTypes(ctx)
+	raw, err := c.doGrafanaRequest(ctx, http.MethodGet, "api/datasources/plugins", nil, http.StatusOK)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get datasource types: %w", err)
+	}
+
+	dataSourceTypes := map[string]sdk.DatasourceType{}
+	if err := json.Unmarshal(raw, &dataSourceTypes); err != nil {
+		return nil, fmt.Errorf("failed to decode datasource types: %w", err)
 	}
 
 	return dataSourceTypes, nil
@@ -154,18 +164,24 @@ func (c *Client) doGrafanaRequest(ctx context.Context, method, apiPath string, b
 		endpoint.Path = "/" + endpoint.Path
 	}
 
-	raw, err := json.Marshal(body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to serialize request body: %w", err)
+	var requestBody io.Reader
+	if body != nil {
+		raw, err := json.Marshal(body)
+		if err != nil {
+			return nil, fmt.Errorf("failed to serialize request body: %w", err)
+		}
+		requestBody = bytes.NewReader(raw)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, method, endpoint.String(), bytes.NewReader(raw))
+	req, err := http.NewRequestWithContext(ctx, method, endpoint.String(), requestBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Authorization", "Bearer "+c.token)
-	req.Header.Set("Content-Type", "application/json")
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
 	req.Header.Set("User-Agent", "grafanactl")
 
 	resp, err := c.httpClient.Do(req)
@@ -186,7 +202,9 @@ func (c *Client) doGrafanaRequest(ctx context.Context, method, apiPath string, b
 	}
 
 	message := fmt.Sprintf("grafana API %s /%s failed with status %d: %s", method, apiPath, resp.StatusCode, strings.TrimSpace(string(responseBody)))
-	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+	if resp.StatusCode == http.StatusUnauthorized {
+		message += "; verify the caller's authentication token and Grafana endpoint configuration"
+	} else if resp.StatusCode == http.StatusForbidden {
 		message += "; verify the caller has Grafana Admin permissions"
 	}
 	return nil, fmt.Errorf("%s", message)
