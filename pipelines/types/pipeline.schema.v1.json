@@ -688,6 +688,42 @@
         }
       ]
     },
+    "grafanaAzureMonitorDatasources": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "grafanaADXDatasource": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "$ref": "#/definitions/value"
+        },
+        "deleteWhenDisabled": {
+          "type": "boolean"
+        },
+        "clusterUrl": {
+          "$ref": "#/definitions/value"
+        },
+        "defaultDatabase": {
+          "$ref": "#/definitions/value"
+        },
+        "datasourceName": {
+          "$ref": "#/definitions/value"
+        },
+        "geographies": {
+          "$ref": "#/definitions/value"
+        },
+        "dataConsistency": {
+          "type": "string"
+        }
+      }
+    },
     "grafanaDatasourcesStep": {
       "unevaluatedProperties": false,
       "allOf": [
@@ -701,6 +737,15 @@
             },
             "grafanaName": {
               "type": "string"
+            },
+            "grafanaResourceId": {
+              "$ref": "#/definitions/value"
+            },
+            "azureMonitor": {
+              "$ref": "#/definitions/grafanaAzureMonitorDatasources"
+            },
+            "adx": {
+              "$ref": "#/definitions/grafanaADXDatasource"
             },
             "skipSync": {
               "type": "string"

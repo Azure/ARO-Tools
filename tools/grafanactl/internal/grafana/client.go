@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -188,7 +189,9 @@ func (c *Client) doGrafanaRequest(ctx context.Context, method, apiPath string, b
 	if err != nil {
 		return nil, fmt.Errorf("grafana API %s /%s request failed: %w", method, apiPath, err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -202,19 +205,20 @@ func (c *Client) doGrafanaRequest(ctx context.Context, method, apiPath string, b
 	}
 
 	message := fmt.Sprintf("grafana API %s /%s failed with status %d: %s", method, apiPath, resp.StatusCode, strings.TrimSpace(string(responseBody)))
-	if resp.StatusCode == http.StatusUnauthorized {
+	switch resp.StatusCode {
+	case http.StatusUnauthorized:
 		message += "; verify the caller's authentication token and Grafana endpoint configuration"
-	} else if resp.StatusCode == http.StatusForbidden {
+	case http.StatusForbidden:
 		message += "; verify the caller has Grafana Admin permissions"
 	}
-	return nil, fmt.Errorf("%s", message)
+	return nil, errors.New(message)
 }
 
 // DeleteDataSource removes a datasource from the Grafana instance by name.
 func (c *Client) DeleteDataSource(ctx context.Context, dataSourceName string) error {
-	_, err := c.grafanaClient.DeleteDatasourceByName(ctx, dataSourceName)
-	if err != nil {
-		return fmt.Errorf("failed to delete datasource: %w", err)
+	apiPath := path.Join("api/datasources/name", url.PathEscape(dataSourceName))
+	if _, err := c.doGrafanaRequest(ctx, http.MethodDelete, apiPath, nil, http.StatusOK, http.StatusAccepted, http.StatusNotFound); err != nil {
+		return fmt.Errorf("failed to delete datasource %q: %w", dataSourceName, err)
 	}
 
 	return nil

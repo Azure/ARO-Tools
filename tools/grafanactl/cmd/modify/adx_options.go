@@ -36,15 +36,18 @@ type adxGrafanaClient interface {
 	ListDataSourceTypes(ctx context.Context) (map[string]sdk.DatasourceType, error)
 	CreateDataSource(ctx context.Context, dataSource sdk.Datasource) error
 	UpdateDataSource(ctx context.Context, dataSource sdk.Datasource) error
+	DeleteDataSource(ctx context.Context, dataSourceName string) error
 }
 
 // RawReconcileADXDatasourceOptions represents the initial, unvalidated configuration for ADX datasource reconcile operations.
 type RawReconcileADXDatasourceOptions struct {
 	*base.BaseOptions
-	ClusterURL      string
-	DefaultDatabase string
-	DatasourceName  string
-	DataConsistency string
+	Enabled            bool
+	DeleteWhenDisabled bool
+	ClusterURL         string
+	DefaultDatabase    string
+	DatasourceName     string
+	DataConsistency    string
 }
 
 type validatedReconcileADXDatasourceOptions struct {
@@ -66,6 +69,7 @@ type CompletedReconcileADXDatasourceOptions struct {
 func DefaultReconcileADXDatasourceOptions() *RawReconcileADXDatasourceOptions {
 	return &RawReconcileADXDatasourceOptions{
 		BaseOptions:     base.DefaultBaseOptions(),
+		Enabled:         true,
 		DataConsistency: defaultADXDataConsistency,
 	}
 }
@@ -77,6 +81,8 @@ func BindReconcileADXDatasourceOptions(opts *RawReconcileADXDatasourceOptions, c
 	}
 
 	flags := cmd.Flags()
+	flags.BoolVar(&opts.Enabled, "enabled", opts.Enabled, "Reconcile the Azure Data Explorer datasource desired state as present")
+	flags.BoolVar(&opts.DeleteWhenDisabled, "delete-when-disabled", opts.DeleteWhenDisabled, "Delete the named Azure Data Explorer datasource when desired state is disabled")
 	flags.StringVar(&opts.ClusterURL, "cluster-url", opts.ClusterURL, "Azure Data Explorer cluster URL")
 	flags.StringVar(&opts.DefaultDatabase, "default-database", opts.DefaultDatabase, "Default Azure Data Explorer database")
 	flags.StringVar(&opts.DatasourceName, "datasource-name", opts.DatasourceName, "Grafana datasource name")
@@ -99,6 +105,23 @@ func (o *RawReconcileADXDatasourceOptions) Validate(ctx context.Context) (*Valid
 		dataConsistency = defaultADXDataConsistency
 	}
 
+	if !o.Enabled {
+		if o.DeleteWhenDisabled && datasourceName == "" {
+			return nil, fmt.Errorf("datasource name is required when ADX datasource deletion is enabled")
+		}
+		return &ValidatedReconcileADXDatasourceOptions{
+			validatedReconcileADXDatasourceOptions: &validatedReconcileADXDatasourceOptions{
+				RawReconcileADXDatasourceOptions: &RawReconcileADXDatasourceOptions{
+					BaseOptions:        o.BaseOptions,
+					Enabled:            false,
+					DeleteWhenDisabled: o.DeleteWhenDisabled,
+					DatasourceName:     datasourceName,
+					DataConsistency:    dataConsistency,
+				},
+			},
+		}, nil
+	}
+
 	if clusterURL == "" {
 		return nil, fmt.Errorf("cluster URL is required")
 	}
@@ -119,11 +142,13 @@ func (o *RawReconcileADXDatasourceOptions) Validate(ctx context.Context) (*Valid
 	return &ValidatedReconcileADXDatasourceOptions{
 		validatedReconcileADXDatasourceOptions: &validatedReconcileADXDatasourceOptions{
 			RawReconcileADXDatasourceOptions: &RawReconcileADXDatasourceOptions{
-				BaseOptions:     o.BaseOptions,
-				ClusterURL:      clusterURL,
-				DefaultDatabase: defaultDatabase,
-				DatasourceName:  datasourceName,
-				DataConsistency: dataConsistency,
+				BaseOptions:        o.BaseOptions,
+				Enabled:            true,
+				DeleteWhenDisabled: o.DeleteWhenDisabled,
+				ClusterURL:         clusterURL,
+				DefaultDatabase:    defaultDatabase,
+				DatasourceName:     datasourceName,
+				DataConsistency:    dataConsistency,
 			},
 		},
 	}, nil

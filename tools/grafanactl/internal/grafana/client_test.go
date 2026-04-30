@@ -134,3 +134,72 @@ func TestCreateDataSourceReportsUnauthorizedAsAuthError(t *testing.T) {
 		t.Fatalf("did not expect Grafana Admin permissions error, got %v", err)
 	}
 }
+
+func TestDeleteDataSourceUsesStatusAwareRequest(t *testing.T) {
+	var gotMethod string
+	var gotPath string
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotMethod = r.Method
+		gotPath = r.URL.Path
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"message":"deleted"}`))
+	}))
+	defer server.Close()
+
+	client := &Client{
+		endpoint:   server.URL,
+		token:      "token",
+		httpClient: server.Client(),
+	}
+
+	if err := client.DeleteDataSource(context.Background(), "kusto-int-uksouth"); err != nil {
+		t.Fatalf("DeleteDataSource returned error: %v", err)
+	}
+	if gotMethod != http.MethodDelete {
+		t.Fatalf("expected method %s, got %s", http.MethodDelete, gotMethod)
+	}
+	if gotPath != "/api/datasources/name/kusto-int-uksouth" {
+		t.Fatalf("expected path /api/datasources/name/kusto-int-uksouth, got %s", gotPath)
+	}
+}
+
+func TestDeleteDataSourceIgnoresNotFound(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"message":"not found"}`))
+	}))
+	defer server.Close()
+
+	client := &Client{
+		endpoint:   server.URL,
+		token:      "token",
+		httpClient: server.Client(),
+	}
+
+	if err := client.DeleteDataSource(context.Background(), "kusto-int-uksouth"); err != nil {
+		t.Fatalf("DeleteDataSource returned error: %v", err)
+	}
+}
+
+func TestDeleteDataSourceReportsForbiddenAsAdminPermissionError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte(`{"message":"forbidden"}`))
+	}))
+	defer server.Close()
+
+	client := &Client{
+		endpoint:   server.URL,
+		token:      "token",
+		httpClient: server.Client(),
+	}
+
+	err := client.DeleteDataSource(context.Background(), "kusto-int-uksouth")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "Grafana Admin permissions") {
+		t.Fatalf("expected Grafana Admin permissions error, got %v", err)
+	}
+}

@@ -31,7 +31,6 @@ const datasourceGroupID = "datasource"
 
 func NewModifyCommand(group string) (*cobra.Command, error) {
 	addDatasourceOpts := DefaultAddDatasourceOptions()
-	reconcileADXDatasourceOpts := DefaultReconcileADXDatasourceOptions()
 
 	modifyCmd := &cobra.Command{
 		Use:     "modify",
@@ -54,19 +53,10 @@ func NewModifyCommand(group string) (*cobra.Command, error) {
 
 	addDatasourceCmd := &cobra.Command{
 		Use:   "reconcile",
-		Short: "Reconcile Azure Monitor Workspace datasources in Grafana",
-		Long:  "Reconcile Azure Monitor Workspace datasources in the Azure Managed Grafana instance. This integrates the workspaces with Grafana and creates the necessary datasource configuration.",
+		Short: "Reconcile datasources in Grafana",
+		Long:  "Reconcile Azure Monitor Workspace integrations and optional Azure Data Explorer datasources in the Azure Managed Grafana instance.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return addDatasourceOpts.Run(cmd.Context())
-		},
-	}
-
-	reconcileADXDatasourceCmd := &cobra.Command{
-		Use:   "reconcile-adx",
-		Short: "Reconcile an Azure Data Explorer datasource in Grafana",
-		Long:  "Reconcile one Azure Data Explorer datasource in the Azure Managed Grafana instance using the Grafana API.",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return reconcileADXDatasourceOpts.Run(cmd.Context())
 		},
 	}
 
@@ -74,12 +64,7 @@ func NewModifyCommand(group string) (*cobra.Command, error) {
 		return nil, err
 	}
 
-	if err := BindReconcileADXDatasourceOptions(reconcileADXDatasourceOpts, reconcileADXDatasourceCmd); err != nil {
-		return nil, err
-	}
-
 	datasourceCmd.AddCommand(addDatasourceCmd)
-	datasourceCmd.AddCommand(reconcileADXDatasourceCmd)
 	modifyCmd.AddCommand(datasourceCmd)
 
 	return modifyCmd, nil
@@ -123,8 +108,35 @@ func (o *CompletedAddDatasourceOptions) getMatchingWorkspaceIDs(ctx context.Cont
 func (o *CompletedAddDatasourceOptions) Run(ctx context.Context) error {
 	logger := logr.FromContextOrDiscard(ctx).WithValues("resource-group", o.ResourceGroup, "grafana-name", o.GrafanaName)
 
-	logger.Info("add datasource command executed")
+	logger.Info("reconcile datasource command executed", "azure-monitor-enabled", o.AzureMonitorEnabled, "adx-enabled", o.ADXEnabled, "adx-delete-when-disabled", o.ADXDeleteWhenDisabled)
 
+	if !o.AzureMonitorEnabled && !o.ADXEnabled && !o.ADXDeleteWhenDisabled {
+		logger.Info("No datasource reconcile actions enabled")
+		return nil
+	}
+
+	if o.AzureMonitorEnabled {
+		if err := o.reconcileAzureMonitor(ctx, logger); err != nil {
+			return err
+		}
+	}
+
+	if o.ADXEnabled || o.ADXDeleteWhenDisabled {
+		adxOptions := &CompletedReconcileADXDatasourceOptions{
+			validatedReconcileADXDatasourceOptions: &validatedReconcileADXDatasourceOptions{
+				RawReconcileADXDatasourceOptions: o.rawADXOptions(),
+			},
+			GrafanaClient: o.GrafanaClient,
+		}
+		if err := adxOptions.Run(ctx); err != nil {
+			return fmt.Errorf("failed to reconcile ADX datasource: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (o *CompletedAddDatasourceOptions) reconcileAzureMonitor(ctx context.Context, logger logr.Logger) error {
 	grafana, err := o.ManagedGrafanaClient.GetGrafanaInstance(ctx, o.ResourceGroup, o.GrafanaName)
 	if err != nil {
 		return fmt.Errorf("failed to get Grafana instance: %w", err)

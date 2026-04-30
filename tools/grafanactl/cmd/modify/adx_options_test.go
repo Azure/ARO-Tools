@@ -30,10 +30,12 @@ type fakeADXGrafanaClient struct {
 	dataSourceTypes map[string]sdk.DatasourceType
 	createCalls     []sdk.Datasource
 	updateCalls     []sdk.Datasource
+	deleteCalls     []string
 	listTypesErr    error
 	listErr         error
 	createErr       error
 	updateErr       error
+	deleteErr       error
 }
 
 func (f *fakeADXGrafanaClient) ListDataSources(ctx context.Context) ([]sdk.Datasource, error) {
@@ -46,12 +48,24 @@ func (f *fakeADXGrafanaClient) ListDataSourceTypes(ctx context.Context) (map[str
 
 func (f *fakeADXGrafanaClient) CreateDataSource(ctx context.Context, dataSource sdk.Datasource) error {
 	f.createCalls = append(f.createCalls, dataSource)
-	return f.createErr
+	if f.createErr != nil {
+		return f.createErr
+	}
+	if dataSource.UID == "" {
+		dataSource.UID = "created-uid"
+	}
+	f.dataSources = append(f.dataSources, dataSource)
+	return nil
 }
 
 func (f *fakeADXGrafanaClient) UpdateDataSource(ctx context.Context, dataSource sdk.Datasource) error {
 	f.updateCalls = append(f.updateCalls, dataSource)
 	return f.updateErr
+}
+
+func (f *fakeADXGrafanaClient) DeleteDataSource(ctx context.Context, dataSourceName string) error {
+	f.deleteCalls = append(f.deleteCalls, dataSourceName)
+	return f.deleteErr
 }
 
 func validRawReconcileADXDatasourceOptions() *RawReconcileADXDatasourceOptions {
@@ -62,6 +76,7 @@ func validRawReconcileADXDatasourceOptions() *RawReconcileADXDatasourceOptions {
 
 	return &RawReconcileADXDatasourceOptions{
 		BaseOptions:     baseOptions,
+		Enabled:         true,
 		ClusterURL:      "https://example.kusto.windows.net",
 		DefaultDatabase: "ServiceLogs",
 		DatasourceName:  "kusto-int-uksouth",
@@ -102,6 +117,33 @@ func TestReconcileADXDatasourceValidateRejectsInvalidClusterURL(t *testing.T) {
 	}
 }
 
+func TestReconcileADXDatasourceValidateAllowsDisabledWithoutClusterDetails(t *testing.T) {
+	opts := validRawReconcileADXDatasourceOptions()
+	opts.Enabled = false
+	opts.ClusterURL = ""
+	opts.DefaultDatabase = ""
+	opts.DatasourceName = ""
+
+	if _, err := opts.Validate(context.Background()); err != nil {
+		t.Fatalf("Validate returned error: %v", err)
+	}
+}
+
+func TestReconcileADXDatasourceValidateDisabledDeleteRequiresDatasourceName(t *testing.T) {
+	opts := validRawReconcileADXDatasourceOptions()
+	opts.Enabled = false
+	opts.DeleteWhenDisabled = true
+	opts.DatasourceName = ""
+
+	_, err := opts.Validate(context.Background())
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+	if !strings.Contains(err.Error(), "datasource name is required") {
+		t.Fatalf("expected datasource name error, got %v", err)
+	}
+}
+
 func TestReconcileADXDatasourceRunCreatesDatasource(t *testing.T) {
 	client := &fakeADXGrafanaClient{
 		dataSourceTypes: map[string]sdk.DatasourceType{
@@ -119,7 +161,9 @@ func TestReconcileADXDatasourceRunCreatesDatasource(t *testing.T) {
 	if len(client.updateCalls) != 0 {
 		t.Fatalf("expected no update calls, got %d", len(client.updateCalls))
 	}
-
+	if len(client.deleteCalls) != 0 {
+		t.Fatalf("expected no delete calls, got %d", len(client.deleteCalls))
+	}
 	created := client.createCalls[0]
 	if created.Name != opts.DatasourceName {
 		t.Fatalf("expected datasource name %q, got %q", opts.DatasourceName, created.Name)
@@ -155,6 +199,7 @@ func TestReconcileADXDatasourceRunUpdatesExistingDatasource(t *testing.T) {
 				UID:       "existing-uid",
 				Name:      "kusto-int-uksouth",
 				Type:      adxDatasourceType,
+				Access:    "direct",
 				IsDefault: true,
 			},
 		},
@@ -174,6 +219,63 @@ func TestReconcileADXDatasourceRunUpdatesExistingDatasource(t *testing.T) {
 	updated := client.updateCalls[0]
 	if updated.ID != 42 || updated.OrgID != 7 || updated.UID != "existing-uid" || !updated.IsDefault {
 		t.Fatalf("expected existing datasource identity/default to be preserved, got %#v", updated)
+	}
+}
+
+func TestReconcileADXDatasourceRunDeletesWhenDisabled(t *testing.T) {
+	client := &fakeADXGrafanaClient{
+		dataSources: []sdk.Datasource{
+			{
+				ID:   42,
+				UID:  "existing-uid",
+				Name: "kusto-int-uksouth",
+				Type: adxDatasourceType,
+			},
+		},
+	}
+	opts := completedReconcileADXDatasourceOptionsForTest(client)
+	opts.Enabled = false
+	opts.DeleteWhenDisabled = true
+
+	if err := opts.Run(context.Background()); err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	if len(client.createCalls) != 0 {
+		t.Fatalf("expected no create calls, got %d", len(client.createCalls))
+	}
+	if len(client.updateCalls) != 0 {
+		t.Fatalf("expected no update calls, got %d", len(client.updateCalls))
+	}
+	if len(client.deleteCalls) != 1 || client.deleteCalls[0] != "kusto-int-uksouth" {
+		t.Fatalf("expected datasource delete call, got %#v", client.deleteCalls)
+	}
+}
+
+func TestReconcileADXDatasourceRunDisabledDeleteIgnoresAbsentDatasource(t *testing.T) {
+	client := &fakeADXGrafanaClient{}
+	opts := completedReconcileADXDatasourceOptionsForTest(client)
+	opts.Enabled = false
+	opts.DeleteWhenDisabled = true
+
+	if err := opts.Run(context.Background()); err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	if len(client.deleteCalls) != 0 {
+		t.Fatalf("expected no delete calls, got %d", len(client.deleteCalls))
+	}
+}
+
+func TestReconcileADXDatasourceRunDisabledWithoutDeleteDoesNothing(t *testing.T) {
+	client := &fakeADXGrafanaClient{}
+	opts := completedReconcileADXDatasourceOptionsForTest(client)
+	opts.Enabled = false
+	opts.DeleteWhenDisabled = false
+
+	if err := opts.Run(context.Background()); err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	if len(client.createCalls) != 0 || len(client.updateCalls) != 0 || len(client.deleteCalls) != 0 {
+		t.Fatalf("expected no mutation calls, got create=%d update=%d delete=%d", len(client.createCalls), len(client.updateCalls), len(client.deleteCalls))
 	}
 }
 
@@ -230,5 +332,70 @@ func TestReconcileADXDatasourceRunPropagatesMutationErrors(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "failed to create ADX datasource") {
 		t.Fatalf("expected create error, got %v", err)
+	}
+}
+
+func TestAddDatasourceValidateDisablesADXWhenCurrentGeographyNotAllowed(t *testing.T) {
+	opts := DefaultAddDatasourceOptions()
+	opts.SubscriptionID = "subscription-id"
+	opts.ResourceGroup = "resource-group"
+	opts.GrafanaName = "grafana-name"
+	opts.AzureMonitorEnabled = false
+	opts.ADXEnabled = true
+	opts.ADXDeleteWhenDisabled = true
+	opts.ADXDatasourceName = "kusto-int-uksouth"
+	opts.ADXGeographies = "eus2, wus3"
+	opts.ADXCurrentGeography = "UKS"
+
+	validated, err := opts.Validate(context.Background())
+	if err != nil {
+		t.Fatalf("Validate returned error: %v", err)
+	}
+	if validated.ADXEnabled {
+		t.Fatal("expected ADX to be disabled for disallowed geography")
+	}
+	if !validated.ADXDeleteWhenDisabled {
+		t.Fatal("expected deleteWhenDisabled to remain enabled")
+	}
+}
+
+func TestAddDatasourceValidateAllowsADXWhenCurrentGeographyAllowed(t *testing.T) {
+	opts := DefaultAddDatasourceOptions()
+	opts.SubscriptionID = "subscription-id"
+	opts.ResourceGroup = "resource-group"
+	opts.GrafanaName = "grafana-name"
+	opts.AzureMonitorEnabled = false
+	opts.ADXEnabled = true
+	opts.ADXClusterURL = "https://example.kusto.windows.net"
+	opts.ADXDefaultDatabase = "ServiceLogs"
+	opts.ADXDatasourceName = "kusto-int-uksouth"
+	opts.ADXGeographies = " eus2, UKS "
+	opts.ADXCurrentGeography = "uks"
+
+	validated, err := opts.Validate(context.Background())
+	if err != nil {
+		t.Fatalf("Validate returned error: %v", err)
+	}
+	if !validated.ADXEnabled {
+		t.Fatal("expected ADX to remain enabled for allowed geography")
+	}
+}
+
+func TestAddDatasourceValidateRejectsInvalidADXGeographies(t *testing.T) {
+	opts := DefaultAddDatasourceOptions()
+	opts.SubscriptionID = "subscription-id"
+	opts.ResourceGroup = "resource-group"
+	opts.GrafanaName = "grafana-name"
+	opts.AzureMonitorEnabled = false
+	opts.ADXEnabled = true
+	opts.ADXGeographies = "uks,!"
+	opts.ADXCurrentGeography = "uks"
+
+	_, err := opts.Validate(context.Background())
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+	if !strings.Contains(err.Error(), "invalid entry") {
+		t.Fatalf("expected invalid geography error, got %v", err)
 	}
 }

@@ -263,6 +263,28 @@ func TestRequiredInputs(t *testing.T) {
 			name:  "pav2 empty",
 			input: &Pav2Step{},
 		},
+		{
+			name: "grafana datasources full",
+			input: &GrafanaDatasourcesStep{
+				IdentityFrom:      Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "identity"}},
+				GrafanaResourceID: &Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "global"}}},
+				ADX: &GrafanaADXDatasource{
+					Enabled:         Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "config"}}},
+					ClusterURL:      Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "kusto"}}},
+					DefaultDatabase: Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "config"}}},
+					DatasourceName:  Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "name"}}},
+					Geographies:     Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "geo"}}},
+				},
+			},
+			expected: []StepDependency{
+				{ResourceGroup: "rg", Step: "config"},
+				{ResourceGroup: "rg", Step: "geo"},
+				{ResourceGroup: "rg", Step: "global"},
+				{ResourceGroup: "rg", Step: "identity"},
+				{ResourceGroup: "rg", Step: "kusto"},
+				{ResourceGroup: "rg", Step: "name"},
+			},
+		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			if diff := cmp.Diff(testCase.expected, testCase.input.RequiredInputs()); diff != "" {

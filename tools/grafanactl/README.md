@@ -116,31 +116,46 @@ grafanactl clean fixup-datasources \
 
 Modify commands reconcile resources in Azure Managed Grafana.
 
-#### Reconcile Azure Data Explorer Datasource
+#### Reconcile Datasources
 
-Create or update one Azure Data Explorer datasource using Grafana's REST API:
+Reconcile Azure Monitor Workspace integrations and, when enabled, one Azure Data
+Explorer datasource using Grafana's REST API:
 
 ```bash
 # Preview changes (dry-run)
-grafanactl modify datasource reconcile-adx \
+grafanactl modify datasource reconcile \
   --grafana-resource-id "/subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.Dashboard/grafana/<grafana-name>" \
-  --cluster-url "https://example.region.kusto.windows.net" \
-  --default-database "ServiceLogs" \
-  --datasource-name "kusto-int-uksouth" \
+  --azure-monitor-enabled=false \
+  --adx-enabled=true \
+  --adx-delete-when-disabled=true \
+  --adx-cluster-url "https://example.region.kusto.windows.net" \
+  --adx-default-database "ServiceLogs" \
+  --adx-geographies "uksouth,eastus2" \
+  --adx-current-geography "uksouth" \
+  --adx-datasource-name "kusto-int-uksouth" \
   --dry-run
 
 # Apply changes
-grafanactl modify datasource reconcile-adx \
+grafanactl modify datasource reconcile \
   --grafana-resource-id "/subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.Dashboard/grafana/<grafana-name>" \
-  --cluster-url "https://example.region.kusto.windows.net" \
-  --default-database "ServiceLogs" \
-  --datasource-name "kusto-int-uksouth"
+  --azure-monitor-enabled=false \
+  --adx-enabled=true \
+  --adx-delete-when-disabled=true \
+  --adx-cluster-url "https://example.region.kusto.windows.net" \
+  --adx-default-database "ServiceLogs" \
+  --adx-geographies "uksouth,eastus2" \
+  --adx-current-geography "uksouth" \
+  --adx-datasource-name "kusto-int-uksouth"
 ```
 
-The command requires the Azure Data Explorer datasource plugin
-(`grafana-azure-data-explorer-datasource`) to be available in Grafana. It uses
-the Grafana managed identity for ADX authentication and fails if an existing
-datasource with the requested name has a different plugin type.
+When `--adx-enabled=false --adx-delete-when-disabled=true` are both set, the
+command deletes the named ADX datasource if it exists. ADX create/update requires
+the Azure Data Explorer datasource plugin
+(`grafana-azure-data-explorer-datasource`) to be available in Grafana. The
+datasource uses the Grafana managed identity for ADX authentication and fails if
+an existing datasource with the requested name has a different plugin type. When
+`--adx-geographies` is set, the command validates the comma-separated geography
+allowlist and disables ADX desired state for geographies not in the list.
 
 ### Sync Commands
 

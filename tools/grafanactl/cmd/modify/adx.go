@@ -47,28 +47,21 @@ func (o *CompletedReconcileADXDatasourceOptions) Run(ctx context.Context) error 
 
 	logger.Info("reconcile ADX datasource command executed", "dry-run", o.DryRun)
 
+	if !o.Enabled {
+		return o.deleteDatasourceWhenDisabled(ctx, logger)
+	}
+
 	dataSourceTypes, err := o.GrafanaClient.ListDataSourceTypes(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to list Grafana datasource plugins: %w", err)
 	}
 	if _, ok := dataSourceTypes[adxDatasourceType]; !ok {
-		return fmt.Errorf("Grafana datasource plugin %q is not available", adxDatasourceType)
+		return fmt.Errorf("grafana datasource plugin %q is not available", adxDatasourceType)
 	}
 
-	dataSources, err := o.GrafanaClient.ListDataSources(ctx)
+	existing, err := o.findExistingDatasource(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to list Grafana datasources: %w", err)
-	}
-
-	var existing *sdk.Datasource
-	for i := range dataSources {
-		if dataSources[i].Name != o.DatasourceName {
-			continue
-		}
-		if existing != nil {
-			return fmt.Errorf("found multiple datasources named %q", o.DatasourceName)
-		}
-		existing = &dataSources[i]
+		return err
 	}
 
 	desired := o.desiredDatasource()
@@ -105,6 +98,56 @@ func (o *CompletedReconcileADXDatasourceOptions) Run(ctx context.Context) error 
 	}
 
 	return nil
+}
+
+func (o *CompletedReconcileADXDatasourceOptions) deleteDatasourceWhenDisabled(ctx context.Context, logger logr.Logger) error {
+	if !o.DeleteWhenDisabled {
+		logger.Info("ADX datasource desired state disabled and deletion disabled")
+		return nil
+	}
+
+	existing, err := o.findExistingDatasource(ctx)
+	if err != nil {
+		return err
+	}
+	if existing == nil {
+		logger.Info("ADX datasource desired state disabled and datasource is already absent")
+		return nil
+	}
+	if existing.Type != adxDatasourceType {
+		return fmt.Errorf("datasource %q already exists with type %q, expected %q", o.DatasourceName, existing.Type, adxDatasourceType)
+	}
+	if o.DryRun {
+		logger.Info("Dry run - would delete ADX datasource", "datasource-id", existing.ID, "datasource-uid", existing.UID)
+		return nil
+	}
+
+	logger.Info("Deleting ADX datasource", "datasource-id", existing.ID, "datasource-uid", existing.UID)
+	if err := o.GrafanaClient.DeleteDataSource(ctx, o.DatasourceName); err != nil {
+		return fmt.Errorf("failed to delete ADX datasource %q: %w", o.DatasourceName, err)
+	}
+
+	return nil
+}
+
+func (o *CompletedReconcileADXDatasourceOptions) findExistingDatasource(ctx context.Context) (*sdk.Datasource, error) {
+	dataSources, err := o.GrafanaClient.ListDataSources(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list Grafana datasources: %w", err)
+	}
+
+	var existing *sdk.Datasource
+	for i := range dataSources {
+		if dataSources[i].Name != o.DatasourceName {
+			continue
+		}
+		if existing != nil {
+			return nil, fmt.Errorf("found multiple datasources named %q", o.DatasourceName)
+		}
+		existing = &dataSources[i]
+	}
+
+	return existing, nil
 }
 
 func (o *CompletedReconcileADXDatasourceOptions) desiredDatasource() sdk.Datasource {
