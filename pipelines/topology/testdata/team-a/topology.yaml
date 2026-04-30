@@ -1,0 +1,8 @@
+services:
+- serviceGroup: Microsoft.Azure.ARO.HCP
+  pipelinePath: pipeline.yaml
+  purpose: HCP service
+  children:
+  - serviceGroup: Microsoft.Azure.ARO.HCP.Child
+    pipelinePath: child-pipeline.yaml
+    purpose: HCP child service
