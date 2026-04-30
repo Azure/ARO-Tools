@@ -24,20 +24,6 @@ import (
 
 const adxDatasourceType = "grafana-azure-data-explorer-datasource"
 
-func (opts *RawReconcileADXDatasourceOptions) Run(ctx context.Context) error {
-	validated, err := opts.Validate(ctx)
-	if err != nil {
-		return fmt.Errorf("validation failed: %w", err)
-	}
-
-	completed, err := validated.Complete(ctx)
-	if err != nil {
-		return fmt.Errorf("completion failed: %w", err)
-	}
-
-	return completed.Run(ctx)
-}
-
 func (o *CompletedReconcileADXDatasourceOptions) Run(ctx context.Context) error {
 	logger := logr.FromContextOrDiscard(ctx).WithValues(
 		"resource-group", o.ResourceGroup,

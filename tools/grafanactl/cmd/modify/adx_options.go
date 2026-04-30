@@ -21,12 +21,8 @@ import (
 	"strings"
 
 	"github.com/grafana-tools/sdk"
-	"github.com/spf13/cobra"
 
-	"github.com/Azure/ARO-Tools/tools/cmdutils"
 	"github.com/Azure/ARO-Tools/tools/grafanactl/cmd/base"
-	"github.com/Azure/ARO-Tools/tools/grafanactl/internal/azure"
-	"github.com/Azure/ARO-Tools/tools/grafanactl/internal/grafana"
 )
 
 const defaultADXDataConsistency = "strongconsistency"
@@ -63,32 +59,6 @@ type ValidatedReconcileADXDatasourceOptions struct {
 type CompletedReconcileADXDatasourceOptions struct {
 	*validatedReconcileADXDatasourceOptions
 	GrafanaClient adxGrafanaClient
-}
-
-// DefaultReconcileADXDatasourceOptions returns a new RawReconcileADXDatasourceOptions with default values.
-func DefaultReconcileADXDatasourceOptions() *RawReconcileADXDatasourceOptions {
-	return &RawReconcileADXDatasourceOptions{
-		BaseOptions:     base.DefaultBaseOptions(),
-		Enabled:         true,
-		DataConsistency: defaultADXDataConsistency,
-	}
-}
-
-// BindReconcileADXDatasourceOptions binds command-line flags to the options.
-func BindReconcileADXDatasourceOptions(opts *RawReconcileADXDatasourceOptions, cmd *cobra.Command) error {
-	if err := base.BindBaseOptions(opts.BaseOptions, cmd); err != nil {
-		return err
-	}
-
-	flags := cmd.Flags()
-	flags.BoolVar(&opts.Enabled, "enabled", opts.Enabled, "Reconcile the Azure Data Explorer datasource desired state as present")
-	flags.BoolVar(&opts.DeleteWhenDisabled, "delete-when-disabled", opts.DeleteWhenDisabled, "Delete the named Azure Data Explorer datasource when desired state is disabled")
-	flags.StringVar(&opts.ClusterURL, "cluster-url", opts.ClusterURL, "Azure Data Explorer cluster URL")
-	flags.StringVar(&opts.DefaultDatabase, "default-database", opts.DefaultDatabase, "Default Azure Data Explorer database")
-	flags.StringVar(&opts.DatasourceName, "datasource-name", opts.DatasourceName, "Grafana datasource name")
-	flags.StringVar(&opts.DataConsistency, "data-consistency", opts.DataConsistency, "Azure Data Explorer datasource data consistency")
-
-	return nil
 }
 
 // Validate performs validation on the raw options.
@@ -151,28 +121,5 @@ func (o *RawReconcileADXDatasourceOptions) Validate(ctx context.Context) (*Valid
 				DataConsistency:    dataConsistency,
 			},
 		},
-	}, nil
-}
-
-// Complete performs final initialization to create fully usable ADX datasource reconcile options.
-func (o *ValidatedReconcileADXDatasourceOptions) Complete(ctx context.Context) (*CompletedReconcileADXDatasourceOptions, error) {
-	cred, err := cmdutils.GetAzureTokenCredentials()
-	if err != nil {
-		return nil, fmt.Errorf("failed to obtain Azure credentials: %w", err)
-	}
-
-	managedGrafanaClient, err := azure.NewManagedGrafanaClient(o.SubscriptionID, cred)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create managed Grafana client: %w", err)
-	}
-
-	grafanaClient, err := grafana.NewClient(ctx, cred, managedGrafanaClient, o.SubscriptionID, o.ResourceGroup, o.GrafanaName)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create Grafana client: %w", err)
-	}
-
-	return &CompletedReconcileADXDatasourceOptions{
-		validatedReconcileADXDatasourceOptions: o.validatedReconcileADXDatasourceOptions,
-		GrafanaClient:                          grafanaClient,
 	}, nil
 }

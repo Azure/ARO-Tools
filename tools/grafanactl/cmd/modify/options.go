@@ -103,7 +103,7 @@ func (o *RawAddDatasourceOptions) Validate(ctx context.Context) (*ValidatedAddDa
 	}
 
 	normalized := *o
-	if strings.TrimSpace(normalized.ADXGeographies) != "" {
+	if normalized.ADXEnabled && strings.TrimSpace(normalized.ADXGeographies) != "" {
 		allowed, err := adxGeographyAllowed(normalized.ADXGeographies, normalized.ADXCurrentGeography)
 		if err != nil {
 			return nil, err

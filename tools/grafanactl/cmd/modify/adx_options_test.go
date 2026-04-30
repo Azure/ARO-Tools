@@ -399,3 +399,21 @@ func TestAddDatasourceValidateRejectsInvalidADXGeographies(t *testing.T) {
 		t.Fatalf("expected invalid geography error, got %v", err)
 	}
 }
+
+func TestAddDatasourceValidateIgnoresADXGeographiesWhenADXDisabled(t *testing.T) {
+	opts := DefaultAddDatasourceOptions()
+	opts.SubscriptionID = "subscription-id"
+	opts.ResourceGroup = "resource-group"
+	opts.GrafanaName = "grafana-name"
+	opts.AzureMonitorEnabled = false
+	opts.ADXEnabled = false
+	opts.ADXGeographies = "uks,!"
+
+	validated, err := opts.Validate(context.Background())
+	if err != nil {
+		t.Fatalf("Validate returned error: %v", err)
+	}
+	if validated.ADXEnabled {
+		t.Fatal("expected ADX to remain disabled")
+	}
+}

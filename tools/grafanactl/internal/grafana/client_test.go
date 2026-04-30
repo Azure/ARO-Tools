@@ -107,6 +107,44 @@ func TestUpdateDataSourceReportsForbiddenAsAdminPermissionError(t *testing.T) {
 	}
 }
 
+func TestListDataSourceTypesUsesStatusAwareRequest(t *testing.T) {
+	var gotAuthHeader string
+	var gotMethod string
+	var gotPath string
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotMethod = r.Method
+		gotPath = r.URL.Path
+		gotAuthHeader = r.Header.Get("Authorization")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"grafana-azure-data-explorer-datasource":{"name":"Azure Data Explorer","type":"grafana-azure-data-explorer-datasource"}}`))
+	}))
+	defer server.Close()
+
+	client := &Client{
+		endpoint:   server.URL,
+		token:      "token",
+		httpClient: server.Client(),
+	}
+
+	dataSourceTypes, err := client.ListDataSourceTypes(context.Background())
+	if err != nil {
+		t.Fatalf("ListDataSourceTypes returned error: %v", err)
+	}
+	if gotMethod != http.MethodGet {
+		t.Fatalf("expected method %s, got %s", http.MethodGet, gotMethod)
+	}
+	if gotPath != "/api/datasources/plugins" {
+		t.Fatalf("expected path /api/datasources/plugins, got %s", gotPath)
+	}
+	if gotAuthHeader != "Bearer token" {
+		t.Fatalf("expected bearer token auth header, got %q", gotAuthHeader)
+	}
+	if dataSourceTypes["grafana-azure-data-explorer-datasource"].Name != "Azure Data Explorer" {
+		t.Fatalf("expected ADX datasource type to be decoded, got %#v", dataSourceTypes)
+	}
+}
+
 func TestCreateDataSourceReportsUnauthorizedAsAuthError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
