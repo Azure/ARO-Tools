@@ -3,6 +3,7 @@ package topology
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -16,6 +17,13 @@ type Topology struct {
 
 	// Entrypoints selects specific sub-trees that are deployed together.
 	Entrypoints []Entrypoint `json:"entrypoints,omitempty"`
+}
+
+type CombinedTopology struct {
+	Topology
+
+	// serviceGroupToTopologyDir maps service group to the directory of the topology file it came from, for use in resolving pipeline paths.
+	serviceGroupToTopologyDir map[string]string
 }
 
 // Service describes an individual service in the tree.
@@ -34,6 +42,10 @@ type Service struct {
 
 	// Metadata is an extension point to store useful information for the service.
 	Metadata map[string]string `json:"metadata,omitempty"`
+
+	// Parent service located in a different topology file. Ignored if only one topology file is specified.
+	// Only allowed in input yaml on top-level services (i.e. those listed directly under Services in the topology file, not nested within another service's Children).
+	ExternalParent *string `json:"externalParent,omitempty"`
 }
 
 // Entrypoint describes an individual pipeline in the tree.
@@ -55,11 +67,108 @@ func Load(path string) (*Topology, error) {
 	return &out, yaml.Unmarshal(raw, &out)
 }
 
+func LoadCombined(paths []string) (*CombinedTopology, error) {
+	if len(paths) == 0 {
+		return nil, fmt.Errorf("at least one topology file must be provided")
+	}
+
+	combinedTopology := CombinedTopology{
+		serviceGroupToTopologyDir: make(map[string]string),
+	}
+
+	servicesWithExternalParents := make([]*Service, 0)
+	for _, path := range paths {
+		topo, err := Load(path)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load topology %s: %w", path, err)
+		}
+
+		for i := range topo.Services {
+			err = validateNoExternalParentInChildren(&topo.Services[i])
+			if err != nil {
+				return nil, fmt.Errorf("failed to validate topology from %s: %w", path, err)
+			}
+
+			err = accumulateServiceGroupToTopologyDirMapping(&topo.Services[i], filepath.Dir(path), combinedTopology.serviceGroupToTopologyDir)
+			if err != nil {
+				return nil, fmt.Errorf("failed to add topology %s: %w", path, err)
+			}
+
+			// If the length of paths is 1, we can ignore external parents since there is only one topology.
+			// If the length of paths is greater than 1, we defer adding services with external parents
+			// until we've processed all topologies since their external parents may be in later topologies in the list.
+			if topo.Services[i].ExternalParent != nil && len(paths) > 1 {
+				servicesWithExternalParents = append(servicesWithExternalParents, &topo.Services[i])
+			} else {
+				combinedTopology.Services = append(combinedTopology.Services, topo.Services[i])
+			}
+		}
+		combinedTopology.Entrypoints = append(combinedTopology.Entrypoints, topo.Entrypoints...)
+	}
+
+	for i := range servicesWithExternalParents {
+		svc := servicesWithExternalParents[i]
+		externalParent, err := combinedTopology.Lookup(*svc.ExternalParent)
+		if err != nil {
+			// If we can't find the external parent in the combined topology, it's possible it is later
+			// in the list of services with external parents since we haven't guaranteed any ordering on the input topologies.
+			// Look through the remaining services with external parents to see if we can find it before giving up.
+			for j := i + 1; j < len(servicesWithExternalParents); j++ {
+				uncheckedSvc := servicesWithExternalParents[j]
+				externalParent = find(uncheckedSvc, *svc.ExternalParent)
+				if externalParent != nil {
+					break
+				}
+			}
+
+			if externalParent == nil {
+				return nil, fmt.Errorf("service %s references external parent %s that does not exist in the topology: %w", svc.ServiceGroup, *svc.ExternalParent, err)
+			}
+		}
+		externalParent.Children = append(externalParent.Children, *svc)
+	}
+
+	return &combinedTopology, nil
+}
+
 func (t *Topology) Validate() error {
 	return (&validator{
 		seen:       sets.New[string](),
 		duplicates: sets.New[string](),
 	}).validate(t)
+}
+
+func (t *CombinedTopology) GetTopologyDirForServiceGroup(serviceGroup string) (string, error) {
+	dir, exists := t.serviceGroupToTopologyDir[serviceGroup]
+	if !exists {
+		return "", fmt.Errorf("service group %s not found in topology", serviceGroup)
+	}
+	return dir, nil
+}
+
+func accumulateServiceGroupToTopologyDirMapping(s *Service, topologyDir string, mapping map[string]string) error {
+	if existingDir, exists := mapping[s.ServiceGroup]; exists {
+		return fmt.Errorf("duplicate service group %s found in topology in %s and %s; service groups must be unique across topologies", s.ServiceGroup, topologyDir, existingDir)
+	}
+	mapping[s.ServiceGroup] = topologyDir
+	for i := range s.Children {
+		if err := accumulateServiceGroupToTopologyDirMapping(&s.Children[i], topologyDir, mapping); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateNoExternalParentInChildren(s *Service) error {
+	for i := range s.Children {
+		if s.Children[i].ExternalParent != nil {
+			return fmt.Errorf("service %s has externalParent set but is a child of %s; externalParent is only allowed on top-level services", s.Children[i].ServiceGroup, s.ServiceGroup)
+		}
+		if err := validateNoExternalParentInChildren(&s.Children[i]); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type validator struct {

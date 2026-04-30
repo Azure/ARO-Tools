@@ -1,0 +1,8 @@
+services:
+- serviceGroup: Microsoft.Azure.ARO.Classic
+  pipelinePath: pipeline.yaml
+  purpose: Classic service
+- serviceGroup: Microsoft.Azure.ARO.HCP.Extension
+  pipelinePath: extension-pipeline.yaml
+  purpose: HCP extension service
+  externalParent: Microsoft.Azure.ARO.HCP
