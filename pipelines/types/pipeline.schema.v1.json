@@ -630,6 +630,9 @@
             "gatePromotion": {
               "type": "string"
             },
+            "commit": {
+              "type": "string"
+            },
             "identityFrom": {
               "$ref": "#/definitions/input"
             },

@@ -645,7 +645,8 @@ type ProwJobStep struct {
 	TokenKeyvault string `json:"tokenKeyvault"`
 	TokenSecret   string `json:"tokenSecret"`
 	JobName       string `json:"jobName"`
-	GatePromotion string `json:"gatePromotion"` // string-encoded boolean, passed to command as a flag
+	GatePromotion string `json:"gatePromotion"`    // string-encoded boolean, passed to command as a flag
+	Commit        string `json:"commit,omitempty"` // optional source commit SHA to pin the Prow job to
 	DryRun        DryRun `json:"dryRun,omitempty"`
 
 	// IdentityFrom specifies the managed identity with which this deployment will run in Ev2.
