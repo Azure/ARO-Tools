@@ -304,6 +304,7 @@ type LogsStep struct {
 	MonikerDefaultRegion Value            `json:"monikerDefaultRegion,omitempty"`
 	Database             Value            `json:"database,omitempty"`
 	EventSources         map[string]Event `json:"eventSources,omitempty"`
+	MdsdConfigFile       *Value           `json:"mdsdConfigFile,omitempty"`
 }
 
 type Event struct {
@@ -321,6 +322,9 @@ func (s *LogsStep) RequiredInputs() []StepDependency {
 		if val.Input != nil {
 			deps = append(deps, val.Input.StepDependency)
 		}
+	}
+	if s.MdsdConfigFile != nil && s.MdsdConfigFile.Input != nil {
+		deps = append(deps, s.MdsdConfigFile.Input.StepDependency)
 	}
 	slices.SortFunc(deps, SortDependencies)
 	deps = slices.Compact(deps)

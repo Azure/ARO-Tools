@@ -152,6 +152,7 @@ func TestRequiredInputs(t *testing.T) {
 			input: &LogsStep{
 				RolloutKind:     "FluentBit",
 				TypeName:        Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step"}}},
+				MdsdConfigFile:  &Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step1"}}},
 				SecretKeyVault:  Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step2"}}},
 				SecretName:      Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step2"}}},
 				Environment:     Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step3"}}},
@@ -167,6 +168,7 @@ func TestRequiredInputs(t *testing.T) {
 			},
 			expected: []StepDependency{
 				{ResourceGroup: "rg", Step: "step"},
+				{ResourceGroup: "rg", Step: "step1"},
 				{ResourceGroup: "rg", Step: "step2"},
 				{ResourceGroup: "rg", Step: "step3"},
 				{ResourceGroup: "rg", Step: "step4"},
