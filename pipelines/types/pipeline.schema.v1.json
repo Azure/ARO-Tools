@@ -633,6 +633,12 @@
             "commit": {
               "type": "string"
             },
+            "repo": {
+              "type": "string"
+            },
+            "baseRef": {
+              "type": "string"
+            },
             "identityFrom": {
               "$ref": "#/definitions/input"
             },
