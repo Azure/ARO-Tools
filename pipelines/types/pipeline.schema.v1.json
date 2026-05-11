@@ -1169,6 +1169,9 @@
             "database": {
               "$ref": "#/definitions/value"
             },
+            "mdsdConfigFile": {
+              "$ref": "#/definitions/value"
+            },
             "eventSources": {
               "type": "object",
               "description": "A map of event configurations where keys represent the fluent bit tag and values are their corresponding Geneva Event config. Refer to https://eng.ms/docs/products/geneva/collect/instrument/linux/fluentd for details",
