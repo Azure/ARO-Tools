@@ -1307,6 +1307,9 @@
             "copyFrom": {
               "const": "oci-layout"
             },
+            "publicSource": {
+              "type": "boolean"
+            },
             "imageFilePath": {
               "$ref": "#/definitions/value"
             },
@@ -1359,6 +1362,21 @@
                 "artifactName",
                 "buildId"
               ]
+            },
+            {
+              "required": [
+                "targetACR",
+                "sourceRegistry",
+                "repository",
+                "digest",
+                "publicSource",
+                "shellIdentity"
+              ],
+              "properties": {
+                "publicSource": {
+                  "const": true
+                }
+              }
             }
           ]
         }

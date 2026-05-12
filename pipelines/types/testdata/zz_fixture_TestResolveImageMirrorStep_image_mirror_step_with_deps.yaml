@@ -17,9 +17,9 @@ variables:
   value: nginx
 - name: SOURCE_REGISTRY
   value: docker.io
+- name: DIGEST
+  value: sha256:123456
 - name: PULL_SECRET_KV
   value: my-keyvault
 - name: PULL_SECRET
   value: my-pull-secret
-- name: DIGEST
-  value: sha256:123456
