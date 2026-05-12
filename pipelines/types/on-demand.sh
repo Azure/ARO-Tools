@@ -35,9 +35,6 @@ copyImageFromRegistry() {
 
     # validate
     REQUIRED_VARS=("REPOSITORY" "DIGEST")
-    if [[ -n "${PULL_SECRET_KV:-}" || -n "${PULL_SECRET:-}" ]]; then
-        REQUIRED_VARS+=("PULL_SECRET_KV" "PULL_SECRET")
-    fi
     for VAR in "${REQUIRED_VARS[@]}"; do
         if [ -z "${!VAR}" ]; then
             echo "Error: Environment variable $VAR is not set."
