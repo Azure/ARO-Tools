@@ -77,6 +77,10 @@ func ResolveImageMirrorStep(input ImageMirrorStep, scriptFile string) (*ShellSte
 		variables = append(variables, namedVariable("IMAGE_FILE_PATH", input.ImageFilePath))
 		variables = append(variables, namedVariable("IMAGE_TAR_FILE_NAME", input.ImageTarFileName))
 		variables = append(variables, namedVariable("IMAGE_METADATA_FILE_NAME", input.ImageMetadataFileName))
+	case "public-registry":
+		variables = append(variables, namedVariable("SOURCE_REGISTRY", input.SourceRegistry))
+		variables = append(variables, namedVariable("DIGEST", input.Digest))
+		variables = append(variables, Variable{Name: "COPY_FROM", Value: Value{Value: "public-registry"}})
 	default:
 		variables = append(variables, namedVariable("SOURCE_REGISTRY", input.SourceRegistry))
 		variables = append(variables, namedVariable("PULL_SECRET_KV", input.PullSecretKeyVault))

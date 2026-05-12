@@ -405,6 +405,24 @@ resourceGroups:
     sourceRegistry: {}
     targetACR:
       value: targetACR
+  - action: ImageMirror
+    copyFrom: public-registry
+    digest:
+      value: digest
+    imageFilePath: {}
+    imageMetadataFileName: {}
+    imageTarFileName: {}
+    name: image-mirror-public-registry
+    pullSecretKeyVault: {}
+    pullSecretName: {}
+    repository:
+      value: repository
+    shellIdentity:
+      value: shellIdentity
+    sourceRegistry:
+      value: mcr.microsoft.com
+    targetACR:
+      value: targetACR
   - action: Pav2
     name: pav2
     operation: All

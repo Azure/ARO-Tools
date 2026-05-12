@@ -1,0 +1,20 @@
+action: Shell
+command: /bin/bash /path/to/script.sh
+dryRun:
+  variables:
+  - name: DRY_RUN
+    value: "true"
+name: image-mirror-step
+shellIdentity:
+  value: my-identity
+variables:
+- name: TARGET_ACR
+  value: myacr.azurecr.io
+- name: REPOSITORY
+  value: nginx
+- name: SOURCE_REGISTRY
+  value: mcr.microsoft.com
+- name: DIGEST
+  value: sha256:123456
+- name: COPY_FROM
+  value: public-registry

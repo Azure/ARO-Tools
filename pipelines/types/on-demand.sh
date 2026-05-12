@@ -34,7 +34,10 @@ copyImageFromRegistry() {
     fi
 
     # validate
-    REQUIRED_VARS=("PULL_SECRET_KV" "PULL_SECRET" "REPOSITORY" "DIGEST")
+    REQUIRED_VARS=("REPOSITORY" "DIGEST")
+    if [[ "${COPY_FROM:-}" != "public-registry" ]]; then
+        REQUIRED_VARS+=("PULL_SECRET_KV" "PULL_SECRET")
+    fi
     for VAR in "${REQUIRED_VARS[@]}"; do
         if [ -z "${!VAR}" ]; then
             echo "Error: Environment variable $VAR is not set."
@@ -51,24 +54,28 @@ copyImageFromRegistry() {
     mkdir -p "${ORAS_CACHE}"
     trap 'rm -rf ${TMP_DIR}' EXIT
 
-    # Check if source registry should use oc login , ENV variable is set in Release job.
-    IS_CI_REGISTRY=false
-    if [[ -n "${USE_OC_LOGIN_REGISTRIES:-}" ]]; then
-        echo "Checking USE_OC_LOGIN_REGISTRIES: ${USE_OC_LOGIN_REGISTRIES}"
-        for registry in ${USE_OC_LOGIN_REGISTRIES}; do
-            if [[ "${SOURCE_REGISTRY}" == "${registry}" ]]; then
-                IS_CI_REGISTRY=true
-                break
-            fi
-        done
-    fi
-
-    if [[ "${IS_CI_REGISTRY}" == "true" ]]; then
-        echo "Setting up registry authentication for CI source registry."
-        oc registry login --to "${AUTH_JSON}"
+    if [[ "${COPY_FROM:-}" == "public-registry" ]]; then
+        echo "Public registry mode: skipping source registry authentication."
     else
-        echo "Fetch pull secret for source registry ${SOURCE_REGISTRY} from ${PULL_SECRET_KV} KV."
-        az keyvault secret download --vault-name "${PULL_SECRET_KV}" --name "${PULL_SECRET}" -e base64 --file "${AUTH_JSON}"
+        # Check if source registry should use oc login , ENV variable is set in Release job.
+        IS_CI_REGISTRY=false
+        if [[ -n "${USE_OC_LOGIN_REGISTRIES:-}" ]]; then
+            echo "Checking USE_OC_LOGIN_REGISTRIES: ${USE_OC_LOGIN_REGISTRIES}"
+            for registry in ${USE_OC_LOGIN_REGISTRIES}; do
+                if [[ "${SOURCE_REGISTRY}" == "${registry}" ]]; then
+                    IS_CI_REGISTRY=true
+                    break
+                fi
+            done
+        fi
+
+        if [[ "${IS_CI_REGISTRY}" == "true" ]]; then
+            echo "Setting up registry authentication for CI source registry."
+            oc registry login --to "${AUTH_JSON}"
+        else
+            echo "Fetch pull secret for source registry ${SOURCE_REGISTRY} from ${PULL_SECRET_KV} KV."
+            az keyvault secret download --vault-name "${PULL_SECRET_KV}" --name "${PULL_SECRET}" -e base64 --file "${AUTH_JSON}"
+        fi
     fi
 
     # ACR login to target registry

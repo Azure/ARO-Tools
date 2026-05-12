@@ -1305,7 +1305,7 @@
               "$ref": "#/definitions/value"
             },
             "copyFrom": {
-              "const": "oci-layout"
+              "enum": ["oci-layout", "public-registry"]
             },
             "imageFilePath": {
               "$ref": "#/definitions/value"
@@ -1358,6 +1358,16 @@
                 "adoProject",
                 "artifactName",
                 "buildId"
+              ]
+            },
+            {
+              "required": [
+                "targetACR",
+                "sourceRegistry",
+                "repository",
+                "digest",
+                "copyFrom",
+                "shellIdentity"
               ]
             }
           ]

@@ -77,6 +77,22 @@ func TestResolveImageMirrorStep(t *testing.T) {
 			},
 			scriptFile: "/path/to/script.sh",
 		},
+		{
+			name: "image-mirror-step-with-public-registry",
+			input: ImageMirrorStep{
+				StepMeta: StepMeta{
+					Name:   "image-mirror-step",
+					Action: "ImageMirror",
+				},
+				TargetACR:      Value{Value: "myacr.azurecr.io"},
+				SourceRegistry: Value{Value: "mcr.microsoft.com"},
+				Repository:     Value{Value: "nginx"},
+				Digest:         Value{Value: "sha256:123456"},
+				CopyFrom:       "public-registry",
+				ShellIdentity:  Value{Value: "my-identity"},
+			},
+			scriptFile: "/path/to/script.sh",
+		},
 	}
 
 	for _, tt := range tests {

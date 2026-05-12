@@ -392,6 +392,19 @@ resourceGroups:
       adoProject: '{{ .imageMirror.adoProject }}'
       artifactName: '{{ .imageMirror.artifactName }}'
       buildId: '{{ .imageMirror.buildId }}'
+    - name: image-mirror-public-registry
+      action: ImageMirror
+      targetACR:
+        value: targetACR
+      sourceRegistry:
+        value: mcr.microsoft.com
+      repository:
+        value: repository
+      digest:
+        value: digest
+      copyFrom: public-registry
+      shellIdentity:
+        value: shellIdentity
     - name: pav2
       action: Pav2
       operation: All
