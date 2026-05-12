@@ -36,6 +36,7 @@ type ImageMirrorStep struct {
 	Repository            Value  `json:"repository,omitempty"`
 	Digest                Value  `json:"digest,omitempty"`
 	CopyFrom              string `json:"copyFrom,omitempty"`
+	PublicSource          bool   `json:"publicSource,omitempty"`
 	ImageFilePath         Value  `json:"imageFilePath,omitempty"` // optional, if path is same as pipeline.yaml
 	ImageTarFileName      Value  `json:"imageTarFileName,omitempty"`
 	ImageMetadataFileName Value  `json:"imageMetadataFileName,omitempty"`
@@ -79,9 +80,11 @@ func ResolveImageMirrorStep(input ImageMirrorStep, scriptFile string) (*ShellSte
 		variables = append(variables, namedVariable("IMAGE_METADATA_FILE_NAME", input.ImageMetadataFileName))
 	default:
 		variables = append(variables, namedVariable("SOURCE_REGISTRY", input.SourceRegistry))
-		variables = append(variables, namedVariable("PULL_SECRET_KV", input.PullSecretKeyVault))
-		variables = append(variables, namedVariable("PULL_SECRET", input.PullSecretName))
 		variables = append(variables, namedVariable("DIGEST", input.Digest))
+		if !input.PublicSource {
+			variables = append(variables, namedVariable("PULL_SECRET_KV", input.PullSecretKeyVault))
+			variables = append(variables, namedVariable("PULL_SECRET", input.PullSecretName))
+		}
 	}
 
 	return &ShellStep{

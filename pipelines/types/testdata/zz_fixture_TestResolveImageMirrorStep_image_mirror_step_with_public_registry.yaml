@@ -13,10 +13,6 @@ variables:
 - name: REPOSITORY
   value: nginx
 - name: SOURCE_REGISTRY
-  value: docker.io
+  value: mcr.microsoft.com
 - name: DIGEST
   value: sha256:123456
-- name: PULL_SECRET_KV
-  value: my-keyvault
-- name: PULL_SECRET
-  value: my-pull-secret
