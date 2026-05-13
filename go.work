@@ -10,6 +10,7 @@ use (
 	./tools/prow-job-executor
 	./tools/registration
 	./tools/release
+	./tools/image-mirror
 	./tools/secret-sync
 	./tools/yamlwrap
 )
