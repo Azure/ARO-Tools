@@ -738,7 +738,7 @@ type GrafanaDatasourcesStep struct {
 	GrafanaName string `json:"grafanaName"`
 
 	// SkipSync indicates whether to skip syncing datasources. It is intended for prow jobs to skip syncing datasources.
-	SkipSync bool `json:"skipSync,omitempty"`
+	SkipSync string `json:"skipSync,omitempty"`
 
 	// IdentityFrom specifies the managed identity with which this deployment will run in Ev2.
 	IdentityFrom Input `json:"identityFrom,omitempty"`

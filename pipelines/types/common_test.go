@@ -2,6 +2,7 @@ package types
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -309,5 +310,15 @@ func TestIsWellFormedOverInputs(t *testing.T) {
 				t.Errorf("IsWellFormedOverInputs() = %v, want %v", got, testCase.expected)
 			}
 		})
+	}
+}
+
+func TestGrafanaDatasourcesStepNoBooleanFields(t *testing.T) {
+	rt := reflect.TypeOf(GrafanaDatasourcesStep{})
+	for i := 0; i < rt.NumField(); i++ {
+		field := rt.Field(i)
+		if field.Type.Kind() == reflect.Bool {
+			t.Errorf("field %q has type bool, use string instead", field.Name)
+		}
 	}
 }

@@ -712,7 +712,7 @@
               "type": "string"
             },
             "skipSync": {
-              "type": "boolean"
+              "type": "string"
             },
             "identityFrom": {
               "$ref": "#/definitions/input"
