@@ -36,6 +36,10 @@ type fakeADXGrafanaClient struct {
 	createErr       error
 	updateErr       error
 	deleteErr       error
+	// onCreateErr is called when createErr is non-nil, before returning.
+	// Use it to simulate race conditions (e.g. appending a datasource
+	// that a concurrent process created).
+	onCreateErr func(f *fakeADXGrafanaClient, ds sdk.Datasource)
 }
 
 func (f *fakeADXGrafanaClient) ListDataSources(ctx context.Context) ([]sdk.Datasource, error) {
@@ -49,6 +53,9 @@ func (f *fakeADXGrafanaClient) ListDataSourceTypes(ctx context.Context) (map[str
 func (f *fakeADXGrafanaClient) CreateDataSource(ctx context.Context, dataSource sdk.Datasource) error {
 	f.createCalls = append(f.createCalls, dataSource)
 	if f.createErr != nil {
+		if f.onCreateErr != nil {
+			f.onCreateErr(f, dataSource)
+		}
 		return f.createErr
 	}
 	if dataSource.UID == "" {
@@ -171,6 +178,9 @@ func TestReconcileADXDatasourceRunCreatesDatasource(t *testing.T) {
 	if created.Type != adxDatasourceType {
 		t.Fatalf("expected datasource type %q, got %q", adxDatasourceType, created.Type)
 	}
+	if created.Access != "proxy" {
+		t.Fatalf("expected Access %q, got %q", "proxy", created.Access)
+	}
 	jsonData, ok := created.JSONData.(map[string]interface{})
 	if !ok {
 		t.Fatalf("expected JSONData map, got %T", created.JSONData)
@@ -219,6 +229,9 @@ func TestReconcileADXDatasourceRunUpdatesExistingDatasource(t *testing.T) {
 	updated := client.updateCalls[0]
 	if updated.ID != 42 || updated.OrgID != 7 || updated.UID != "existing-uid" || !updated.IsDefault {
 		t.Fatalf("expected existing datasource identity/default to be preserved, got %#v", updated)
+	}
+	if updated.Access != "proxy" {
+		t.Fatalf("expected Access to be overwritten to %q, got %q", "proxy", updated.Access)
 	}
 }
 
@@ -314,6 +327,39 @@ func TestReconcileADXDatasourceRunRejectsMissingPlugin(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "is not available") {
 		t.Fatalf("expected missing plugin error, got %v", err)
+	}
+}
+
+func TestReconcileADXDatasourceRunCreateConflictFallsBackToUpdate(t *testing.T) {
+	// Simulates a race: create fails because another process created
+	// the datasource concurrently, but the datasource now exists on
+	// re-list, so we should fall back to update.
+	client := &fakeADXGrafanaClient{
+		dataSourceTypes: map[string]sdk.DatasourceType{
+			adxDatasourceType: {},
+		},
+		createErr: errors.New("status 409"),
+		onCreateErr: func(f *fakeADXGrafanaClient, ds sdk.Datasource) {
+			// Simulate the datasource appearing from a concurrent create
+			ds.ID = 99
+			ds.UID = "conflict-uid"
+			f.dataSources = append(f.dataSources, ds)
+		},
+	}
+	opts := completedReconcileADXDatasourceOptionsForTest(client)
+
+	if err := opts.Run(context.Background()); err != nil {
+		t.Fatalf("expected fallback to update, got error: %v", err)
+	}
+	if len(client.createCalls) != 1 {
+		t.Fatalf("expected one create attempt, got %d", len(client.createCalls))
+	}
+	if len(client.updateCalls) != 1 {
+		t.Fatalf("expected one update call after conflict, got %d", len(client.updateCalls))
+	}
+	updated := client.updateCalls[0]
+	if updated.Access != "proxy" {
+		t.Fatalf("expected Access %q on fallback update, got %q", "proxy", updated.Access)
 	}
 }
 

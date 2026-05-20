@@ -59,7 +59,22 @@ func (o *CompletedReconcileADXDatasourceOptions) Run(ctx context.Context) error 
 
 		logger.Info("Creating ADX datasource")
 		if err := o.GrafanaClient.CreateDataSource(ctx, desired); err != nil {
-			return fmt.Errorf("failed to create ADX datasource %q: %w", o.DatasourceName, err)
+			// Handle race condition: if another process created the
+			// datasource between our list and create calls, re-fetch
+			// and fall through to the update path.
+			existing, findErr := o.findExistingDatasource(ctx)
+			if findErr != nil || existing == nil {
+				return fmt.Errorf("failed to create ADX datasource %q: %w", o.DatasourceName, err)
+			}
+			logger.Info("Datasource was created concurrently, falling back to update",
+				"datasource-id", existing.ID, "datasource-uid", existing.UID)
+			desired.ID = existing.ID
+			desired.UID = existing.UID
+			desired.OrgID = existing.OrgID
+			desired.IsDefault = existing.IsDefault
+			if updateErr := o.GrafanaClient.UpdateDataSource(ctx, desired); updateErr != nil {
+				return fmt.Errorf("failed to update ADX datasource %q after create conflict: %w", o.DatasourceName, updateErr)
+			}
 		}
 		return nil
 	}

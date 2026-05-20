@@ -748,7 +748,7 @@
               "$ref": "#/definitions/grafanaADXDatasource"
             },
             "skipSync": {
-              "type": "string"
+              "type": "boolean"
             },
             "identityFrom": {
               "$ref": "#/definitions/input"
