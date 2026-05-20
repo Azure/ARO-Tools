@@ -70,25 +70,38 @@ func ValidatePipelineSchema(pipelineContent []byte) error {
 	return nil
 }
 
+// compileSchema decodes a JSON schema asset and compiles it. It is preserved
+// as a wrapper around decodeSchemaMap + compileSchemaFromMap so that other
+// code paths can rewrite the schema map between decode and compile.
 func compileSchema(schemaRef string, schemaBytes []byte) (*jsonschema.Schema, error) {
-	// parse schema content
-	schemaMap := make(map[string]interface{})
-	err := json.Unmarshal(schemaBytes, &schemaMap)
+	schemaMap, err := decodeSchemaMap(schemaBytes)
 	if err != nil {
+		return nil, err
+	}
+	return compileSchemaFromMap(schemaRef, schemaMap)
+}
+
+// decodeSchemaMap unmarshals a JSON schema asset into a generic map so that
+// callers can inspect or rewrite it before compilation.
+func decodeSchemaMap(schemaBytes []byte) (map[string]interface{}, error) {
+	schemaMap := make(map[string]interface{})
+	if err := json.Unmarshal(schemaBytes, &schemaMap); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal schema content: %v", err)
 	}
+	return schemaMap, nil
+}
 
-	// compile schema
+// compileSchemaFromMap compiles a schema previously decoded with
+// decodeSchemaMap (and possibly rewritten by the caller) into a jsonschema.Schema.
+func compileSchemaFromMap(schemaRef string, schemaMap map[string]interface{}) (*jsonschema.Schema, error) {
 	c := jsonschema.NewCompiler()
-	err = c.AddResource(schemaRef, schemaMap)
-	if err != nil {
+	if err := c.AddResource(schemaRef, schemaMap); err != nil {
 		return nil, fmt.Errorf("failed to add schema resource %s: %v", schemaRef, err)
 	}
 	pipelineSchema, err := c.Compile(schemaRef)
 	if err != nil {
 		return nil, fmt.Errorf("failed to compile schema %s: %v", schemaRef, err)
 	}
-
 	return pipelineSchema, nil
 }
 
