@@ -16,12 +16,14 @@ package types
 
 import (
 	"reflect"
+	"strconv"
 	"strings"
 )
 
 // widenScalarsForPlaceholders rewrites a decoded JSON schema map in-place so
 // that every non-string scalar declaration (type boolean / integer / number,
-// and pure non-string enums) also accepts a string matching pattern.
+// pure non-string enums, and non-string consts) also accepts a string matching
+// pattern.
 //
 // The rewrite preserves the original constraints by wrapping each scalar node
 // in a oneOf[<original-node-clone>, {type:"string", pattern:<pattern>}]. The
@@ -52,8 +54,8 @@ var scalarTypesToWiden = map[string]bool{
 }
 
 // widenNode mutates a single schema node in place. If the node declares a
-// widenable scalar type (or a pure non-string enum), it is replaced with a
-// oneOf wrapper. Otherwise the walker recurses into combinator and subtree
+// widenable scalar type (a pure non-string enum, or a non-string const), it is
+// replaced with a oneOf wrapper. Otherwise the walker recurses into combinator and subtree
 // keywords. Local $ref targets are resolved against root. Each map node is
 // processed at most once; revisits via $ref or duplicated tree paths are
 // no-ops, which prevents the produced oneOf wrapper from being wrapped
@@ -87,7 +89,9 @@ func widenNode(node interface{}, root map[string]interface{}, pattern string, pr
 }
 
 // shouldWidenNode reports whether obj declares a non-string scalar that should
-// be widened into a oneOf wrapper.
+// be widened into a oneOf wrapper. Scalar declarations include direct type
+// declarations (boolean, integer, number — and type-union variants without
+// "string"), pure non-string enums, and non-string consts.
 func shouldWidenNode(obj map[string]interface{}) bool {
 	switch t := obj["type"].(type) {
 	case string:
@@ -110,6 +114,12 @@ func shouldWidenNode(obj map[string]interface{}) bool {
 		if hasWidenable && !hasString {
 			return true
 		}
+	}
+	if c, hasConst := obj["const"]; hasConst {
+		if _, isString := c.(string); !isString {
+			return true
+		}
+		return false
 	}
 	if _, hasType := obj["type"]; hasType {
 		return false
@@ -223,7 +233,7 @@ func resolveLocalRef(root map[string]interface{}, ref string) interface{} {
 			}
 			current = next
 		case []interface{}:
-			n, err := atoi(p)
+			n, err := strconv.Atoi(p)
 			if err != nil {
 				return nil
 			}
@@ -245,22 +255,3 @@ func unescapeJSONPointer(p string) string {
 	p = strings.ReplaceAll(p, "~0", "~")
 	return p
 }
-
-// atoi is a tiny no-import integer parser for JSON pointer array indices.
-func atoi(s string) (int, error) {
-	if s == "" {
-		return 0, &strconvSyntaxError{s: s}
-	}
-	n := 0
-	for _, c := range s {
-		if c < '0' || c > '9' {
-			return 0, &strconvSyntaxError{s: s}
-		}
-		n = n*10 + int(c-'0')
-	}
-	return n, nil
-}
-
-type strconvSyntaxError struct{ s string }
-
-func (e *strconvSyntaxError) Error() string { return "invalid syntax: " + e.s }
