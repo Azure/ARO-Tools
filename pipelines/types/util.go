@@ -36,49 +36,69 @@ func getSchemaForPipeline(pipelineMap map[string]interface{}) (pipelineSchema *j
 }
 
 func getSchemaForRef(schemaRef string) (*jsonschema.Schema, string, error) {
+	return getSchemaForRefWithOptions(schemaRef, nil)
+}
+
+// getSchemaForRefWithOptions resolves a schema reference like getSchemaForRef
+// does, but threads validateOptions through so that placeholder-mode widening
+// can be applied between decoding and compilation.
+func getSchemaForRefWithOptions(schemaRef string, opts *validateOptions) (*jsonschema.Schema, string, error) {
 	if schemaRef == "" {
 		schemaRef = defaultSchemaRef
 	}
 	switch schemaRef {
 	case pipelineSchemaV1Ref:
-		pipelineSchema, err := compileSchema(schemaRef, pipelineSchemaV1Content)
+		schemaMap, err := decodeSchemaMap(pipelineSchemaV1Content)
+		if err != nil {
+			return nil, schemaRef, err
+		}
+		if opts != nil && opts.allowPlaceholders != "" {
+			widenScalarsForPlaceholders(schemaMap, opts.allowPlaceholders)
+		}
+		pipelineSchema, err := compileSchemaFromMap(schemaRef, schemaMap)
 		return pipelineSchema, schemaRef, err
 	default:
 		return nil, "", fmt.Errorf("unsupported schema reference: %s", schemaRef)
 	}
 }
 
+// ValidatePipelineSchema validates pipelineContent against the schema declared
+// by its "$schema" key (or the default v1 schema if none is set). Strict
+// validation: every type must match exactly. To allow opt-in placeholder
+// strings on non-string scalar fields, use ValidatePipelineSchemaWithOptions
+// together with WithAllowPlaceholders.
 func ValidatePipelineSchema(pipelineContent []byte) error {
-	// unmarshal pipeline content
+	return ValidatePipelineSchemaWithOptions(pipelineContent)
+}
+
+// ValidatePipelineSchemaWithOptions validates pipelineContent against the
+// declared (or default) schema. When opts include WithAllowPlaceholders, the
+// schema is widened in-memory so that non-string scalar fields also accept
+// strings matching the configured placeholder pattern. The schema asset on
+// disk and the strict default validation paths are not affected.
+//
+// This is intended for callers that validate pipeline.yaml templates against
+// a fully dunderized configuration (e.g. sdp-pipelines). EV2 manifest
+// generation and other strict callers should continue to use
+// ValidatePipelineSchema.
+func ValidatePipelineSchemaWithOptions(pipelineContent []byte, opts ...ValidateOption) error {
+	resolved := newValidateOptions(opts...)
+
 	pipelineMap := make(map[string]interface{})
-	err := yaml.Unmarshal(pipelineContent, &pipelineMap)
-	if err != nil {
+	if err := yaml.Unmarshal(pipelineContent, &pipelineMap); err != nil {
 		return fmt.Errorf("failed to unmarshal pipeline YAML content: %v", err)
 	}
 
-	// load pipeline schema
-	pipelineSchema, schemaRef, err := getSchemaForPipeline(pipelineMap)
+	schemaRef, _ := pipelineMap["$schema"].(string)
+	pipelineSchema, schemaRef, err := getSchemaForRefWithOptions(schemaRef, resolved)
 	if err != nil {
 		return fmt.Errorf("failed to load pipeline schema: %v", err)
 	}
 
-	// validate pipeline schema
-	err = pipelineSchema.Validate(pipelineMap)
-	if err != nil {
+	if err := pipelineSchema.Validate(pipelineMap); err != nil {
 		return fmt.Errorf("pipeline is not compliant with schema %s: %v", schemaRef, err)
 	}
 	return nil
-}
-
-// compileSchema decodes a JSON schema asset and compiles it. It is preserved
-// as a wrapper around decodeSchemaMap + compileSchemaFromMap so that other
-// code paths can rewrite the schema map between decode and compile.
-func compileSchema(schemaRef string, schemaBytes []byte) (*jsonschema.Schema, error) {
-	schemaMap, err := decodeSchemaMap(schemaBytes)
-	if err != nil {
-		return nil, err
-	}
-	return compileSchemaFromMap(schemaRef, schemaMap)
 }
 
 // decodeSchemaMap unmarshals a JSON schema asset into a generic map so that

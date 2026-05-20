@@ -54,22 +54,28 @@ type BuildStep struct {
 //   - A pointer to a new Pipeline instance if successful.
 //   - An error if there was a problem preprocessing the file, validating the schema,
 //     unmarshaling the pipeline, or validating the pipeline instance.
-func NewPipelineFromFile(pipelineFilePath string, cfg types2.Configuration) (*Pipeline, error) {
+func NewPipelineFromFile(pipelineFilePath string, cfg types2.Configuration, opts ...ValidateOption) (*Pipeline, error) {
 	content, err := os.ReadFile(pipelineFilePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file %s: %w", pipelineFilePath, err)
 	}
 
-	return NewPipelineFromBytes(content, cfg)
+	return NewPipelineFromBytes(content, cfg, opts...)
 }
 
-func NewPipelineFromBytes(pipelineBytes []byte, cfg types2.Configuration) (*Pipeline, error) {
+// NewPipelineFromBytes preprocesses pipelineBytes with the supplied
+// configuration, validates the rendered YAML against the pipeline schema, and
+// unmarshals it into a *Pipeline. opts is forwarded to
+// ValidatePipelineSchemaWithOptions; in particular, WithAllowPlaceholders
+// loosens schema validation for non-string scalar fields. Without opts,
+// validation is strict.
+func NewPipelineFromBytes(pipelineBytes []byte, cfg types2.Configuration, opts ...ValidateOption) (*Pipeline, error) {
 	bytes, err := config.PreprocessContent(pipelineBytes, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to preprocess pipeline file: %w", err)
 	}
 
-	if err := ValidatePipelineSchema(bytes); err != nil {
+	if err := ValidatePipelineSchemaWithOptions(bytes, opts...); err != nil {
 		return nil, fmt.Errorf("failed to validate pipeline schema: %w", err)
 	}
 
