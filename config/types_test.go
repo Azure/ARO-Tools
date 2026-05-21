@@ -64,7 +64,7 @@ func TestGetByPath(t *testing.T) {
 				},
 			},
 			path: "parent.key.nested",
-			err:  "configuration[parent][key]: expected nested map, found string; cannot index with nested",
+			err:  "configuration[parent][key]: expected nested map or slice, found string; cannot index with nested",
 		},
 	}
 	for _, tt := range tests {

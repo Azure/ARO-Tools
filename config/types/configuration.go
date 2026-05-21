@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -26,19 +27,56 @@ func (e MissingKeyError) Error() string {
 	return fmt.Sprintf("configuration%s: key %s not found", e.Path, e.Key)
 }
 
+// IndexOutOfRangeError is returned by GetByPath when a numeric key is used
+// to index into a slice but falls outside the bounds of that slice.
+type IndexOutOfRangeError struct {
+	Path   string
+	Index  int
+	Length int
+}
+
+func (e IndexOutOfRangeError) Error() string {
+	return fmt.Sprintf("configuration%s: index %d out of range [0, %d)", e.Path, e.Index, e.Length)
+}
+
+// GetByPath navigates the configuration tree following the dot-separated keys
+// in path and returns the value at that location.
+//
+// Keys are interpreted in two ways depending on the type of the current node:
+//   - For map nodes (map[string]any), the key is used as a literal map key.
+//   - For slice nodes ([]any), the key must be a non-negative integer literal
+//     that is used as the index into the slice (e.g. "containers.0.image").
+//
+// Errors:
+//   - MissingKeyError when a map key does not exist.
+//   - IndexOutOfRangeError when a slice index is outside the slice bounds.
+//   - A plain error when a slice is reached but the next key is not a valid
+//     non-negative integer, or when the current node is neither a map nor a
+//     slice but more keys remain.
 func (v Configuration) GetByPath(path string) (any, error) {
 	keys := strings.Split(path, ".")
 	var current any = map[string]any(v)
 	var currentPath string
 
 	for _, key := range keys {
-		if m, ok := current.(map[string]any); ok {
-			current, ok = m[key]
+		switch typed := current.(type) {
+		case map[string]any:
+			next, ok := typed[key]
 			if !ok {
 				return nil, &MissingKeyError{Path: currentPath, Key: key}
 			}
-		} else {
-			return nil, fmt.Errorf("configuration%s: expected nested map, found %T; cannot index with %s", currentPath, current, key)
+			current = next
+		case []any:
+			idx, err := strconv.Atoi(key)
+			if err != nil {
+				return nil, fmt.Errorf("configuration%s: expected non-negative integer to index slice, got %q", currentPath, key)
+			}
+			if idx < 0 || idx >= len(typed) {
+				return nil, &IndexOutOfRangeError{Path: currentPath, Index: idx, Length: len(typed)}
+			}
+			current = typed[idx]
+		default:
+			return nil, fmt.Errorf("configuration%s: expected nested map or slice, found %T; cannot index with %s", currentPath, current, key)
 		}
 		currentPath += "[" + key + "]"
 	}
