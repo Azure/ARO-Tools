@@ -729,10 +729,28 @@ func (s *GrafanaDashboardsStep) IsWellFormedOverInputs() bool {
 
 const StepActionGrafanaDatasources = "GrafanaDatasources"
 
+type GrafanaAzureMonitorDatasources struct {
+	Enabled *bool `json:"enabled,omitempty"`
+}
+
+type GrafanaADXDatasource struct {
+	Enabled            Value  `json:"enabled,omitempty"`
+	DeleteWhenDisabled bool   `json:"deleteWhenDisabled,omitempty"`
+	ClusterURL         Value  `json:"clusterUrl,omitempty"`
+	DefaultDatabase    Value  `json:"defaultDatabase,omitempty"`
+	DatasourceName     Value  `json:"datasourceName,omitempty"`
+	Geographies        Value  `json:"geographies,omitempty"`
+	DataConsistency    string `json:"dataConsistency,omitempty"`
+}
+
 type GrafanaDatasourcesStep struct {
 	StepMeta `json:",inline"`
 
-	GrafanaName string `json:"grafanaName"`
+	GrafanaName       string `json:"grafanaName"`
+	GrafanaResourceID *Value `json:"grafanaResourceId,omitempty"`
+
+	AzureMonitor *GrafanaAzureMonitorDatasources `json:"azureMonitor,omitempty"`
+	ADX          *GrafanaADXDatasource           `json:"adx,omitempty"`
 
 	// SkipSync indicates whether to skip syncing datasources. It is intended for prow jobs to skip syncing datasources.
 	SkipSync bool `json:"skipSync,omitempty"`
@@ -749,6 +767,16 @@ func (s *GrafanaDatasourcesStep) RequiredInputs() []StepDependency {
 	var deps []StepDependency
 	for _, val := range []Input{s.IdentityFrom} {
 		deps = append(deps, val.StepDependency)
+	}
+	if s.GrafanaResourceID != nil && s.GrafanaResourceID.Input != nil {
+		deps = append(deps, s.GrafanaResourceID.Input.StepDependency)
+	}
+	if s.ADX != nil {
+		for _, val := range []Value{s.ADX.Enabled, s.ADX.ClusterURL, s.ADX.DefaultDatabase, s.ADX.DatasourceName, s.ADX.Geographies} {
+			if val.Input != nil {
+				deps = append(deps, val.Input.StepDependency)
+			}
+		}
 	}
 
 	slices.SortFunc(deps, SortDependencies)

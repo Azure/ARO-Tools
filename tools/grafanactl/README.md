@@ -8,6 +8,7 @@ grafanactl helps maintain Azure Managed Grafana instances by providing tools to:
 - List all datasources in a Grafana instance
 - Remove orphaned Azure Monitor Workspace integrations
 - Clean up stale datasources pointing to deleted resources
+- Reconcile Azure Data Explorer datasources
 - Sync dashboards and folders from git to Grafana
 
 This tool is particularly useful when Azure Monitor Workspaces (Prometheus instances) are removed from your infrastructure but their references remain in Grafana, creating stale integrations.
@@ -39,6 +40,7 @@ All commands require these basic parameters:
 - `--subscription` - Azure subscription ID
 - `--resource-group` - Azure resource group name
 - `--grafana-name` - Azure Managed Grafana instance name
+- `--grafana-resource-id` - Azure Managed Grafana resource ID, as an alternative to subscription/resource group/name
 - `--output` - Output format: `table` (default) or `json`
 - `-v, --verbosity` - Set logging verbosity level (0-10)
 
@@ -110,6 +112,51 @@ grafanactl clean fixup-datasources \
   --grafana-name "your-grafana-instance"
 ```
 
+### Modify Commands
+
+Modify commands reconcile resources in Azure Managed Grafana.
+
+#### Reconcile Datasources
+
+Reconcile Azure Monitor Workspace integrations and, when enabled, one Azure Data
+Explorer datasource using Grafana's REST API:
+
+```bash
+# Preview changes (dry-run)
+grafanactl modify datasource reconcile \
+  --grafana-resource-id "/subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.Dashboard/grafana/<grafana-name>" \
+  --azure-monitor-enabled=false \
+  --adx-enabled=true \
+  --adx-delete-when-disabled=true \
+  --adx-cluster-url "https://example.region.kusto.windows.net" \
+  --adx-default-database "ServiceLogs" \
+  --adx-geographies "uksouth,eastus2" \
+  --adx-current-geography "uksouth" \
+  --adx-datasource-name "kusto-int-uksouth" \
+  --dry-run
+
+# Apply changes
+grafanactl modify datasource reconcile \
+  --grafana-resource-id "/subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.Dashboard/grafana/<grafana-name>" \
+  --azure-monitor-enabled=false \
+  --adx-enabled=true \
+  --adx-delete-when-disabled=true \
+  --adx-cluster-url "https://example.region.kusto.windows.net" \
+  --adx-default-database "ServiceLogs" \
+  --adx-geographies "uksouth,eastus2" \
+  --adx-current-geography "uksouth" \
+  --adx-datasource-name "kusto-int-uksouth"
+```
+
+When `--adx-enabled=false --adx-delete-when-disabled=true` are both set, the
+command deletes the named ADX datasource if it exists. ADX create/update requires
+the Azure Data Explorer datasource plugin
+(`grafana-azure-data-explorer-datasource`) to be available in Grafana. The
+datasource uses the Grafana managed identity for ADX authentication and fails if
+an existing datasource with the requested name has a different plugin type. When
+`--adx-geographies` is set, the command validates the comma-separated geography
+allowlist and disables ADX desired state for geographies not in the list.
+
 ### Sync Commands
 
 Sync commands help keep your Grafana instance in sync with dashboard definitions stored in git.
@@ -148,4 +195,3 @@ The config file (e.g., `observability.yaml`) defines:
 - The tool includes retry logic for transient Azure API failures
 - Use `--verbosity` flag to increase logging detail for troubleshooting
 - Always use `--dry-run` first to preview changes before applying them
-

@@ -310,6 +310,65 @@ func TestValidatePipelineSchema(t *testing.T) {
 			},
 		},
 		{
+			name: "valid grafana datasources with adx",
+			pipeline: map[string]interface{}{
+				"serviceGroup": "test",
+				"rolloutName":  "test",
+				"resourceGroups": []interface{}{
+					map[string]interface{}{
+						"name":          "rg",
+						"resourceGroup": "rg",
+						"subscription":  "sub",
+						"steps": []interface{}{
+							map[string]interface{}{
+								"name":        "datasources",
+								"action":      "GrafanaDatasources",
+								"grafanaName": "grafana",
+								"grafanaResourceId": map[string]interface{}{
+									"input": map[string]interface{}{
+										"resourceGroup": "global",
+										"step":          "output",
+										"name":          "grafanaResourceId",
+									},
+								},
+								"identityFrom": map[string]interface{}{
+									"resourceGroup": "rg",
+									"step":          "deploy",
+									"name":          "msi",
+								},
+								"azureMonitor": map[string]interface{}{
+									"enabled": false,
+								},
+								"adx": map[string]interface{}{
+									"enabled": map[string]interface{}{
+										"configRef": "monitoring.adxDatasourceEnabled",
+									},
+									"deleteWhenDisabled": true,
+									"clusterUrl": map[string]interface{}{
+										"input": map[string]interface{}{
+											"resourceGroup": "rg",
+											"step":          "kusto",
+											"name":          "kustoUri",
+										},
+									},
+									"defaultDatabase": map[string]interface{}{
+										"value": "ServiceLogs",
+									},
+									"datasourceName": map[string]interface{}{
+										"value": "kusto-int-uksouth",
+									},
+									"geographies": map[string]interface{}{
+										"configRef": "monitoring.adxDatasourceGeographies",
+									},
+									"dataConsistency": "strongconsistency",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
 			name: "invalid",
 			pipeline: map[string]interface{}{
 				"serviceGroup": "test",
