@@ -38,6 +38,7 @@ defaults:
   availabilityZoneCount: {{ .ev2.availabilityZoneCount }}
   enableOptionalStep: false
   e2e:
+    enabled: true
     prow:
       globalKeyVaultTokenSecret: "prow-token"
     regionTest:

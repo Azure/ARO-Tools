@@ -653,7 +653,7 @@ type ProwJobStep struct {
 	Commit        string `json:"commit,omitempty"`  // optional source commit SHA to pin the Prow job to
 	Repo          string `json:"repo,omitempty"`    // optional GitHub repo name override (default: ARO-HCP)
 	BaseRef       string `json:"baseRef,omitempty"` // optional Git base ref override (default: main)
-	DryRun        DryRun `json:"dryRun,omitempty"`
+	DryRun        Value  `json:"dryRun,omitempty"`
 
 	// IdentityFrom specifies the managed identity with which this deployment will run in Ev2.
 	IdentityFrom Input `json:"identityFrom,omitempty"`
@@ -664,12 +664,9 @@ func (s *ProwJobStep) Description() string {
 }
 
 func (s *ProwJobStep) RequiredInputs() []StepDependency {
-
 	var deps []StepDependency
-	for _, val := range s.DryRun.Variables {
-		if val.Input != nil {
-			deps = append(deps, val.Input.StepDependency)
-		}
+	if s.DryRun.Input != nil {
+		deps = append(deps, s.DryRun.Input.StepDependency)
 	}
 	for _, val := range []Input{s.IdentityFrom} {
 		deps = append(deps, val.StepDependency)

@@ -556,9 +556,21 @@ resourceGroups:
     - Internal
   - action: ProwJob
     dryRun:
-      variables:
-      - name: DRY_RUN
-        value: "true"
+      configRef: e2e.enabled
+    gatePromotion: "true"
+    identityFrom:
+      name: whatever
+      resourceGroup: regional
+      step: deploy
+    jobName: test-me
+    name: e2e2
+    tokenKeyvault: arohcpint-global.vault.azure.net
+    tokenSecret: prow-token
+    validation:
+    - Internal
+  - action: ProwJob
+    dryRun:
+      value: true
     gatePromotion: "true"
     identityFrom:
       name: whatever

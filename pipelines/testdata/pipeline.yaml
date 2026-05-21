@@ -533,9 +533,21 @@ resourceGroups:
     action: ProwJob
     tokenKeyvault: "{{ .global.keyVault.name }}.vault.azure.net"
     dryRun:
-      variables:
-      - name: DRY_RUN
-        value: "true"
+      configRef: e2e.enabled
+    tokenSecret: "{{ .e2e.prow.globalKeyVaultTokenSecret }}"
+    jobName: "{{ .e2e.regionTest.prowJobName }}"
+    gatePromotion: "{{ .e2e.regionTest.gatePromotion }}"
+    identityFrom:
+      resourceGroup: regional
+      step: deploy
+      name: whatever
+    validation:
+    - Internal
+  - name: e2e2
+    action: ProwJob
+    tokenKeyvault: "{{ .global.keyVault.name }}.vault.azure.net"
+    dryRun:
+      value: true
     tokenSecret: "{{ .e2e.prow.globalKeyVaultTokenSecret }}"
     jobName: "{{ .e2e.regionTest.prowJobName }}"
     gatePromotion: "{{ .e2e.regionTest.gatePromotion }}"
