@@ -115,6 +115,7 @@ func (m *Monitor) ExecuteAndWait(ctx context.Context, logger logr.Logger, reques
 	logger.Info("Submitting Prow job", "jobName", request.JobName)
 	if m.dryRun {
 		logger.Info("Dry-run is set, exiting.")
+		return nil
 	}
 	prowExecutionID, err := m.client.SubmitJob(ctx, request)
 	if err != nil {
