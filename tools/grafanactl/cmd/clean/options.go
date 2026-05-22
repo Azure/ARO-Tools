@@ -34,6 +34,7 @@ type RawCleanDatasourcesOptions struct {
 // validatedCleanOptions is a private struct that enforces the options validation pattern.
 type validatedCleanDatasourcesOptions struct {
 	*RawCleanDatasourcesOptions
+	*base.CompletedBaseOptions
 }
 
 // ValidatedCleanOptions represents clean configuration that has passed validation.
@@ -69,25 +70,29 @@ func BindCleanDatasourcesOptions(opts *RawCleanDatasourcesOptions, cmd *cobra.Co
 
 // Validate performs validation on the raw options
 func (o *RawCleanDatasourcesOptions) Validate(ctx context.Context) (*ValidatedCleanDatasourcesOptions, error) {
-	if err := base.ValidateBaseOptions(o.BaseOptions); err != nil {
+	completedBase, err := base.ValidateBaseOptions(o.BaseOptions)
+	if err != nil {
 		return nil, err
 	}
 
 	return &ValidatedCleanDatasourcesOptions{
 		validatedCleanDatasourcesOptions: &validatedCleanDatasourcesOptions{
 			RawCleanDatasourcesOptions: o,
+			CompletedBaseOptions:       completedBase,
 		},
 	}, nil
 }
 
 // Complete performs final initialization to create fully usable clean options.
 func (o *ValidatedCleanDatasourcesOptions) Complete(ctx context.Context) (*CompletedCleanDatasourcesOptions, error) {
-	cred, err := cmdutils.GetAzureTokenCredentials()
+	cred, err := cmdutils.GetAzureTokenCredentialsForCloud(o.CloudConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to obtain Azure credentials: %w", err)
 	}
 
-	managedGrafanaClient, err := azure.NewManagedGrafanaClient(o.SubscriptionID, cred)
+	clientOpts := o.ARMClientOptions()
+
+	managedGrafanaClient, err := azure.NewManagedGrafanaClient(o.SubscriptionID, cred, clientOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create managed Grafana client: %w", err)
 	}
@@ -97,7 +102,7 @@ func (o *ValidatedCleanDatasourcesOptions) Complete(ctx context.Context) (*Compl
 		return nil, fmt.Errorf("failed to create Grafana client: %w", err)
 	}
 
-	monitorWorkspaceClient, err := azure.NewMonitorWorkspaceClient(o.SubscriptionID, cred)
+	monitorWorkspaceClient, err := azure.NewMonitorWorkspaceClient(o.SubscriptionID, cred, clientOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create managed Prometheus client: %w", err)
 	}

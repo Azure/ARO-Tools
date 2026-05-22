@@ -39,6 +39,7 @@ type RawSyncDashboardsOptions struct {
 // validatedSyncDashboardsOptions is a private struct that enforces the options validation pattern.
 type validatedSyncDashboardsOptions struct {
 	*RawSyncDashboardsOptions
+	*base.CompletedBaseOptions
 }
 
 // ValidatedSyncDashboardsOptions represents sync configuration that has passed validation.
@@ -78,7 +79,8 @@ func BindSyncDashboardsOptions(opts *RawSyncDashboardsOptions, cmd *cobra.Comman
 
 // Validate performs validation on the raw options
 func (o *RawSyncDashboardsOptions) Validate(ctx context.Context) (*ValidatedSyncDashboardsOptions, error) {
-	if err := base.ValidateBaseOptions(o.BaseOptions); err != nil {
+	completedBase, err := base.ValidateBaseOptions(o.BaseOptions)
+	if err != nil {
 		return nil, err
 	}
 
@@ -96,6 +98,7 @@ func (o *RawSyncDashboardsOptions) Validate(ctx context.Context) (*ValidatedSync
 	return &ValidatedSyncDashboardsOptions{
 		validatedSyncDashboardsOptions: &validatedSyncDashboardsOptions{
 			RawSyncDashboardsOptions: o,
+			CompletedBaseOptions:     completedBase,
 		},
 	}, nil
 }
@@ -107,12 +110,14 @@ func (o *ValidatedSyncDashboardsOptions) Complete(ctx context.Context) (*Complet
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
 
-	cred, err := cmdutils.GetAzureTokenCredentials()
+	cred, err := cmdutils.GetAzureTokenCredentialsForCloud(o.CloudConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to obtain Azure credentials: %w", err)
 	}
 
-	managedGrafanaClient, err := azure.NewManagedGrafanaClient(o.SubscriptionID, cred)
+	clientOpts := o.ARMClientOptions()
+
+	managedGrafanaClient, err := azure.NewManagedGrafanaClient(o.SubscriptionID, cred, clientOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create managed Grafana client: %w", err)
 	}

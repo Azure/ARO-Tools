@@ -35,6 +35,7 @@ type RawAddDatasourceOptions struct {
 // validatedAddDatasourceOptions is a private struct that enforces the options validation pattern.
 type validatedAddDatasourceOptions struct {
 	*RawAddDatasourceOptions
+	*base.CompletedBaseOptions
 }
 
 // ValidatedAddDatasourceOptions represents add datasource configuration that has passed validation.
@@ -75,7 +76,8 @@ func BindAddDatasourceOptions(opts *RawAddDatasourceOptions, cmd *cobra.Command)
 
 // Validate performs validation on the raw options
 func (o *RawAddDatasourceOptions) Validate(ctx context.Context) (*ValidatedAddDatasourceOptions, error) {
-	if err := base.ValidateBaseOptions(o.BaseOptions); err != nil {
+	completedBase, err := base.ValidateBaseOptions(o.BaseOptions)
+	if err != nil {
 		return nil, err
 	}
 
@@ -86,23 +88,26 @@ func (o *RawAddDatasourceOptions) Validate(ctx context.Context) (*ValidatedAddDa
 				TagKey:      o.TagKey,
 				TagValue:    o.TagValue,
 			},
+			CompletedBaseOptions: completedBase,
 		},
 	}, nil
 }
 
 // Complete performs final initialization to create fully usable add datasource options.
 func (o *ValidatedAddDatasourceOptions) Complete(ctx context.Context) (*CompletedAddDatasourceOptions, error) {
-	cred, err := cmdutils.GetAzureTokenCredentials()
+	cred, err := cmdutils.GetAzureTokenCredentialsForCloud(o.CloudConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to obtain Azure credentials: %w", err)
 	}
 
-	managedGrafanaClient, err := azure.NewManagedGrafanaClient(o.SubscriptionID, cred)
+	clientOpts := o.ARMClientOptions()
+
+	managedGrafanaClient, err := azure.NewManagedGrafanaClient(o.SubscriptionID, cred, clientOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create managed Grafana client: %w", err)
 	}
 
-	monitorWorkspaceClient, err := azure.NewMonitorWorkspaceClient(o.SubscriptionID, cred)
+	monitorWorkspaceClient, err := azure.NewMonitorWorkspaceClient(o.SubscriptionID, cred, clientOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create monitor workspace client: %w", err)
 	}
