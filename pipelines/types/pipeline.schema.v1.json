@@ -700,7 +700,11 @@
               "type": "string"
             },
             "skipSync": {
-              "type": "boolean"
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
             },
             "identityFrom": {
               "$ref": "#/definitions/input"

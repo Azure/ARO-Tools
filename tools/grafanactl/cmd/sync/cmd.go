@@ -17,6 +17,7 @@ package sync
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/go-logr/logr"
 	"github.com/spf13/cobra"
@@ -62,7 +63,7 @@ func NewSyncCommand(group string) (*cobra.Command, error) {
 
 func (opts *RawSyncDashboardsOptions) Run(ctx context.Context) error {
 	logger := logr.FromContextOrDiscard(ctx)
-	if opts.SkipSync {
+	if strings.EqualFold(opts.SkipSync, "true") {
 		logger.Info("Skipping dashboard sync")
 		return nil
 	}
