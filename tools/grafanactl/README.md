@@ -42,6 +42,16 @@ All commands require these basic parameters:
 - `--output` - Output format: `table` (default) or `json`
 - `-v, --verbosity` - Set logging verbosity level (0-10)
 
+For sovereign clouds (e.g. Fairfax ), pass the ARM endpoint and AAD
+authority directly. Both flags must be set together; if neither is provided,
+the public Azure cloud is used. Each flag accepts either a hostname or a full
+`https://` URL — bare hostnames are normalized to URL form automatically.
+
+- `--arm-endpoint` - Azure Resource Manager endpoint (e.g.
+  `management.usgovcloudapi.net` for Fairfax).
+- `--aad-authority` - Microsoft Entra ID authority (e.g.
+  `login.microsoftonline.us` for Fairfax).
+
 ### List Commands
 
 #### List Datasources

@@ -23,6 +23,7 @@ import (
 	"github.com/go-logr/logr"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/dashboard/armdashboard/v2"
 )
 
@@ -32,9 +33,11 @@ type ManagedGrafanaClient struct {
 	client *armdashboard.GrafanaClient
 }
 
-// NewManagedGrafanaClient creates a new ManagedGrafanaClient with the provided credentials
-func NewManagedGrafanaClient(subscriptionID string, cred azcore.TokenCredential) (*ManagedGrafanaClient, error) {
-	grafanaClient, err := armdashboard.NewGrafanaClient(subscriptionID, cred, nil)
+// NewManagedGrafanaClient creates a new ManagedGrafanaClient with the provided credentials.
+// The clientOptions parameter allows callers to specify cloud-specific configuration
+// (e.g. cloud.AzureGovernment for Fairfax). Pass nil to use the default (public cloud).
+func NewManagedGrafanaClient(subscriptionID string, cred azcore.TokenCredential, clientOptions *arm.ClientOptions) (*ManagedGrafanaClient, error) {
+	grafanaClient, err := armdashboard.NewGrafanaClient(subscriptionID, cred, clientOptions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Azure Monitor Workspaces client: %w", err)
 	}

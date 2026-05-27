@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/monitor/armmonitor"
 )
 
@@ -35,9 +36,11 @@ type MonitorWorkspaceClient struct {
 	subscriptionID string
 }
 
-// NewPrometheusClient creates a new PrometheusClient with the provided credentials
-func NewMonitorWorkspaceClient(subscriptionID string, cred azcore.TokenCredential) (*MonitorWorkspaceClient, error) {
-	client, err := armmonitor.NewAzureMonitorWorkspacesClient(subscriptionID, cred, nil)
+// NewMonitorWorkspaceClient creates a new MonitorWorkspaceClient with the provided credentials.
+// The clientOptions parameter allows callers to specify cloud-specific configuration
+// (e.g. cloud.AzureGovernment for Fairfax). Pass nil to use the default (public cloud).
+func NewMonitorWorkspaceClient(subscriptionID string, cred azcore.TokenCredential, clientOptions *arm.ClientOptions) (*MonitorWorkspaceClient, error) {
+	client, err := armmonitor.NewAzureMonitorWorkspacesClient(subscriptionID, cred, clientOptions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Azure Monitor Workspaces client: %w", err)
 	}

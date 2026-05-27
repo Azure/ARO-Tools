@@ -34,6 +34,7 @@ type RawListDataSourcesOptions struct {
 // validatedListDataSourcesOptions is a private struct that enforces the options validation pattern.
 type validatedListDataSourcesOptions struct {
 	*RawListDataSourcesOptions
+	*base.CompletedBaseOptions
 }
 
 // ValidatedListDataSourcesOptions represents list-datasources configuration that has passed validation.
@@ -63,24 +64,29 @@ func BindListDataSourcesOptions(opts *RawListDataSourcesOptions, cmd *cobra.Comm
 
 // Validate performs validation on the raw options
 func (o *RawListDataSourcesOptions) Validate(ctx context.Context) (*ValidatedListDataSourcesOptions, error) {
-	if err := base.ValidateBaseOptions(o.BaseOptions); err != nil {
+	completedBase, err := base.ValidateBaseOptions(o.BaseOptions)
+	if err != nil {
 		return nil, err
 	}
 
 	return &ValidatedListDataSourcesOptions{
 		validatedListDataSourcesOptions: &validatedListDataSourcesOptions{
 			RawListDataSourcesOptions: o,
+			CompletedBaseOptions:      completedBase,
 		},
 	}, nil
 }
 
 // Complete performs final initialization to create fully usable list-datasources options.
 func (o *ValidatedListDataSourcesOptions) Complete(ctx context.Context) (*CompletedListDataSourcesOptions, error) {
-	cred, err := cmdutils.GetAzureTokenCredentials()
+	cred, err := cmdutils.GetAzureTokenCredentialsForCloud(o.CloudConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to obtain Azure credentials: %w", err)
 	}
-	managedGrafanaClient, err := azure.NewManagedGrafanaClient(o.SubscriptionID, cred)
+
+	clientOpts := o.ARMClientOptions()
+
+	managedGrafanaClient, err := azure.NewManagedGrafanaClient(o.SubscriptionID, cred, clientOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Managed Grafana client: %w", err)
 	}
