@@ -29,7 +29,7 @@ func (s *IstioUpgradeStep) Description() string {
 }
 
 func (s *IstioUpgradeStep) RequiredInputs() []StepDependency {
-	return nil
+	return []StepDependency{}
 }
 
 func (s *IstioUpgradeStep) IsWellFormedOverInputs() bool {
