@@ -42,6 +42,9 @@ import (
 	"github.com/Azure/ARO-Tools/tools/cmdutils"
 )
 
+// ErrNilHelmReleaseResult is returned when Helm reports success without a release object.
+var ErrNilHelmReleaseResult = errors.New("helm release result is nil")
+
 func DefaultOptions() *RawOptions {
 	return &RawOptions{
 		Timeout: 5 * time.Minute,
@@ -290,6 +293,7 @@ func (opts *Options) Deploy(ctx context.Context) error {
 			releaser, releaseErr := runHelmUpgrade(ctx, logger, opts)
 			if releaseErr != nil {
 				logger.Error(releaseErr, "Failed to dry-run the Helm release.")
+				return fmt.Errorf("failed to dry-run Helm release: %w", releaseErr)
 			}
 			release, err := releaserToV1Release(releaser)
 			if err != nil {
@@ -310,6 +314,7 @@ func (opts *Options) Deploy(ctx context.Context) error {
 	releaser, releaseErr := runHelmUpgrade(ctx, logger, opts)
 	if releaseErr != nil {
 		logger.Error(releaseErr, "Failed to roll out the Helm release.")
+		return fmt.Errorf("failed to roll out Helm release: %w", releaseErr)
 	}
 	release, err := releaserToV1Release(releaser)
 	if err != nil {
@@ -318,9 +323,6 @@ func (opts *Options) Deploy(ctx context.Context) error {
 	logger.Info("Finished deploying Helm release.")
 
 	if opts.DryRun {
-		if releaseErr != nil {
-			return fmt.Errorf("failed to create a dry-run Helm release: %w", releaseErr)
-		}
 		logger.Info("Validating Helm release contents for dry-run.")
 		if err := validateHelmResources(ctx, logger, opts, release); err != nil {
 			return fmt.Errorf("failed to validate Helm release contents for dry-run: %w", err)
@@ -452,12 +454,20 @@ func runDiagnostics(ctx context.Context, logger logr.Logger, opts *Options, depl
 		return fmt.Errorf("failed to convert releaser to v1 release: %w", err)
 	}
 
+	hasInfo := release.Info != nil
+	var status any = "<missing>"
+	description := "<missing>"
+	if hasInfo {
+		status = release.Info.Status
+		description = release.Info.Description
+	}
 	logger.Info(
 		"Determined release status.",
 		"release", release.Name,
 		"namespace", release.Namespace,
-		"status", release.Info.Status,
-		"description", release.Info.Description,
+		"hasInfo", hasInfo,
+		"status", status,
+		"description", description,
 		"values", release.Config,
 	)
 
@@ -637,7 +647,7 @@ func releaserToV1Release(rel helmrelease.Releaser) (*helmreleasev1.Release, erro
 	case *helmreleasev1.Release:
 		return r, nil
 	case nil:
-		return nil, nil
+		return nil, ErrNilHelmReleaseResult
 	default:
 		return nil, fmt.Errorf("unsupported release type: %T", rel)
 	}

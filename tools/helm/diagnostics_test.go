@@ -2,6 +2,7 @@ package helm
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"os"
 	"testing"
@@ -203,5 +204,15 @@ func evaluateResourcesHelper(filename string) func(*testing.T) {
 		}
 
 		testutil.CompareWithFixture(t, results)
+	}
+}
+
+func TestReleaserToV1ReleaseNil(t *testing.T) {
+	_, err := releaserToV1Release(nil)
+	if err == nil {
+		t.Fatal("releaserToV1Release(nil) returned nil error")
+	}
+	if !errors.Is(err, ErrNilHelmReleaseResult) {
+		t.Fatalf("releaserToV1Release(nil) error = %q, want ErrNilHelmReleaseResult", err)
 	}
 }
