@@ -533,6 +533,40 @@ func (s *HelmStep) RequiredInputs() []StepDependency {
 	return deps
 }
 
+const StepActionRunGenevaAction = "RunGenevaAction"
+
+type RunGenevaActionStep struct {
+	StepMeta          `json:",inline"`
+	SecretKeyVault    Value            `json:"secretKeyVault,omitempty"`
+	SecretName        Value            `json:"secretName,omitempty"`
+	GAExtensionName   Value            `json:"gaExtensionName,omitempty"`
+	GAEndpoint        Value            `json:"gaEndpoint,omitempty"`
+	GAOperationId     Value            `json:"gaOperationId,omitempty"`
+	MaxExecutionTime  string           `json:"maxExecutionTime,omitempty"`
+	PayloadProperties map[string]Value `json:"payloadProperties,omitempty"`
+}
+
+func (s *RunGenevaActionStep) Description() string {
+	return fmt.Sprintf("Step %s\n  Kind: %s\n  Extension: %s\n  Operation: %s\n", s.Name, s.Action, s.GAExtensionName.String(), s.GAOperationId.String())
+}
+
+func (s *RunGenevaActionStep) RequiredInputs() []StepDependency {
+	var deps []StepDependency
+	for _, val := range []Value{s.SecretKeyVault, s.SecretName, s.GAExtensionName, s.GAEndpoint, s.GAOperationId} {
+		if val.Input != nil {
+			deps = append(deps, val.Input.StepDependency)
+		}
+	}
+	for _, val := range s.PayloadProperties {
+		if val.Input != nil {
+			deps = append(deps, val.Input.StepDependency)
+		}
+	}
+	slices.SortFunc(deps, SortDependencies)
+	deps = slices.Compact(deps)
+	return deps
+}
+
 const StepActionPublishGenevaAction = "PublishGenevaAction"
 
 type PublishGenevaActionStep struct {

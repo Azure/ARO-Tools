@@ -266,6 +266,30 @@ func TestRequiredInputs(t *testing.T) {
 			name:  "pav2 empty",
 			input: &Pav2Step{},
 		},
+		{
+			name: "runGenevaAction full",
+			input: &RunGenevaActionStep{
+				SecretKeyVault:  Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step"}}},
+				SecretName:      Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step2"}}},
+				GAExtensionName: Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step3"}}},
+				GAEndpoint:      Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step4"}}},
+				GAOperationId:   Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step"}}},
+				PayloadProperties: map[string]Value{
+					"param1": {Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step5"}}},
+				},
+			},
+			expected: []StepDependency{
+				{ResourceGroup: "rg", Step: "step"},
+				{ResourceGroup: "rg", Step: "step2"},
+				{ResourceGroup: "rg", Step: "step3"},
+				{ResourceGroup: "rg", Step: "step4"},
+				{ResourceGroup: "rg", Step: "step5"},
+			},
+		},
+		{
+			name:  "runGenevaAction empty",
+			input: &RunGenevaActionStep{},
+		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			if diff := cmp.Diff(testCase.expected, testCase.input.RequiredInputs()); diff != "" {
@@ -299,6 +323,7 @@ func TestIsWellFormedOverInputs(t *testing.T) {
 		{in: &SecretSyncStep{}, expected: true},
 		{in: &KustoStep{}, expected: true},
 		{in: &Pav2Step{}, expected: true},
+		{in: &RunGenevaActionStep{}, expected: true},
 		{in: &PublishGenevaActionStep{}, expected: true},
 		{in: &GenevaHealthStep{}, expected: true},
 		{in: &GenericStep{}, expected: false},

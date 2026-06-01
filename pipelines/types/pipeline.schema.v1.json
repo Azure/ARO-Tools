@@ -515,6 +515,54 @@
         }
       ]
     },
+    "runGenevaActionStep": {
+      "unevaluatedProperties": false,
+      "allOf": [
+        {
+          "$ref": "#/definitions/stepMeta"
+        },
+        {
+          "properties": {
+            "action": {
+              "const": "RunGenevaAction"
+            },
+            "secretKeyVault": {
+              "$ref": "#/definitions/value"
+            },
+            "secretName": {
+              "$ref": "#/definitions/value"
+            },
+            "gaExtensionName": {
+              "$ref": "#/definitions/value"
+            },
+            "gaEndpoint": {
+              "$ref": "#/definitions/value"
+            },
+            "gaOperationId": {
+              "$ref": "#/definitions/value"
+            },
+            "maxExecutionTime": {
+              "type": "string",
+              "description": "Max execution time duration (e.g., PT30M, PT1H).",
+              "default": "PT30M"
+            },
+            "payloadProperties": {
+              "type": "object",
+              "description": "Arbitrary key-value payload parameters for the Geneva Action operation.",
+              "additionalProperties": {
+                "$ref": "#/definitions/value"
+              }
+            }
+          },
+          "required": [
+            "secretKeyVault",
+            "secretName",
+            "gaExtensionName",
+            "gaOperationId"
+          ]
+        }
+      ]
+    },
     "genevaHealthStep": {
       "unevaluatedProperties": false,
       "allOf": [
@@ -1870,6 +1918,22 @@
                   },
                   "then": {
                     "$ref": "#/definitions/publishGenevaActionStep"
+                  }
+                },
+                {
+                  "if": {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "RunGenevaAction"
+                      }
+                    },
+                    "required": [
+                      "action"
+                    ]
+                  },
+                  "then": {
+                    "$ref": "#/definitions/runGenevaActionStep"
                   }
                 },
                 {
