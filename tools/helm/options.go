@@ -289,11 +289,14 @@ func (opts *Options) Deploy(ctx context.Context) error {
 			logger.Info("Doing dry-run of Helm release.")
 			releaser, releaseErr := runHelmUpgrade(ctx, logger, opts)
 			if releaseErr != nil {
-				logger.Error(releaseErr, "Failed to dry-run the Helm release.")
+				return fmt.Errorf("failed to dry-run the Helm release: %w", releaseErr)
 			}
 			release, err := releaserToV1Release(releaser)
 			if err != nil {
 				return fmt.Errorf("failed to convert release to v1: %w", err)
+			}
+			if release == nil {
+				return fmt.Errorf("dry-run of Helm release returned no release")
 			}
 
 			if err := removeOldFieldManager(ctx, logger, opts, release); err != nil {
