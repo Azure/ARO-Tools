@@ -36,6 +36,7 @@ resourceGroups:
     shellIdentity:
       configRef: aroDevopsMsiId
     subnetName: subnet
+    timeout: 75m
     variables:
     - configRef: maestro_image
       name: MAESTRO_IMAGE

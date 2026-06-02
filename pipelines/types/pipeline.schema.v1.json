@@ -406,6 +406,10 @@
         "command": {
           "type": "string"
         },
+        "timeout": {
+          "description": "Timeout is the maximum amount of time to wait for the shell step to complete. If unset, consumers should apply their default shell step timeout.",
+          "$ref": "#/definitions/durationString"
+        },
         "aksCluster": {
           "type": "string"
         },

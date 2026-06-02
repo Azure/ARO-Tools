@@ -35,6 +35,7 @@ resourceGroups:
   - name: deploy
     action: Shell
     command: make deploy
+    timeout: 75m
     aksCluster: '{{ .aksName  }}'
     subnetName: '{{ .subnetName }}'
     shellIdentity:
