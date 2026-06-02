@@ -310,6 +310,51 @@ func TestValidatePipelineSchema(t *testing.T) {
 			},
 		},
 		{
+			name: "valid shell timeout",
+			pipeline: map[string]interface{}{
+				"serviceGroup": "test",
+				"rolloutName":  "test",
+				"resourceGroups": []interface{}{
+					map[string]interface{}{
+						"name":          "rg",
+						"resourceGroup": "rg",
+						"subscription":  "sub",
+						"steps": []interface{}{
+							map[string]interface{}{
+								"name":    "step",
+								"action":  "Shell",
+								"command": "echo hello",
+								"timeout": "75m",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "invalid shell timeout",
+			pipeline: map[string]interface{}{
+				"serviceGroup": "test",
+				"rolloutName":  "test",
+				"resourceGroups": []interface{}{
+					map[string]interface{}{
+						"name":          "rg",
+						"resourceGroup": "rg",
+						"subscription":  "sub",
+						"steps": []interface{}{
+							map[string]interface{}{
+								"name":    "step",
+								"action":  "Shell",
+								"command": "echo hello",
+								"timeout": "tomorrow",
+							},
+						},
+					},
+				},
+			},
+			err: "pipeline is not compliant with schema pipeline.schema.v1",
+		},
+		{
 			name: "invalid",
 			pipeline: map[string]interface{}{
 				"serviceGroup": "test",

@@ -40,7 +40,8 @@ type ShellStep struct {
 	ShellIdentity Value `json:"shellIdentity"`
 	// AdoArtifacts is a list of Azure DevOps artifacts to download before executing the shell step.
 	AdoArtifacts []AdoArtifactDownloadPipelineReference `json:"adoArtifacts,omitempty"`
-	// Timeout is the maximum amount of time to wait for the shell step to complete.
+	// Timeout is the maximum amount of time to wait for the shell step to complete, formatted as a duration string
+	// with a single h, m, or s unit.
 	// If unset, consumers should apply their default shell step timeout.
 	Timeout string `json:"timeout,omitempty"`
 }
