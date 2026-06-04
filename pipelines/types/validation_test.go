@@ -343,7 +343,9 @@ func TestValidatePipelineSchema(t *testing.T) {
 									"enabled": map[string]interface{}{
 										"configRef": "monitoring.adxDatasourceEnabled",
 									},
-									"deleteWhenDisabled": true,
+									"deleteWhenDisabled": map[string]interface{}{
+										"value": "true",
+									},
 									"clusterUrl": map[string]interface{}{
 										"input": map[string]interface{}{
 											"resourceGroup": "rg",

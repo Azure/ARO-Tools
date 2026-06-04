@@ -705,7 +705,7 @@
           "$ref": "#/definitions/value"
         },
         "deleteWhenDisabled": {
-          "type": "boolean"
+          "$ref": "#/definitions/value"
         },
         "clusterUrl": {
           "$ref": "#/definitions/value"

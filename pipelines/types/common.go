@@ -731,7 +731,7 @@ type GrafanaAzureMonitorDatasources struct {
 
 type GrafanaADXDatasource struct {
 	Enabled            Value  `json:"enabled,omitempty"`
-	DeleteWhenDisabled bool   `json:"deleteWhenDisabled,omitempty"`
+	DeleteWhenDisabled Value  `json:"deleteWhenDisabled,omitempty"`
 	ClusterURL         Value  `json:"clusterUrl,omitempty"`
 	DefaultDatabase    Value  `json:"defaultDatabase,omitempty"`
 	DatasourceName     Value  `json:"datasourceName,omitempty"`
@@ -768,7 +768,7 @@ func (s *GrafanaDatasourcesStep) RequiredInputs() []StepDependency {
 		deps = append(deps, s.GrafanaResourceID.Input.StepDependency)
 	}
 	if s.ADX != nil {
-		for _, val := range []Value{s.ADX.Enabled, s.ADX.ClusterURL, s.ADX.DefaultDatabase, s.ADX.DatasourceName, s.ADX.Geographies} {
+		for _, val := range []Value{s.ADX.Enabled, s.ADX.DeleteWhenDisabled, s.ADX.ClusterURL, s.ADX.DefaultDatabase, s.ADX.DatasourceName, s.ADX.Geographies} {
 			if val.Input != nil {
 				deps = append(deps, val.Input.StepDependency)
 			}
