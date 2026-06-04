@@ -6,6 +6,7 @@ use (
 	./testutil
 	./tools/cmdutils
 	./tools/grafanactl
+	./tools/istioupgrade
 	./tools/helm
 	./tools/prow-job-executor
 	./tools/registration
