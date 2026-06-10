@@ -95,6 +95,7 @@ func ForPipeline(service *topology.Service, pipeline *types.Pipeline) (*Graph, e
 		PipelinePath: service.PipelinePath,
 		Children:     nil, // explicitly omitted to generate graph for one pipeline only
 		Metadata:     service.Metadata,
+		Stamped:      service.Stamped,
 	}
 
 	graph := &Graph{
