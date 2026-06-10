@@ -339,6 +339,113 @@ func TestDependency_Lookup(t *testing.T) {
 	}
 }
 
+func TestPropagateStamped(t *testing.T) {
+	for _, testCase := range []struct {
+		name     string
+		input    Topology
+		expected Topology
+	}{
+		{
+			name: "parent stamped, children inherit",
+			input: Topology{
+				Services: []Service{
+					{
+						ServiceGroup: "parent",
+						Stamped:      true,
+						Children: []Service{
+							{ServiceGroup: "child-a"},
+							{ServiceGroup: "child-b", Children: []Service{
+								{ServiceGroup: "grandchild"},
+							}},
+						},
+					},
+				},
+			},
+			expected: Topology{
+				Services: []Service{
+					{
+						ServiceGroup: "parent",
+						Stamped:      true,
+						Children: []Service{
+							{ServiceGroup: "child-a", Stamped: true},
+							{ServiceGroup: "child-b", Stamped: true, Children: []Service{
+								{ServiceGroup: "grandchild", Stamped: true},
+							}},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "siblings unaffected",
+			input: Topology{
+				Services: []Service{
+					{
+						ServiceGroup: "stamped-parent",
+						Stamped:      true,
+						Children: []Service{
+							{ServiceGroup: "stamped-child"},
+						},
+					},
+					{
+						ServiceGroup: "non-stamped-sibling",
+						Children: []Service{
+							{ServiceGroup: "non-stamped-child"},
+						},
+					},
+				},
+			},
+			expected: Topology{
+				Services: []Service{
+					{
+						ServiceGroup: "stamped-parent",
+						Stamped:      true,
+						Children: []Service{
+							{ServiceGroup: "stamped-child", Stamped: true},
+						},
+					},
+					{
+						ServiceGroup: "non-stamped-sibling",
+						Children: []Service{
+							{ServiceGroup: "non-stamped-child"},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "no stamped services, no changes",
+			input: Topology{
+				Services: []Service{
+					{
+						ServiceGroup: "parent",
+						Children: []Service{
+							{ServiceGroup: "child"},
+						},
+					},
+				},
+			},
+			expected: Topology{
+				Services: []Service{
+					{
+						ServiceGroup: "parent",
+						Children: []Service{
+							{ServiceGroup: "child"},
+						},
+					},
+				},
+			},
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			testCase.input.PropagateStamped()
+			if diff := cmp.Diff(testCase.expected, testCase.input); diff != "" {
+				t.Errorf("mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
 func TestLoadCombined_TopologyDirMapping(t *testing.T) {
 	teamAPath := filepath.Join("testdata", "team-a", "topology.yaml")
 	teamBPath := filepath.Join("testdata", "team-b", "topology.yaml")

@@ -46,6 +46,9 @@ type Service struct {
 	// Parent service located in a different topology file. Ignored if only one topology file is specified.
 	// Only allowed in input yaml on top-level services (i.e. those listed directly under Services in the topology file, not nested within another service's Children).
 	ExternalParent *string `json:"externalParent,omitempty"`
+
+	// Stamped marks this service group as stamp-scoped. Children inherit stamped from their parent.
+	Stamped bool `json:"stamped,omitempty"`
 }
 
 // Entrypoint describes an individual pipeline in the tree.
@@ -128,7 +131,25 @@ func LoadCombined(paths []string) (*CombinedTopology, error) {
 		externalParent.Children = append(externalParent.Children, *svc)
 	}
 
+	combinedTopology.PropagateStamped()
+
 	return &combinedTopology, nil
+}
+
+// PropagateStamped walks the service tree and sets Stamped = true on all children of stamped parents.
+func (t *Topology) PropagateStamped() {
+	for i := range t.Services {
+		propagateStamped(&t.Services[i], false)
+	}
+}
+
+func propagateStamped(s *Service, parentStamped bool) {
+	if parentStamped {
+		s.Stamped = true
+	}
+	for i := range s.Children {
+		propagateStamped(&s.Children[i], s.Stamped)
+	}
 }
 
 func (t *Topology) Validate() error {
