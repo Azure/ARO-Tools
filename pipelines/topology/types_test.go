@@ -446,6 +446,41 @@ func TestPropagateStamped(t *testing.T) {
 	}
 }
 
+func TestLoad_PropagateStamped(t *testing.T) {
+	path := writeTempTopology(t, `services:
+- serviceGroup: parent
+  stamped: true
+  children:
+  - serviceGroup: child-a
+  - serviceGroup: child-b
+    children:
+    - serviceGroup: grandchild`)
+
+	got, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	expected := &Topology{
+		Services: []Service{
+			{
+				ServiceGroup: "parent",
+				Stamped:      true,
+				Children: []Service{
+					{ServiceGroup: "child-a", Stamped: true},
+					{ServiceGroup: "child-b", Stamped: true, Children: []Service{
+						{ServiceGroup: "grandchild", Stamped: true},
+					}},
+				},
+			},
+		},
+	}
+
+	if diff := cmp.Diff(expected, got); diff != "" {
+		t.Errorf("mismatch (-want +got):\n%s", diff)
+	}
+}
+
 func TestLoadCombined_TopologyDirMapping(t *testing.T) {
 	teamAPath := filepath.Join("testdata", "team-a", "topology.yaml")
 	teamBPath := filepath.Join("testdata", "team-b", "topology.yaml")
@@ -474,29 +509,29 @@ func TestLoadCombined_TopologyDirMapping(t *testing.T) {
 	}
 }
 
+func writeTempTopology(t *testing.T, content string) string {
+	t.Helper()
+	f, err := os.CreateTemp("", "topology-*.yaml")
+	if err != nil {
+		t.Fatalf("failed to create temp file: %s", err)
+	}
+	t.Cleanup(func() {
+		if err := os.Remove(f.Name()); err != nil {
+			t.Errorf("failed to remove temp file: %v", err)
+		}
+	})
+	if _, err := f.WriteString(content); err != nil {
+		t.Fatalf("failed to write topology: %s", err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatalf("failed to close topology file: %s", err)
+	}
+	return f.Name()
+}
+
 func TestLoadCombined(t *testing.T) {
 	externalParentHCP := "Microsoft.Azure.ARO.HCP"
 	externalParentOther := "Microsoft.Azure.ARO.Other"
-
-	writeTempTopology := func(t *testing.T, content string) string {
-		t.Helper()
-		f, err := os.CreateTemp("", "topology-*.yaml")
-		if err != nil {
-			t.Fatalf("failed to create temp file: %s", err)
-		}
-		t.Cleanup(func() {
-			if err := os.Remove(f.Name()); err != nil {
-				t.Errorf("failed to remove temp file: %v", err)
-			}
-		})
-		if _, err := f.WriteString(content); err != nil {
-			t.Fatalf("failed to write topology: %s", err)
-		}
-		if err := f.Close(); err != nil {
-			t.Fatalf("failed to close topology file: %s", err)
-		}
-		return f.Name()
-	}
 
 	for _, testCase := range []struct {
 		name       string
@@ -659,6 +694,71 @@ func TestLoadCombined(t *testing.T) {
     purpose: child
     externalParent: Microsoft.Azure.ARO.HCP`},
 			err: true,
+		},
+		{
+			name: "stamped propagates across external parent graft",
+			topologies: []string{
+				`services:
+- serviceGroup: Microsoft.Azure.ARO.HCP
+  pipelinePath: foo
+  purpose: root
+  stamped: true`,
+				`services:
+- serviceGroup: Microsoft.Azure.ARO.HCP.Child
+  pipelinePath: bar
+  purpose: grafted child
+  externalParent: Microsoft.Azure.ARO.HCP
+  children:
+  - serviceGroup: Microsoft.Azure.ARO.HCP.Child.Grand
+    pipelinePath: baz
+    purpose: grandchild
+- serviceGroup: Microsoft.Azure.ARO.Classic
+  pipelinePath: classic
+  purpose: independent service
+  children:
+  - serviceGroup: Microsoft.Azure.ARO.Classic.Sub
+    pipelinePath: sub
+    purpose: independent child`,
+			},
+			expected: &Topology{
+				Services: []Service{
+					{
+						ServiceGroup: "Microsoft.Azure.ARO.HCP",
+						PipelinePath: "foo",
+						Purpose:      "root",
+						Stamped:      true,
+						Children: []Service{
+							{
+								ServiceGroup:   "Microsoft.Azure.ARO.HCP.Child",
+								PipelinePath:   "bar",
+								Purpose:        "grafted child",
+								Stamped:        true,
+								ExternalParent: func() *string { s := "Microsoft.Azure.ARO.HCP"; return &s }(),
+								Children: []Service{
+									{
+										ServiceGroup: "Microsoft.Azure.ARO.HCP.Child.Grand",
+										PipelinePath: "baz",
+										Purpose:      "grandchild",
+										Stamped:      true,
+									},
+								},
+							},
+						},
+					},
+					{
+						ServiceGroup: "Microsoft.Azure.ARO.Classic",
+						PipelinePath: "classic",
+						Purpose:      "independent service",
+						Children: []Service{
+							{
+								ServiceGroup: "Microsoft.Azure.ARO.Classic.Sub",
+								PipelinePath: "sub",
+								Purpose:      "independent child",
+							},
+						},
+					},
+				},
+			},
 		},
 		{
 			name: "errors when external parent does not exist",
