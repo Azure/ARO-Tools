@@ -37,8 +37,10 @@ const (
 	defaultProwURL    = "https://prow.ci.openshift.org/prowjob"
 
 	// EV2 rollout annotation prefix
-	ev2RolloutPrefix           = "ev2.rollout/"
-	ev2RolloutRegionAnnotation = ev2RolloutPrefix + "region"
+	ev2RolloutPrefix                = "ev2.rollout/"
+	ev2RolloutRegionAnnotation      = ev2RolloutPrefix + "region"
+	ev2RolloutCloudAnnotation       = ev2RolloutPrefix + "cloud"
+	ev2RolloutEnvironmentAnnotation = ev2RolloutPrefix + "environment"
 
 	// Default git ref values for postsubmit execution
 	defaultBaseRef = "main"
@@ -67,6 +69,8 @@ func DefaultExecuteOptions() *RawExecuteOptions {
 }
 
 func (o *RawExecuteOptions) BindFlags(cmd *cobra.Command) error {
+	cmd.Flags().StringVar(&o.Cloud, "cloud", o.Cloud, "Target Azure cloud for the job execution")
+	cmd.Flags().StringVar(&o.Environment, "environment", o.Environment, "Target environment for the job execution")
 	cmd.Flags().StringVar(&o.Region, "region", o.Region, "Target Azure region for the job execution")
 	cmd.Flags().StringVar(&o.ProwJobName, "job-name", o.ProwJobName, "Name of the specific ProwJob to execute")
 	cmd.Flags().StringToStringVar(&o.Labels, "label", o.Labels, "Kubernetes labels to apply to the job pod in k=v format (can be specified multiple times)")
@@ -86,6 +90,8 @@ func (o *RawExecuteOptions) BindFlags(cmd *cobra.Command) error {
 
 	// Mark required flags
 	for _, flag := range []string{
+		"cloud",
+		"environment",
 		"region",
 		"job-name",
 	} {
@@ -101,6 +107,8 @@ func (o *RawExecuteOptions) BindFlags(cmd *cobra.Command) error {
 type RawExecuteOptions struct {
 	*RawProwTokenOptions
 
+	Cloud             string
+	Environment       string
 	Region            string
 	ProwJobName       string
 	Labels            map[string]string
@@ -138,6 +146,8 @@ type ValidatedExecuteOptions struct {
 
 // completedExecuteOptions is a private wrapper that enforces a call of Complete() before execution can be invoked.
 type completedExecuteOptions struct {
+	Cloud           string
+	Environment     string
 	Region          string
 	ProwJobName     string
 	Labels          map[string]string
@@ -174,6 +184,8 @@ func (o *RawExecuteOptions) Validate(ctx context.Context) (*ValidatedExecuteOpti
 		name  string
 		value *string
 	}{
+		{flag: "cloud", name: "cloud", value: &o.Cloud},
+		{flag: "environment", name: "environment", value: &o.Environment},
 		{flag: "region", name: "region", value: &o.Region},
 		{flag: "job-name", name: "Prow job name", value: &o.ProwJobName},
 	} {
@@ -193,7 +205,9 @@ func (o *RawExecuteOptions) Validate(ctx context.Context) (*ValidatedExecuteOpti
 	annotations := make(map[string]string)
 	maps.Copy(annotations, o.Annotations)
 
-	// Add region as annotation
+	// Add cloud, environment, and region as annotations
+	annotations[ev2RolloutCloudAnnotation] = o.Cloud
+	annotations[ev2RolloutEnvironmentAnnotation] = o.Environment
 	annotations[ev2RolloutRegionAnnotation] = o.Region
 
 	// Parse EV2 rollout version
@@ -263,6 +277,8 @@ func (o *ValidatedExecuteOptions) Complete(ctx context.Context) (*ExecuteOptions
 
 	return &ExecuteOptions{
 		completedExecuteOptions: &completedExecuteOptions{
+			Cloud:           o.Cloud,
+			Environment:     o.Environment,
 			Region:          o.Region,
 			ProwJobName:     o.ProwJobName,
 			Labels:          o.ParsedLabels,

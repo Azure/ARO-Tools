@@ -56,7 +56,7 @@ func runExecute(ctx context.Context, opts *RawExecuteOptions) error {
 		return err
 	}
 
-	logger.Info("Starting Prow job execution", "jobName", completed.ProwJobName, "region", completed.Region)
+	logger.Info("Starting Prow job execution", "jobName", completed.ProwJobName, "cloud", completed.Cloud, "environment", completed.Environment, "region", completed.Region)
 
 	return completed.Execute(ctx)
 }
