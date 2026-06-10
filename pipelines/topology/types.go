@@ -67,7 +67,11 @@ func Load(path string) (*Topology, error) {
 	}
 
 	var out Topology
-	return &out, yaml.Unmarshal(raw, &out)
+	if err := yaml.Unmarshal(raw, &out); err != nil {
+		return nil, err
+	}
+	out.PropagateStamped()
+	return &out, nil
 }
 
 func LoadCombined(paths []string) (*CombinedTopology, error) {
