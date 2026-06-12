@@ -84,6 +84,10 @@ type ConfigResolver interface {
 	GetRegionConfiguration(region string) (types.Configuration, error)
 	// GetRegionOverrides fetches the overrides specific to a region, if any exist.
 	GetRegionOverrides(region string) (types.Configuration, error)
+	// GetRegionStampConfiguration resolves the configuration for a region with a different stamp value.
+	// The resolver re-processes the configuration template with the given stamp, keeping all other
+	// replacements identical.
+	GetRegionStampConfiguration(region, stamp string) (types.Configuration, error)
 	// ValueProvenance divulges how the value at 'path' is overridden to arrive at the result.
 	ValueProvenance(region, path string) (*Provenance, error)
 }
@@ -204,6 +208,8 @@ func (cp *configProvider) GetResolver(configReplacements *ConfigReplacements) (C
 		environment:        configReplacements.EnvironmentReplacement,
 		cfg:                currentVariableOverrides,
 		absoluteSchemaPath: cp.absoluteSchemaPath,
+		provider:           cp,
+		replacements:       *configReplacements,
 	}, nil
 }
 
@@ -211,6 +217,9 @@ type configResolver struct {
 	cloud, environment string
 	cfg                configurationOverrides
 	absoluteSchemaPath string
+
+	provider     *configProvider
+	replacements ConfigReplacements
 }
 
 func (cr *configResolver) ValidateSchema(config types.Configuration) error {
@@ -279,6 +288,16 @@ func (cr *configResolver) GetRegionConfiguration(region string) (types.Configura
 	}
 	cfg = types.MergeConfiguration(cfg, regionCfg)
 	return cfg, nil
+}
+
+func (cr *configResolver) GetRegionStampConfiguration(region, stamp string) (types.Configuration, error) {
+	replacements := cr.replacements
+	replacements.StampReplacement = stamp
+	stampResolver, err := cr.provider.GetResolver(&replacements)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create resolver for stamp %s: %w", stamp, err)
+	}
+	return stampResolver.GetRegionConfiguration(region)
 }
 
 // GetConfiguration merges values to resolve the configuration for this cloud and environment.
