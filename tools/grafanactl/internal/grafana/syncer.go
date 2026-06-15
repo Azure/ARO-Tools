@@ -353,9 +353,10 @@ func validateDashboard(localDashboard sdk.Board, folderPath string) (errors []Va
 		})
 	}
 
-	// Warning: check for regex on datasource variable
+	// Require a regex on the datasource variable so dashboards cannot list
+	// every datasource in their picker.
 	if datasourceVar != nil && datasourceVar.Regex == "" {
-		warnings = append(warnings, ValidationIssue{
+		errors = append(errors, ValidationIssue{
 			Folder:  folderPath,
 			Title:   localDashboard.Title,
 			Message: "Dashboard does not have a regex set for the datasource variable",
