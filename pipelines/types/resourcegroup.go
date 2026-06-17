@@ -143,6 +143,8 @@ func (s *Steps) UnmarshalJSON(data []byte) error {
 			step = &GrafanaDashboardsStep{}
 		case StepActionGrafanaDatasources:
 			step = &GrafanaDatasourcesStep{}
+		case StepActionIstioUpgrade:
+			step = &IstioUpgradeStep{}
 		default:
 			step = &GenericStep{}
 		}
