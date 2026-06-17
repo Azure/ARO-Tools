@@ -42,10 +42,11 @@ type jobSubmissionResponse struct {
 
 // Client handles Prow API interactions
 type Client struct {
-	token      string
-	client     *http.Client
-	gangwayURL string
-	prowURL    string
+	token         string
+	client        *http.Client
+	gangwayURL    string
+	prowURL       string
+	submitBackoff wait.Backoff
 }
 
 // NewClient creates a new Prow API client with the provided authentication token and API URLs.
@@ -57,11 +58,65 @@ func NewClient(token, gangwayURL, prowURL string) *Client {
 		client: &http.Client{
 			Timeout: 30 * time.Second,
 		},
+		// Exponential backoff with jitter for transient job-submission failures.
+		// Delays grow 1, 2, 4, 8, 16, 30 minutes (capped), for a worst-case
+		// cumulative wait of ~61 minutes before giving up. The parent context
+		// still bounds the total runtime.
+		submitBackoff: wait.Backoff{
+			Duration: time.Minute,      // Initial delay
+			Factor:   2.0,              // Exponential factor
+			Jitter:   0.1,              // 10% jitter to de-sync concurrent submitters
+			Steps:    6,                // Maximum retries
+			Cap:      30 * time.Minute, // Maximum delay cap
+		},
 	}
 }
 
-// SubmitJob submits a job to Prow and returns the job execution ID
+// SubmitJob submits a job to Prow and returns the job execution ID, retrying on
+// transient errors with exponential backoff.
+//
+// The Gangway API enforces a low request-rate limit (~9 requests/minute per client
+// IP) and rejects excess requests immediately with HTTP 429 rather than queueing
+// them. Without retries a momentary rate-limit fails the whole EV2 gating step,
+// forcing the entire deployment job to be restarted. 401/403 remain non-retryable.
 func (c *Client) SubmitJob(ctx context.Context, request *prowgangway.CreateJobExecutionRequest) (string, error) {
+	logger, err := logr.FromContext(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	var executionID string
+	var lastErr error
+	condition := func(ctx context.Context) (bool, error) {
+		id, err := c.submitJobOnce(ctx, request)
+		if err != nil {
+			lastErr = err
+			// Check if this is a non-retryable error (e.g., 401/403).
+			if isNonRetryableHTTPError(err) {
+				return false, err // Stop retrying and propagate the error
+			}
+
+			// For retryable errors, log and continue.
+			logger.Info("Job submission failed with a transient error, will retry", "error", err.Error())
+			return false, nil
+		}
+
+		executionID = id
+		return true, nil // Success, stop retrying
+	}
+
+	if err := wait.ExponentialBackoffWithContext(ctx, c.submitBackoff, condition); err != nil {
+		if lastErr != nil {
+			return "", fmt.Errorf("failed to submit job after retries: %w", lastErr)
+		}
+		return "", err
+	}
+
+	return executionID, nil
+}
+
+// submitJobOnce performs a single job submission request without retry logic.
+func (c *Client) submitJobOnce(ctx context.Context, request *prowgangway.CreateJobExecutionRequest) (string, error) {
 	logger, err := logr.FromContext(ctx)
 	if err != nil {
 		return "", err
@@ -92,7 +147,8 @@ func (c *Client) SubmitJob(ctx context.Context, request *prowgangway.CreateJobEx
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("job submission failed with status %d: %s", resp.StatusCode, string(body))
+		err := fmt.Errorf("job submission failed with status %d: %s", resp.StatusCode, string(body))
+		return "", &httpStatusError{statusCode: resp.StatusCode, err: err}
 	}
 
 	var response jobSubmissionResponse
