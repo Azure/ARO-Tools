@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"time"
 
@@ -59,15 +60,18 @@ func NewClient(token, gangwayURL, prowURL string) *Client {
 			Timeout: 30 * time.Second,
 		},
 		// Exponential backoff with jitter for transient job-submission failures.
-		// Delays grow 1, 2, 4, 8, 16, 30 minutes (capped), for a worst-case
-		// cumulative wait of ~61 minutes before giving up. The parent context
-		// still bounds the total runtime.
+		// Delays between attempts grow 1, 2, 4, 8, 16, 32 minutes over up to 7
+		// attempts, for a worst-case cumulative wait of ~63 minutes before giving
+		// up. The parent context still bounds the total runtime.
+		//
+		// Note: apimachinery's Backoff.Cap not only clamps an individual delay but
+		// also stops all further retries once the cap is reached, so the schedule
+		// is deliberately bounded by Steps rather than Cap.
 		submitBackoff: wait.Backoff{
-			Duration: time.Minute,      // Initial delay
-			Factor:   2.0,              // Exponential factor
-			Jitter:   0.1,              // 10% jitter to de-sync concurrent submitters
-			Steps:    6,                // Maximum retries
-			Cap:      30 * time.Minute, // Maximum delay cap
+			Duration: time.Minute, // Initial delay
+			Factor:   2.0,         // Exponential factor
+			Jitter:   0.1,         // 10% jitter to de-sync concurrent submitters
+			Steps:    7,           // Maximum attempts (~63m worst-case cumulative wait)
 		},
 	}
 }
@@ -78,7 +82,8 @@ func NewClient(token, gangwayURL, prowURL string) *Client {
 // The Gangway API enforces a low request-rate limit (~9 requests/minute per client
 // IP) and rejects excess requests immediately with HTTP 429 rather than queueing
 // them. Without retries a momentary rate-limit fails the whole EV2 gating step,
-// forcing the entire deployment job to be restarted. 401/403 remain non-retryable.
+// forcing the entire deployment job to be restarted. Only transient failures
+// (HTTP 429, 5xx, and network errors) are retried; everything else fails fast.
 func (c *Client) SubmitJob(ctx context.Context, request *prowgangway.CreateJobExecutionRequest) (string, error) {
 	logger, err := logr.FromContext(ctx)
 	if err != nil {
@@ -91,12 +96,13 @@ func (c *Client) SubmitJob(ctx context.Context, request *prowgangway.CreateJobEx
 		id, err := c.submitJobOnce(ctx, request)
 		if err != nil {
 			lastErr = err
-			// Check if this is a non-retryable error (e.g., 401/403).
-			if isNonRetryableHTTPError(err) {
+			// Only retry known-transient errors. Deterministic failures (marshal,
+			// request construction, response decode, 4xx other than 429) are not
+			// retried so they surface immediately instead of after a long backoff.
+			if !isRetryableError(err) {
 				return false, err // Stop retrying and propagate the error
 			}
 
-			// For retryable errors, log and continue.
 			logger.Info("Job submission failed with a transient error, will retry", "error", err.Error())
 			return false, nil
 		}
@@ -260,6 +266,22 @@ func isNonRetryableHTTPError(err error) bool {
 		return !isRetryableStatusCode(httpErr.statusCode)
 	}
 	return false
+}
+
+// isRetryableError reports whether a job-submission error is transient and worth
+// retrying. Only HTTP 429, 5xx responses and network-level errors are retried;
+// deterministic failures (request marshaling/construction, response decoding, and
+// other 4xx such as 400/404/409) are treated as permanent and fail fast.
+func isRetryableError(err error) bool {
+	var httpErr *httpStatusError
+	if errors.As(err, &httpErr) {
+		code := httpErr.statusCode
+		return code == http.StatusTooManyRequests || (code >= 500 && code <= 599)
+	}
+
+	// Transport/network errors (timeouts, connection resets, etc.) are transient.
+	var netErr net.Error
+	return errors.As(err, &netErr)
 }
 
 // isRetryableStatusCode determines if an HTTP status code should be retried

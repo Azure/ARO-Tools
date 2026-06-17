@@ -30,15 +30,18 @@ import (
 	prowgangway "sigs.k8s.io/prow/pkg/gangway"
 )
 
+// fastBackoffSteps is the deterministic attempt budget used by retry tests.
+const fastBackoffSteps = 5
+
 // fastBackoff returns a backoff with negligible delays so retry tests run quickly
-// while still exercising the same number of attempts as production.
+// while still exercising a deterministic number of attempts. No Cap is set so the
+// attempt count is exactly Steps (apimachinery's Cap would also halt retries early).
 func fastBackoff() wait.Backoff {
 	return wait.Backoff{
 		Duration: time.Millisecond,
 		Factor:   2.0,
 		Jitter:   0.0,
-		Steps:    6,
-		Cap:      10 * time.Millisecond,
+		Steps:    fastBackoffSteps,
 	}
 }
 
@@ -56,8 +59,7 @@ func TestSubmitJobRetry(t *testing.T) {
 		wantID          string
 		wantErr         bool
 		wantErrContains string
-		// wantAttempts is the expected number of HTTP requests sent.
-		wantAttempts int32
+		wantAttempts    int32
 	}{
 		{
 			name:         "success on first attempt",
@@ -78,11 +80,31 @@ func TestSubmitJobRetry(t *testing.T) {
 			wantAttempts: 2,
 		},
 		{
+			name:         "500 then success",
+			statuses:     []int{http.StatusInternalServerError, http.StatusOK},
+			wantID:       "job-exec-123",
+			wantAttempts: 2,
+		},
+		{
 			name:            "persistent 429 exhausts retries",
 			statuses:        []int{http.StatusTooManyRequests},
 			wantErr:         true,
 			wantErrContains: "429",
-			wantAttempts:    -1, // retried multiple times; exact count is backoff/k8s-version dependent
+			wantAttempts:    fastBackoffSteps,
+		},
+		{
+			name:            "persistent 502 exhausts retries",
+			statuses:        []int{http.StatusBadGateway},
+			wantErr:         true,
+			wantErrContains: "502",
+			wantAttempts:    fastBackoffSteps,
+		},
+		{
+			name:            "401 is not retried",
+			statuses:        []int{http.StatusUnauthorized},
+			wantErr:         true,
+			wantErrContains: "401",
+			wantAttempts:    1,
 		},
 		{
 			name:            "403 is not retried",
@@ -92,10 +114,31 @@ func TestSubmitJobRetry(t *testing.T) {
 			wantAttempts:    1,
 		},
 		{
-			name:            "401 is not retried",
-			statuses:        []int{http.StatusUnauthorized},
+			name:            "400 is not retried",
+			statuses:        []int{http.StatusBadRequest},
 			wantErr:         true,
-			wantErrContains: "401",
+			wantErrContains: "400",
+			wantAttempts:    1,
+		},
+		{
+			name:            "404 is not retried",
+			statuses:        []int{http.StatusNotFound},
+			wantErr:         true,
+			wantErrContains: "404",
+			wantAttempts:    1,
+		},
+		{
+			name:            "409 is not retried",
+			statuses:        []int{http.StatusConflict},
+			wantErr:         true,
+			wantErrContains: "409",
+			wantAttempts:    1,
+		},
+		{
+			name:            "422 is not retried",
+			statuses:        []int{http.StatusUnprocessableEntity},
+			wantErr:         true,
+			wantErrContains: "422",
 			wantAttempts:    1,
 		},
 	}
@@ -140,18 +183,58 @@ func TestSubmitJobRetry(t *testing.T) {
 				}
 			}
 
-			if got := atomic.LoadInt32(&attempts); tc.wantAttempts < 0 {
-				if got <= 1 {
-					t.Fatalf("expected multiple retries, got %d attempts", got)
-				}
-			} else if got != tc.wantAttempts {
+			if got := atomic.LoadInt32(&attempts); got != tc.wantAttempts {
 				t.Fatalf("got %d attempts, want %d", got, tc.wantAttempts)
 			}
 		})
 	}
 }
 
+// TestSubmitJobNetworkErrorRetries verifies transport errors (server unreachable)
+// are treated as transient and retried up to the attempt budget.
+func TestSubmitJobNetworkErrorRetries(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	url := srv.URL
+	srv.Close() // ensure connections are refused
+
+	c := NewClient("test-token", url, url)
+	c.submitBackoff = fastBackoff()
+
+	_, err := c.SubmitJob(testContext(), &prowgangway.CreateJobExecutionRequest{})
+	if err == nil {
+		t.Fatal("expected error for unreachable server, got nil")
+	}
+}
+
+func TestIsRetryableError(t *testing.T) {
+	tests := []struct {
+		name      string
+		err       error
+		retryable bool
+	}{
+		{"429", &httpStatusError{statusCode: http.StatusTooManyRequests}, true},
+		{"500", &httpStatusError{statusCode: http.StatusInternalServerError}, true},
+		{"503", &httpStatusError{statusCode: http.StatusServiceUnavailable}, true},
+		{"504", &httpStatusError{statusCode: http.StatusGatewayTimeout}, true},
+		{"400", &httpStatusError{statusCode: http.StatusBadRequest}, false},
+		{"401", &httpStatusError{statusCode: http.StatusUnauthorized}, false},
+		{"403", &httpStatusError{statusCode: http.StatusForbidden}, false},
+		{"404", &httpStatusError{statusCode: http.StatusNotFound}, false},
+		{"409", &httpStatusError{statusCode: http.StatusConflict}, false},
+		{"non-http error", context.Canceled, false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := isRetryableError(tc.err); got != tc.retryable {
+				t.Errorf("isRetryableError(%v) = %v, want %v", tc.err, got, tc.retryable)
+			}
+		})
+	}
+}
+
 func TestIsRetryableStatusCode(t *testing.T) {
+	// isRetryableStatusCode backs GetJobStatus, where everything except 401/403 is
+	// retried (a freshly submitted job's status may 404 until it propagates).
 	tests := []struct {
 		status    int
 		retryable bool
@@ -159,7 +242,7 @@ func TestIsRetryableStatusCode(t *testing.T) {
 		{http.StatusTooManyRequests, true},
 		{http.StatusServiceUnavailable, true},
 		{http.StatusInternalServerError, true},
-		{http.StatusBadGateway, true},
+		{http.StatusNotFound, true},
 		{http.StatusUnauthorized, false},
 		{http.StatusForbidden, false},
 	}
