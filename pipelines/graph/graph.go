@@ -15,14 +15,24 @@ import (
 	"github.com/Azure/ARO-Tools/pipelines/types"
 )
 
-// Dependency records a dependency on a step in a particular service group and resource group.
+// Identifier records a dependency on a step in a particular service group and resource group.
 // This is the minimum amount of precision required to identify a step in a multi-pipeline execution environment.
+// Stamp is set by callers that expand stamped services into multiple graph copies — it distinguishes
+// nodes that share the same ServiceGroup/ResourceGroup/Step but belong to different stamps.
 type Identifier struct {
+	Stamp        string
 	ServiceGroup string
 	types.StepDependency
 }
 
+func (i Identifier) ResourceGroupKey() ResourceGroupKey {
+	return ResourceGroupKey{Stamp: i.Stamp, Name: i.ResourceGroup}
+}
+
 func (i Identifier) String() string {
+	if i.Stamp != "" {
+		return fmt.Sprintf("%s/%s/%s (stamp=%s)", i.ServiceGroup, i.ResourceGroup, i.Step, i.Stamp)
+	}
 	return fmt.Sprintf("%s/%s/%s", i.ServiceGroup, i.ResourceGroup, i.Step)
 }
 
@@ -39,23 +49,40 @@ type Node struct {
 	Parents []Identifier
 }
 
+// ResourceGroupKey identifies a resource group within a graph. Stamp is empty for
+// unstamped resource groups. Callers that expand stamped services set Stamp to
+// distinguish per-stamp resource group metadata that shares the same logical Name.
+type ResourceGroupKey struct {
+	Stamp string
+	Name  string
+}
+
+func newGraph() *Graph {
+	return &Graph{
+		Services:               map[string]*topology.Service{},
+		ResourceGroups:         map[ResourceGroupKey]*types.ResourceGroupMeta{},
+		resourceGroupOwners:    map[string]sets.Set[string]{},
+		Steps:                  map[Identifier]types.Step{},
+		Nodes:                  []Node{},
+		ServiceValidationSteps: map[Identifier]types.ValidationStep{},
+	}
+}
+
 // Graph holds a set of nodes, recording parent/child relationships for each, along with a set of lookup tables for
 // the services, resource groups, steps, etc. that the nodes represent.
 type Graph struct {
 	// Services is a lookup table of services by name (the service group).
 	Services map[string]*topology.Service
 
-	// ResourceGroups is a lookup table of resource group by name. We flatten the hierarchy of resource groups to
-	// not require re-writing the dependency references in every step. Topologies that define more than one unique resource
-	// group with the same identifier are disallowed.
-	ResourceGroups map[string]*types.ResourceGroupMeta
+	// ResourceGroups is a lookup table of resource groups keyed by stamp and logical name.
+	// Unstamped resource groups use an empty Stamp value.
+	ResourceGroups map[ResourceGroupKey]*types.ResourceGroupMeta
 
 	// Subscription is an optional set of metadata required for subscription provisioning.
 	Subscription *Subscription
 
-	// Steps is a lookup table of service group -> resource group -> step name. Steps are *not* flattened, keeping record
-	// of provenance and allowing step names to be kept short, unique only within their resource group.
-	Steps map[string]map[string]map[string]types.Step
+	// Steps is a lookup table keyed by Identifier.
+	Steps map[Identifier]types.Step
 
 	// Nodes records every step, and the parent/child relationships between them.
 	Nodes []Node
@@ -65,6 +92,18 @@ type Graph struct {
 
 	// resourceGroupOwners tracks which service groups have registered each resource group (internal book-keeping).
 	resourceGroupOwners map[string]sets.Set[string]
+}
+
+// GetResourceGroup returns the resource group metadata for the given key.
+func (c *Graph) GetResourceGroup(key ResourceGroupKey) (*types.ResourceGroupMeta, bool) {
+	rg, exists := c.ResourceGroups[key]
+	return rg, exists
+}
+
+// GetStep returns the step for a node, using the node's Stamp field to select per-stamp steps.
+func (c *Graph) GetStep(node Identifier) (types.Step, bool) {
+	s, exists := c.Steps[node]
+	return s, exists
 }
 
 // Subscription holds the metadata required to handle subscription provisioning for an execution graph.
@@ -95,19 +134,15 @@ func ForPipeline(service *topology.Service, pipeline *types.Pipeline) (*Graph, e
 		PipelinePath: service.PipelinePath,
 		Children:     nil, // explicitly omitted to generate graph for one pipeline only
 		Metadata:     service.Metadata,
-		Stamped:      service.Stamped,
+		Stamped:      nil, // one pipeline in, nothing to stamp-multiply
 	}
 
-	graph := &Graph{
-		Services:               map[string]*topology.Service{},
-		ResourceGroups:         map[string]*types.ResourceGroupMeta{},
-		resourceGroupOwners:    map[string]sets.Set[string]{},
-		Steps:                  map[string]map[string]map[string]types.Step{},
-		Nodes:                  []Node{},
-		ServiceValidationSteps: map[Identifier]types.ValidationStep{},
-	}
+	graph := newGraph()
 
-	if err := graph.accumulate(withoutChildren, map[string]*types.Pipeline{pipeline.ServiceGroup: pipeline}); err != nil {
+	stampPipelines := map[string]map[string]*types.Pipeline{
+		"": {pipeline.ServiceGroup: pipeline},
+	}
+	if err := graph.accumulate(withoutChildren, stampPipelines); err != nil {
 		return nil, err
 	}
 
@@ -116,11 +151,13 @@ func ForPipeline(service *topology.Service, pipeline *types.Pipeline) (*Graph, e
 
 // ForEntrypoint generates a graph for all pipelines in the sub-tree of the topology identified by the entrypoint.
 func ForEntrypoint(topo *topology.Topology, entrypoint *topology.Entrypoint, pipelines map[string]*types.Pipeline) (*Graph, error) {
-	return ForEntrypoints(topo, []*topology.Entrypoint{entrypoint}, pipelines)
+	return ForEntrypoints(topo, []*topology.Entrypoint{entrypoint}, map[string]map[string]*types.Pipeline{"": pipelines})
 }
 
 // ForEntrypoints generates a graph for all pipelines in the sub-trees of the topology identified by the entrypoints.
-func ForEntrypoints(topo *topology.Topology, entrypoints []*topology.Entrypoint, pipelines map[string]*types.Pipeline) (*Graph, error) {
+// stampPipelines maps stamp identifiers to per-service-group pipelines. Callers that do not use stamps pass a single
+// entry keyed by "" (empty string). When stamped services are encountered, the graph expands them once per stamp.
+func ForEntrypoints(topo *topology.Topology, entrypoints []*topology.Entrypoint, stampPipelines map[string]map[string]*types.Pipeline) (*Graph, error) {
 	var roots []*topology.Service
 	for _, entrypoint := range entrypoints {
 		root, err := topo.Lookup(entrypoint.Identifier)
@@ -130,17 +167,10 @@ func ForEntrypoints(topo *topology.Topology, entrypoints []*topology.Entrypoint,
 		roots = append(roots, root)
 	}
 
-	graph := &Graph{
-		Services:               map[string]*topology.Service{},
-		ResourceGroups:         map[string]*types.ResourceGroupMeta{},
-		resourceGroupOwners:    map[string]sets.Set[string]{},
-		Steps:                  map[string]map[string]map[string]types.Step{},
-		Nodes:                  []Node{},
-		ServiceValidationSteps: map[Identifier]types.ValidationStep{},
-	}
+	graph := newGraph()
 
 	for _, root := range roots {
-		if err := graph.accumulate(root, pipelines); err != nil {
+		if err := graph.accumulate(root, stampPipelines); err != nil {
 			return nil, err
 		}
 	}
@@ -156,81 +186,127 @@ func ForEntrypoints(topo *topology.Topology, entrypoints []*topology.Entrypoint,
 	return graph, graph.detectCycles()
 }
 
-// accumulate recursively traverses the service and all children, building a graph of how steps in each service depend on each other.
-func (c *Graph) accumulate(service *topology.Service, pipelines map[string]*types.Pipeline) error {
+// accumulate recursively traverses the service and all children, building a graph of how steps in each service
+// depend on each other. When a service is stamped, it expands nodes once per stamp; unstamped services are
+// processed once with an empty stamp.
+func (c *Graph) accumulate(service *topology.Service, stampPipelines map[string]map[string]*types.Pipeline) error {
 	if _, alreadyRecorded := c.Services[service.ServiceGroup]; alreadyRecorded {
 		return fmt.Errorf("service group %s already recorded", service.ServiceGroup)
 	}
-	if _, alreadyRecorded := c.Steps[service.ServiceGroup]; alreadyRecorded {
-		return fmt.Errorf("steps already recorded for service %s", service.ServiceGroup)
-	}
 
 	c.Services[service.ServiceGroup] = service
-	c.Steps[service.ServiceGroup] = map[string]map[string]types.Step{}
 
-	pipeline, exists := pipelines[service.ServiceGroup]
-	if !exists {
-		return fmt.Errorf("pipeline for service %s not found", service.ServiceGroup)
+	// Determine which stamp iterations to run: stamped services expand once per stamp key,
+	// unstamped services run once with an empty stamp.
+	type stampIteration struct {
+		stamp    string
+		pipeline *types.Pipeline
 	}
-	resourceGroups, subscription, steps, serviceValidationSteps, nodes, err := nodesFor(pipeline)
-	if err != nil {
-		return fmt.Errorf("failed to generate graph for pipeline %s: %v", service.ServiceGroup, err)
+	var iterations []stampIteration
+	if service.IsStamped() {
+		for _, stamp := range slices.Sorted(maps.Keys(stampPipelines)) {
+			if stamp == "" {
+				continue
+			}
+			pipeline, exists := stampPipelines[stamp][service.ServiceGroup]
+			if !exists {
+				return fmt.Errorf("pipeline for service %s not found in stamp %s", service.ServiceGroup, stamp)
+			}
+			iterations = append(iterations, stampIteration{stamp: stamp, pipeline: pipeline})
+		}
+		if len(iterations) == 0 {
+			return fmt.Errorf("stamped service %s requires at least one non-empty stamp key, but no non-empty stamp keys were provided", service.ServiceGroup)
+		}
+	} else {
+		// Unstamped services have the same pipeline regardless of stamp key — grab from any entry.
+		var pipeline *types.Pipeline
+		for _, pipelines := range stampPipelines {
+			if p, exists := pipelines[service.ServiceGroup]; exists {
+				pipeline = p
+				break
+			}
+		}
+		if pipeline == nil {
+			return fmt.Errorf("pipeline for service %s not found", service.ServiceGroup)
+		}
+		iterations = append(iterations, stampIteration{stamp: "", pipeline: pipeline})
 	}
-	for name, group := range resourceGroups {
-		if other, alreadyRecorded := c.ResourceGroups[name]; alreadyRecorded {
-			if !resourceGroupMetaEqual(group, other) {
+
+	// For each stamp iteration, generate nodes and register resource groups, steps, and metadata.
+	// Leaf nodes are collected per stamp so that inter-service wiring connects only matching stamps.
+	allLeaves := map[string][]Identifier{}
+	for _, iter := range iterations {
+		resourceGroups, subscription, steps, serviceValidationSteps, nodes, err := nodesFor(iter.pipeline, iter.stamp)
+		if err != nil {
+			return fmt.Errorf("failed to generate graph for pipeline %s: %v", service.ServiceGroup, err)
+		}
+
+		// Register resource groups, detecting conflicts within the same stamp and across stamp boundaries.
+		for name, group := range resourceGroups {
+			key := ResourceGroupKey{Stamp: iter.stamp, Name: name}
+			other, alreadyRecorded := c.ResourceGroups[key]
+			if alreadyRecorded && !resourceGroupMetaEqual(group, other) {
 				existingOwners := sets.List(c.resourceGroupOwners[name])
 				slices.Sort(existingOwners)
 				return fmt.Errorf("resource group %s already recorded with different step meta (existing services: %s, new service: %s), diff: %v", name, strings.Join(existingOwners, ", "), service.ServiceGroup, cmp.Diff(group, other))
-			} else {
-				// Same metadata, just add this service as an owner if not already present
+			}
+			if alreadyRecorded {
 				c.resourceGroupOwners[name].Insert(service.ServiceGroup)
+			} else {
+				c.ResourceGroups[key] = group
+				c.resourceGroupOwners[name] = sets.New(service.ServiceGroup)
 			}
-		} else {
-			// First time recording this resource group
-			c.ResourceGroups[name] = group
-			c.resourceGroupOwners[name] = sets.New(service.ServiceGroup)
 		}
-	}
-	if subscription != nil {
-		if c.Subscription != nil {
-			return fmt.Errorf("subscription provisioning already recorded for %s/%s, cannot add another for %s/%s", c.Subscription.ServiceGroup, c.Subscription.ResourceGroup, subscription.ServiceGroup, subscription.ResourceGroup)
-		}
-		c.Subscription = subscription
-	}
-	c.Steps[service.ServiceGroup] = steps
-	maps.Copy(c.ServiceValidationSteps, serviceValidationSteps)
-	c.Nodes = append(c.Nodes, nodes...)
 
-	var leaves []Identifier
-	for _, node := range nodes {
-		_, _, step, err := c.lookup(node.Identifier)
-		if err != nil {
-			return fmt.Errorf("failed to lookup node: %v", err)
+		if subscription != nil {
+			if c.Subscription != nil {
+				return fmt.Errorf("subscription provisioning already recorded for %s/%s, cannot add another for %s/%s", c.Subscription.ServiceGroup, c.Subscription.ResourceGroup, subscription.ServiceGroup, subscription.ResourceGroup)
+			}
+			c.Subscription = subscription
 		}
-		if len(node.Children) == 0 {
-			if step.ConsideredForServiceGroupCompletion() {
-				leaves = append(leaves, node.Identifier)
-			}
-		} else if step.ConsideredForServiceGroupCompletion() {
-			ignoredLeaves := 0
-			for _, child := range node.Children {
-				_, _, childStep, err := c.lookup(child)
-				if err != nil {
-					return fmt.Errorf("failed to lookup node: %v", err)
-				}
-				if !childStep.ConsideredForServiceGroupCompletion() {
-					ignoredLeaves++
-				}
-			}
-			if ignoredLeaves == len(node.Children) {
-				leaves = append(leaves, node.Identifier)
+
+		// Register steps and validation steps with stamp-qualified identifiers.
+		for rg, stepMap := range steps {
+			for stepName, step := range stepMap {
+				c.Steps[Identifier{Stamp: iter.stamp, ServiceGroup: service.ServiceGroup, StepDependency: types.StepDependency{ResourceGroup: rg, Step: stepName}}] = step
 			}
 		}
+		maps.Copy(c.ServiceValidationSteps, serviceValidationSteps)
+		c.Nodes = append(c.Nodes, nodes...)
+
+		// Identify leaf nodes for this stamp iteration — these will become parents of child service roots.
+		var leaves []Identifier
+		for _, node := range nodes {
+			_, _, step, err := c.lookup(node.Identifier)
+			if err != nil {
+				return fmt.Errorf("failed to lookup node: %v", err)
+			}
+			if len(node.Children) == 0 {
+				if step.ConsideredForServiceGroupCompletion() {
+					leaves = append(leaves, node.Identifier)
+				}
+			} else if step.ConsideredForServiceGroupCompletion() {
+				ignoredLeaves := 0
+				for _, child := range node.Children {
+					_, _, childStep, err := c.lookup(child)
+					if err != nil {
+						return fmt.Errorf("failed to lookup node: %v", err)
+					}
+					if !childStep.ConsideredForServiceGroupCompletion() {
+						ignoredLeaves++
+					}
+				}
+				if ignoredLeaves == len(node.Children) {
+					leaves = append(leaves, node.Identifier)
+				}
+			}
+		}
+		allLeaves[iter.stamp] = leaves
 	}
 
+	// Wire inter-service edges: connect this service's leaves to child service roots.
 	for _, child := range service.Children {
-		if err := c.accumulate(&child, pipelines); err != nil {
+		if err := c.accumulate(&child, stampPipelines); err != nil {
 			return err
 		}
 
@@ -242,28 +318,34 @@ func (c *Graph) accumulate(service *topology.Service, pipelines map[string]*type
 		// There is no defined "end" to a pipeline, nor a "start", as each service may itself be a forest - having
 		// many roots and many leaves. Therefore, the simplest approach here is to record that every root node
 		// of the child depends on all the leaf nodes of the parent service, and vice versa.
+		//
+		// When stamps are involved, wiring is stamp-scoped: stamp-1 leaves connect to stamp-1 roots only.
+		// Unstamped leaves (stamp="") connect to all child roots that share the same stamp="" or fan out
+		// to all stamps when the child is stamped and the parent is not.
 
-		// First, find the root nodes for the child service, which accumulate() will have placed in the graph.
-		// Record those roots for later use and mark them as being children of the leaves of the parent.
-		var roots []Identifier
-		for i, node := range c.Nodes {
-			if node.ServiceGroup == child.ServiceGroup && len(node.Parents) == 0 {
-				// accumulate() did not divulge the list of root nodes for that specific child, but we can find them
+		for parentStamp, leaves := range allLeaves {
+			var roots []Identifier
+			// Find root nodes for the child service. Our topology allows each service to depend on one
+			// and only one parent, so len(node.Parents) == 0 safely identifies root nodes, and this is
+			// the only time any actor will add parents to these roots.
+			for i, node := range c.Nodes {
+				if node.ServiceGroup != child.ServiceGroup || len(node.Parents) != 0 {
+					continue
+				}
+				// When both parent and child are stamped, only wire matching stamps.
+				// When parent is unstamped, all stamped child roots get these leaves (fan-out).
+				if service.IsStamped() && child.IsStamped() && node.Stamp != parentStamp {
+					continue
+				}
 				roots = append(roots, node.Identifier)
-
-				// our topology allows each service to depend on one and only one parent, so we know that
-				// a) it's safe to determine that `len(node.Parents) == 0` identifies a root node for that service
-				// b) this is the only time that any actor will add parents to this root node
 				c.Nodes[i].Parents = append(c.Nodes[i].Parents, leaves...)
 			}
-		}
 
-		// Second, using the identifiers in `leaves`, find the leaf nodes in the graph and mark them as having
-		// the roots of the child service as children.
-		for i, node := range c.Nodes {
-			for _, leaf := range leaves {
-				if node.ServiceGroup == leaf.ServiceGroup && node.ResourceGroup == leaf.ResourceGroup && node.Step == leaf.Step {
-					c.Nodes[i].Children = append(c.Nodes[i].Children, roots...)
+			for i, node := range c.Nodes {
+				for _, leaf := range leaves {
+					if node.ServiceGroup == leaf.ServiceGroup && node.ResourceGroup == leaf.ResourceGroup && node.Step == leaf.Step && node.Stamp == leaf.Stamp {
+						c.Nodes[i].Children = append(c.Nodes[i].Children, roots...)
+					}
 				}
 			}
 		}
@@ -277,20 +359,20 @@ func (c *Graph) lookup(node Identifier) (*topology.Service, *types.ResourceGroup
 	if !exists {
 		return nil, nil, nil, fmt.Errorf("service %s does not exist", node.ServiceGroup)
 	}
-	resourceGroup, exists := c.ResourceGroups[node.ResourceGroup]
+	resourceGroup, exists := c.GetResourceGroup(node.ResourceGroupKey())
 	if !exists {
-		return nil, nil, nil, fmt.Errorf("resource group %s does not exist", node.ResourceGroup)
+		return nil, nil, nil, fmt.Errorf("resource group %s for node %s does not exist", node.ResourceGroup, node)
 	}
-	step, exists := c.Steps[node.ServiceGroup][node.ResourceGroup][node.Step]
+	step, exists := c.GetStep(node)
 	if !exists {
-		return nil, nil, nil, fmt.Errorf("step %s/%s/%s does not exist", node.ServiceGroup, node.ResourceGroup, node.Step)
+		return nil, nil, nil, fmt.Errorf("step %s does not exist", node)
 	}
 	return svc, resourceGroup, step, nil
 }
 
 func (c *Graph) node(id Identifier) (int, error) {
 	for i, node := range c.Nodes {
-		if node.ServiceGroup == id.ServiceGroup && node.ResourceGroup == id.ResourceGroup && node.Step == id.Step {
+		if node.Identifier == id {
 			return i, nil
 		}
 	}
@@ -299,9 +381,9 @@ func (c *Graph) node(id Identifier) (int, error) {
 
 func (c *Graph) addExternalDependencyEdges() error {
 	for i, node := range c.Nodes {
-		step, ok := c.Steps[node.ServiceGroup][node.ResourceGroup][node.Step]
+		step, ok := c.GetStep(node.Identifier)
 		if !ok {
-			return fmt.Errorf("step %s/%s/%s not found", node.ServiceGroup, node.ResourceGroup, node.Step)
+			return fmt.Errorf("step %s not found", node.Identifier)
 		}
 		external := step.ExternalDependencies()
 		if len(external) == 0 {
@@ -315,6 +397,12 @@ func (c *Graph) addExternalDependencyEdges() error {
 					Step:          dep.Step,
 				},
 			}
+			// External dependencies don't carry stamp information. When the target service is stamped,
+			// resolve to the same stamp as the node declaring the dependency — stamp-1 work depends on
+			// stamp-1 of the target, not all stamps. Unstamped targets keep an empty stamp.
+			if targetService := c.Services[dep.ServiceGroup]; targetService != nil && targetService.IsStamped() {
+				parent.Stamp = node.Stamp
+			}
 			parentNodeIdx, err := c.node(parent)
 			if err != nil {
 				return err
@@ -327,15 +415,15 @@ func (c *Graph) addExternalDependencyEdges() error {
 
 			node.Parents = append(node.Parents, parent)
 		}
-		slices.SortFunc(node.Children, CompareDependencies)
-		node.Children = slices.Compact(node.Children)
+		slices.SortFunc(node.Parents, CompareDependencies)
+		node.Parents = slices.Compact(node.Parents)
 		c.Nodes[i] = node
 	}
 	return nil
 }
 
 // nodesFor transforms a pipeline to the list of nodes and lookup tables required in a graph
-func nodesFor(pipeline *types.Pipeline) (
+func nodesFor(pipeline *types.Pipeline, stamp string) (
 	map[string]*types.ResourceGroupMeta,
 	*Subscription,
 	map[string]map[string]types.Step,
@@ -343,8 +431,6 @@ func nodesFor(pipeline *types.Pipeline) (
 	[]Node,
 	error,
 ) {
-	// first, create a registry of steps by their identifier (resource group name, step name)
-	// and resource groups by name
 	stepsByResourceGroupAndName := map[string]map[string]types.Step{}
 	serviceValidationSteps := map[Identifier]types.ValidationStep{}
 	resourceGroupsByName := map[string]*types.ResourceGroupMeta{}
@@ -367,6 +453,7 @@ func nodesFor(pipeline *types.Pipeline) (
 		}
 		for _, step := range rg.ValidationSteps {
 			serviceValidationSteps[Identifier{
+				Stamp:        stamp,
 				ServiceGroup: pipeline.ServiceGroup,
 				StepDependency: types.StepDependency{
 					ResourceGroup: rg.Name,
@@ -376,7 +463,6 @@ func nodesFor(pipeline *types.Pipeline) (
 		}
 	}
 
-	// next, create an adjacency list of edges between these nodes
 	var stepDependencies []edge
 	for _, rg := range pipeline.ResourceGroups {
 		for _, step := range rg.Steps {
@@ -387,6 +473,7 @@ func nodesFor(pipeline *types.Pipeline) (
 			for _, dep := range dependsOn {
 				stepDependencies = append(stepDependencies, edge{
 					from: Identifier{
+						Stamp:        stamp,
 						ServiceGroup: pipeline.ServiceGroup,
 						StepDependency: types.StepDependency{
 							ResourceGroup: dep.ResourceGroup,
@@ -394,6 +481,7 @@ func nodesFor(pipeline *types.Pipeline) (
 						},
 					},
 					to: Identifier{
+						Stamp:        stamp,
 						ServiceGroup: pipeline.ServiceGroup,
 						StepDependency: types.StepDependency{
 							ResourceGroup: rg.Name,
@@ -417,6 +505,7 @@ func nodesFor(pipeline *types.Pipeline) (
 		for stepName := range steps {
 			node := Node{
 				Identifier: Identifier{
+					Stamp:        stamp,
 					ServiceGroup: pipeline.ServiceGroup,
 					StepDependency: types.StepDependency{
 						ResourceGroup: resourceGroup,
@@ -446,6 +535,9 @@ func nodesFor(pipeline *types.Pipeline) (
 }
 
 func CompareDependencies(a, b Identifier) int {
+	if comparison := strings.Compare(a.Stamp, b.Stamp); comparison != 0 {
+		return comparison
+	}
 	if comparison := strings.Compare(a.ServiceGroup, b.ServiceGroup); comparison != 0 {
 		return comparison
 	}
@@ -505,25 +597,25 @@ func (c *Graph) detectCycles() error {
 
 func traverse(node Node, all []Node, seen []Identifier) error {
 	for _, child := range node.Children {
-		for _, previous := range seen {
-			if previous == child {
-				var cycle []string
-				for _, i := range seen {
-					cycle = append(cycle, fmt.Sprintf("%s/%s", i.ResourceGroup, i.Step))
-				}
-				return fmt.Errorf("cycle detected, reached %s/%s via %s", child.ResourceGroup, child.Step, strings.Join(cycle, " -> "))
+		if slices.Contains(seen, child) {
+			var cycle []string
+			for _, i := range seen {
+				cycle = append(cycle, i.String())
 			}
+			return fmt.Errorf("cycle detected, reached %s via %s", child, strings.Join(cycle, " -> "))
 		}
 		chain := seen[:]
 		chain = append(chain, child)
 		var childNode Node
+		var found bool
 		for _, candidate := range all {
-			if candidate.ServiceGroup == child.ServiceGroup && candidate.ResourceGroup == child.ResourceGroup && candidate.Step == child.Step {
+			if candidate.Identifier == child {
 				childNode = candidate
+				found = true
 			}
 		}
-		if childNode.ServiceGroup == "" {
-			return fmt.Errorf("could not find child node %s/%s - programmer error", child.ResourceGroup, child.Step)
+		if !found {
+			return fmt.Errorf("could not find child node %s - programmer error", child)
 		}
 		if err := traverse(childNode, all, chain); err != nil {
 			return err
@@ -540,43 +632,51 @@ const graphPrefix = `digraph regexp {
 
 const graphSuffix = `}`
 
-// MarshalDOT marshals the graph described by the list of nodes into the DOT notation used by the graphviz library.
+// MarshalDOT marshals the graph into the DOT notation used by the graphviz library.
 // See documentation here: https://graphviz.gitlab.io/doc/info/lang.html
-func MarshalDOT(nodes []Node, serviceValidationSteps map[Identifier]types.ValidationStep) ([]byte, error) {
+func MarshalDOT(g *Graph) ([]byte, error) {
 	out := bytes.Buffer{}
 	if n, err := out.WriteString(graphPrefix); err != nil || n != len(graphPrefix) {
 		return nil, fmt.Errorf("failed to write graph prefix: wrote %d/%d bytes: %w", n, len(graphPrefix), err)
 	}
 
-	for _, node := range nodes {
+	stampColors := buildStampColorMap(g.Nodes)
+
+	for _, node := range g.Nodes {
 		serviceGroup, err := shortenServiceGroup(node.ServiceGroup)
 		if err != nil {
 			return nil, err
 		}
 
-		if _, err := out.WriteString(fmt.Sprintf(" \"%s_%s_%s\" [label=\"%s/%s/%s\"];\n", serviceGroup, node.ResourceGroup, node.Step, serviceGroup, node.ResourceGroup, node.Step)); err != nil {
+		nodeID := dotID(serviceGroup, node.Identifier)
+		nodeLabel := dotLabel(serviceGroup, node.Identifier, g.ResourceGroups)
+		attrs := fmt.Sprintf("label=\"%s\"", nodeLabel)
+		if color, ok := stampColors[node.Stamp]; ok {
+			attrs += fmt.Sprintf(" style=filled fillcolor=\"%s\"", color)
+		}
+		if _, err := fmt.Fprintf(&out, " \"%s\" [%s];\n", nodeID, attrs); err != nil {
 			return nil, err
 		}
 
-		// n.b. we don't handle parent links, as they will be written by traversing children on the parent node
 		for _, child := range node.Children {
 			childServiceGroup, err := shortenServiceGroup(child.ServiceGroup)
 			if err != nil {
 				return nil, err
 			}
 
-			if _, err := out.WriteString(fmt.Sprintf(" \"%s_%s_%s\" -> \"%s_%s_%s\";\n", serviceGroup, node.ResourceGroup, node.Step, childServiceGroup, child.ResourceGroup, child.Step)); err != nil {
+			childID := dotID(childServiceGroup, child)
+			if _, err := fmt.Fprintf(&out, " \"%s\" -> \"%s\";\n", nodeID, childID); err != nil {
 				return nil, err
 			}
 		}
 	}
 
-	for identifier := range serviceValidationSteps {
+	for identifier := range g.ServiceValidationSteps {
 		shortServiceGroup, err := shortenServiceGroup(identifier.ServiceGroup)
 		if err != nil {
 			return nil, err
 		}
-		if _, err := out.WriteString(fmt.Sprintf(" \"serviceValidation\" -> \"%s_%s_%s\";\n", shortServiceGroup, identifier.ResourceGroup, identifier.Step)); err != nil {
+		if _, err := fmt.Fprintf(&out, " \"serviceValidation\" -> \"%s\";\n", dotID(shortServiceGroup, identifier)); err != nil {
 			return nil, err
 		}
 	}
@@ -587,6 +687,32 @@ func MarshalDOT(nodes []Node, serviceValidationSteps map[Identifier]types.Valida
 	return out.Bytes(), nil
 }
 
+var stampColorPalette = []string{
+	"#B3D9FF", // light blue
+	"#FFD9B3", // light orange
+	"#B3FFB3", // light green
+	"#FFB3D9", // light pink
+	"#D9B3FF", // light purple
+	"#FFFFB3", // light yellow
+	"#B3FFFF", // light cyan
+	"#FFB3B3", // light red
+}
+
+func buildStampColorMap(nodes []Node) map[string]string {
+	stamps := sets.New[string]()
+	for _, node := range nodes {
+		if node.Stamp != "" {
+			stamps.Insert(node.Stamp)
+		}
+	}
+	sorted := sets.List(stamps)
+	colors := make(map[string]string, len(sorted))
+	for i, stamp := range sorted {
+		colors[stamp] = stampColorPalette[i%len(stampColorPalette)]
+	}
+	return colors
+}
+
 func shortenServiceGroup(serviceGroup string) (string, error) {
 	parts := strings.Split(serviceGroup, ".")
 	if len(parts) < 5 {
@@ -594,4 +720,22 @@ func shortenServiceGroup(serviceGroup string) (string, error) {
 	}
 
 	return strings.Join(parts[4:], "."), nil
+}
+
+func dotID(shortSG string, id Identifier) string {
+	if id.Stamp != "" {
+		return fmt.Sprintf("%s_%s_%s_%s", shortSG, id.ResourceGroup, id.Step, id.Stamp)
+	}
+	return fmt.Sprintf("%s_%s_%s", shortSG, id.ResourceGroup, id.Step)
+}
+
+func dotLabel(shortSG string, id Identifier, resourceGroups map[ResourceGroupKey]*types.ResourceGroupMeta) string {
+	rgName := id.ResourceGroup
+	if rg, ok := resourceGroups[id.ResourceGroupKey()]; ok {
+		rgName = rg.ResourceGroup
+	}
+	if id.Stamp != "" {
+		return fmt.Sprintf("%s/%s/%s (stamp=%s)", shortSG, rgName, id.Step, id.Stamp)
+	}
+	return fmt.Sprintf("%s/%s/%s", shortSG, rgName, id.Step)
 }

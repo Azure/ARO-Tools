@@ -81,7 +81,8 @@ type ConfigResolver interface {
 	// GetRegions divulges the regions for which overrides are registered.
 	GetRegions() ([]string, error)
 	// GetRegionConfiguration resolves the configuration for a region in the cloud and environment.
-	GetRegionConfiguration(region string) (types.Configuration, error)
+	// It re-processes the configuration template with the given region and stamp.
+	GetRegionConfiguration(region, stamp string) (types.Configuration, error)
 	// GetRegionOverrides fetches the overrides specific to a region, if any exist.
 	GetRegionOverrides(region string) (types.Configuration, error)
 	// ValueProvenance divulges how the value at 'path' is overridden to arrive at the result.
@@ -204,6 +205,8 @@ func (cp *configProvider) GetResolver(configReplacements *ConfigReplacements) (C
 		environment:        configReplacements.EnvironmentReplacement,
 		cfg:                currentVariableOverrides,
 		absoluteSchemaPath: cp.absoluteSchemaPath,
+		provider:           cp,
+		replacements:       *configReplacements,
 	}, nil
 }
 
@@ -211,6 +214,9 @@ type configResolver struct {
 	cloud, environment string
 	cfg                configurationOverrides
 	absoluteSchemaPath string
+
+	provider     *configProvider
+	replacements ConfigReplacements
 }
 
 func (cr *configResolver) ValidateSchema(config types.Configuration) error {
@@ -259,10 +265,24 @@ func (cr *configResolver) GetRegions() ([]string, error) {
 	return regions, nil
 }
 
-// GetRegionConfiguration merges values to resolve the configuration for a region.
-func (cr *configResolver) GetRegionConfiguration(region string) (types.Configuration, error) {
-	cfg := cr.cfg.Defaults
-	cloudCfg, hasCloud := cr.cfg.Overrides[cr.cloud]
+// GetRegionConfiguration re-templates the configuration with the given region and stamp,
+// then merges values to resolve the configuration for the region.
+func (cr *configResolver) GetRegionConfiguration(region, stamp string) (types.Configuration, error) {
+	replacements := cr.replacements
+	replacements.RegionReplacement = region
+	replacements.StampReplacement = stamp
+	rawContent, err := PreprocessContent(cr.provider.raw, replacements.AsMap())
+	if err != nil {
+		return nil, fmt.Errorf("failed to preprocess config for region %s stamp %s: %w", region, stamp, err)
+	}
+
+	regionalOverrides := configurationOverrides{}
+	if err := yaml.Unmarshal(rawContent, &regionalOverrides); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal config for region %s stamp %s: %w", region, stamp, err)
+	}
+
+	cfg := regionalOverrides.Defaults
+	cloudCfg, hasCloud := regionalOverrides.Overrides[cr.cloud]
 	if !hasCloud {
 		return nil, fmt.Errorf("the cloud %s is not found in the config", cr.cloud)
 	}
@@ -274,7 +294,6 @@ func (cr *configResolver) GetRegionConfiguration(region string) (types.Configura
 	cfg = types.MergeConfiguration(cfg, envCfg.Defaults)
 	regionCfg, hasRegion := envCfg.Overrides[region]
 	if !hasRegion {
-		// a missing region just means we use default values
 		regionCfg = types.Configuration{}
 	}
 	cfg = types.MergeConfiguration(cfg, regionCfg)
@@ -350,7 +369,7 @@ func (cr *configResolver) ValueProvenance(region, path string) (*Provenance, err
 		regionCfg = types.Configuration{}
 	}
 
-	mergedCfg, err := cr.GetRegionConfiguration(region)
+	mergedCfg, err := cr.GetRegionConfiguration(region, cr.replacements.StampReplacement)
 	if err != nil {
 		return nil, err
 	}

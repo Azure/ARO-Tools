@@ -49,11 +49,67 @@ func TestConfigProvider(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	cfg, err := configResolver.GetRegionConfiguration(region)
+	cfg, err := configResolver.GetRegionConfiguration(region, stamp)
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 
 	testutil.CompareWithFixture(t, cfg)
+}
+
+func TestGetRegionStampConfiguration(t *testing.T) {
+	region := "uksouth"
+	regionShort := "uks"
+	cloud := "public"
+	environment := "int"
+
+	ev2, err := ev2config.ResolveConfig(cloud, region)
+	require.NoError(t, err)
+
+	configProvider, err := config.NewConfigProvider("./testdata/pipelines/config.yaml")
+	require.NoError(t, err)
+	configResolver, err := configProvider.GetResolver(&config.ConfigReplacements{
+		RegionReplacement:      region,
+		RegionShortReplacement: regionShort,
+		StampReplacement:       "1",
+		CloudReplacement:       cloud,
+		EnvironmentReplacement: environment,
+		Ev2Config:              ev2,
+	})
+	require.NoError(t, err)
+
+	testCases := []struct {
+		name           string
+		stamp          string
+		expectedMgmtRG string
+	}{
+		{
+			name:           "stamp 1",
+			stamp:          "1",
+			expectedMgmtRG: "hcp-underlay-uks-mgmt-1",
+		},
+		{
+			name:           "stamp 2",
+			stamp:          "2",
+			expectedMgmtRG: "hcp-underlay-uks-mgmt-2",
+		},
+		{
+			name:           "stamp 3",
+			stamp:          "3",
+			expectedMgmtRG: "hcp-underlay-uks-mgmt-3",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg, err := configResolver.GetRegionConfiguration(region, tc.stamp)
+			require.NoError(t, err)
+			require.NotNil(t, cfg)
+
+			mgmtRG, ok := cfg["managementClusterRG"]
+			require.True(t, ok, "managementClusterRG should be present in config")
+			require.Equal(t, tc.expectedMgmtRG, mgmtRG)
+		})
+	}
 }
 
 func TestConfigProvenance(t *testing.T) {

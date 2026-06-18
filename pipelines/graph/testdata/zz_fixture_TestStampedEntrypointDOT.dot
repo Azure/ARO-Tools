@@ -1,0 +1,20 @@
+digraph regexp { 
+ fontname="Helvetica,Arial,sans-serif"
+ node [fontname="Helvetica,Arial,sans-serif"]
+ edge [fontname="Helvetica,Arial,sans-serif"]
+ "Infra_infra-rg_deploy" [label="Infra/infra-rg/deploy"];
+ "Infra_infra-rg_deploy" -> "Mgmt_mgmt-rg_deploy_1";
+ "Infra_infra-rg_deploy" -> "Mgmt_mgmt-rg_deploy_2";
+ "Mgmt_mgmt-rg_deploy_1" [label="Mgmt/mgmt-rg-1/deploy (stamp=1)" style=filled fillcolor="#B3D9FF"];
+ "Mgmt_mgmt-rg_deploy_1" -> "MgmtDB_db-rg_deploy_1";
+ "Mgmt_mgmt-rg_deploy_1" -> "MgmtNet_net-rg_deploy_1";
+ "Mgmt_mgmt-rg_deploy_2" [label="Mgmt/mgmt-rg-2/deploy (stamp=2)" style=filled fillcolor="#FFD9B3"];
+ "Mgmt_mgmt-rg_deploy_2" -> "MgmtDB_db-rg_deploy_2";
+ "Mgmt_mgmt-rg_deploy_2" -> "MgmtNet_net-rg_deploy_2";
+ "MgmtDB_db-rg_deploy_1" [label="MgmtDB/db-rg/deploy (stamp=1)" style=filled fillcolor="#B3D9FF"];
+ "MgmtDB_db-rg_deploy_1" -> "MgmtNet_net-rg_deploy_1";
+ "MgmtDB_db-rg_deploy_2" [label="MgmtDB/db-rg/deploy (stamp=2)" style=filled fillcolor="#FFD9B3"];
+ "MgmtDB_db-rg_deploy_2" -> "MgmtNet_net-rg_deploy_2";
+ "MgmtNet_net-rg_deploy_1" [label="MgmtNet/net-rg/deploy (stamp=1)" style=filled fillcolor="#B3D9FF"];
+ "MgmtNet_net-rg_deploy_2" [label="MgmtNet/net-rg/deploy (stamp=2)" style=filled fillcolor="#FFD9B3"];
+}
