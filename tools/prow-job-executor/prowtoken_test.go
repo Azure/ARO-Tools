@@ -66,6 +66,9 @@ func TestIsRetryableKeyVaultError(t *testing.T) {
 		{name: "wrapped key vault 503 is retryable", err: fmt.Errorf("get secret: %w", responseError(http.StatusServiceUnavailable)), want: true},
 		{name: "imds eof credential error is retryable", err: errors.New("ManagedIdentityCredential: Get \"http://169.254.169.254/metadata/identity/oauth2/token\": EOF"), want: true},
 		{name: "generic non-response error is retryable", err: errors.New("boom"), want: true},
+		{name: "context canceled is not retryable", err: context.Canceled, want: false},
+		{name: "context deadline exceeded is not retryable", err: context.DeadlineExceeded, want: false},
+		{name: "wrapped context canceled is not retryable", err: fmt.Errorf("get secret: %w", context.Canceled), want: false},
 	}
 
 	for _, tt := range tests {
@@ -160,5 +163,27 @@ func TestRetryProwTokenLookup(t *testing.T) {
 				t.Fatalf("fetch called %d times, want %d", calls, tt.wantCalls)
 			}
 		})
+	}
+}
+
+// TestRetryProwTokenLookupContextCanceled verifies that a cancelled parent context
+// fails fast (no retries) and the returned error is the context error itself, not a
+// "...after retries" wrapper hiding it.
+func TestRetryProwTokenLookupContextCanceled(t *testing.T) {
+	ctx, cancel := context.WithCancel(testContext())
+	cancel()
+
+	calls := 0
+	fetch := func(ctx context.Context) (string, error) {
+		calls++
+		return "", ctx.Err()
+	}
+
+	_, err := retryProwTokenLookup(ctx, fastBackoff(4), fetch)
+	if err == nil {
+		t.Fatalf("expected error, got nil")
+	}
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("error = %v, want it to wrap context.Canceled", err)
 	}
 }

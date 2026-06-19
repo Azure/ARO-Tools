@@ -40,8 +40,8 @@ import (
 // blip fails the whole EV2 gating step and forces the entire deployment job to be
 // restarted from scratch.
 //
-// Delays between attempts grow 30s, 1, 2, 4, 8, 16 minutes over up to 6 attempts,
-// for a worst-case cumulative wait of ~31 minutes before giving up. The parent
+// Delays between attempts grow 30s, 1, 2, 4, 8, 16 minutes over up to 7 attempts,
+// for a worst-case cumulative wait of ~31.5 minutes before giving up. The parent
 // context still bounds the total runtime.
 //
 // Note: apimachinery's Backoff.Cap not only clamps an individual delay but also
@@ -51,7 +51,7 @@ var prowTokenLookupBackoff = wait.Backoff{
 	Duration: 30 * time.Second, // Initial delay
 	Factor:   2.0,              // Exponential factor
 	Jitter:   0.1,              // 10% jitter to de-sync concurrent runners
-	Steps:    6,                // Maximum attempts (~31m worst-case cumulative wait)
+	Steps:    7,                // Maximum attempts (~31.5m worst-case cumulative wait)
 }
 
 func NewDefaultRawProwTokenOptions() *RawProwTokenOptions {
@@ -143,13 +143,13 @@ func retryProwTokenLookup(ctx context.Context, backoff wait.Backoff, fetch func(
 	condition := func(ctx context.Context) (bool, error) {
 		t, err := fetch(ctx)
 		if err != nil {
-			lastErr = err
 			// Only retry known-transient errors. Permanent failures (missing/forbidden
 			// secret, bad request) surface immediately instead of after a long backoff.
 			if !isRetryableKeyVaultError(err) {
-				return false, err // Stop retrying and propagate the error
+				return false, err // Stop retrying and propagate the error as-is
 			}
 
+			lastErr = err
 			logger.Info("Prow token lookup failed with a transient error, will retry", "error", err.Error())
 			return false, nil
 		}
@@ -159,9 +159,16 @@ func retryProwTokenLookup(ctx context.Context, backoff wait.Backoff, fetch func(
 	}
 
 	if err := wait.ExponentialBackoffWithContext(ctx, backoff, condition); err != nil {
+		// A cancelled/expired parent context takes precedence: report it as-is rather
+		// than masking it behind the last transient lookup error.
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return "", ctxErr
+		}
+		// Retries were exhausted: surface the last transient error for context.
 		if lastErr != nil {
 			return "", fmt.Errorf("failed to look up prow token after retries: %w", lastErr)
 		}
+		// A permanent error returned by the condition propagates unchanged.
 		return "", err
 	}
 
@@ -169,12 +176,17 @@ func retryProwTokenLookup(ctx context.Context, backoff wait.Backoff, fetch func(
 }
 
 // isRetryableKeyVaultError reports whether a prow-token lookup error is transient
-// and worth retrying. Key Vault HTTP responses are retried only on 429 and 5xx;
-// other 4xx (401/403/404/400/409) are permanent and fail fast. Any error without an
-// HTTP response status is a credential-acquisition or transport failure (e.g. an
-// IMDS connection reset/EOF while minting the managed-identity token) and is treated
-// as transient.
+// and worth retrying. A cancelled or expired context is never retryable. Key Vault
+// HTTP responses are retried only on 429 and 5xx; other 4xx (401/403/404/400/409)
+// are permanent and fail fast. Any error without an HTTP response status is a
+// credential-acquisition or transport failure (e.g. an IMDS connection reset/EOF
+// while minting the managed-identity token) and is treated as transient.
 func isRetryableKeyVaultError(err error) bool {
+	// A cancelled/expired parent context must fail fast, never retry.
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return false
+	}
+
 	var respErr *azcore.ResponseError
 	if errors.As(err, &respErr) {
 		code := respErr.StatusCode
