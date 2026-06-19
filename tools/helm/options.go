@@ -47,7 +47,8 @@ var ErrNilHelmReleaseResult = errors.New("helm release result is nil")
 
 func DefaultOptions() *RawOptions {
 	return &RawOptions{
-		Timeout: 5 * time.Minute,
+		Timeout:            5 * time.Minute,
+		StaleLockThreshold: DefaultStaleLockThreshold,
 	}
 }
 
@@ -65,6 +66,7 @@ func BindOptions(opts *RawOptions, cmd *cobra.Command) error {
 	cmd.Flags().StringVar(&opts.KustoEndpoint, "kusto-endpoint", opts.KustoEndpoint, "URI of the Kusto endpoint to use for diagnostics.")
 
 	cmd.Flags().DurationVar(&opts.Timeout, "timeout", opts.Timeout, "Timeout for waiting on the Helm release.")
+	cmd.Flags().DurationVar(&opts.StaleLockThreshold, "stale-lock-threshold", opts.StaleLockThreshold, "Fail fast before deploying if the latest release revision has been stuck in a pending (install/upgrade/rollback) state for longer than this duration. Set to 0 to disable the stale-lock check.")
 
 	cmd.Flags().StringVar(&opts.KubeconfigFile, "kubeconfig", opts.KubeconfigFile, "Path to the kubeconfig.")
 	cmd.Flags().BoolVar(&opts.DryRun, "dry-run", opts.DryRun, "Do not make any changes to the Kubernetes API server.")
@@ -87,7 +89,8 @@ type RawOptions struct {
 	KustoTable    string
 	KustoEndpoint string
 
-	Timeout time.Duration
+	Timeout            time.Duration
+	StaleLockThreshold time.Duration
 
 	KubeconfigFile    string
 	DryRun            bool
@@ -125,9 +128,10 @@ type completedOptions struct {
 	KustoTable    string
 	KustoEndpoint string
 
-	Timeout           time.Duration
-	DryRun            bool
-	RollbackOnFailure bool
+	Timeout            time.Duration
+	StaleLockThreshold time.Duration
+	DryRun             bool
+	RollbackOnFailure  bool
 }
 
 type Options struct {
@@ -255,9 +259,10 @@ func (o *ValidatedOptions) Complete() (*Options, error) {
 			KustoTable:    o.KustoTable,
 			KustoEndpoint: o.KustoEndpoint,
 
-			Timeout:           o.Timeout,
-			DryRun:            o.DryRun,
-			RollbackOnFailure: o.RollbackOnFailure,
+			Timeout:            o.Timeout,
+			StaleLockThreshold: o.StaleLockThreshold,
+			DryRun:             o.DryRun,
+			RollbackOnFailure:  o.RollbackOnFailure,
 		},
 	}, nil
 }
@@ -287,6 +292,15 @@ func (opts *Options) Deploy(ctx context.Context) error {
 		noReleaseYet := errors.Is(err, driver.ErrReleaseNotFound) || isReleaseUninstalled(logger, versions)
 
 		if !noReleaseYet {
+			// fail fast with actionable diagnostics if the latest revision is stuck in a
+			// stale pending (install/upgrade/rollback) state, instead of letting Helm emit
+			// the opaque "another operation ... is in progress" error during the upgrade.
+			if opts.StaleLockThreshold > 0 {
+				if err := checkForStaleReleaseLock(logger, opts.StaleLockThreshold, versions); err != nil {
+					return err
+				}
+			}
+
 			// only when a previous release exists, do we need to fixup managed fields
 			opts.DryRun = true
 			logger.Info("Doing dry-run of Helm release.")
