@@ -105,6 +105,52 @@ func TestForEntrypointDuplicateResourceGroups(t *testing.T) {
 	}
 }
 
+func TestFindLeavesErrorsOnMissingChild(t *testing.T) {
+	parentID := Identifier{
+		ServiceGroup: "svc",
+		StepDependency: types.StepDependency{
+			ResourceGroup: "rg",
+			Step:          "parent",
+		},
+	}
+	missingChildID := Identifier{
+		ServiceGroup: "svc",
+		StepDependency: types.StepDependency{
+			ResourceGroup: "rg",
+			Step:          "missing",
+		},
+	}
+
+	g := &Graph{
+		Services: map[string]*topology.Service{
+			"svc": {ServiceGroup: "svc"},
+		},
+		ResourceGroups: map[ResourceGroupKey]*types.ResourceGroupMeta{
+			{Name: "rg"}: {Name: "rg"},
+		},
+		Steps: map[Identifier]types.Step{
+			parentID: &types.GenericStep{StepMeta: types.StepMeta{Name: "parent"}},
+		},
+		Nodes: []Node{
+			{
+				Identifier: parentID,
+				Children:   []Identifier{missingChildID},
+			},
+		},
+	}
+
+	_, err := g.findLeaves(g.Nodes)
+	if err == nil {
+		t.Fatal("expected error for missing child lookup, got nil")
+	}
+	if !strings.Contains(err.Error(), "missing") {
+		t.Fatalf("expected error to mention missing child, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "parent") {
+		t.Fatalf("expected error to mention parent node, got: %v", err)
+	}
+}
+
 func loadTestdata(t *testing.T, topologyPath string) (*topology.Topology, *topology.Entrypoint, *topology.Service, map[string]*types.Pipeline) {
 	t.Helper()
 

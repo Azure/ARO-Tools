@@ -40,7 +40,7 @@ func (i Identifier) String() string {
 // complex data, pointers to the underlying structures needed to execute the steps, etc. Such a structure helps to
 // make operations that produce or operate over these nodes easy to test and verify.
 type Node struct {
-	// This embedded Dependency defines the identifier for this node.
+	// This embedded Identifier defines the identifier for this node.
 	Identifier
 
 	// Children contains the direct children (not further descendants) of this node.
@@ -61,7 +61,7 @@ func newGraph() *Graph {
 	return &Graph{
 		Services:               map[string]*topology.Service{},
 		ResourceGroups:         map[ResourceGroupKey]*types.ResourceGroupMeta{},
-		resourceGroupOwners:    map[string]sets.Set[string]{},
+		resourceGroupOwners:    map[ResourceGroupKey]sets.Set[string]{},
 		Steps:                  map[Identifier]types.Step{},
 		Nodes:                  []Node{},
 		ServiceValidationSteps: map[Identifier]types.ValidationStep{},
@@ -91,7 +91,7 @@ type Graph struct {
 	ServiceValidationSteps map[Identifier]types.ValidationStep
 
 	// resourceGroupOwners tracks which service groups have registered each resource group (internal book-keeping).
-	resourceGroupOwners map[string]sets.Set[string]
+	resourceGroupOwners map[ResourceGroupKey]sets.Set[string]
 }
 
 // GetResourceGroup returns the resource group metadata for the given key.
@@ -126,6 +126,13 @@ type edge struct {
 	from, to Identifier
 }
 
+// stampIteration pairs a stamp identifier with the pipeline to process for that stamp.
+// Unstamped services use a single iteration with an empty stamp.
+type stampIteration struct {
+	stamp    string
+	pipeline *types.Pipeline
+}
+
 // ForPipeline generates a graph for one pipeline, processing all steps therein to determine dependencies between them.
 func ForPipeline(service *topology.Service, pipeline *types.Pipeline) (*Graph, error) {
 	withoutChildren := &topology.Service{
@@ -150,14 +157,29 @@ func ForPipeline(service *topology.Service, pipeline *types.Pipeline) (*Graph, e
 }
 
 // ForEntrypoint generates a graph for all pipelines in the sub-tree of the topology identified by the entrypoint.
+// Convenience wrapper around ForEntrypoints for a single entrypoint.
 func ForEntrypoint(topo *topology.Topology, entrypoint *topology.Entrypoint, pipelines map[string]*types.Pipeline) (*Graph, error) {
-	return ForEntrypoints(topo, []*topology.Entrypoint{entrypoint}, map[string]map[string]*types.Pipeline{"": pipelines})
+	return ForEntrypoints(topo, []*topology.Entrypoint{entrypoint}, pipelines)
 }
 
 // ForEntrypoints generates a graph for all pipelines in the sub-trees of the topology identified by the entrypoints.
-// stampPipelines maps stamp identifiers to per-service-group pipelines. Callers that do not use stamps pass a single
-// entry keyed by "" (empty string). When stamped services are encountered, the graph expands them once per stamp.
-func ForEntrypoints(topo *topology.Topology, entrypoints []*topology.Entrypoint, stampPipelines map[string]map[string]*types.Pipeline) (*Graph, error) {
+// Stamped services in the topology are not expanded — each appears exactly once with an empty Stamp field on its
+// nodes. The resulting graph has one set of nodes per service, making it suitable for contexts where stamp expansion
+// is handled by the runtime (e.g. EV2 rollout specs) rather than the graph itself.
+func ForEntrypoints(topo *topology.Topology, entrypoints []*topology.Entrypoint, pipelines map[string]*types.Pipeline) (*Graph, error) {
+	return forEntrypoints(topo, entrypoints, map[string]map[string]*types.Pipeline{"": pipelines})
+}
+
+// ForStampedEntrypoints generates a graph for all pipelines in the sub-trees of the topology identified by the
+// entrypoints, expanding stamped services once per stamp. Each stamped service produces N copies of its nodes —
+// one per non-empty key in stampPipelines — with each copy carrying a distinct Stamp field on its identifiers.
+// Unstamped services appear once with an empty Stamp. The resulting graph is suitable for contexts where the graph
+// itself drives per-stamp execution (e.g. templatize concurrent stamp rollouts).
+func ForStampedEntrypoints(topo *topology.Topology, entrypoints []*topology.Entrypoint, stampPipelines map[string]map[string]*types.Pipeline) (*Graph, error) {
+	return forEntrypoints(topo, entrypoints, stampPipelines)
+}
+
+func forEntrypoints(topo *topology.Topology, entrypoints []*topology.Entrypoint, stampPipelines map[string]map[string]*types.Pipeline) (*Graph, error) {
 	var roots []*topology.Service
 	for _, entrypoint := range entrypoints {
 		root, err := topo.Lookup(entrypoint.Identifier)
@@ -176,9 +198,9 @@ func ForEntrypoints(topo *topology.Topology, entrypoints []*topology.Entrypoint,
 	}
 
 	// External step dependencies break the nice separation between nodes of one pipeline and the rest of the graph,
-	// so the `nodesFor()` method can no longer generate bi-directional edges as it does not see other nodes to add
-	// child relations. Instead of trying to teach `nodesFor()` how to do half of these edges, we can just do a pass
-	// now will full context.
+	// so the nodesFor() method can no longer generate bi-directional edges as it does not see other nodes to add
+	// child relations. Instead of trying to teach nodesFor() how to do half of these edges, we can do a pass
+	// now with full context.
 	if err := graph.addExternalDependencyEdges(); err != nil {
 		return nil, err
 	}
@@ -186,120 +208,25 @@ func ForEntrypoints(topo *topology.Topology, entrypoints []*topology.Entrypoint,
 	return graph, graph.detectCycles()
 }
 
-// accumulate recursively traverses the service and all children, building a graph of how steps in each service
-// depend on each other. When a service is stamped, it expands nodes once per stamp; unstamped services are
-// processed once with an empty stamp.
+// accumulate recursively traverses the service and all children, building a graph of how steps in each
+// service depend on each other. Stamped services are expanded once per stamp; unstamped services once.
 func (c *Graph) accumulate(service *topology.Service, stampPipelines map[string]map[string]*types.Pipeline) error {
 	if _, alreadyRecorded := c.Services[service.ServiceGroup]; alreadyRecorded {
 		return fmt.Errorf("service group %s already recorded", service.ServiceGroup)
 	}
-
 	c.Services[service.ServiceGroup] = service
 
-	// Determine which stamp iterations to run: stamped services expand once per stamp key,
-	// unstamped services run once with an empty stamp.
-	type stampIteration struct {
-		stamp    string
-		pipeline *types.Pipeline
-	}
-	var iterations []stampIteration
-	if service.IsStamped() {
-		for _, stamp := range slices.Sorted(maps.Keys(stampPipelines)) {
-			if stamp == "" {
-				continue
-			}
-			pipeline, exists := stampPipelines[stamp][service.ServiceGroup]
-			if !exists {
-				return fmt.Errorf("pipeline for service %s not found in stamp %s", service.ServiceGroup, stamp)
-			}
-			iterations = append(iterations, stampIteration{stamp: stamp, pipeline: pipeline})
-		}
-		if len(iterations) == 0 {
-			return fmt.Errorf("stamped service %s requires at least one non-empty stamp key, but no non-empty stamp keys were provided", service.ServiceGroup)
-		}
-	} else {
-		// Unstamped services have the same pipeline regardless of stamp key — grab from any entry.
-		var pipeline *types.Pipeline
-		for _, pipelines := range stampPipelines {
-			if p, exists := pipelines[service.ServiceGroup]; exists {
-				pipeline = p
-				break
-			}
-		}
-		if pipeline == nil {
-			return fmt.Errorf("pipeline for service %s not found", service.ServiceGroup)
-		}
-		iterations = append(iterations, stampIteration{stamp: "", pipeline: pipeline})
+	iterations, err := resolveIterations(service, stampPipelines)
+	if err != nil {
+		return err
 	}
 
-	// For each stamp iteration, generate nodes and register resource groups, steps, and metadata.
 	// Leaf nodes are collected per stamp so that inter-service wiring connects only matching stamps.
 	allLeaves := map[string][]Identifier{}
 	for _, iter := range iterations {
-		resourceGroups, subscription, steps, serviceValidationSteps, nodes, err := nodesFor(iter.pipeline, iter.stamp)
+		leaves, err := c.accumulateIteration(service.ServiceGroup, iter)
 		if err != nil {
-			return fmt.Errorf("failed to generate graph for pipeline %s: %v", service.ServiceGroup, err)
-		}
-
-		// Register resource groups, detecting conflicts within the same stamp and across stamp boundaries.
-		for name, group := range resourceGroups {
-			key := ResourceGroupKey{Stamp: iter.stamp, Name: name}
-			other, alreadyRecorded := c.ResourceGroups[key]
-			if alreadyRecorded && !resourceGroupMetaEqual(group, other) {
-				existingOwners := sets.List(c.resourceGroupOwners[name])
-				slices.Sort(existingOwners)
-				return fmt.Errorf("resource group %s already recorded with different step meta (existing services: %s, new service: %s), diff: %v", name, strings.Join(existingOwners, ", "), service.ServiceGroup, cmp.Diff(group, other))
-			}
-			if alreadyRecorded {
-				c.resourceGroupOwners[name].Insert(service.ServiceGroup)
-			} else {
-				c.ResourceGroups[key] = group
-				c.resourceGroupOwners[name] = sets.New(service.ServiceGroup)
-			}
-		}
-
-		if subscription != nil {
-			if c.Subscription != nil {
-				return fmt.Errorf("subscription provisioning already recorded for %s/%s, cannot add another for %s/%s", c.Subscription.ServiceGroup, c.Subscription.ResourceGroup, subscription.ServiceGroup, subscription.ResourceGroup)
-			}
-			c.Subscription = subscription
-		}
-
-		// Register steps and validation steps with stamp-qualified identifiers.
-		for rg, stepMap := range steps {
-			for stepName, step := range stepMap {
-				c.Steps[Identifier{Stamp: iter.stamp, ServiceGroup: service.ServiceGroup, StepDependency: types.StepDependency{ResourceGroup: rg, Step: stepName}}] = step
-			}
-		}
-		maps.Copy(c.ServiceValidationSteps, serviceValidationSteps)
-		c.Nodes = append(c.Nodes, nodes...)
-
-		// Identify leaf nodes for this stamp iteration — these will become parents of child service roots.
-		var leaves []Identifier
-		for _, node := range nodes {
-			_, _, step, err := c.lookup(node.Identifier)
-			if err != nil {
-				return fmt.Errorf("failed to lookup node: %v", err)
-			}
-			if len(node.Children) == 0 {
-				if step.ConsideredForServiceGroupCompletion() {
-					leaves = append(leaves, node.Identifier)
-				}
-			} else if step.ConsideredForServiceGroupCompletion() {
-				ignoredLeaves := 0
-				for _, child := range node.Children {
-					_, _, childStep, err := c.lookup(child)
-					if err != nil {
-						return fmt.Errorf("failed to lookup node: %v", err)
-					}
-					if !childStep.ConsideredForServiceGroupCompletion() {
-						ignoredLeaves++
-					}
-				}
-				if ignoredLeaves == len(node.Children) {
-					leaves = append(leaves, node.Identifier)
-				}
-			}
+			return err
 		}
 		allLeaves[iter.stamp] = leaves
 	}
@@ -309,49 +236,198 @@ func (c *Graph) accumulate(service *topology.Service, stampPipelines map[string]
 		if err := c.accumulate(&child, stampPipelines); err != nil {
 			return err
 		}
-
-		// The data we're using to build this graph come in two levels of granularity:
-		// - specific, intra-service step relationships defined in a pipeline
-		// - granular, inter-service relationships defined in the topology
-		// The above call to accumulate() will have build a sub-graph of step nodes for the specific child service,
-		// which we now need to decorate to record that all steps in that child depend on the parent service.
-		// There is no defined "end" to a pipeline, nor a "start", as each service may itself be a forest - having
-		// many roots and many leaves. Therefore, the simplest approach here is to record that every root node
-		// of the child depends on all the leaf nodes of the parent service, and vice versa.
-		//
-		// When stamps are involved, wiring is stamp-scoped: stamp-1 leaves connect to stamp-1 roots only.
-		// Unstamped leaves (stamp="") connect to all child roots that share the same stamp="" or fan out
-		// to all stamps when the child is stamped and the parent is not.
-
-		for parentStamp, leaves := range allLeaves {
-			var roots []Identifier
-			// Find root nodes for the child service. Our topology allows each service to depend on one
-			// and only one parent, so len(node.Parents) == 0 safely identifies root nodes, and this is
-			// the only time any actor will add parents to these roots.
-			for i, node := range c.Nodes {
-				if node.ServiceGroup != child.ServiceGroup || len(node.Parents) != 0 {
-					continue
-				}
-				// When both parent and child are stamped, only wire matching stamps.
-				// When parent is unstamped, all stamped child roots get these leaves (fan-out).
-				if service.IsStamped() && child.IsStamped() && node.Stamp != parentStamp {
-					continue
-				}
-				roots = append(roots, node.Identifier)
-				c.Nodes[i].Parents = append(c.Nodes[i].Parents, leaves...)
-			}
-
-			for i, node := range c.Nodes {
-				for _, leaf := range leaves {
-					if node.ServiceGroup == leaf.ServiceGroup && node.ResourceGroup == leaf.ResourceGroup && node.Step == leaf.Step && node.Stamp == leaf.Stamp {
-						c.Nodes[i].Children = append(c.Nodes[i].Children, roots...)
-					}
-				}
-			}
+		if err := c.wireInterServiceEdges(service, &child, allLeaves); err != nil {
+			return err
 		}
 	}
 
 	return nil
+}
+
+// resolveIterations determines which stamp/pipeline pairs to process for a service.
+// Unstamped services run once with an empty stamp. Stamped services expand once per
+// non-empty stamp key.
+func resolveIterations(service *topology.Service, stampPipelines map[string]map[string]*types.Pipeline) ([]stampIteration, error) {
+	// Unstamped services use the same pipeline regardless of stamp — grab from any entry.
+	if !service.IsStamped() {
+		for _, pipelines := range stampPipelines {
+			if p, exists := pipelines[service.ServiceGroup]; exists {
+				return []stampIteration{{pipeline: p}}, nil
+			}
+		}
+		return nil, fmt.Errorf("pipeline for service %s not found", service.ServiceGroup)
+	}
+
+	var stamps []string
+	for stamp := range stampPipelines {
+		if stamp != "" {
+			stamps = append(stamps, stamp)
+		}
+	}
+	slices.Sort(stamps)
+
+	// No non-empty stamps: fall back to single iteration without expansion.
+	if len(stamps) == 0 {
+		for _, pipelines := range stampPipelines {
+			if p, exists := pipelines[service.ServiceGroup]; exists {
+				return []stampIteration{{pipeline: p}}, nil
+			}
+		}
+		return nil, fmt.Errorf("pipeline for service %s not found", service.ServiceGroup)
+	}
+
+	var iterations []stampIteration
+	for _, stamp := range stamps {
+		pipeline, exists := stampPipelines[stamp][service.ServiceGroup]
+		if !exists {
+			return nil, fmt.Errorf("pipeline for service %s not found in stamp %s", service.ServiceGroup, stamp)
+		}
+		iterations = append(iterations, stampIteration{stamp: stamp, pipeline: pipeline})
+	}
+	return iterations, nil
+}
+
+// accumulateIteration processes one stamp iteration: generates nodes, registers resource groups,
+// steps, and metadata, and returns the leaf nodes for inter-service wiring.
+func (c *Graph) accumulateIteration(serviceGroup string, iter stampIteration) ([]Identifier, error) {
+	resourceGroups, subscription, steps, serviceValidationSteps, nodes, err := nodesFor(iter.pipeline, iter.stamp)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate graph for pipeline %s: %v", serviceGroup, err)
+	}
+
+	if err := c.registerResourceGroups(serviceGroup, iter.stamp, resourceGroups); err != nil {
+		return nil, err
+	}
+
+	if subscription != nil && c.Subscription != nil {
+		return nil, fmt.Errorf("subscription provisioning already recorded for %s/%s, cannot add another for %s/%s", c.Subscription.ServiceGroup, c.Subscription.ResourceGroup, subscription.ServiceGroup, subscription.ResourceGroup)
+	}
+	if subscription != nil {
+		c.Subscription = subscription
+	}
+
+	// Register steps and validation steps with stamp-qualified identifiers.
+	for rg, stepMap := range steps {
+		for stepName, step := range stepMap {
+			c.Steps[Identifier{Stamp: iter.stamp, ServiceGroup: serviceGroup, StepDependency: types.StepDependency{ResourceGroup: rg, Step: stepName}}] = step
+		}
+	}
+	maps.Copy(c.ServiceValidationSteps, serviceValidationSteps)
+	c.Nodes = append(c.Nodes, nodes...)
+
+	return c.findLeaves(nodes)
+}
+
+// registerResourceGroups records resource groups, detecting conflicts across services and stamps.
+func (c *Graph) registerResourceGroups(serviceGroup, stamp string, resourceGroups map[string]*types.ResourceGroupMeta) error {
+	for name, group := range resourceGroups {
+		key := ResourceGroupKey{Stamp: stamp, Name: name}
+		other, alreadyRecorded := c.ResourceGroups[key]
+		if alreadyRecorded && !resourceGroupMetaEqual(group, other) {
+			existingOwners := sets.List(c.resourceGroupOwners[key])
+			return fmt.Errorf("resource group %s already recorded with different step meta (existing services: %s, new service: %s), diff: %v", name, strings.Join(existingOwners, ", "), serviceGroup, cmp.Diff(group, other))
+		}
+		if !alreadyRecorded {
+			c.ResourceGroups[key] = group
+			c.resourceGroupOwners[key] = sets.New[string]()
+		}
+		c.resourceGroupOwners[key].Insert(serviceGroup)
+	}
+	return nil
+}
+
+// findLeaves identifies leaf nodes for a stamp iteration — these will become parents of child service roots.
+// A node is a leaf when it is considered for service group completion and none of its children are.
+func (c *Graph) findLeaves(nodes []Node) ([]Identifier, error) {
+	var leaves []Identifier
+	for _, node := range nodes {
+		_, _, step, err := c.lookup(node.Identifier)
+		if err != nil {
+			return nil, fmt.Errorf("failed to lookup node: %v", err)
+		}
+		if !step.ConsideredForServiceGroupCompletion() {
+			continue
+		}
+		has, err := c.hasCompletionChild(node)
+		if err != nil {
+			return nil, err
+		}
+		if has {
+			continue
+		}
+		leaves = append(leaves, node.Identifier)
+	}
+	return leaves, nil
+}
+
+func (c *Graph) hasCompletionChild(node Node) (bool, error) {
+	for _, child := range node.Children {
+		_, _, childStep, err := c.lookup(child)
+		if err != nil {
+			return false, fmt.Errorf("failed to lookup child node %s of %s: %w", child, node.Identifier, err)
+		}
+		if childStep.ConsideredForServiceGroupCompletion() {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// wireInterServiceEdges connects parent service leaves to child service roots.
+//
+// The data we're using to build this graph come in two levels of granularity:
+//   - specific, intra-service step relationships defined in a pipeline
+//   - granular, inter-service relationships defined in the topology
+//
+// accumulate() will have built a sub-graph of step nodes for the specific child service,
+// which we now need to decorate to record that all steps in that child depend on the parent service.
+// There is no defined "end" to a pipeline, nor a "start", as each service may itself be a forest - having
+// many roots and many leaves. Therefore, the simplest approach here is to record that every root node
+// of the child depends on all the leaf nodes of the parent service, and vice versa.
+//
+// When stamps are involved, wiring is stamp-scoped: stamp-1 leaves connect to stamp-1 roots only.
+// Unstamped leaves (stamp="") connect to all child roots that share the same stamp="" or fan out
+// to all stamps when the child is stamped and the parent is not.
+func (c *Graph) wireInterServiceEdges(parent *topology.Service, child *topology.Service, allLeaves map[string][]Identifier) error {
+	for parentStamp, leaves := range allLeaves {
+		roots := c.findChildRoots(parent, child, parentStamp)
+
+		for i, node := range c.Nodes {
+			if !slices.Contains(roots, node.Identifier) {
+				continue
+			}
+			c.Nodes[i].Parents = append(c.Nodes[i].Parents, leaves...)
+		}
+
+		for _, leaf := range leaves {
+			idx, err := c.node(leaf)
+			if err != nil {
+				return fmt.Errorf("failed to find leaf node: %v", err)
+			}
+			c.Nodes[idx].Children = append(c.Nodes[idx].Children, roots...)
+		}
+	}
+	return nil
+}
+
+// findChildRoots returns identifiers of root nodes (no parents) for the child service.
+// Our topology allows each service to depend on one and only one parent, so len(node.Parents) == 0
+// safely identifies root nodes, and this is the only time any actor will add parents to these roots.
+// When both parent and child are stamped, only matching-stamp roots are returned.
+func (c *Graph) findChildRoots(parent, child *topology.Service, parentStamp string) []Identifier {
+	var roots []Identifier
+	for _, node := range c.Nodes {
+		if node.ServiceGroup != child.ServiceGroup || len(node.Parents) != 0 {
+			continue
+		}
+		// When both parent and child are stamped, only wire matching stamps.
+		// When parent is unstamped, all stamped child roots get these leaves (fan-out).
+		if parent.IsStamped() && child.IsStamped() && node.Stamp != parentStamp {
+			continue
+		}
+		roots = append(roots, node.Identifier)
+	}
+	return roots
 }
 
 func (c *Graph) lookup(node Identifier) (*topology.Service, *types.ResourceGroupMeta, types.Step, error) {
@@ -397,10 +473,14 @@ func (c *Graph) addExternalDependencyEdges() error {
 					Step:          dep.Step,
 				},
 			}
-			// External dependencies don't carry stamp information. When the target service is stamped,
-			// resolve to the same stamp as the node declaring the dependency — stamp-1 work depends on
-			// stamp-1 of the target, not all stamps. Unstamped targets keep an empty stamp.
+			// Unstamped services cannot declare external dependencies on stamped services —
+			// there is no single stamp to resolve to. When both sides are stamped, resolve
+			// to the same stamp: stamp-1 work depends on stamp-1 of the target.
 			if targetService := c.Services[dep.ServiceGroup]; targetService != nil && targetService.IsStamped() {
+				sourceService := c.Services[node.ServiceGroup]
+				if sourceService == nil || !sourceService.IsStamped() {
+					return fmt.Errorf("unstamped node %s has an external dependency on stamped service %s — unstamped services cannot depend on stamped services", node.Identifier, dep.ServiceGroup)
+				}
 				parent.Stamp = node.Stamp
 			}
 			parentNodeIdx, err := c.node(parent)
@@ -437,10 +517,10 @@ func nodesFor(pipeline *types.Pipeline, stamp string) (
 	var subscription *Subscription
 	for _, rg := range pipeline.ResourceGroups {
 		resourceGroupsByName[rg.Name] = rg.ResourceGroupMeta
+		if rg.SubscriptionProvisioning != nil && subscription != nil {
+			return nil, nil, nil, nil, nil, fmt.Errorf("multiple subscriptions found for pipeline %s", pipeline.ServiceGroup)
+		}
 		if rg.SubscriptionProvisioning != nil {
-			if subscription != nil {
-				return nil, nil, nil, nil, nil, fmt.Errorf("multiple subscriptions found for pipeline %s", pipeline.ServiceGroup)
-			}
 			subscription = &Subscription{
 				ServiceGroup:  pipeline.ServiceGroup,
 				ResourceGroup: rg.Name,
@@ -500,30 +580,29 @@ func nodesFor(pipeline *types.Pipeline, stamp string) (
 		return CompareDependencies(a.to, b.to)
 	})
 
+	childrenOf := map[Identifier][]Identifier{}
+	parentsOf := map[Identifier][]Identifier{}
+	for _, e := range stepDependencies {
+		childrenOf[e.from] = append(childrenOf[e.from], e.to)
+		parentsOf[e.to] = append(parentsOf[e.to], e.from)
+	}
+
 	var nodes []Node
 	for resourceGroup, steps := range stepsByResourceGroupAndName {
 		for stepName := range steps {
-			node := Node{
-				Identifier: Identifier{
-					Stamp:        stamp,
-					ServiceGroup: pipeline.ServiceGroup,
-					StepDependency: types.StepDependency{
-						ResourceGroup: resourceGroup,
-						Step:          stepName,
-					},
+			id := Identifier{
+				Stamp:        stamp,
+				ServiceGroup: pipeline.ServiceGroup,
+				StepDependency: types.StepDependency{
+					ResourceGroup: resourceGroup,
+					Step:          stepName,
 				},
-				Children: []Identifier{},
-				Parents:  []Identifier{},
 			}
-			for _, edge := range stepDependencies {
-				if edge.to.ServiceGroup == pipeline.ServiceGroup && edge.to.ResourceGroup == resourceGroup && edge.to.Step == stepName {
-					node.Parents = append(node.Parents, edge.from)
-				}
-				if edge.from.ServiceGroup == pipeline.ServiceGroup && edge.from.ResourceGroup == resourceGroup && edge.from.Step == stepName {
-					node.Children = append(node.Children, edge.to)
-				}
-			}
-			nodes = append(nodes, node)
+			nodes = append(nodes, Node{
+				Identifier: id,
+				Children:   childrenOf[id],
+				Parents:    parentsOf[id],
+			})
 		}
 	}
 
@@ -564,17 +643,18 @@ func resourceGroupMetaEqual(a, b *types.ResourceGroupMeta) bool {
 	if len(a.ExecutionConstraints) != len(b.ExecutionConstraints) {
 		return false
 	}
-	for i := 0; i < len(a.ExecutionConstraints); i++ {
-		if a.ExecutionConstraints[i].Singleton != b.ExecutionConstraints[i].Singleton {
+	for i, ac := range a.ExecutionConstraints {
+		bc := b.ExecutionConstraints[i]
+		if ac.Singleton != bc.Singleton {
 			return false
 		}
-		if !sets.New(a.ExecutionConstraints[i].Clouds...).Equal(sets.New(b.ExecutionConstraints[i].Clouds...)) {
+		if !sets.New(ac.Clouds...).Equal(sets.New(bc.Clouds...)) {
 			return false
 		}
-		if !sets.New(a.ExecutionConstraints[i].Environments...).Equal(sets.New(b.ExecutionConstraints[i].Environments...)) {
+		if !sets.New(ac.Environments...).Equal(sets.New(bc.Environments...)) {
 			return false
 		}
-		if !sets.New(a.ExecutionConstraints[i].Regions...).Equal(sets.New(b.ExecutionConstraints[i].Regions...)) {
+		if !sets.New(ac.Regions...).Equal(sets.New(bc.Regions...)) {
 			return false
 		}
 	}
@@ -584,18 +664,19 @@ func resourceGroupMetaEqual(a, b *types.ResourceGroupMeta) bool {
 
 // detectCycles runs a depth-first traversal of the tree, starting at every node, to detect cycles
 func (c *Graph) detectCycles() error {
+	nodesByID := make(map[Identifier]Node, len(c.Nodes))
 	for _, node := range c.Nodes {
-		seen := []Identifier{
-			node.Identifier,
-		}
-		if err := traverse(node, c.Nodes, seen); err != nil {
+		nodesByID[node.Identifier] = node
+	}
+	for _, node := range c.Nodes {
+		if err := traverse(node, nodesByID, []Identifier{node.Identifier}); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func traverse(node Node, all []Node, seen []Identifier) error {
+func traverse(node Node, nodesByID map[Identifier]Node, seen []Identifier) error {
 	for _, child := range node.Children {
 		if slices.Contains(seen, child) {
 			var cycle []string
@@ -604,20 +685,11 @@ func traverse(node Node, all []Node, seen []Identifier) error {
 			}
 			return fmt.Errorf("cycle detected, reached %s via %s", child, strings.Join(cycle, " -> "))
 		}
-		chain := seen[:]
-		chain = append(chain, child)
-		var childNode Node
-		var found bool
-		for _, candidate := range all {
-			if candidate.Identifier == child {
-				childNode = candidate
-				found = true
-			}
-		}
+		childNode, found := nodesByID[child]
 		if !found {
 			return fmt.Errorf("could not find child node %s - programmer error", child)
 		}
-		if err := traverse(childNode, all, chain); err != nil {
+		if err := traverse(childNode, nodesByID, append(seen[:len(seen):len(seen)], child)); err != nil {
 			return err
 		}
 	}

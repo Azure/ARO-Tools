@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/Azure/ARO-Tools/pipelines/topology"
 	"github.com/Azure/ARO-Tools/pipelines/types"
@@ -89,12 +90,12 @@ func stampSets(nodes []Node) []string {
 	return stamps
 }
 
-// buildAndValidate constructs a graph via ForEntrypoints and runs the validation function against it.
+// buildAndValidate constructs a graph via ForStampedEntrypoints and runs the validation function against it.
 func buildAndValidate(t *testing.T, topo *topology.Topology, stampPipelines map[string]map[string]*types.Pipeline, validate func(t *testing.T, result *Graph)) {
 	t.Helper()
 	entrypoint := &topo.Entrypoints[0]
-	result, err := ForEntrypoints(topo, []*topology.Entrypoint{entrypoint}, stampPipelines)
-	assert.NoError(t, err)
+	result, err := ForStampedEntrypoints(topo, []*topology.Entrypoint{entrypoint}, stampPipelines)
+	require.NoError(t, err)
 	validate(t, result)
 }
 
@@ -470,6 +471,7 @@ func TestStampedExternalDeps(t *testing.T) {
 		name           string
 		topo           *topology.Topology
 		stampPipelines map[string]map[string]*types.Pipeline
+		expectErr      string
 		validate       func(t *testing.T, result *Graph)
 	}{
 		{
@@ -570,11 +572,78 @@ func TestStampedExternalDeps(t *testing.T) {
 				assert.Equal(t, 2, len(mgmtChildren), "unstamped svc has both stamped mgmt as children via external dep")
 			},
 		},
+		{
+			name: "unstamped to stamped rejected with expansion",
+			topo: makeTopology(topology.Service{
+				ServiceGroup: "SG.Regional", Purpose: "regional", PipelinePath: "regional.yaml",
+				Children: []topology.Service{
+					{ServiceGroup: "SG.Svc", Purpose: "svc", PipelinePath: "svc.yaml"},
+					{ServiceGroup: "SG.Mgmt", Purpose: "mgmt", Stamped: ptr(true), PipelinePath: "mgmt.yaml"},
+				},
+			}),
+			stampPipelines: func() map[string]map[string]*types.Pipeline {
+				svcDeploy := &types.ShellStep{StepMeta: types.StepMeta{
+					Name: "deploy",
+					ExternalDependsOn: []types.ExternalStepDependency{
+						{ServiceGroup: "SG.Mgmt", StepDependency: types.StepDependency{ResourceGroup: "mgmt-rg", Step: "deploy"}},
+					},
+				}}
+				regionalPipeline := makePipeline("SG.Regional", "regional-rg", deploy)
+				svcPipeline := makePipeline("SG.Svc", "svc-rg", svcDeploy)
+				return map[string]map[string]*types.Pipeline{
+					"1": {
+						"SG.Regional": regionalPipeline,
+						"SG.Svc":      svcPipeline,
+						"SG.Mgmt":     makePipelineWithRGMeta("SG.Mgmt", &types.ResourceGroupMeta{Name: "mgmt-rg", ResourceGroup: "mgmt-rg-1", Subscription: "sub-1"}, deploy),
+					},
+					"2": {
+						"SG.Regional": regionalPipeline,
+						"SG.Svc":      svcPipeline,
+						"SG.Mgmt":     makePipelineWithRGMeta("SG.Mgmt", &types.ResourceGroupMeta{Name: "mgmt-rg", ResourceGroup: "mgmt-rg-2", Subscription: "sub-2"}, deploy),
+					},
+				}
+			}(),
+			expectErr: "cannot depend on stamped service",
+		},
+		{
+			name: "unstamped to stamped rejected without expansion",
+			topo: makeTopology(topology.Service{
+				ServiceGroup: "SG.Regional", Purpose: "regional", PipelinePath: "regional.yaml",
+				Children: []topology.Service{
+					{ServiceGroup: "SG.Svc", Purpose: "svc", PipelinePath: "svc.yaml"},
+					{ServiceGroup: "SG.Mgmt", Purpose: "mgmt", Stamped: ptr(true), PipelinePath: "mgmt.yaml"},
+				},
+			}),
+			stampPipelines: func() map[string]map[string]*types.Pipeline {
+				svcDeploy := &types.ShellStep{StepMeta: types.StepMeta{
+					Name: "deploy",
+					ExternalDependsOn: []types.ExternalStepDependency{
+						{ServiceGroup: "SG.Mgmt", StepDependency: types.StepDependency{ResourceGroup: "mgmt-rg", Step: "deploy"}},
+					},
+				}}
+				return map[string]map[string]*types.Pipeline{
+					"": {
+						"SG.Regional": makePipeline("SG.Regional", "regional-rg", deploy),
+						"SG.Svc":      makePipeline("SG.Svc", "svc-rg", svcDeploy),
+						"SG.Mgmt":     makePipeline("SG.Mgmt", "mgmt-rg", deploy),
+					},
+				}
+			}(),
+			expectErr: "cannot depend on stamped service",
+		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			buildAndValidate(t, testCase.topo, testCase.stampPipelines, testCase.validate)
+			entrypoint := &testCase.topo.Entrypoints[0]
+			result, err := ForStampedEntrypoints(testCase.topo, []*topology.Entrypoint{entrypoint}, testCase.stampPipelines)
+			if testCase.expectErr != "" {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), testCase.expectErr)
+				return
+			}
+			assert.NoError(t, err)
+			testCase.validate(t, result)
 		})
 	}
 }
@@ -611,29 +680,104 @@ func TestDetectCyclesStamped(t *testing.T) {
 	assert.False(t, hasStamp1 && hasStamp2, "cycle path should stay within one stamp, got: %s", msg)
 }
 
-// TestStampedServiceRequiresNonEmptyStampKey verifies that stamped services fail loudly
-// when no non-empty stamp key is provided.
-func TestStampedServiceRequiresNonEmptyStampKey(t *testing.T) {
+// TestNoExpansionMode verifies that stamped services appear once with an empty stamp
+// when no non-empty stamp keys are provided.
+func TestNoExpansionMode(t *testing.T) {
 	deploy := &types.ShellStep{StepMeta: types.StepMeta{Name: "deploy"}}
 
-	topo := makeTopology(topology.Service{
-		ServiceGroup: "SG.Infra", Purpose: "infra", PipelinePath: "infra.yaml",
-		Children: []topology.Service{
-			{ServiceGroup: "SG.Mgmt", Purpose: "mgmt", Stamped: ptr(true), PipelinePath: "mgmt.yaml"},
+	testCases := []struct {
+		name      string
+		topo      *topology.Topology
+		pipelines map[string]*types.Pipeline
+		validate  func(t *testing.T, result *Graph)
+	}{
+		{
+			name: "ForEntrypoint convenience wrapper",
+			topo: makeTopology(topology.Service{
+				ServiceGroup: "SG.Regional", Purpose: "regional", PipelinePath: "regional.yaml",
+				Children: []topology.Service{
+					{ServiceGroup: "SG.Svc", Purpose: "svc", PipelinePath: "svc.yaml"},
+					{ServiceGroup: "SG.Mgmt", Purpose: "mgmt", Stamped: ptr(true), PipelinePath: "mgmt.yaml"},
+				},
+			}),
+			pipelines: map[string]*types.Pipeline{
+				"SG.Regional": makePipeline("SG.Regional", "regional-rg", deploy),
+				"SG.Svc":      makePipeline("SG.Svc", "svc-rg", deploy),
+				"SG.Mgmt":     makePipeline("SG.Mgmt", "mgmt-rg", deploy),
+			},
 		},
-	})
-
-	stampPipelines := map[string]map[string]*types.Pipeline{
-		"": {
-			"SG.Infra": makePipeline("SG.Infra", "infra-rg", deploy),
-			"SG.Mgmt":  makePipeline("SG.Mgmt", "mgmt-rg", deploy),
+		{
+			name: "ForEntrypoints with flat pipelines",
+			topo: makeTopology(topology.Service{
+				ServiceGroup: "SG.Infra", Purpose: "infra", PipelinePath: "infra.yaml",
+				Children: []topology.Service{
+					{ServiceGroup: "SG.Mgmt", Purpose: "mgmt", Stamped: ptr(true), PipelinePath: "mgmt.yaml"},
+				},
+			}),
+			pipelines: map[string]*types.Pipeline{
+				"SG.Infra": makePipeline("SG.Infra", "infra-rg", deploy),
+				"SG.Mgmt":  makePipeline("SG.Mgmt", "mgmt-rg", deploy),
+			},
+		},
+		{
+			name: "stamped to stamped external dep without expansion",
+			topo: makeTopology(topology.Service{
+				ServiceGroup: "SG.Regional", Purpose: "regional", PipelinePath: "regional.yaml",
+				Children: []topology.Service{
+					{ServiceGroup: "SG.Mgmt", Purpose: "mgmt", Stamped: ptr(true), PipelinePath: "mgmt.yaml",
+						Children: []topology.Service{
+							{ServiceGroup: "SG.MgmtDB", Purpose: "db", PipelinePath: "db.yaml"},
+							{ServiceGroup: "SG.MgmtNet", Purpose: "net", PipelinePath: "net.yaml"},
+						},
+					},
+				},
+			}),
+			pipelines: func() map[string]*types.Pipeline {
+				netDeploy := &types.ShellStep{StepMeta: types.StepMeta{
+					Name: "deploy",
+					ExternalDependsOn: []types.ExternalStepDependency{
+						{ServiceGroup: "SG.MgmtDB", StepDependency: types.StepDependency{ResourceGroup: "db-rg", Step: "deploy"}},
+					},
+				}}
+				return map[string]*types.Pipeline{
+					"SG.Regional": makePipeline("SG.Regional", "regional-rg", deploy),
+					"SG.Mgmt":     makePipeline("SG.Mgmt", "mgmt-rg", deploy),
+					"SG.MgmtDB":   makePipeline("SG.MgmtDB", "db-rg", deploy),
+					"SG.MgmtNet":  makePipeline("SG.MgmtNet", "net-rg", netDeploy),
+				}
+			}(),
+			validate: func(t *testing.T, result *Graph) {
+				netNodes := nodesForSG(result, "SG.MgmtNet")
+				assert.Equal(t, 1, len(netNodes), "stamped service appears once in no-expansion mode")
+				var dbParents []Identifier
+				for _, parent := range netNodes[0].Parents {
+					if parent.ServiceGroup == "SG.MgmtDB" {
+						dbParents = append(dbParents, parent)
+					}
+				}
+				assert.Equal(t, 1, len(dbParents), "net should have one db parent via external dep")
+				assert.Empty(t, dbParents[0].Stamp, "external dep in no-expansion mode has empty stamp")
+			},
 		},
 	}
 
-	entrypoint := &topo.Entrypoints[0]
-	_, err := ForEntrypoints(topo, []*topology.Entrypoint{entrypoint}, stampPipelines)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "no non-empty stamp keys")
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			entrypoint := &testCase.topo.Entrypoints[0]
+			result, err := ForEntrypoints(testCase.topo, []*topology.Entrypoint{entrypoint}, testCase.pipelines)
+			if !assert.NoError(t, err) {
+				return
+			}
+
+			mgmtNodes := nodesForSG(result, "SG.Mgmt")
+			assert.Equal(t, 1, len(mgmtNodes), "stamped service appears once in no-expansion mode")
+			assert.Empty(t, mgmtNodes[0].Stamp)
+
+			if testCase.validate != nil {
+				testCase.validate(t, result)
+			}
+		})
+	}
 }
 
 // TestForPipelineStampedService verifies that ForPipeline works with a stamped service,
@@ -694,7 +838,7 @@ func TestStampedEntrypointDOT(t *testing.T) {
 	}
 
 	entrypoint := &topo.Entrypoints[0]
-	result, err := ForEntrypoints(topo, []*topology.Entrypoint{entrypoint}, stampPipelines)
+	result, err := ForStampedEntrypoints(topo, []*topology.Entrypoint{entrypoint}, stampPipelines)
 	assert.NoError(t, err)
 
 	encoded, err := MarshalDOT(result)
