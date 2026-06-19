@@ -16,13 +16,43 @@ package prowjobexecutor
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net/http"
+	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/spf13/cobra"
 
+	"k8s.io/apimachinery/pkg/util/wait"
+
 	"github.com/Azure/ARO-Tools/tools/cmdutils"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azsecrets"
 )
+
+// prowTokenLookupBackoff controls retries of the Key Vault prow-token lookup.
+//
+// The lookup can fail with transient errors that are unrelated to configuration:
+// the managed-identity token acquisition reads the instance metadata endpoint
+// (169.254.169.254), which intermittently returns connection resets / EOFs on EV2
+// runners, and Key Vault itself can return 429/5xx. Without retries such a momentary
+// blip fails the whole EV2 gating step and forces the entire deployment job to be
+// restarted from scratch.
+//
+// Delays between attempts grow 30s, 1, 2, 4, 8, 16 minutes over up to 6 attempts,
+// for a worst-case cumulative wait of ~31 minutes before giving up. The parent
+// context still bounds the total runtime.
+//
+// Note: apimachinery's Backoff.Cap not only clamps an individual delay but also
+// stops all further retries once the cap is reached, so the schedule is deliberately
+// bounded by Steps rather than Cap.
+var prowTokenLookupBackoff = wait.Backoff{
+	Duration: 30 * time.Second, // Initial delay
+	Factor:   2.0,              // Exponential factor
+	Jitter:   0.1,              // 10% jitter to de-sync concurrent runners
+	Steps:    6,                // Maximum attempts (~31m worst-case cumulative wait)
+}
 
 func NewDefaultRawProwTokenOptions() *RawProwTokenOptions {
 	return &RawProwTokenOptions{}
@@ -89,7 +119,76 @@ func (o *validatedProwTokenOptions) Complete(ctx context.Context) (*ProwTokenOpt
 	}, nil
 }
 
+// lookupProwTokenInKeyVault fetches the prow token from Key Vault, retrying on
+// transient failures (managed-identity/IMDS or network blips and Key Vault 429/5xx)
+// with exponential backoff. Permanent failures (Key Vault 4xx other than 429, e.g.
+// 401/403/404) fail fast.
 func lookupProwTokenInKeyVault(ctx context.Context, keyVaultURI string, secretName string) (string, error) {
+	return retryProwTokenLookup(ctx, prowTokenLookupBackoff, func(ctx context.Context) (string, error) {
+		return lookupProwTokenInKeyVaultOnce(ctx, keyVaultURI, secretName)
+	})
+}
+
+// retryProwTokenLookup runs fetch with exponential backoff, retrying only
+// transient errors as classified by isRetryableKeyVaultError. The fetch callback is
+// injectable so the retry behavior can be unit tested without a live Key Vault.
+func retryProwTokenLookup(ctx context.Context, backoff wait.Backoff, fetch func(ctx context.Context) (string, error)) (string, error) {
+	logger, err := logr.FromContext(ctx)
+	if err != nil {
+		logger = logr.Discard()
+	}
+
+	var token string
+	var lastErr error
+	condition := func(ctx context.Context) (bool, error) {
+		t, err := fetch(ctx)
+		if err != nil {
+			lastErr = err
+			// Only retry known-transient errors. Permanent failures (missing/forbidden
+			// secret, bad request) surface immediately instead of after a long backoff.
+			if !isRetryableKeyVaultError(err) {
+				return false, err // Stop retrying and propagate the error
+			}
+
+			logger.Info("Prow token lookup failed with a transient error, will retry", "error", err.Error())
+			return false, nil
+		}
+
+		token = t
+		return true, nil // Success, stop retrying
+	}
+
+	if err := wait.ExponentialBackoffWithContext(ctx, backoff, condition); err != nil {
+		if lastErr != nil {
+			return "", fmt.Errorf("failed to look up prow token after retries: %w", lastErr)
+		}
+		return "", err
+	}
+
+	return token, nil
+}
+
+// isRetryableKeyVaultError reports whether a prow-token lookup error is transient
+// and worth retrying. Key Vault HTTP responses are retried only on 429 and 5xx;
+// other 4xx (401/403/404/400/409) are permanent and fail fast. Any error without an
+// HTTP response status is a credential-acquisition or transport failure (e.g. an
+// IMDS connection reset/EOF while minting the managed-identity token) and is treated
+// as transient.
+func isRetryableKeyVaultError(err error) bool {
+	var respErr *azcore.ResponseError
+	if errors.As(err, &respErr) {
+		code := respErr.StatusCode
+		return code == http.StatusTooManyRequests || (code >= 500 && code <= 599)
+	}
+
+	// No HTTP response status: credential acquisition (IMDS/managed identity) or
+	// transport failure. These are transient on EV2 runners; retry.
+	return true
+}
+
+// lookupProwTokenInKeyVaultOnce performs a single Key Vault secret lookup without
+// retry logic.
+func lookupProwTokenInKeyVaultOnce(ctx context.Context, keyVaultURI string, secretName string) (string, error) {
 	// Get Azure credentials using ARO-Tools
 	cred, err := cmdutils.GetAzureTokenCredentials()
 	if err != nil {
