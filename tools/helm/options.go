@@ -156,6 +156,10 @@ func (o *RawOptions) Validate() (*ValidatedOptions, error) {
 		}
 	}
 
+	if o.StaleLockThreshold < 0 {
+		return nil, fmt.Errorf("the stale-lock threshold must not be negative; use --stale-lock-threshold=0 to disable the check, got %s", o.StaleLockThreshold)
+	}
+
 	return &ValidatedOptions{
 		validatedOptions: &validatedOptions{
 			RawOptions: o,

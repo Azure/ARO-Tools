@@ -26,7 +26,7 @@ func pendingRelease(name, namespace string, revision int, status helmreleasecomm
 }
 
 func TestCheckForStaleReleaseLock(t *testing.T) {
-	const threshold = 15 * time.Minute
+	const threshold = DefaultStaleLockThreshold
 	now := time.Now()
 
 	tests := []struct {
@@ -161,4 +161,40 @@ func TestStaleReleaseLockErrorMessage(t *testing.T) {
 			t.Errorf("error message missing %q; full message:\n%s", want, msg)
 		}
 	}
+}
+
+func TestValidateStaleLockThreshold(t *testing.T) {
+	base := func() *RawOptions {
+		return &RawOptions{
+			ReleaseName:      "backend",
+			ReleaseNamespace: "aro-hcp",
+			ChartDir:         "/charts/backend",
+			ValuesFile:       "/values.yaml",
+			KubeconfigFile:   "/kubeconfig",
+		}
+	}
+
+	t.Run("negative threshold is rejected", func(t *testing.T) {
+		o := base()
+		o.StaleLockThreshold = -1 * time.Minute
+		if _, err := o.Validate(); err == nil {
+			t.Fatal("expected validation error for negative stale-lock threshold, got nil")
+		}
+	})
+
+	t.Run("zero threshold is allowed", func(t *testing.T) {
+		o := base()
+		o.StaleLockThreshold = 0
+		if _, err := o.Validate(); err != nil {
+			t.Fatalf("expected no error for zero stale-lock threshold, got: %v", err)
+		}
+	})
+
+	t.Run("positive threshold is allowed", func(t *testing.T) {
+		o := base()
+		o.StaleLockThreshold = DefaultStaleLockThreshold
+		if _, err := o.Validate(); err != nil {
+			t.Fatalf("expected no error for positive stale-lock threshold, got: %v", err)
+		}
+	})
 }
