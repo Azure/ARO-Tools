@@ -53,6 +53,14 @@ func WithValue[T any](ctx context.Context, backoff wait.Backoff, isRetryable fun
 	condition := func(ctx context.Context) (bool, error) {
 		v, err := fn(ctx)
 		if err != nil {
+			// A cancelled/expired parent context is terminal: stop immediately,
+			// without logging a misleading "will retry" or recording it as the last
+			// transient error. (Some callers' isRetryable does not special-case
+			// context errors, e.g. GetJobStatus.)
+			if ctxErr := ctx.Err(); ctxErr != nil {
+				return false, ctxErr
+			}
+
 			// Permanent/deterministic failures surface immediately instead of
 			// after a long backoff.
 			if !isRetryable(err) {

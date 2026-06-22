@@ -122,9 +122,10 @@ func TestWithValueWrapsLastErrorWhenExhausted(t *testing.T) {
 	}
 }
 
-// TestWithValueContextCanceledTakesPrecedence verifies a cancelled parent context
-// surfaces as-is rather than behind the "retry budget" wrapper or the last error.
-func TestWithValueContextCanceledTakesPrecedence(t *testing.T) {
+// TestWithValueContextCanceledBeforeStart verifies a context cancelled before the
+// first attempt surfaces as-is and never invokes fn (ExponentialBackoffWithContext
+// checks the context before the first condition call).
+func TestWithValueContextCanceledBeforeStart(t *testing.T) {
 	ctx, cancel := context.WithCancel(testContext())
 	cancel()
 
@@ -138,5 +139,32 @@ func TestWithValueContextCanceledTakesPrecedence(t *testing.T) {
 	}
 	if strings.Contains(err.Error(), "retry budget exhausted") {
 		t.Fatalf("context error should surface as-is, got %q", err.Error())
+	}
+	if calls != 0 {
+		t.Fatalf("fn called %d times, want 0 (context checked before first attempt)", calls)
+	}
+}
+
+// TestWithValueContextCanceledDuringCall verifies that when the parent context is
+// cancelled while fn is running, the next iteration fails fast on the context error
+// without logging a "will retry" or wrapping it as an exhausted-budget error — even
+// though fn returned an otherwise-retryable error.
+func TestWithValueContextCanceledDuringCall(t *testing.T) {
+	ctx, cancel := context.WithCancel(testContext())
+
+	calls := 0
+	_, err := WithValue(ctx, fastBackoff(4), retryAll, func(ctx context.Context) (int, error) {
+		calls++
+		cancel()                          // cancel the parent mid-call
+		return 0, errors.New("transient") // a normally-retryable error
+	})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("error = %v, want context.Canceled", err)
+	}
+	if strings.Contains(err.Error(), "retry budget exhausted") {
+		t.Fatalf("cancelled context should not be wrapped as exhausted budget, got %q", err.Error())
+	}
+	if calls != 1 {
+		t.Fatalf("fn called %d times, want 1 (no retry after cancellation)", calls)
 	}
 }

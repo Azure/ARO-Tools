@@ -176,8 +176,9 @@ func TestRetryProwTokenLookup(t *testing.T) {
 }
 
 // TestRetryProwTokenLookupContextCanceled verifies that a cancelled parent context
-// fails fast (no retries) and the returned error is the context error itself, not a
-// "...after retries" wrapper hiding it.
+// fails fast (the fetch is never invoked, since ExponentialBackoffWithContext checks
+// the context before the first attempt) and the returned error is the context error
+// itself, not a "...after retries" wrapper hiding it.
 func TestRetryProwTokenLookupContextCanceled(t *testing.T) {
 	ctx, cancel := context.WithCancel(testContext())
 	cancel()
@@ -194,5 +195,8 @@ func TestRetryProwTokenLookupContextCanceled(t *testing.T) {
 	}
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("error = %v, want it to wrap context.Canceled", err)
+	}
+	if calls != 0 {
+		t.Fatalf("fetch called %d times, want 0 (context checked before first attempt)", calls)
 	}
 }
