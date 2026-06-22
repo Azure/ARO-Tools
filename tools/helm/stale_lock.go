@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	helmrelease "helm.sh/helm/v4/pkg/release"
+	helmreleasev1 "helm.sh/helm/v4/pkg/release/v1"
 )
 
 // DefaultStaleLockThreshold is how old a pending Helm release revision must be
@@ -66,7 +67,7 @@ func checkForStaleReleaseLock(logger logr.Logger, threshold time.Duration, versi
 		return nil
 	}
 
-	age := time.Since(latest.Info.LastDeployed)
+	age := releaseAge(latest)
 	if age < threshold {
 		logger.Info(
 			"Latest release revision is in a pending state but within the staleness threshold; continuing.",
@@ -80,7 +81,7 @@ func checkForStaleReleaseLock(logger logr.Logger, threshold time.Duration, versi
 		return nil
 	}
 
-	secretName := fmt.Sprintf("sh.helm.release.v1.%s.v%d", latest.Name, latest.Version)
+	secretName := releaseSecretName(latest)
 	logger.Info(
 		"Detected stale Helm release lock; failing fast.",
 		"release", latest.Name,
@@ -100,4 +101,18 @@ func checkForStaleReleaseLock(logger logr.Logger, threshold time.Duration, versi
 		Threshold:   threshold,
 		SecretName:  secretName,
 	}
+}
+
+// releaseAge reports how long ago the given release revision was last deployed.
+func releaseAge(release *helmreleasev1.Release) time.Duration {
+	if release == nil || release.Info == nil {
+		return 0
+	}
+	return time.Since(release.Info.LastDeployed)
+}
+
+// releaseSecretName returns the name of the Kubernetes secret backing the given
+// release revision, as used by Helm's default secret storage driver.
+func releaseSecretName(release *helmreleasev1.Release) string {
+	return fmt.Sprintf("sh.helm.release.v1.%s.v%d", release.Name, release.Version)
 }
