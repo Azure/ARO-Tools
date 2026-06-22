@@ -1,6 +1,8 @@
 package types
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -16,6 +18,55 @@ import (
 
 // Configuration is the top-level container for all values for all services. See an example at: https://github.com/Azure/ARO-HCP/blob/main/config/config.yaml
 type Configuration map[string]any
+
+// UnmarshalJSON decodes with UseNumber so JSON integers arrive as int64
+// instead of float64, preventing scientific notation for large numbers.
+func (c *Configuration) UnmarshalJSON(data []byte) error {
+	var raw map[string]any
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.UseNumber()
+	if err := dec.Decode(&raw); err != nil {
+		return err
+	}
+	*c = normalizeNumbers(raw)
+	return nil
+}
+
+func normalizeNumbers(m map[string]any) map[string]any {
+	for k, v := range m {
+		switch val := v.(type) {
+		case json.Number:
+			if i, err := val.Int64(); err == nil {
+				m[k] = i
+			} else if f, err := val.Float64(); err == nil {
+				m[k] = f
+			}
+		case map[string]any:
+			m[k] = normalizeNumbers(val)
+		case []any:
+			m[k] = normalizeNumbersSlice(val)
+		}
+	}
+	return m
+}
+
+func normalizeNumbersSlice(s []any) []any {
+	for i, v := range s {
+		switch val := v.(type) {
+		case json.Number:
+			if n, err := val.Int64(); err == nil {
+				s[i] = n
+			} else if f, err := val.Float64(); err == nil {
+				s[i] = f
+			}
+		case map[string]any:
+			s[i] = normalizeNumbers(val)
+		case []any:
+			s[i] = normalizeNumbersSlice(val)
+		}
+	}
+	return s
+}
 
 type MissingKeyError struct {
 	Path string
