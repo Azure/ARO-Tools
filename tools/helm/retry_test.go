@@ -5,10 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/go-logr/logr/testr"
 
 	kapierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 func TestIsTransientCredentialError(t *testing.T) {
@@ -57,6 +59,21 @@ func TestIsTransientCredentialError(t *testing.T) {
 			err:  fmt.Errorf("apply failed: %w", kapierrors.NewUnauthorized("token invalid")),
 			want: false,
 		},
+		{
+			name: "context canceled is not transient",
+			err:  context.Canceled,
+			want: false,
+		},
+		{
+			name: "context deadline exceeded is not transient",
+			err:  context.DeadlineExceeded,
+			want: false,
+		},
+		{
+			name: "wrapped context canceled is not transient",
+			err:  fmt.Errorf("apply namespace: %w", context.Canceled),
+			want: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -69,6 +86,13 @@ func TestIsTransientCredentialError(t *testing.T) {
 
 func TestRetryOnTransientCredentialError(t *testing.T) {
 	logger := testr.New(t)
+
+	// Use a fast, no-sleep backoff so retries do not consume real wall-clock time.
+	restore := transientCredentialErrorBackoff
+	transientCredentialErrorBackoff = func() wait.Backoff {
+		return wait.Backoff{Duration: time.Microsecond, Factor: 1.0, Steps: 5}
+	}
+	t.Cleanup(func() { transientCredentialErrorBackoff = restore })
 
 	t.Run("retries transient failures then succeeds", func(t *testing.T) {
 		calls := 0
@@ -99,6 +123,19 @@ func TestRetryOnTransientCredentialError(t *testing.T) {
 		}
 		if calls != 1 {
 			t.Fatalf("expected exactly 1 attempt, got %d", calls)
+		}
+	})
+
+	t.Run("preserves context cancellation instead of masking it", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		calls := 0
+		err := retryOnTransientCredentialError(ctx, logger, "apply namespace acrpull", func(context.Context) error {
+			calls++
+			return errors.New("getting credentials: exec: executable kubelogin failed with exit code 1")
+		})
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("expected context.Canceled, got %v", err)
 		}
 	})
 }

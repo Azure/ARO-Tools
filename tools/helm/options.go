@@ -373,7 +373,9 @@ func applyNamespace(ctx context.Context, logger logr.Logger, client corev1client
 // transient credential/connection error. Worst case ~31s of waiting across 5 attempts (1, 2, 4, 8,
 // 16s, capped at 30s), which comfortably absorbs a brief IMDS blip without meaningfully delaying a
 // genuinely-broken rollout.
-func transientCredentialErrorBackoff() wait.Backoff {
+//
+// It is a var so tests can substitute a fast, no-sleep backoff.
+var transientCredentialErrorBackoff = func() wait.Backoff {
 	return wait.Backoff{
 		Duration: time.Second,
 		Factor:   2.0,
@@ -400,6 +402,12 @@ func transientCredentialErrorBackoff() wait.Backoff {
 // transient (timeouts, throttling, server-side unavailability).
 func isTransientCredentialError(err error) bool {
 	if err == nil {
+		return false
+	}
+	// Caller-driven cancellation or timeout is not a transient API failure: retrying would spin
+	// uselessly and hide the real reason the operation stopped. Fail fast so the context error
+	// propagates to the caller.
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		return false
 	}
 	var apiStatus kapierrors.APIStatus
@@ -432,6 +440,11 @@ func retryOnTransientCredentialError(ctx context.Context, logger logr.Logger, de
 		return false, nil
 	}
 	if err := wait.ExponentialBackoffWithContext(ctx, transientCredentialErrorBackoff(), condition); err != nil {
+		// Preserve caller cancellation/deadline so the real reason surfaces, rather than masking
+		// it as "giving up after transient errors" (wait.Interrupted also matches context errors).
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return ctxErr
+		}
 		if wait.Interrupted(err) && lastErr != nil {
 			return fmt.Errorf("%s: giving up after transient errors: %w", description, lastErr)
 		}
