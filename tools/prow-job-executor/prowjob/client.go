@@ -143,7 +143,7 @@ func (c *Client) GetJobStatus(ctx context.Context, prowExecutionID string) (*pro
 		Duration: time.Second,      // Initial delay
 		Factor:   2.0,              // Exponential factor
 		Jitter:   0.1,              // 10% jitter
-		Steps:    3,                // Maximum retries
+		Steps:    3,                // Maximum attempts
 		Cap:      10 * time.Second, // Maximum delay cap
 	}
 
