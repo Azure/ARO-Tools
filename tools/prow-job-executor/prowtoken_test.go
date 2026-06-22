@@ -26,6 +26,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/wait"
 
+	"github.com/Azure/ARO-Tools/tools/prow-job-executor/internal/retry"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 )
 
@@ -66,6 +67,8 @@ func TestIsRetryableKeyVaultError(t *testing.T) {
 		{name: "wrapped key vault 503 is retryable", err: fmt.Errorf("get secret: %w", responseError(http.StatusServiceUnavailable)), want: true},
 		{name: "imds eof credential error is retryable", err: errors.New("ManagedIdentityCredential: Get \"http://169.254.169.254/metadata/identity/oauth2/token\": EOF"), want: true},
 		{name: "generic non-response error is retryable", err: errors.New("boom"), want: true},
+		{name: "permanent local error is not retryable", err: fmt.Errorf("failed to create Key Vault client: %w: %w", errors.New("bad uri"), errPermanentKeyVaultLookup), want: false},
+		{name: "wrapped permanent local error is not retryable", err: fmt.Errorf("lookup failed: %w", fmt.Errorf("secret has no value: %w", errPermanentKeyVaultLookup)), want: false},
 		{name: "context canceled is not retryable", err: context.Canceled, want: false},
 		{name: "context deadline exceeded is not retryable", err: context.DeadlineExceeded, want: false},
 		{name: "wrapped context canceled is not retryable", err: fmt.Errorf("get secret: %w", context.Canceled), want: false},
@@ -120,6 +123,12 @@ func TestRetryProwTokenLookup(t *testing.T) {
 			wantCalls: 1,
 		},
 		{
+			name:      "permanent local error fails fast without retry",
+			errs:      []error{fmt.Errorf("secret has no value: %w", errPermanentKeyVaultLookup)},
+			wantErr:   true,
+			wantCalls: 1,
+		},
+		{
 			name:      "persistent transient error exhausts retries",
 			errs:      []error{responseError(http.StatusTooManyRequests)}, // repeats until steps exhausted
 			wantErr:   true,
@@ -144,7 +153,7 @@ func TestRetryProwTokenLookup(t *testing.T) {
 				return "secret-value", nil
 			}
 
-			token, err := retryProwTokenLookup(testContext(), fastBackoff(4), fetch)
+			token, err := retry.WithValue(testContext(), fastBackoff(4), isRetryableKeyVaultError, fetch)
 
 			if tt.wantErr {
 				if err == nil {
@@ -179,7 +188,7 @@ func TestRetryProwTokenLookupContextCanceled(t *testing.T) {
 		return "", ctx.Err()
 	}
 
-	_, err := retryProwTokenLookup(ctx, fastBackoff(4), fetch)
+	_, err := retry.WithValue(ctx, fastBackoff(4), isRetryableKeyVaultError, fetch)
 	if err == nil {
 		t.Fatalf("expected error, got nil")
 	}
