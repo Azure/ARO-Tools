@@ -46,10 +46,11 @@ func (e *StaleReleaseLockError) Error() string {
 }
 
 // checkForStaleReleaseLock inspects the latest revision in the provided release
-// history. If that revision is in a pending state and was last deployed longer
-// ago than threshold, it returns a *StaleReleaseLockError so the caller can fail
-// fast with actionable diagnostics. Pending revisions younger than the threshold
-// (i.e. a genuinely in-flight operation) are left alone and return nil.
+// history. If that revision is in a pending state and its Info.LastDeployed
+// timestamp is older than threshold, it returns a *StaleReleaseLockError so the
+// caller can fail fast with actionable diagnostics. Pending revisions whose
+// Info.LastDeployed is within the threshold (i.e. a genuinely in-flight
+// operation) are left alone and return nil.
 func checkForStaleReleaseLock(logger logr.Logger, threshold time.Duration, versionsi []helmrelease.Releaser) error {
 	versions, err := releaseListToV1List(versionsi)
 	if err != nil {
