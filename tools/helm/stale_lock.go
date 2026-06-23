@@ -106,7 +106,10 @@ func checkForStaleReleaseLock(logger logr.Logger, threshold time.Duration, versi
 
 // releaseAge reports how long ago the given release revision was last deployed.
 func releaseAge(release *helmreleasev1.Release) time.Duration {
-	if release == nil || release.Info == nil {
+	// A zero LastDeployed (e.g. a never-successfully-deployed pending-install)
+	// is treated as age 0 so it is never flagged stale - failing fast on a
+	// missing timestamp would break genuinely in-flight operations.
+	if release == nil || release.Info == nil || release.Info.LastDeployed.IsZero() {
 		return 0
 	}
 	return time.Since(release.Info.LastDeployed)

@@ -89,6 +89,13 @@ func TestCheckForStaleReleaseLock(t *testing.T) {
 			wantStale: false,
 		},
 		{
+			name: "pending revision with zero LastDeployed does not trigger",
+			versions: []helmrelease.Releaser{
+				pendingRelease("frontend", "aro-hcp", 1, helmreleasecommon.StatusPendingInstall, time.Time{}),
+			},
+			wantStale: false,
+		},
+		{
 			name:      "empty history does not trigger",
 			versions:  nil,
 			wantStale: false,
