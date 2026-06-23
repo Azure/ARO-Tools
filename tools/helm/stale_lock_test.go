@@ -63,6 +63,18 @@ func TestCheckForStaleReleaseLock(t *testing.T) {
 			wantSecret:  "sh.helm.release.v1.frontend.v1",
 		},
 		{
+			name: "stale pending-rollback fails fast",
+			versions: []helmrelease.Releaser{
+				pendingRelease("backend", "aro-hcp", 9, helmreleasecommon.StatusPendingRollback, now.Add(-90*time.Minute)),
+			},
+			wantStale:   true,
+			wantRelease: "backend",
+			wantNS:      "aro-hcp",
+			wantRev:     9,
+			wantStatus:  "pending-rollback",
+			wantSecret:  "sh.helm.release.v1.backend.v9",
+		},
+		{
 			name: "normal deployed history does not trigger",
 			versions: []helmrelease.Releaser{
 				pendingRelease("backend", "aro-hcp", 7, helmreleasecommon.StatusDeployed, now.Add(-42*time.Minute)),
