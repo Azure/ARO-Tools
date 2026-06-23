@@ -34,6 +34,8 @@ import (
 	prowjobs "sigs.k8s.io/prow/pkg/apis/prowjobs/v1"
 	prowgangway "sigs.k8s.io/prow/pkg/gangway"
 	"sigs.k8s.io/yaml"
+
+	"github.com/Azure/ARO-Tools/tools/prow-job-executor/internal/retry"
 )
 
 // jobSubmissionResponse represents the minimal JSON response from Gangway API for job submission
@@ -85,40 +87,9 @@ func NewClient(token, gangwayURL, prowURL string) *Client {
 // forcing the entire deployment job to be restarted. Only transient failures
 // (HTTP 429, 5xx, and network errors) are retried; everything else fails fast.
 func (c *Client) SubmitJob(ctx context.Context, request *prowgangway.CreateJobExecutionRequest) (string, error) {
-	logger, err := logr.FromContext(ctx)
-	if err != nil {
-		return "", err
-	}
-
-	var executionID string
-	var lastErr error
-	condition := func(ctx context.Context) (bool, error) {
-		id, err := c.submitJobOnce(ctx, request)
-		if err != nil {
-			lastErr = err
-			// Only retry known-transient errors. Deterministic failures (marshal,
-			// request construction, response decode, 4xx other than 429) are not
-			// retried so they surface immediately instead of after a long backoff.
-			if !isRetryableError(err) {
-				return false, err // Stop retrying and propagate the error
-			}
-
-			logger.Info("Job submission failed with a transient error, will retry", "error", err.Error())
-			return false, nil
-		}
-
-		executionID = id
-		return true, nil // Success, stop retrying
-	}
-
-	if err := wait.ExponentialBackoffWithContext(ctx, c.submitBackoff, condition); err != nil {
-		if lastErr != nil {
-			return "", fmt.Errorf("failed to submit job after retries: %w", lastErr)
-		}
-		return "", err
-	}
-
-	return executionID, nil
+	return retry.WithValue(ctx, c.submitBackoff, isRetryableError, func(ctx context.Context) (string, error) {
+		return c.submitJobOnce(ctx, request)
+	})
 }
 
 // submitJobOnce performs a single job submission request without retry logic.
@@ -167,39 +138,25 @@ func (c *Client) submitJobOnce(ctx context.Context, request *prowgangway.CreateJ
 
 // GetJobStatus retrieves the full job information by Prow execution ID with retry logic
 func (c *Client) GetJobStatus(ctx context.Context, prowExecutionID string) (*prowjobs.ProwJob, error) {
-	var result *prowjobs.ProwJob
-
 	// Configure exponential backoff with jitter
 	backoff := wait.Backoff{
 		Duration: time.Second,      // Initial delay
 		Factor:   2.0,              // Exponential factor
 		Jitter:   0.1,              // 10% jitter
-		Steps:    3,                // Maximum retries
+		Steps:    3,                // Maximum attempts
 		Cap:      10 * time.Second, // Maximum delay cap
 	}
 
-	condition := func(ctx context.Context) (bool, error) {
-		job, err := c.getJobStatusOnce(ctx, prowExecutionID)
-		if err != nil {
-			// Check if this is a non-retryable error (e.g., 403 Forbidden)
-			if isNonRetryableHTTPError(err) {
-				return false, err // Stop retrying and propagate the error
-			}
-
-			// For retryable errors continue
-			return false, nil
-		}
-
-		result = job
-		return true, nil // Success, stop retrying
+	// Everything except a non-retryable HTTP status (e.g. 401/403) is retried: a
+	// freshly submitted job's status may 404 until it propagates, and transport
+	// errors are transient.
+	isRetryable := func(err error) bool {
+		return !isNonRetryableHTTPError(err)
 	}
 
-	err := wait.ExponentialBackoffWithContext(ctx, backoff, condition)
-	if err != nil {
-		return nil, err
-	}
-
-	return result, nil
+	return retry.WithValue(ctx, backoff, isRetryable, func(ctx context.Context) (*prowjobs.ProwJob, error) {
+		return c.getJobStatusOnce(ctx, prowExecutionID)
+	})
 }
 
 // getJobStatusOnce performs a single job status request without retry logic
