@@ -28,6 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
 	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	corev1applyconfigurations "k8s.io/client-go/applyconfigurations/core/v1"
@@ -272,8 +273,14 @@ func (opts *Options) Deploy(ctx context.Context) error {
 
 	logger.Info("Applying namespaces.")
 	// Helm does not let us manage namespaces easily, so we need to apply them ourselves, up-front.
+	// This is also the first call that reaches the API server, so it is where a transient failure to
+	// obtain credentials (e.g. a momentary inability to reach IMDS when the exec credential plugin
+	// mints the AKS token) first surfaces - retry those rather than failing the whole rollout step.
 	for _, namespace := range opts.Namespaces {
-		if err := applyNamespace(ctx, logger, opts.NamespacesClient, namespace, opts.DryRun); err != nil {
+		namespace := namespace
+		if err := retryOnTransientCredentialError(ctx, logger, fmt.Sprintf("apply namespace %s", namespace.Name), func(ctx context.Context) error {
+			return applyNamespace(ctx, logger, opts.NamespacesClient, namespace, opts.DryRun)
+		}); err != nil {
 			return err
 		}
 	}
@@ -359,6 +366,90 @@ func applyNamespace(ctx context.Context, logger logr.Logger, client corev1client
 		return fmt.Errorf("failed to apply namespace %s: %w", namespace.Name, err)
 	}
 	logger.WithValues("namespace", namespace.Name).Info("Namespace applied successfully.")
+	return nil
+}
+
+// transientCredentialErrorBackoff controls how often we retry an API-server call that failed with a
+// transient credential/connection error. Worst case ~31s of waiting across 5 attempts (1, 2, 4, 8,
+// 16s, capped at 30s), which comfortably absorbs a brief IMDS blip without meaningfully delaying a
+// genuinely-broken rollout.
+//
+// It is a var so tests can substitute a fast, no-sleep backoff.
+var transientCredentialErrorBackoff = func() wait.Backoff {
+	return wait.Backoff{
+		Duration: time.Second,
+		Factor:   2.0,
+		Jitter:   0.1,
+		Steps:    5,
+		Cap:      30 * time.Second,
+	}
+}
+
+// isTransientCredentialError reports whether err looks like a transient failure to obtain
+// credentials or otherwise reach the API server, as opposed to a deterministic Kubernetes API
+// response (RBAC denial, invalid request, conflict, ...).
+//
+// The exec credential plugin (kubelogin, in azurecli mode) shells back to the managed identity /
+// IMDS to mint the AKS token. When IMDS is momentarily unreachable the plugin exits non-zero and
+// client-go returns a transport-level error with no Kubernetes API status attached, e.g.:
+//
+//	Patch "https://...azmk8s.io/api/v1/namespaces/acrpull": getting credentials:
+//	exec: executable kubelogin failed with exit code 1
+//
+// Genuine auth/config problems (401 Unauthorized, 403 Forbidden, ...) come back as API status
+// errors and must fail fast, so we only treat as retryable either errors that carry no API status
+// at all (transport/credential failures) or the small set of API statuses that are themselves
+// transient (timeouts, throttling, server-side unavailability).
+func isTransientCredentialError(err error) bool {
+	if err == nil {
+		return false
+	}
+	// Caller-driven cancellation or timeout is not a transient API failure: retrying would spin
+	// uselessly and hide the real reason the operation stopped. Fail fast so the context error
+	// propagates to the caller.
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return false
+	}
+	var apiStatus kapierrors.APIStatus
+	if !errors.As(err, &apiStatus) {
+		// No Kubernetes API status: this is a transport-level / credential-plugin failure.
+		return true
+	}
+	return kapierrors.IsServerTimeout(err) ||
+		kapierrors.IsTimeout(err) ||
+		kapierrors.IsTooManyRequests(err) ||
+		kapierrors.IsInternalError(err) ||
+		kapierrors.IsServiceUnavailable(err)
+}
+
+// retryOnTransientCredentialError runs fn, retrying with exponential backoff while it fails with a
+// transient credential/connection error (see isTransientCredentialError). Deterministic failures are
+// returned immediately so genuine auth/config problems still fail fast.
+func retryOnTransientCredentialError(ctx context.Context, logger logr.Logger, description string, fn func(context.Context) error) error {
+	var lastErr error
+	condition := func(ctx context.Context) (bool, error) {
+		err := fn(ctx)
+		if err == nil {
+			return true, nil
+		}
+		if !isTransientCredentialError(err) {
+			return false, err
+		}
+		lastErr = err
+		logger.WithValues("operation", description, "error", err.Error()).Info("Transient error reaching the API server; retrying.")
+		return false, nil
+	}
+	if err := wait.ExponentialBackoffWithContext(ctx, transientCredentialErrorBackoff(), condition); err != nil {
+		// Preserve caller cancellation/deadline so the real reason surfaces, rather than masking
+		// it as "giving up after transient errors" (wait.Interrupted also matches context errors).
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return ctxErr
+		}
+		if wait.Interrupted(err) && lastErr != nil {
+			return fmt.Errorf("%s: giving up after transient errors: %w", description, lastErr)
+		}
+		return err
+	}
 	return nil
 }
 
