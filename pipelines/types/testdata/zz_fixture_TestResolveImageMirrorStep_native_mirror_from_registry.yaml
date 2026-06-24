@@ -1,0 +1,26 @@
+action: Shell
+command: /usr/local/bin/imagemirror from-registry --target-acr ${TARGET_ACR} --acr-suffix
+  .azurecr.io --source-registry ${SOURCE_REGISTRY} --repository ${REPOSITORY} --digest
+  ${DIGEST} --cloud public --auth.pull-secret.keyvault ${PULL_SECRET_KV} --auth.pull-secret.name
+  ${PULL_SECRET}
+dryRun:
+  command: /usr/local/bin/imagemirror from-registry --target-acr ${TARGET_ACR} --acr-suffix
+    .azurecr.io --source-registry ${SOURCE_REGISTRY} --repository ${REPOSITORY} --digest
+    ${DIGEST} --cloud public --auth.pull-secret.keyvault ${PULL_SECRET_KV} --auth.pull-secret.name
+    ${PULL_SECRET} --dry-run
+name: image-mirror-step
+shellIdentity:
+  value: my-identity
+variables:
+- name: TARGET_ACR
+  value: myacr
+- name: SOURCE_REGISTRY
+  value: docker.io
+- name: REPOSITORY
+  value: nginx
+- name: DIGEST
+  value: sha256:123456
+- name: PULL_SECRET_KV
+  value: my-keyvault
+- name: PULL_SECRET
+  value: my-pull-secret

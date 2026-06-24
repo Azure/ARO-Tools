@@ -22,9 +22,9 @@ import (
 
 func TestResolveImageMirrorStep(t *testing.T) {
 	tests := []struct {
-		name       string
-		input      ImageMirrorStep
-		scriptFile string
+		name  string
+		input ImageMirrorStep
+		opts  ResolveOptions
 	}{
 		{
 			name: "image-mirror-step",
@@ -41,7 +41,7 @@ func TestResolveImageMirrorStep(t *testing.T) {
 				PullSecretName:     Value{Value: "my-pull-secret"},
 				ShellIdentity:      Value{Value: "my-identity"},
 			},
-			scriptFile: "/path/to/script.sh",
+			opts: ResolveOptions{ScriptFile: "/path/to/script.sh"},
 		},
 		{
 			name: "image-mirror-step-with-deps",
@@ -59,7 +59,7 @@ func TestResolveImageMirrorStep(t *testing.T) {
 				PullSecretName:     Value{Value: "my-pull-secret"},
 				ShellIdentity:      Value{Value: "my-identity"},
 			},
-			scriptFile: "/path/to/script.sh",
+			opts: ResolveOptions{ScriptFile: "/path/to/script.sh"},
 		},
 		{
 			name: "image-mirror-step-with-oci-layout",
@@ -75,7 +75,7 @@ func TestResolveImageMirrorStep(t *testing.T) {
 				ImageMetadataFileName: Value{Value: "image-metadata.json"},
 				ShellIdentity:         Value{Value: "my-identity"},
 			},
-			scriptFile: "/path/to/script.sh",
+			opts: ResolveOptions{ScriptFile: "/path/to/script.sh"},
 		},
 		{
 			name: "image-mirror-step-with-public-registry",
@@ -91,13 +91,77 @@ func TestResolveImageMirrorStep(t *testing.T) {
 				PublicSource:   true,
 				ShellIdentity:  Value{Value: "my-identity"},
 			},
-			scriptFile: "/path/to/script.sh",
+			opts: ResolveOptions{ScriptFile: "/path/to/script.sh"},
+		},
+		{
+			name: "native-mirror-from-registry",
+			input: ImageMirrorStep{
+				StepMeta: StepMeta{
+					Name:   "image-mirror-step",
+					Action: "ImageMirror",
+				},
+				TargetACR:          Value{Value: "myacr"},
+				SourceRegistry:     Value{Value: "docker.io"},
+				Repository:         Value{Value: "nginx"},
+				Digest:             Value{Value: "sha256:123456"},
+				PullSecretKeyVault: Value{Value: "my-keyvault"},
+				PullSecretName:     Value{Value: "my-pull-secret"},
+				ShellIdentity:      Value{Value: "my-identity"},
+				UseNativeMirror:    true,
+			},
+			opts: ResolveOptions{
+				ImageMirrorBinary: "/usr/local/bin/imagemirror",
+				Cloud:             "public",
+				ACRSuffix:         ".azurecr.io",
+			},
+		},
+		{
+			name: "native-mirror-from-registry-public-source",
+			input: ImageMirrorStep{
+				StepMeta: StepMeta{
+					Name:   "image-mirror-step",
+					Action: "ImageMirror",
+				},
+				TargetACR:       Value{Value: "myacr"},
+				SourceRegistry:  Value{Value: "mcr.microsoft.com"},
+				Repository:      Value{Value: "nginx"},
+				Digest:          Value{Value: "sha256:123456"},
+				PublicSource:    true,
+				ShellIdentity:   Value{Value: "my-identity"},
+				UseNativeMirror: true,
+			},
+			opts: ResolveOptions{
+				ImageMirrorBinary: "/usr/local/bin/imagemirror",
+				Cloud:             "public",
+				ACRSuffix:         ".azurecr.io",
+			},
+		},
+		{
+			name: "native-mirror-from-oci-layout",
+			input: ImageMirrorStep{
+				StepMeta: StepMeta{
+					Name:   "image-mirror-step",
+					Action: "ImageMirror",
+				},
+				TargetACR:             Value{Value: "myacr"},
+				Repository:            Value{Value: "nginx"},
+				CopyFrom:              "oci-layout",
+				ImageTarFileName:      Value{Value: "image.tar"},
+				ImageMetadataFileName: Value{Value: "image-metadata.json"},
+				ShellIdentity:         Value{Value: "my-identity"},
+				UseNativeMirror:       true,
+			},
+			opts: ResolveOptions{
+				ImageMirrorBinary: "/usr/local/bin/imagemirror",
+				Cloud:             "public",
+				ACRSuffix:         ".azurecr.io",
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := ResolveImageMirrorStep(tt.input, tt.scriptFile)
+			result, err := ResolveImageMirrorStep(tt.input, tt.opts)
 			if err != nil {
 				t.Fatalf("ResolveImageMirrorStep() error = %v", err)
 			}
