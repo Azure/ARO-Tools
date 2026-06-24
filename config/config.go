@@ -81,16 +81,11 @@ type ConfigResolver interface {
 	// GetRegions divulges the regions for which overrides are registered.
 	GetRegions() ([]string, error)
 	// GetRegionConfiguration resolves the configuration for a region in the cloud and environment.
-	// It re-processes the configuration template with the given region and stamp.
-	// The regionShort for the region is derived from the embedded ev2 configuration. When an
-	// explicit regionShort override is provided, it is used instead of the derived value.
-	GetRegionConfiguration(region, stamp string, regionShort ...string) (types.Configuration, error)
+	GetRegionConfiguration(region string) (types.Configuration, error)
 	// GetRegionOverrides fetches the overrides specific to a region, if any exist.
 	GetRegionOverrides(region string) (types.Configuration, error)
 	// ValueProvenance divulges how the value at 'path' is overridden to arrive at the result.
-	// The regionShort for the region is derived from the embedded ev2 configuration. When an
-	// explicit regionShort override is provided, it is used instead of the derived value.
-	ValueProvenance(region, stamp, path string, regionShort ...string) (*Provenance, error)
+	ValueProvenance(region, path string) (*Provenance, error)
 }
 
 // NewConfigProvider creates a configuration provider by knowing the path to the configuration file.
@@ -209,8 +204,6 @@ func (cp *configProvider) GetResolver(configReplacements *ConfigReplacements) (C
 		environment:        configReplacements.EnvironmentReplacement,
 		cfg:                currentVariableOverrides,
 		absoluteSchemaPath: cp.absoluteSchemaPath,
-		provider:           cp,
-		replacements:       *configReplacements,
 	}, nil
 }
 
@@ -218,9 +211,6 @@ type configResolver struct {
 	cloud, environment string
 	cfg                configurationOverrides
 	absoluteSchemaPath string
-
-	provider     *configProvider
-	replacements ConfigReplacements
 }
 
 func (cr *configResolver) ValidateSchema(config types.Configuration) error {
@@ -269,54 +259,10 @@ func (cr *configResolver) GetRegions() ([]string, error) {
 	return regions, nil
 }
 
-func (cr *configResolver) resolveOverrides(region, stamp string, regionShort ...string) (configurationOverrides, error) {
-	replacements := cr.replacements
-	replacements.RegionReplacement = region
-	replacements.StampReplacement = stamp
-
-	ev2Cfg, err := ev2config.ResolveConfig(cr.cloud, region)
-	if err != nil {
-		return configurationOverrides{}, fmt.Errorf("failed to resolve ev2 config for region %s: %w", region, err)
-	}
-	replacements.Ev2Config = ev2Cfg
-
-	if len(regionShort) > 0 && regionShort[0] != "" {
-		replacements.RegionShortReplacement = regionShort[0]
-	} else {
-		rawShort, err := ev2Cfg.GetByPath("regionShortName")
-		if err != nil {
-			return configurationOverrides{}, fmt.Errorf("regionShortName not found in ev2 config for region %s: %w", region, err)
-		}
-		short, ok := rawShort.(string)
-		if !ok {
-			return configurationOverrides{}, fmt.Errorf("regionShortName for region %s is %T, not string", region, rawShort)
-		}
-		replacements.RegionShortReplacement = short
-	}
-
-	rawContent, err := PreprocessContent(cr.provider.raw, replacements.AsMap())
-	if err != nil {
-		return configurationOverrides{}, fmt.Errorf("failed to preprocess config for region %s stamp %s: %w", region, stamp, err)
-	}
-
-	overrides := configurationOverrides{}
-	if err := yaml.Unmarshal(rawContent, &overrides); err != nil {
-		return configurationOverrides{}, fmt.Errorf("failed to unmarshal config for region %s stamp %s: %w", region, stamp, err)
-	}
-
-	return overrides, nil
-}
-
-// GetRegionConfiguration re-templates the configuration with the given region and stamp,
-// then merges values to resolve the configuration for the region.
-func (cr *configResolver) GetRegionConfiguration(region, stamp string, regionShort ...string) (types.Configuration, error) {
-	overrides, err := cr.resolveOverrides(region, stamp, regionShort...)
-	if err != nil {
-		return nil, err
-	}
-
-	cfg := overrides.Defaults
-	cloudCfg, hasCloud := overrides.Overrides[cr.cloud]
+// GetRegionConfiguration merges values to resolve the configuration for a region.
+func (cr *configResolver) GetRegionConfiguration(region string) (types.Configuration, error) {
+	cfg := cr.cfg.Defaults
+	cloudCfg, hasCloud := cr.cfg.Overrides[cr.cloud]
 	if !hasCloud {
 		return nil, fmt.Errorf("the cloud %s is not found in the config", cr.cloud)
 	}
@@ -328,6 +274,7 @@ func (cr *configResolver) GetRegionConfiguration(region, stamp string, regionSho
 	cfg = types.MergeConfiguration(cfg, envCfg.Defaults)
 	regionCfg, hasRegion := envCfg.Overrides[region]
 	if !hasRegion {
+		// a missing region just means we use default values
 		regionCfg = types.Configuration{}
 	}
 	cfg = types.MergeConfiguration(cfg, regionCfg)
@@ -388,13 +335,8 @@ type Provenance struct {
 
 // ValueProvenance determines the provenance of a value in the configuration - which levels of overrides have something to do
 // with this value, how do they override each other, what is the resulting value?
-func (cr *configResolver) ValueProvenance(region, stamp, path string, regionShort ...string) (*Provenance, error) {
-	overrides, err := cr.resolveOverrides(region, stamp, regionShort...)
-	if err != nil {
-		return nil, err
-	}
-
-	cloudCfg, hasCloud := overrides.Overrides[cr.cloud]
+func (cr *configResolver) ValueProvenance(region, path string) (*Provenance, error) {
+	cloudCfg, hasCloud := cr.cfg.Overrides[cr.cloud]
 	if !hasCloud {
 		return nil, fmt.Errorf("the cloud %s is not found in the config", cr.cloud)
 	}
@@ -404,13 +346,14 @@ func (cr *configResolver) ValueProvenance(region, stamp, path string, regionShor
 	}
 	regionCfg, hasRegion := envCfg.Overrides[region]
 	if !hasRegion {
+		// a missing region just means we use default values
 		regionCfg = types.Configuration{}
 	}
 
-	mergedCfg := overrides.Defaults
-	mergedCfg = types.MergeConfiguration(mergedCfg, cloudCfg.Defaults)
-	mergedCfg = types.MergeConfiguration(mergedCfg, envCfg.Defaults)
-	mergedCfg = types.MergeConfiguration(mergedCfg, regionCfg)
+	mergedCfg, err := cr.GetRegionConfiguration(region)
+	if err != nil {
+		return nil, err
+	}
 
 	p := &Provenance{}
 	for name, part := range map[string]struct {
@@ -418,7 +361,7 @@ func (cr *configResolver) ValueProvenance(region, stamp, path string, regionShor
 		value *any
 		set   *bool
 	}{
-		"default":     {from: &overrides.Defaults, value: &p.Default, set: &p.DefaultSet},
+		"default":     {from: &cr.cfg.Defaults, value: &p.Default, set: &p.DefaultSet},
 		"cloud":       {from: &cloudCfg.Defaults, value: &p.Cloud, set: &p.CloudSet},
 		"environment": {from: &envCfg.Defaults, value: &p.Environment, set: &p.EnvironmentSet},
 		"region":      {from: &regionCfg, value: &p.Region, set: &p.RegionSet},

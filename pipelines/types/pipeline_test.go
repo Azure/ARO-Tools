@@ -46,7 +46,7 @@ func TestNewPipelineFromFile(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	cfg, err := resolver.GetRegionConfiguration(region, stamp)
+	cfg, err := resolver.GetRegionConfiguration(region)
 	assert.NoError(t, err)
 
 	pipeline, err := NewPipelineFromFile("../testdata/pipeline.yaml", cfg)
@@ -222,7 +222,7 @@ resourceGroups:
 			})
 			require.NoError(t, err)
 
-			cfg, err := resolver.GetRegionConfiguration(region, stamp)
+			cfg, err := resolver.GetRegionConfiguration(region)
 			require.NoError(t, err)
 
 			_, err = NewPipelineFromBytes([]byte(tt.yaml), cfg)

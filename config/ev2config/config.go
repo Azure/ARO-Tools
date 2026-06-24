@@ -11,11 +11,6 @@ import (
 	_ "embed"
 )
 
-const (
-	cloudDev    = "dev"
-	cloudPublic = "public"
-)
-
 //go:embed config.yaml
 var rawConfig []byte
 
@@ -49,9 +44,6 @@ func ResolveConfig(cloud, region string) (types.Configuration, error) {
 	}
 	cfg := types.Configuration{}
 	cloudCfg, hasCloud := ev2Config.Clouds[cloud]
-	if !hasCloud && cloud == cloudDev {
-		cloudCfg, hasCloud = ev2Config.Clouds[cloudPublic]
-	}
 	if !hasCloud {
 		return nil, fmt.Errorf("failed to find cloud %s", cloud)
 	}
@@ -71,9 +63,6 @@ func ResolveConfigForCloud(cloud string) (types.Configuration, error) {
 	}
 
 	cloudCfg, hasCloud := ev2Config.Clouds[cloud]
-	if !hasCloud && cloud == cloudDev {
-		cloudCfg, hasCloud = ev2Config.Clouds[cloudPublic]
-	}
 	if !hasCloud {
 		return nil, fmt.Errorf("failed to find cloud %s", cloud)
 	}

@@ -33,7 +33,7 @@ func TestValidateSchema(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	cfg, err := resolver.GetRegionConfiguration("uksouth", "1")
+	cfg, err := resolver.GetRegionConfiguration("uksouth")
 	require.NoError(t, err)
 
 	validationErr := resolver.ValidateSchema(cfg)
@@ -55,7 +55,7 @@ func TestValidateSchemaWithCEL(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		cfg, err := resolver.GetRegionConfiguration("uksouth", "1")
+		cfg, err := resolver.GetRegionConfiguration("uksouth")
 		require.NoError(t, err)
 
 		validationErr := resolver.ValidateSchema(cfg)
@@ -75,7 +75,7 @@ func TestValidateSchemaWithCEL(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		cfg, err := resolver.GetRegionConfiguration("uksouth", "1")
+		cfg, err := resolver.GetRegionConfiguration("uksouth")
 		require.NoError(t, err)
 
 		validationErr := resolver.ValidateSchema(cfg)

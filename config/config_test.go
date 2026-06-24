@@ -49,67 +49,11 @@ func TestConfigProvider(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	cfg, err := configResolver.GetRegionConfiguration(region, stamp)
+	cfg, err := configResolver.GetRegionConfiguration(region)
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 
 	testutil.CompareWithFixture(t, cfg)
-}
-
-func TestGetRegionStampConfiguration(t *testing.T) {
-	region := "uksouth"
-	regionShort := "uks"
-	cloud := "public"
-	environment := "int"
-
-	ev2, err := ev2config.ResolveConfig(cloud, region)
-	require.NoError(t, err)
-
-	configProvider, err := config.NewConfigProvider("./testdata/pipelines/config.yaml")
-	require.NoError(t, err)
-	configResolver, err := configProvider.GetResolver(&config.ConfigReplacements{
-		RegionReplacement:      region,
-		RegionShortReplacement: regionShort,
-		StampReplacement:       "1",
-		CloudReplacement:       cloud,
-		EnvironmentReplacement: environment,
-		Ev2Config:              ev2,
-	})
-	require.NoError(t, err)
-
-	testCases := []struct {
-		name           string
-		stamp          string
-		expectedMgmtRG string
-	}{
-		{
-			name:           "stamp 1",
-			stamp:          "1",
-			expectedMgmtRG: "hcp-underlay-ln-mgmt-1",
-		},
-		{
-			name:           "stamp 2",
-			stamp:          "2",
-			expectedMgmtRG: "hcp-underlay-ln-mgmt-2",
-		},
-		{
-			name:           "stamp 3",
-			stamp:          "3",
-			expectedMgmtRG: "hcp-underlay-ln-mgmt-3",
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			cfg, err := configResolver.GetRegionConfiguration(region, tc.stamp)
-			require.NoError(t, err)
-			require.NotNil(t, cfg)
-
-			mgmtRG, ok := cfg["managementClusterRG"]
-			require.True(t, ok, "managementClusterRG should be present in config")
-			require.Equal(t, tc.expectedMgmtRG, mgmtRG)
-		})
-	}
 }
 
 func TestConfigProvenance(t *testing.T) {
@@ -134,7 +78,7 @@ func TestConfigProvenance(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	ubiquitous, err := configResolver.ValueProvenance(region, stamp, "ubiquitousValue")
+	ubiquitous, err := configResolver.ValueProvenance(region, "ubiquitousValue")
 	require.NoError(t, err)
 
 	if diff := cmp.Diff(ubiquitous, &config.Provenance{
@@ -152,7 +96,7 @@ func TestConfigProvenance(t *testing.T) {
 		t.Errorf("Provenance mismatch for ubiquitousValue (-want +got):\n%s", diff)
 	}
 
-	partial, err := configResolver.ValueProvenance(region, stamp, "partialValue")
+	partial, err := configResolver.ValueProvenance(region, "partialValue")
 	require.NoError(t, err)
 
 	if diff := cmp.Diff(partial, &config.Provenance{
@@ -168,63 +112,6 @@ func TestConfigProvenance(t *testing.T) {
 		ResultSet:      true,
 	}); diff != "" {
 		t.Errorf("Provenance mismatch for partialValue (-want +got):\n%s", diff)
-	}
-}
-
-func TestConfigProvenanceReTemplatesForStamp(t *testing.T) {
-	region := "uksouth"
-	regionShort := "uks"
-	cloud := "public"
-	environment := "int"
-
-	ev2, err := ev2config.ResolveConfig(cloud, region)
-	require.NoError(t, err)
-
-	configProvider, err := config.NewConfigProvider("./testdata/pipelines/config.yaml")
-	require.NoError(t, err)
-	configResolver, err := configProvider.GetResolver(&config.ConfigReplacements{
-		RegionReplacement:      region,
-		RegionShortReplacement: regionShort,
-		StampReplacement:       "1",
-		CloudReplacement:       cloud,
-		EnvironmentReplacement: environment,
-		Ev2Config:              ev2,
-	})
-	require.NoError(t, err)
-
-	testCases := []struct {
-		name              string
-		stamp             string
-		expectedDefaultRG string
-		expectedResultRG  string
-	}{
-		{
-			name:              "stamp 1",
-			stamp:             "1",
-			expectedDefaultRG: "hcp-underlay-ln-mgmt-1",
-			expectedResultRG:  "hcp-underlay-ln-mgmt-1",
-		},
-		{
-			name:              "stamp 2",
-			stamp:             "2",
-			expectedDefaultRG: "hcp-underlay-ln-mgmt-2",
-			expectedResultRG:  "hcp-underlay-ln-mgmt-2",
-		},
-		{
-			name:              "stamp 3",
-			stamp:             "3",
-			expectedDefaultRG: "hcp-underlay-ln-mgmt-3",
-			expectedResultRG:  "hcp-underlay-ln-mgmt-3",
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			p, err := configResolver.ValueProvenance(region, tc.stamp, "managementClusterRG")
-			require.NoError(t, err)
-			require.Equal(t, tc.expectedDefaultRG, p.Default)
-			require.Equal(t, tc.expectedResultRG, p.Result)
-		})
 	}
 }
 

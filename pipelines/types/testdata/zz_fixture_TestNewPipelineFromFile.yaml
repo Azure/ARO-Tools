@@ -20,7 +20,7 @@ resourceGroups:
     - uksouth
     singleton: false
   name: regional
-  resourceGroup: hcp-underlay-ln
+  resourceGroup: hcp-underlay-uks
   steps:
   - action: Shell
     adoArtifacts:
