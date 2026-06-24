@@ -1,0 +1,20 @@
+action: Shell
+command: /usr/local/bin/imagemirror from-oci-layout --target-acr ${TARGET_ACR} --acr-suffix
+  .azurecr.io --repository ${REPOSITORY} --image-tar ${IMAGE_TAR} --image-metadata
+  ${IMAGE_METADATA} --cloud public
+dryRun:
+  command: /usr/local/bin/imagemirror from-oci-layout --target-acr ${TARGET_ACR} --acr-suffix
+    .azurecr.io --repository ${REPOSITORY} --image-tar ${IMAGE_TAR} --image-metadata
+    ${IMAGE_METADATA} --cloud public --dry-run
+name: image-mirror-step
+shellIdentity:
+  value: my-identity
+variables:
+- name: TARGET_ACR
+  value: myacr
+- name: REPOSITORY
+  value: nginx
+- name: IMAGE_TAR
+  value: image.tar
+- name: IMAGE_METADATA
+  value: image-metadata.json

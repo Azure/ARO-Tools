@@ -1,0 +1,20 @@
+action: Shell
+command: /usr/local/bin/imagemirror from-registry --target-acr ${TARGET_ACR} --acr-suffix
+  .azurecr.io --source-registry ${SOURCE_REGISTRY} --repository ${REPOSITORY} --digest
+  ${DIGEST} --cloud public --auth.anonymous
+dryRun:
+  command: /usr/local/bin/imagemirror from-registry --target-acr ${TARGET_ACR} --acr-suffix
+    .azurecr.io --source-registry ${SOURCE_REGISTRY} --repository ${REPOSITORY} --digest
+    ${DIGEST} --cloud public --auth.anonymous --dry-run
+name: image-mirror-step
+shellIdentity:
+  value: my-identity
+variables:
+- name: TARGET_ACR
+  value: myacr
+- name: SOURCE_REGISTRY
+  value: mcr.microsoft.com
+- name: REPOSITORY
+  value: nginx
+- name: DIGEST
+  value: sha256:123456

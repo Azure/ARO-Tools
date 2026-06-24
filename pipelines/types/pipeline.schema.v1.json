@@ -1380,6 +1380,9 @@
             },
             "adoProject": {
               "type": "string"
+            },
+            "useNativeMirror": {
+              "type": "boolean"
             }
           },
           "anyOf": [
