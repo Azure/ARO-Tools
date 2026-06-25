@@ -108,6 +108,16 @@ func (c *Client) DeleteDataSource(ctx context.Context, dataSourceName string) er
 	return nil
 }
 
+// UpdateDataSource updates a datasource in the Grafana instance.
+func (c *Client) UpdateDataSource(ctx context.Context, ds sdk.Datasource) error {
+	_, err := c.grafanaClient.UpdateDatasource(ctx, ds)
+	if err != nil {
+		return fmt.Errorf("failed to update datasource: %w", err)
+	}
+
+	return nil
+}
+
 // ListFolders returns all folders in the Grafana instance.
 func (c *Client) ListFolders(ctx context.Context) ([]sdk.Folder, error) {
 	folders, err := c.grafanaClient.GetAllFolders(ctx)

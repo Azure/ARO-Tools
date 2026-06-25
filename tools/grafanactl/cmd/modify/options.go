@@ -23,6 +23,7 @@ import (
 	"github.com/Azure/ARO-Tools/tools/cmdutils"
 	"github.com/Azure/ARO-Tools/tools/grafanactl/cmd/base"
 	"github.com/Azure/ARO-Tools/tools/grafanactl/internal/azure"
+	"github.com/Azure/ARO-Tools/tools/grafanactl/internal/grafana"
 )
 
 // RawAddDatasourceOptions represents the initial, unvalidated configuration for add datasource operations.
@@ -48,6 +49,7 @@ type ValidatedAddDatasourceOptions struct {
 // for add datasource operations.
 type CompletedAddDatasourceOptions struct {
 	*validatedAddDatasourceOptions
+	GrafanaClient          *grafana.Client
 	MonitorWorkspaceClient *azure.MonitorWorkspaceClient
 	ManagedGrafanaClient   *azure.ManagedGrafanaClient
 }
@@ -107,6 +109,11 @@ func (o *ValidatedAddDatasourceOptions) Complete(ctx context.Context) (*Complete
 		return nil, fmt.Errorf("failed to create managed Grafana client: %w", err)
 	}
 
+	grafanaClient, err := grafana.NewClient(ctx, cred, managedGrafanaClient, o.SubscriptionID, o.ResourceGroup, o.GrafanaName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Grafana client: %w", err)
+	}
+
 	monitorWorkspaceClient, err := azure.NewMonitorWorkspaceClient(o.SubscriptionID, cred, clientOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create monitor workspace client: %w", err)
@@ -114,6 +121,7 @@ func (o *ValidatedAddDatasourceOptions) Complete(ctx context.Context) (*Complete
 
 	return &CompletedAddDatasourceOptions{
 		validatedAddDatasourceOptions: o.validatedAddDatasourceOptions,
+		GrafanaClient:                 grafanaClient,
 		MonitorWorkspaceClient:        monitorWorkspaceClient,
 		ManagedGrafanaClient:          managedGrafanaClient,
 	}, nil
