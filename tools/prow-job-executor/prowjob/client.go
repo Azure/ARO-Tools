@@ -379,7 +379,12 @@ func (c *Client) ListExecutions(ctx context.Context, jobName string, status prow
 	if status != prowgangway.JobExecutionStatus_JOB_EXECUTION_STATUS_UNSPECIFIED {
 		query.Set("status", status.String())
 	}
-	requestURL := c.gangwayURL + "?" + query.Encode()
+	u, err := url.Parse(c.gangwayURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse gangway URL %q: %w", c.gangwayURL, err)
+	}
+	u.RawQuery = query.Encode()
+	requestURL := u.String()
 
 	req, err := http.NewRequestWithContext(ctx, "GET", requestURL, nil)
 	if err != nil {

@@ -138,7 +138,11 @@ func (m *Monitor) handleCancellation(parent context.Context, logger logr.Logger,
 	}
 
 	logger.Info("Monitoring cancelled; handling Prow job abort", "prowExecutionID", prowExecutionID)
+	// Derive a fresh, short-lived context (values preserved, cancellation dropped)
+	// and re-attach the logger explicitly: the client methods extract it via
+	// logr.FromContext, so the abort must not depend on the parent carrying one.
 	abortCtx, cancel := context.WithTimeout(context.WithoutCancel(parent), abortTimeout)
+	abortCtx = logr.NewContext(abortCtx, logger)
 	defer cancel()
 
 	if err := m.client.AbortJob(abortCtx, prowExecutionID); err != nil {

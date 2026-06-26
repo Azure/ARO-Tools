@@ -350,6 +350,41 @@ func TestWaitForCompletionAbortsOnCancel(t *testing.T) {
 	}
 }
 
+// TestWaitForCompletionAbortsWhenContextLacksLogger guards the fix where
+// handleCancellation re-attaches the in-hand logger to the abort context: the
+// client methods extract the logger via logr.FromContext, so the abort must
+// still fire even when the parent context carries no logger of its own.
+func TestWaitForCompletionAbortsWhenContextLacksLogger(t *testing.T) {
+	start := time.Now().Truncate(time.Second)
+	f := newAbortFixture(t, map[string]*prowjobs.ProwJob{
+		"job-exec-123": testJob(prowjobs.PendingState, prowjobs.PostsubmitJob, postsubmitRefs(), start, "eastus"),
+	})
+
+	m := NewMonitor(f.client(), 5*time.Millisecond, time.Hour, false, true, true)
+
+	// Context deliberately has no logger attached.
+	ctx, cancel := context.WithCancel(context.Background())
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- m.WaitForCompletion(ctx, logr.Discard(), "job-exec-123")
+	}()
+
+	time.Sleep(30 * time.Millisecond)
+	cancel()
+
+	select {
+	case err := <-errCh:
+		if err == nil {
+			t.Fatal("expected an error on cancellation, got nil")
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("WaitForCompletion did not return after cancellation")
+	}
+
+	if got := f.bulkRequests(); got != 1 {
+		t.Fatalf("expected exactly 1 abort request despite logger-less context, got %d", got)
+	}
+}
 func TestWaitForCompletionNoAbortWhenDisabled(t *testing.T) {
 	start := time.Now().Truncate(time.Second)
 	f := newAbortFixture(t, map[string]*prowjobs.ProwJob{
