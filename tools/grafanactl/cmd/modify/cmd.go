@@ -138,11 +138,12 @@ func getWorkspaceEndpoints(workspaces []armmonitor.AzureMonitorWorkspaceResource
 			workspace.Properties.Metrics.PrometheusQueryEndpoint == nil {
 			continue
 		}
-		if *workspace.Properties.ProvisioningState == armmonitor.ProvisioningStateSucceeded {
-			name := strings.ToLower(*workspace.Name)
-			endpoints[name] = *workspace.Properties.Metrics.PrometheusQueryEndpoint
-			logger.Info("Found workspace endpoint", "workspace-name", *workspace.Name, "endpoint", endpoints[name])
+		if isTerminalFailureState(*workspace.Properties.ProvisioningState) {
+			continue
 		}
+		name := strings.ToLower(*workspace.Name)
+		endpoints[name] = *workspace.Properties.Metrics.PrometheusQueryEndpoint
+		logger.Info("Found workspace endpoint", "workspace-name", *workspace.Name, "endpoint", endpoints[name])
 	}
 
 	return endpoints
