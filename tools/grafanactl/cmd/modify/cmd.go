@@ -154,7 +154,7 @@ func (o *CompletedAddDatasourceOptions) reconcileDatasources(ctx context.Context
 		return fmt.Errorf("failed to list Grafana datasources: %w", err)
 	}
 
-	var deleteErrors error
+	var reconcileErrors error
 	for _, ds := range datasources {
 		if ds.Type != "prometheus" {
 			continue
@@ -175,7 +175,7 @@ func (o *CompletedAddDatasourceOptions) reconcileDatasources(ctx context.Context
 
 			logger.Info("Deleting orphaned datasource", "datasource-name", ds.Name)
 			if err := o.GrafanaClient.DeleteDataSource(ctx, ds.Name); err != nil {
-				deleteErrors = errors.Join(deleteErrors, fmt.Errorf("failed to delete datasource %q: %w", ds.Name, err))
+				reconcileErrors = errors.Join(reconcileErrors, fmt.Errorf("failed to delete datasource %q: %w", ds.Name, err))
 			}
 			continue
 		}
@@ -206,12 +206,12 @@ func (o *CompletedAddDatasourceOptions) reconcileDatasources(ctx context.Context
 
 		ds.URL = expectedEndpoint
 		if err := o.GrafanaClient.UpdateDataSource(ctx, ds); err != nil {
-			return fmt.Errorf("failed to update datasource %q URL: %w", ds.Name, err)
+			reconcileErrors = errors.Join(reconcileErrors, fmt.Errorf("failed to update datasource %q URL: %w", ds.Name, err))
 		}
 	}
 
-	if deleteErrors != nil {
-		return fmt.Errorf("failed to delete orphaned datasources: %w", deleteErrors)
+	if reconcileErrors != nil {
+		return fmt.Errorf("failed to reconcile datasources: %w", reconcileErrors)
 	}
 
 	return nil

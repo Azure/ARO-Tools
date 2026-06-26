@@ -112,7 +112,7 @@ func (c *Client) DeleteDataSource(ctx context.Context, dataSourceName string) er
 func (c *Client) UpdateDataSource(ctx context.Context, ds sdk.Datasource) error {
 	_, err := c.grafanaClient.UpdateDatasource(ctx, ds)
 	if err != nil {
-		return fmt.Errorf("failed to update datasource: %w", err)
+		return fmt.Errorf("failed to update datasource %q (ID %d): %w", ds.Name, ds.ID, err)
 	}
 
 	return nil
