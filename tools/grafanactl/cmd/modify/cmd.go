@@ -147,21 +147,23 @@ func (o *CompletedAddDatasourceOptions) reconcileDatasourceURLs(ctx context.Cont
 			continue
 		}
 
-		logger.Info("Datasource URL is stale, updating",
+		if o.DryRun {
+			logger.Info("Dry run - would update stale datasource URL",
+				"datasource-name", ds.Name,
+				"current-url", ds.URL,
+				"expected-url", expectedEndpoint)
+			continue
+		}
+
+		logger.Info("Updating stale datasource URL",
 			"datasource-name", ds.Name,
 			"current-url", ds.URL,
 			"expected-url", expectedEndpoint)
-
-		if o.DryRun {
-			continue
-		}
 
 		ds.URL = expectedEndpoint
 		if err := o.GrafanaClient.UpdateDataSource(ctx, ds); err != nil {
 			return fmt.Errorf("failed to update datasource %q URL: %w", ds.Name, err)
 		}
-
-		logger.Info("Updated datasource URL", "datasource-name", ds.Name, "new-url", expectedEndpoint)
 	}
 
 	return nil
