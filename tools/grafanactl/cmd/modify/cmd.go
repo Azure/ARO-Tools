@@ -101,6 +101,21 @@ func getMatchingWorkspaceIDs(workspaces []armmonitor.AzureMonitorWorkspaceResour
 	return validWorkspaceIDs
 }
 
+func getActiveWorkspaceNames(workspaces []armmonitor.AzureMonitorWorkspaceResource) set.Set[string] {
+	names := set.New[string]()
+
+	for _, workspace := range workspaces {
+		if workspace.Name == nil || workspace.Properties == nil || workspace.Properties.ProvisioningState == nil {
+			continue
+		}
+		if *workspace.Properties.ProvisioningState == armmonitor.ProvisioningStateSucceeded {
+			names.Insert(strings.ToLower(*workspace.Name))
+		}
+	}
+
+	return names
+}
+
 func getWorkspaceEndpoints(workspaces []armmonitor.AzureMonitorWorkspaceResource, logger logr.Logger) map[string]string {
 	endpoints := make(map[string]string)
 
@@ -121,7 +136,7 @@ func getWorkspaceEndpoints(workspaces []armmonitor.AzureMonitorWorkspaceResource
 	return endpoints
 }
 
-func (o *CompletedAddDatasourceOptions) reconcileDatasources(ctx context.Context, logger logr.Logger, workspaceEndpoints map[string]string) error {
+func (o *CompletedAddDatasourceOptions) reconcileDatasources(ctx context.Context, logger logr.Logger, activeWorkspaceNames set.Set[string], workspaceEndpoints map[string]string) error {
 	datasources, err := o.GrafanaClient.ListDataSources(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to list Grafana datasources: %w", err)
@@ -138,8 +153,9 @@ func (o *CompletedAddDatasourceOptions) reconcileDatasources(ctx context.Context
 			continue
 		}
 
-		expectedEndpoint, ok := workspaceEndpoints[strings.ToLower(workspaceName)]
-		if !ok {
+		lowerName := strings.ToLower(workspaceName)
+
+		if !activeWorkspaceNames.Has(lowerName) {
 			if o.DryRun {
 				logger.Info("Dry run - would delete orphaned datasource", "datasource-name", ds.Name)
 				continue
@@ -149,6 +165,12 @@ func (o *CompletedAddDatasourceOptions) reconcileDatasources(ctx context.Context
 			if err := o.GrafanaClient.DeleteDataSource(ctx, ds.Name); err != nil {
 				deleteErrors = errors.Join(deleteErrors, fmt.Errorf("failed to delete datasource %q: %w", ds.Name, err))
 			}
+			continue
+		}
+
+		expectedEndpoint, ok := workspaceEndpoints[lowerName]
+		if !ok {
+			logger.Info("Workspace exists but has no Prometheus endpoint yet, skipping", "datasource-name", ds.Name)
 			continue
 		}
 
@@ -231,10 +253,11 @@ func (o *CompletedAddDatasourceOptions) Run(ctx context.Context) error {
 		}
 	}
 
+	activeWorkspaceNames := getActiveWorkspaceNames(monitorWorkspaces)
 	workspaceEndpoints := getWorkspaceEndpoints(monitorWorkspaces, logger)
 
 	logger.Info("Reconciling datasources")
-	if err := o.reconcileDatasources(ctx, logger, workspaceEndpoints); err != nil {
+	if err := o.reconcileDatasources(ctx, logger, activeWorkspaceNames, workspaceEndpoints); err != nil {
 		return fmt.Errorf("failed to reconcile datasources: %w", err)
 	}
 
