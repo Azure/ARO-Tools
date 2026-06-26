@@ -85,6 +85,15 @@ func (opts *RawAddDatasourceOptions) Run(ctx context.Context) error {
 	return completed.Run(ctx)
 }
 
+func isTerminalFailureState(state armmonitor.ProvisioningState) bool {
+	switch state {
+	case armmonitor.ProvisioningStateFailed, armmonitor.ProvisioningStateCanceled:
+		return true
+	default:
+		return false
+	}
+}
+
 func getMatchingWorkspaceIDs(workspaces []armmonitor.AzureMonitorWorkspaceResource, logger logr.Logger) set.Set[string] {
 	validWorkspaceIDs := set.New[string]()
 
@@ -92,10 +101,13 @@ func getMatchingWorkspaceIDs(workspaces []armmonitor.AzureMonitorWorkspaceResour
 		if workspace.Properties == nil || workspace.Properties.ProvisioningState == nil || workspace.ID == nil {
 			continue
 		}
-		if *workspace.Properties.ProvisioningState == armmonitor.ProvisioningStateSucceeded {
-			logger.Info("Found", "workspace-id", *workspace.ID, "provisioning-state", *workspace.Properties.ProvisioningState)
-			validWorkspaceIDs.Insert(strings.ToLower(*workspace.ID))
+		state := *workspace.Properties.ProvisioningState
+		if isTerminalFailureState(state) {
+			logger.Info("Skipping workspace in terminal failure state", "workspace-id", *workspace.ID, "provisioning-state", state)
+			continue
 		}
+		logger.Info("Found", "workspace-id", *workspace.ID, "provisioning-state", state)
+		validWorkspaceIDs.Insert(strings.ToLower(*workspace.ID))
 	}
 
 	return validWorkspaceIDs
@@ -108,7 +120,7 @@ func getActiveWorkspaceNames(workspaces []armmonitor.AzureMonitorWorkspaceResour
 		if workspace.Name == nil || workspace.Properties == nil || workspace.Properties.ProvisioningState == nil {
 			continue
 		}
-		if *workspace.Properties.ProvisioningState == armmonitor.ProvisioningStateSucceeded {
+		if !isTerminalFailureState(*workspace.Properties.ProvisioningState) {
 			names.Insert(strings.ToLower(*workspace.Name))
 		}
 	}
