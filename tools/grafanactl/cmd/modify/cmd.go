@@ -117,12 +117,10 @@ func getActiveWorkspaceNames(workspaces []armmonitor.AzureMonitorWorkspaceResour
 	names := set.New[string]()
 
 	for _, workspace := range workspaces {
-		if workspace.Name == nil || workspace.Properties == nil || workspace.Properties.ProvisioningState == nil {
+		if workspace.Name == nil {
 			continue
 		}
-		if !isTerminalFailureState(*workspace.Properties.ProvisioningState) {
-			names.Insert(strings.ToLower(*workspace.Name))
-		}
+		names.Insert(strings.ToLower(*workspace.Name))
 	}
 
 	return names
