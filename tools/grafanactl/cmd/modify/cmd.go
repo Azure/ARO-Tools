@@ -16,6 +16,7 @@ package modify
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -84,25 +85,135 @@ func (opts *RawAddDatasourceOptions) Run(ctx context.Context) error {
 	return completed.Run(ctx)
 }
 
-func (o *CompletedAddDatasourceOptions) getMatchingWorkspaceIDs(ctx context.Context, logger logr.Logger) (set.Set[string], error) {
+func isTerminalFailureState(state armmonitor.ProvisioningState) bool {
+	switch state {
+	case armmonitor.ProvisioningStateFailed, armmonitor.ProvisioningStateCanceled:
+		return true
+	default:
+		return false
+	}
+}
+
+func getMatchingWorkspaceIDs(workspaces []armmonitor.AzureMonitorWorkspaceResource, logger logr.Logger) set.Set[string] {
 	validWorkspaceIDs := set.New[string]()
 
-	monitorWorkspaces, err := o.MonitorWorkspaceClient.GetAllMonitorWorkspaces(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list Azure Monitor Workspaces: %w", err)
-	}
-
-	for _, workspace := range monitorWorkspaces {
+	for _, workspace := range workspaces {
 		if workspace.Properties == nil || workspace.Properties.ProvisioningState == nil || workspace.ID == nil {
 			continue
 		}
-		if *workspace.Properties.ProvisioningState == armmonitor.ProvisioningStateSucceeded {
-			logger.Info("Found", "workspace-id", *workspace.ID, "provisioning-state", *workspace.Properties.ProvisioningState)
-			validWorkspaceIDs.Insert(strings.ToLower(*workspace.ID))
+		state := *workspace.Properties.ProvisioningState
+		if isTerminalFailureState(state) {
+			logger.Info("Skipping workspace in terminal failure state", "workspace-id", *workspace.ID, "provisioning-state", state)
+			continue
+		}
+		logger.Info("Found", "workspace-id", *workspace.ID, "provisioning-state", state)
+		validWorkspaceIDs.Insert(strings.ToLower(*workspace.ID))
+	}
+
+	return validWorkspaceIDs
+}
+
+func getActiveWorkspaceNames(workspaces []armmonitor.AzureMonitorWorkspaceResource) set.Set[string] {
+	names := set.New[string]()
+
+	for _, workspace := range workspaces {
+		if workspace.Name == nil {
+			continue
+		}
+		names.Insert(strings.ToLower(*workspace.Name))
+	}
+
+	return names
+}
+
+func getWorkspaceEndpoints(workspaces []armmonitor.AzureMonitorWorkspaceResource, logger logr.Logger) map[string]string {
+	endpoints := make(map[string]string)
+
+	for _, workspace := range workspaces {
+		if workspace.Name == nil || workspace.Properties == nil ||
+			workspace.Properties.ProvisioningState == nil ||
+			workspace.Properties.Metrics == nil ||
+			workspace.Properties.Metrics.PrometheusQueryEndpoint == nil {
+			continue
+		}
+		if isTerminalFailureState(*workspace.Properties.ProvisioningState) {
+			continue
+		}
+		name := strings.ToLower(*workspace.Name)
+		endpoints[name] = *workspace.Properties.Metrics.PrometheusQueryEndpoint
+		logger.Info("Found workspace endpoint", "workspace-name", *workspace.Name, "endpoint", endpoints[name])
+	}
+
+	return endpoints
+}
+
+func (o *CompletedAddDatasourceOptions) reconcileDatasources(ctx context.Context, logger logr.Logger, activeWorkspaceNames set.Set[string], workspaceEndpoints map[string]string) error {
+	datasources, err := o.GrafanaClient.ListDataSources(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to list Grafana datasources: %w", err)
+	}
+
+	var reconcileErrors error
+	for _, ds := range datasources {
+		if ds.Type != "prometheus" {
+			continue
+		}
+
+		workspaceName := strings.TrimPrefix(ds.Name, "Managed_Prometheus_")
+		if workspaceName == ds.Name {
+			continue
+		}
+
+		lowerName := strings.ToLower(workspaceName)
+
+		if !activeWorkspaceNames.Has(lowerName) {
+			if o.DryRun {
+				logger.Info("Dry run - would delete orphaned datasource", "datasource-name", ds.Name)
+				continue
+			}
+
+			logger.Info("Deleting orphaned datasource", "datasource-name", ds.Name)
+			if err := o.GrafanaClient.DeleteDataSource(ctx, ds.Name); err != nil {
+				reconcileErrors = errors.Join(reconcileErrors, fmt.Errorf("failed to delete datasource %q: %w", ds.Name, err))
+			}
+			continue
+		}
+
+		expectedEndpoint, ok := workspaceEndpoints[lowerName]
+		if !ok {
+			logger.Info("Workspace exists but has no Prometheus endpoint yet, skipping", "datasource-name", ds.Name)
+			continue
+		}
+
+		if ds.URL == expectedEndpoint {
+			logger.Info("Datasource URL is current", "datasource-name", ds.Name, "url", ds.URL)
+			continue
+		}
+
+		if o.DryRun {
+			logger.Info("Dry run - would update stale datasource URL",
+				"datasource-name", ds.Name,
+				"current-url", ds.URL,
+				"expected-url", expectedEndpoint)
+			continue
+		}
+
+		logger.Info("Updating stale datasource URL",
+			"datasource-name", ds.Name,
+			"current-url", ds.URL,
+			"expected-url", expectedEndpoint)
+
+		ds.URL = expectedEndpoint
+		if err := o.GrafanaClient.UpdateDataSource(ctx, ds); err != nil {
+			reconcileErrors = errors.Join(reconcileErrors, fmt.Errorf("failed to update datasource %q URL: %w", ds.Name, err))
 		}
 	}
 
-	return validWorkspaceIDs, nil
+	if reconcileErrors != nil {
+		return fmt.Errorf("failed to reconcile datasources: %w", reconcileErrors)
+	}
+
+	return nil
 }
 
 func (o *CompletedAddDatasourceOptions) Run(ctx context.Context) error {
@@ -115,10 +226,12 @@ func (o *CompletedAddDatasourceOptions) Run(ctx context.Context) error {
 		return fmt.Errorf("failed to get Grafana instance: %w", err)
 	}
 
-	validWorkspaceIDs, err := o.getMatchingWorkspaceIDs(ctx, logger)
+	monitorWorkspaces, err := o.MonitorWorkspaceClient.GetAllMonitorWorkspaces(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to get valid workspace IDs: %w", err)
+		return fmt.Errorf("failed to list Azure Monitor Workspaces: %w", err)
 	}
+
+	validWorkspaceIDs := getMatchingWorkspaceIDs(monitorWorkspaces, logger)
 
 	integrationList := set.New[string]()
 	for _, integration := range grafana.Properties.GrafanaIntegrations.AzureMonitorWorkspaceIntegrations {
@@ -142,14 +255,21 @@ func (o *CompletedAddDatasourceOptions) Run(ctx context.Context) error {
 
 	if o.DryRun {
 		logger.Info("Dry run - would reconcile Azure Monitor Workspace integrations", "total-integrations", integrationList.Len())
-		return nil
+	} else {
+		logger.Info("Reconciling Azure Monitor Workspace integrations", "total-integrations", integrationList.Len())
+
+		err = o.ManagedGrafanaClient.UpdateGrafanaIntegrations(ctx, o.ResourceGroup, o.GrafanaName, integrationList.UnsortedList())
+		if err != nil {
+			return fmt.Errorf("failed to update Grafana integrations: %w", err)
+		}
 	}
 
-	logger.Info("Reconciling Azure Monitor Workspace integrations", "total-integrations", integrationList.Len())
+	activeWorkspaceNames := getActiveWorkspaceNames(monitorWorkspaces)
+	workspaceEndpoints := getWorkspaceEndpoints(monitorWorkspaces, logger)
 
-	err = o.ManagedGrafanaClient.UpdateGrafanaIntegrations(ctx, o.ResourceGroup, o.GrafanaName, integrationList.UnsortedList())
-	if err != nil {
-		return fmt.Errorf("failed to update Grafana integrations: %w", err)
+	logger.Info("Reconciling datasources")
+	if err := o.reconcileDatasources(ctx, logger, activeWorkspaceNames, workspaceEndpoints); err != nil {
+		return fmt.Errorf("failed to reconcile datasources: %w", err)
 	}
 
 	return nil
