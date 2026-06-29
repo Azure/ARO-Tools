@@ -16,11 +16,14 @@ package azure
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/monitor/armmonitor"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resourcegraph/armresourcegraph"
 )
 
 // PrometheusInstance represents an Azure Monitor Workspace (managed Prometheus instance)
@@ -51,7 +54,7 @@ func NewMonitorWorkspaceClient(subscriptionID string, cred azcore.TokenCredentia
 	}, nil
 }
 
-// ListPrometheusInstances returns all managed Prometheus instances in the subscription
+// GetAllMonitorWorkspaces returns all managed Prometheus instances in the subscription
 func (p *MonitorWorkspaceClient) GetAllMonitorWorkspaces(ctx context.Context) ([]armmonitor.AzureMonitorWorkspaceResource, error) {
 	var workspaces []armmonitor.AzureMonitorWorkspaceResource
 
@@ -68,4 +71,82 @@ func (p *MonitorWorkspaceClient) GetAllMonitorWorkspaces(ctx context.Context) ([
 	}
 
 	return workspaces, nil
+}
+
+// ResourceGraphDiscoveryClient discovers Azure resources across subscriptions using Azure Resource Graph.
+type ResourceGraphDiscoveryClient struct {
+	client *armresourcegraph.Client
+}
+
+// NewResourceGraphDiscoveryClient creates a new ResourceGraphDiscoveryClient.
+func NewResourceGraphDiscoveryClient(cred azcore.TokenCredential, clientOptions *arm.ClientOptions) (*ResourceGraphDiscoveryClient, error) {
+	client, err := armresourcegraph.NewClient(cred, clientOptions)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Resource Graph client: %w", err)
+	}
+
+	return &ResourceGraphDiscoveryClient{
+		client: client,
+	}, nil
+}
+
+// DiscoverMonitorWorkspaceIDs returns resource IDs of all Azure Monitor Workspaces
+// across all accessible subscriptions using Azure Resource Graph.
+// When namePrefixes is non-empty, only workspaces whose name starts with one of
+// the given prefixes are returned.
+func (c *ResourceGraphDiscoveryClient) DiscoverMonitorWorkspaceIDs(ctx context.Context, namePrefixes []string) ([]string, error) {
+	for _, p := range namePrefixes {
+		if strings.Contains(p, "'") {
+			return nil, fmt.Errorf("workspace prefix %q contains invalid character (single quote)", p)
+		}
+	}
+
+	query := "resources | where type =~ 'microsoft.monitor/accounts'"
+	if len(namePrefixes) > 0 {
+		clauses := make([]string, 0, len(namePrefixes))
+		for _, p := range namePrefixes {
+			clauses = append(clauses, fmt.Sprintf("name startswith_cs '%s'", p))
+		}
+		query += " | where " + strings.Join(clauses, " or ")
+	}
+	query += " | project id"
+	format := armresourcegraph.ResultFormatObjectArray
+
+	var ids []string
+	var skipToken *string
+	for {
+		result, err := c.client.Resources(ctx, armresourcegraph.QueryRequest{
+			Query: &query,
+			Options: &armresourcegraph.QueryRequestOptions{
+				ResultFormat: &format,
+				SkipToken:    skipToken,
+			},
+		}, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to query Resource Graph: %w", err)
+		}
+
+		rows, ok := result.Data.([]any)
+		if !ok {
+			raw, _ := json.Marshal(result.Data)
+			return nil, fmt.Errorf("unexpected Resource Graph result type: %T (raw: %s)", result.Data, string(raw))
+		}
+
+		for _, row := range rows {
+			m, ok := row.(map[string]any)
+			if !ok {
+				continue
+			}
+			if id, ok := m["id"].(string); ok {
+				ids = append(ids, id)
+			}
+		}
+
+		skipToken = result.SkipToken
+		if skipToken == nil || *skipToken == "" {
+			break
+		}
+	}
+
+	return ids, nil
 }

@@ -39,7 +39,7 @@ type ManagedGrafanaClient struct {
 func NewManagedGrafanaClient(subscriptionID string, cred azcore.TokenCredential, clientOptions *arm.ClientOptions) (*ManagedGrafanaClient, error) {
 	grafanaClient, err := armdashboard.NewGrafanaClient(subscriptionID, cred, clientOptions)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create Azure Monitor Workspaces client: %w", err)
+		return nil, fmt.Errorf("failed to create Managed Grafana client: %w", err)
 	}
 
 	return &ManagedGrafanaClient{
@@ -108,6 +108,21 @@ func (c *ManagedGrafanaClient) GetGrafanaEndpoint(ctx context.Context, subscript
 	}
 
 	return endpoint, nil
+}
+
+// CreateOrUpdateGrafanaInstance creates or updates an Azure Managed Grafana resource.
+func (c *ManagedGrafanaClient) CreateOrUpdateGrafanaInstance(ctx context.Context, resourceGroup, grafanaName string, grafana armdashboard.ManagedGrafana) (*armdashboard.ManagedGrafana, error) {
+	poller, err := c.client.BeginCreate(ctx, resourceGroup, grafanaName, grafana, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin create/update Grafana instance: %w", err)
+	}
+
+	result, err := poller.PollUntilDone(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to poll create/update Grafana instance: %w", err)
+	}
+
+	return &result.ManagedGrafana, nil
 }
 
 func (c *ManagedGrafanaClient) waitForReadyGrafana(ctx context.Context, resourceGroup, grafanaName string) error {

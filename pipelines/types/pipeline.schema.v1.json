@@ -737,6 +737,57 @@
         }
       ]
     },
+    "grafanaReconcileStep": {
+      "unevaluatedProperties": false,
+      "allOf": [
+        {
+          "$ref": "#/definitions/stepMeta"
+        },
+        {
+          "properties": {
+            "action": {
+              "const": "GrafanaReconcile"
+            },
+            "grafanaName": {
+              "type": "string"
+            },
+            "location": {
+              "type": "string"
+            },
+            "sku": {
+              "type": "string"
+            },
+            "majorVersion": {
+              "type": "string"
+            },
+            "zoneRedundancy": {
+              "type": "string",
+              "enum": [
+                "Enabled",
+                "Disabled"
+              ]
+            },
+            "crossTenantSecurityGroup": {
+              "type": "string"
+            },
+            "workspacePrefixes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "identityFrom": {
+              "$ref": "#/definitions/input"
+            }
+          },
+          "required": [
+            "grafanaName",
+            "location",
+            "identityFrom"
+          ]
+        }
+      ]
+    },
     "grafanaDatasourcesStep": {
       "unevaluatedProperties": false,
       "allOf": [
@@ -1970,6 +2021,22 @@
                   },
                   "then": {
                     "$ref": "#/definitions/prowJobStep"
+                  }
+                },
+                {
+                  "if": {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "GrafanaReconcile"
+                      }
+                    },
+                    "required": [
+                      "action"
+                    ]
+                  },
+                  "then": {
+                    "$ref": "#/definitions/grafanaReconcileStep"
                   }
                 },
                 {
