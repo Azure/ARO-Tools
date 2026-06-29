@@ -26,6 +26,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -44,6 +45,11 @@ import (
 // bulkStatusChangePath is the Gangway REST route for BulkJobStatusChange; it
 // shares the host of the executions endpoint.
 const bulkStatusChangePath = "/v1/bulk-job-status-update"
+
+// executionsPath is the Gangway REST route the executor is configured against
+// (--gangway-url). It is used to derive the bulk route while preserving any
+// base-path prefix the URL may carry.
+const executionsPath = "/v1/executions"
 
 // jobSubmissionResponse represents the minimal JSON response from Gangway API for job submission
 type jobSubmissionResponse struct {
@@ -88,15 +94,17 @@ func NewClient(token, gangwayURL, prowURL string) *Client {
 }
 
 // deriveBulkURL returns the Gangway bulk job status-change endpoint that shares
-// the host of the executions endpoint. If gangwayURL cannot be parsed the input
-// is returned unchanged so the caller still surfaces a clear HTTP error instead
-// of panicking.
+// the host of the executions endpoint. Any base-path prefix on the configured
+// URL is preserved (e.g. https://host/gangway/v1/executions yields
+// https://host/gangway/v1/bulk-job-status-update). If gangwayURL cannot be
+// parsed the input is returned unchanged so the caller still surfaces a clear
+// HTTP error instead of panicking.
 func deriveBulkURL(gangwayURL string) string {
 	u, err := url.Parse(gangwayURL)
 	if err != nil {
 		return gangwayURL
 	}
-	u.Path = bulkStatusChangePath
+	u.Path = strings.TrimSuffix(u.Path, executionsPath) + bulkStatusChangePath
 	u.RawQuery = ""
 	return u.String()
 }
@@ -294,12 +302,16 @@ func (c *Client) AbortJob(ctx context.Context, prowExecutionID string) error {
 		return nil
 	}
 
-	var refs *prowgangway.Refs
-	if job.Spec.Refs != nil {
-		refs, err = prowgangway.FromCrdRefs(job.Spec.Refs)
-		if err != nil {
-			return fmt.Errorf("failed to convert refs for job %s: %w", prowExecutionID, err)
-		}
+	if job.Spec.Refs == nil {
+		// refs (org/repo) are part of the bulk selector and the API cannot filter
+		// by job name; aborting with nil refs could match a much broader set of
+		// jobs sharing only type/state. Refuse rather than risk over-selecting.
+		logger.Info("Job has no refs; skipping abort to avoid selecting unrelated jobs")
+		return nil
+	}
+	refs, err := prowgangway.FromCrdRefs(job.Spec.Refs)
+	if err != nil {
+		return fmt.Errorf("failed to convert refs for job %s: %w", prowExecutionID, err)
 	}
 
 	// Pin the window to the StartTime; isMatchingCondition treats the bounds
