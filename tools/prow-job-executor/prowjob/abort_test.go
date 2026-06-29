@@ -173,6 +173,11 @@ func TestDeriveBulkURL(t *testing.T) {
 			in:   "http://127.0.0.1:8080",
 			want: "http://127.0.0.1:8080/v1/bulk-job-status-update",
 		},
+		{
+			name: "preserves base-path prefix",
+			in:   "https://gangway-ci.example.com/gangway/v1/executions",
+			want: "https://gangway-ci.example.com/gangway/v1/bulk-job-status-update",
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -263,6 +268,23 @@ func TestAbortJobNoStartTimeIsNoop(t *testing.T) {
 	}
 	if got := f.bulkRequests(); got != 0 {
 		t.Fatalf("expected no bulk request when start time is unknown, got %d", got)
+	}
+}
+
+// TestAbortJobNoRefsIsNoop verifies that a job with no refs is not aborted:
+// refs are part of the bulk selector and the API cannot filter by job name, so
+// aborting without them risks matching unrelated jobs sharing type/state.
+func TestAbortJobNoRefsIsNoop(t *testing.T) {
+	start := time.Now().Truncate(time.Second)
+	f := newAbortFixture(t, map[string]*prowjobs.ProwJob{
+		"job-exec-123": testJob(prowjobs.PendingState, prowjobs.PostsubmitJob, nil, start, "eastus"),
+	})
+
+	if err := f.client().AbortJob(testContext(), "job-exec-123"); err != nil {
+		t.Fatalf("AbortJob returned error: %v", err)
+	}
+	if got := f.bulkRequests(); got != 0 {
+		t.Fatalf("expected no bulk request when refs are missing, got %d", got)
 	}
 }
 
