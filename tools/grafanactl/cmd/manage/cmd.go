@@ -23,12 +23,11 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/spf13/cobra"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/dashboard/armdashboard/v2"
+	"k8s.io/utils/set"
 
 	"github.com/Azure/ARO-Tools/tools/grafanactl/internal/azure"
-
-	"k8s.io/utils/set"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/dashboard/armdashboard/v2"
 )
 
 func NewManageCommand(group string) (*cobra.Command, error) {
@@ -199,4 +198,3 @@ func (o *CompletedReconcileOptions) getExistingIntegrations(ctx context.Context,
 	}
 	return ids, nil
 }
-
