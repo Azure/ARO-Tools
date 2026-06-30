@@ -85,7 +85,7 @@ func NewResourceGraphDiscoveryClient(cred azcore.TokenCredential, clientOptions 
 // DiscoverMonitorWorkspaceIDs returns resource IDs of all Azure Monitor Workspaces
 // across all accessible subscriptions that have the aroHCPPurpose tag set.
 func (c *ResourceGraphDiscoveryClient) DiscoverMonitorWorkspaceIDs(ctx context.Context) ([]string, error) {
-	query := "resources | where type =~ 'microsoft.monitor/accounts' | where isnotempty(tags['aroHCPPurpose']) | project id"
+	query := "resources | where type =~ 'microsoft.monitor/accounts' | where isnotempty(tags['aroHCPPurpose']) and properties.provisioningState == 'Succeeded' | project id"
 	format := armresourcegraph.ResultFormatObjectArray
 
 	var ids []string
