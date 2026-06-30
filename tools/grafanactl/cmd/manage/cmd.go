@@ -114,9 +114,7 @@ func (o *CompletedReconcileOptions) Run(ctx context.Context) error {
 			return fmt.Errorf("failed to get existing Grafana integrations: %w", err)
 		}
 	} else {
-		for _, id := range existingIDs {
-			workspaceIDs.Insert(strings.ToLower(id))
-		}
+		logger.Info("Grafana instance exists; reconciling integrations to discovered HCP workspaces", "existing-count", len(existingIDs))
 	}
 
 	integrations := make([]*armdashboard.AzureMonitorWorkspaceIntegration, 0, workspaceIDs.Len())
