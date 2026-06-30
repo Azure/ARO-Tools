@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -34,6 +35,7 @@ type BaseOptions struct {
 	GrafanaResourceID string
 	OutputFormat      string
 	DryRun            bool
+	Timeout           time.Duration
 	ARMEndpoint       string
 	AADAuthority      string
 }
@@ -49,6 +51,7 @@ type CompletedBaseOptions struct {
 func DefaultBaseOptions() *BaseOptions {
 	return &BaseOptions{
 		OutputFormat: "table",
+		Timeout:      30 * time.Minute,
 	}
 }
 
@@ -61,6 +64,7 @@ func BindBaseOptions(opts *BaseOptions, cmd *cobra.Command) error {
 	flags.StringVar(&opts.GrafanaResourceID, "grafana-resource-id", opts.GrafanaResourceID, "Azure Managed Grafana instance resource ID")
 	flags.StringVar(&opts.OutputFormat, "output", opts.OutputFormat, "Output format: table or json")
 	flags.BoolVar(&opts.DryRun, "dry-run", opts.DryRun, "Print actions without executing them")
+	flags.DurationVar(&opts.Timeout, "timeout", opts.Timeout, "Timeout for the operation")
 	flags.StringVar(&opts.ARMEndpoint, "arm-endpoint", opts.ARMEndpoint, "Azure Resource Manager endpoint for the target cloud. Defaults to the public cloud when unset")
 	flags.StringVar(&opts.AADAuthority, "aad-authority", opts.AADAuthority, "Microsoft Entra ID (AAD) authority for the target cloud. Defaults to the public cloud when unset")
 

@@ -725,6 +725,9 @@
             "observabilityConfig": {
               "type": "string"
             },
+            "timeout": {
+              "$ref": "#/definitions/durationString"
+            },
             "identityFrom": {
               "$ref": "#/definitions/input"
             }
@@ -777,6 +780,9 @@
               },
               "description": "Azure resource tags for the Grafana instance"
             },
+            "timeout": {
+              "$ref": "#/definitions/durationString"
+            },
             "identityFrom": {
               "$ref": "#/definitions/input"
             }
@@ -809,6 +815,9 @@
                 "true",
                 "false"
               ]
+            },
+            "timeout": {
+              "$ref": "#/definitions/durationString"
             },
             "identityFrom": {
               "$ref": "#/definitions/input"

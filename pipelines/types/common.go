@@ -737,6 +737,7 @@ type GrafanaDashboardsStep struct {
 
 	GrafanaName         string `json:"grafanaName"`
 	ObservabilityConfig string `json:"observabilityConfig"`
+	Timeout             string `json:"timeout,omitempty"`
 
 	// IdentityFrom specifies the managed identity with which this deployment will run in Ev2.
 	IdentityFrom Input `json:"identityFrom,omitempty"`
@@ -773,6 +774,7 @@ type GrafanaManageStep struct {
 	ZoneRedundancy           string            `json:"zoneRedundancy,omitempty"`
 	CrossTenantSecurityGroup string            `json:"crossTenantSecurityGroup,omitempty"`
 	Tags                     map[string]string `json:"tags,omitempty"`
+	Timeout                  string            `json:"timeout,omitempty"`
 
 	// IdentityFrom specifies the managed identity with which this deployment will run in Ev2.
 	IdentityFrom Input `json:"identityFrom,omitempty"`
@@ -806,6 +808,7 @@ type GrafanaDatasourcesStep struct {
 
 	// SkipSync indicates whether to skip syncing datasources. It is intended for prow jobs to skip syncing datasources.
 	SkipSync string `json:"skipSync,omitempty"`
+	Timeout  string `json:"timeout,omitempty"`
 
 	// IdentityFrom specifies the managed identity with which this deployment will run in Ev2.
 	IdentityFrom Input `json:"identityFrom,omitempty"`

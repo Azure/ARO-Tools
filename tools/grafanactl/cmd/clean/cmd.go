@@ -86,6 +86,12 @@ func (opts *RawCleanDatasourcesOptions) Run(ctx context.Context) error {
 		return fmt.Errorf("completion failed: %w", err)
 	}
 
+	if opts.Timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, opts.Timeout)
+		defer cancel()
+	}
+
 	return completed.Run(ctx)
 }
 
@@ -154,6 +160,12 @@ func (opts *RawCleanDatasourcesOptions) RunFixup(ctx context.Context) error {
 	completed, err := validated.Complete(ctx)
 	if err != nil {
 		return fmt.Errorf("completion failed: %w", err)
+	}
+
+	if opts.Timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, opts.Timeout)
+		defer cancel()
 	}
 
 	return completed.RunFixup(ctx)
