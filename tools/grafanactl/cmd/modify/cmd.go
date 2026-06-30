@@ -22,6 +22,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/spf13/cobra"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/dashboard/armdashboard/v2"
 	"k8s.io/utils/set"
 )
 
@@ -119,7 +120,11 @@ func (o *CompletedAddDatasourceOptions) Run(ctx context.Context) error {
 	}
 
 	integrationList := set.New[string]()
-	for _, integration := range grafana.Properties.GrafanaIntegrations.AzureMonitorWorkspaceIntegrations {
+	var existingIntegrations []*armdashboard.AzureMonitorWorkspaceIntegration
+	if grafana.Properties != nil && grafana.Properties.GrafanaIntegrations != nil {
+		existingIntegrations = grafana.Properties.GrafanaIntegrations.AzureMonitorWorkspaceIntegrations
+	}
+	for _, integration := range existingIntegrations {
 		if integration == nil || integration.AzureMonitorWorkspaceResourceID == nil {
 			continue
 		}

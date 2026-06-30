@@ -25,7 +25,6 @@ import (
 
 	"k8s.io/utils/set"
 
-	"github.com/Azure/ARO-Tools/tools/grafanactl/internal/azure"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/dashboard/armdashboard/v2"
 )
@@ -164,12 +163,17 @@ func (o *CompletedReconcileOptions) Run(ctx context.Context) error {
 	}
 
 	principalID := ""
-	if result.Identity != nil {
-		principalID = azure.SafeString(result.Identity.PrincipalID)
+	if result.Identity != nil && result.Identity.PrincipalID != nil {
+		principalID = *result.Identity.PrincipalID
+	}
+
+	resultID := ""
+	if result.ID != nil {
+		resultID = *result.ID
 	}
 
 	logger.Info("Grafana instance reconciled",
-		"id", azure.SafeString(result.ID),
+		"id", resultID,
 		"principal-id", principalID,
 		"integrations", workspaceIDs.Len(),
 	)

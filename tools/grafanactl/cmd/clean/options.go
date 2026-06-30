@@ -47,9 +47,10 @@ type ValidatedCleanDatasourcesOptions struct {
 // for clean operations.
 type CompletedCleanDatasourcesOptions struct {
 	*validatedCleanDatasourcesOptions
-	GrafanaClient          *grafana.Client
-	MonitorWorkspaceClient *azure.MonitorWorkspaceClient
-	ManagedGrafanaClient   *azure.ManagedGrafanaClient
+	GrafanaClient                *grafana.Client
+	MonitorWorkspaceClient       *azure.MonitorWorkspaceClient
+	ResourceGraphDiscoveryClient *azure.ResourceGraphDiscoveryClient
+	ManagedGrafanaClient         *azure.ManagedGrafanaClient
 }
 
 // DefaultCleanOptions returns a new RawCleanOptions with default values
@@ -107,10 +108,16 @@ func (o *ValidatedCleanDatasourcesOptions) Complete(ctx context.Context) (*Compl
 		return nil, fmt.Errorf("failed to create managed Prometheus client: %w", err)
 	}
 
+	resourceGraphClient, err := azure.NewResourceGraphDiscoveryClient(cred, clientOpts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Resource Graph discovery client: %w", err)
+	}
+
 	return &CompletedCleanDatasourcesOptions{
 		validatedCleanDatasourcesOptions: o.validatedCleanDatasourcesOptions,
 		GrafanaClient:                    grafanaClient,
 		MonitorWorkspaceClient:           monitorWorkspaceClient,
+		ResourceGraphDiscoveryClient:     resourceGraphClient,
 		ManagedGrafanaClient:             managedGrafanaClient,
 	}, nil
 }

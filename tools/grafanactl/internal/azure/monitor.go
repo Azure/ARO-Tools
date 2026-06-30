@@ -25,13 +25,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resourcegraph/armresourcegraph"
 )
 
-// PrometheusInstance represents an Azure Monitor Workspace (managed Prometheus instance)
-type PrometheusInstance struct {
-	Name string
-	ID   string
-	Tags map[string]*string
-}
-
 // MonitorWorkspaceClient provides operations for Azure Monitor Workspace (Prometheus) management
 type MonitorWorkspaceClient struct {
 	client         *armmonitor.AzureMonitorWorkspacesClient
