@@ -18,7 +18,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
@@ -91,25 +90,9 @@ func NewResourceGraphDiscoveryClient(cred azcore.TokenCredential, clientOptions 
 }
 
 // DiscoverMonitorWorkspaceIDs returns resource IDs of all Azure Monitor Workspaces
-// across all accessible subscriptions using Azure Resource Graph.
-// When namePrefixes is non-empty, only workspaces whose name starts with one of
-// the given prefixes are returned.
-func (c *ResourceGraphDiscoveryClient) DiscoverMonitorWorkspaceIDs(ctx context.Context, namePrefixes []string) ([]string, error) {
-	for _, p := range namePrefixes {
-		if strings.Contains(p, "'") {
-			return nil, fmt.Errorf("workspace prefix %q contains invalid character (single quote)", p)
-		}
-	}
-
-	query := "resources | where type =~ 'microsoft.monitor/accounts'"
-	if len(namePrefixes) > 0 {
-		clauses := make([]string, 0, len(namePrefixes))
-		for _, p := range namePrefixes {
-			clauses = append(clauses, fmt.Sprintf("name startswith_cs '%s'", p))
-		}
-		query += " | where " + strings.Join(clauses, " or ")
-	}
-	query += " | project id"
+// across all accessible subscriptions that have the aroHCPPurpose tag set.
+func (c *ResourceGraphDiscoveryClient) DiscoverMonitorWorkspaceIDs(ctx context.Context) ([]string, error) {
+	query := "resources | where type =~ 'microsoft.monitor/accounts' | where isnotempty(tags['aroHCPPurpose']) | project id"
 	format := armresourcegraph.ResultFormatObjectArray
 
 	var ids []string

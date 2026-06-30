@@ -86,8 +86,11 @@ func (o *CompletedReconcileOptions) Run(ctx context.Context) error {
 	if o.CrossTenantSecurityGroup != "" {
 		tags["AMG.CrossTenant.SecurityGroup"] = &o.CrossTenantSecurityGroup
 	}
+	for k, v := range o.Tags {
+		tags[k] = &v
+	}
 
-	discoveredIDs, err := o.ResourceGraphDiscoveryClient.DiscoverMonitorWorkspaceIDs(ctx, o.WorkspacePrefixes)
+	discoveredIDs, err := o.ResourceGraphDiscoveryClient.DiscoverMonitorWorkspaceIDs(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to discover Azure Monitor Workspaces via Resource Graph: %w", err)
 	}
@@ -179,6 +182,9 @@ func (o *CompletedReconcileOptions) getExistingIntegrations(ctx context.Context,
 	if grafana.Properties != nil &&
 		grafana.Properties.GrafanaIntegrations != nil {
 		for _, integration := range grafana.Properties.GrafanaIntegrations.AzureMonitorWorkspaceIntegrations {
+			if integration == nil {
+				continue
+			}
 			if integration.AzureMonitorWorkspaceResourceID != nil {
 				logger.Info("preserving existing integration", "workspace-id", *integration.AzureMonitorWorkspaceResourceID)
 				ids = append(ids, *integration.AzureMonitorWorkspaceResourceID)

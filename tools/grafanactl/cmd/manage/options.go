@@ -33,7 +33,7 @@ type RawReconcileOptions struct {
 	MajorVersion             string
 	ZoneRedundancy           string
 	CrossTenantSecurityGroup string
-	WorkspacePrefixes        []string
+	Tags                     map[string]string
 }
 
 type validatedReconcileOptions struct {
@@ -50,7 +50,7 @@ type ValidatedReconcileOptions struct {
 // for reconcile operations.
 type CompletedReconcileOptions struct {
 	*validatedReconcileOptions
-	ManagedGrafanaClient        *azure.ManagedGrafanaClient
+	ManagedGrafanaClient         *azure.ManagedGrafanaClient
 	ResourceGraphDiscoveryClient *azure.ResourceGraphDiscoveryClient
 }
 
@@ -75,7 +75,7 @@ func BindReconcileOptions(opts *RawReconcileOptions, cmd *cobra.Command) error {
 	flags.StringVar(&opts.MajorVersion, "major-version", opts.MajorVersion, "Grafana major version (e.g. 11)")
 	flags.StringVar(&opts.ZoneRedundancy, "zone-redundancy", opts.ZoneRedundancy, "Zone redundancy mode: Enabled or Disabled")
 	flags.StringVar(&opts.CrossTenantSecurityGroup, "cross-tenant-security-group", opts.CrossTenantSecurityGroup, "Cross-tenant security group (format: GroupObjectId;TenantId)")
-	flags.StringSliceVar(&opts.WorkspacePrefixes, "workspace-prefixes", opts.WorkspacePrefixes, "Name prefixes to filter Azure Monitor Workspaces by (comma-separated)")
+	flags.StringToStringVar(&opts.Tags, "tags", opts.Tags, "Additional Azure resource tags for the Grafana instance (key=value,key2=value2)")
 
 	return nil
 }
@@ -97,12 +97,6 @@ func (o *RawReconcileOptions) Validate(ctx context.Context) (*ValidatedReconcile
 
 	if o.ZoneRedundancy != "Enabled" && o.ZoneRedundancy != "Disabled" {
 		return nil, fmt.Errorf("--zone-redundancy must be 'Enabled' or 'Disabled', got: %s", o.ZoneRedundancy)
-	}
-
-	for _, prefix := range o.WorkspacePrefixes {
-		if prefix == "" {
-			return nil, fmt.Errorf("--workspace-prefixes must not contain empty strings")
-		}
 	}
 
 	return &ValidatedReconcileOptions{

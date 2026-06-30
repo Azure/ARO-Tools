@@ -737,7 +737,7 @@
         }
       ]
     },
-    "grafanaReconcileStep": {
+    "grafanaManageStep": {
       "unevaluatedProperties": false,
       "allOf": [
         {
@@ -746,7 +746,7 @@
         {
           "properties": {
             "action": {
-              "const": "GrafanaReconcile"
+              "const": "GrafanaManage"
             },
             "grafanaName": {
               "type": "string"
@@ -770,11 +770,12 @@
             "crossTenantSecurityGroup": {
               "type": "string"
             },
-            "workspacePrefixes": {
-              "type": "array",
-              "items": {
+            "tags": {
+              "type": "object",
+              "additionalProperties": {
                 "type": "string"
-              }
+              },
+              "description": "Azure resource tags for the Grafana instance"
             },
             "identityFrom": {
               "$ref": "#/definitions/input"
@@ -2028,7 +2029,7 @@
                     "type": "object",
                     "properties": {
                       "action": {
-                        "const": "GrafanaReconcile"
+                        "const": "GrafanaManage"
                       }
                     },
                     "required": [
@@ -2036,7 +2037,7 @@
                     ]
                   },
                   "then": {
-                    "$ref": "#/definitions/grafanaReconcileStep"
+                    "$ref": "#/definitions/grafanaManageStep"
                   }
                 },
                 {

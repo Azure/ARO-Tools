@@ -761,28 +761,28 @@ func (s *GrafanaDashboardsStep) IsWellFormedOverInputs() bool {
 	return true
 }
 
-const StepActionGrafanaReconcile = "GrafanaReconcile"
+const StepActionGrafanaManage = "GrafanaManage"
 
-type GrafanaReconcileStep struct {
+type GrafanaManageStep struct {
 	StepMeta `json:",inline"`
 
-	GrafanaName              string   `json:"grafanaName"`
-	Location                 string   `json:"location"`
-	SKU                      string   `json:"sku,omitempty"`
-	MajorVersion             string   `json:"majorVersion,omitempty"`
-	ZoneRedundancy           string   `json:"zoneRedundancy,omitempty"`
-	CrossTenantSecurityGroup string   `json:"crossTenantSecurityGroup,omitempty"`
-	WorkspacePrefixes        []string `json:"workspacePrefixes,omitempty"`
+	GrafanaName              string            `json:"grafanaName"`
+	Location                 string            `json:"location"`
+	SKU                      string            `json:"sku,omitempty"`
+	MajorVersion             string            `json:"majorVersion,omitempty"`
+	ZoneRedundancy           string            `json:"zoneRedundancy,omitempty"`
+	CrossTenantSecurityGroup string            `json:"crossTenantSecurityGroup,omitempty"`
+	Tags                     map[string]string `json:"tags,omitempty"`
 
 	// IdentityFrom specifies the managed identity with which this deployment will run in Ev2.
 	IdentityFrom Input `json:"identityFrom,omitempty"`
 }
 
-func (s *GrafanaReconcileStep) Description() string {
+func (s *GrafanaManageStep) Description() string {
 	return fmt.Sprintf("Step %s\n  Kind: %s\n", s.Name, s.Action)
 }
 
-func (s *GrafanaReconcileStep) RequiredInputs() []StepDependency {
+func (s *GrafanaManageStep) RequiredInputs() []StepDependency {
 	var deps []StepDependency
 	for _, val := range []Input{s.IdentityFrom} {
 		deps = append(deps, val.StepDependency)
@@ -793,7 +793,7 @@ func (s *GrafanaReconcileStep) RequiredInputs() []StepDependency {
 	return deps
 }
 
-func (s *GrafanaReconcileStep) IsWellFormedOverInputs() bool {
+func (s *GrafanaManageStep) IsWellFormedOverInputs() bool {
 	return true
 }
 
