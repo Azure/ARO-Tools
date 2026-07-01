@@ -44,7 +44,7 @@ func NewManageCommand(group string) (*cobra.Command, error) {
 		Short: "Create or update the Grafana instance and reconcile datasources",
 		Long: `Reconcile the Azure Managed Grafana instance. This creates the instance
 if it does not exist, updates its configuration, and discovers all Azure Monitor
-Workspaces across the subscription to add them as datasource integrations.`,
+Workspaces across accessible subscriptions to add them as datasource integrations.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return opts.Run(cmd.Context())
 		},
@@ -91,7 +91,8 @@ func (o *CompletedReconcileOptions) Run(ctx context.Context) error {
 		tags["AMG.CrossTenant.SecurityGroup"] = &o.CrossTenantSecurityGroup
 	}
 	for k, v := range o.Tags {
-		tags[k] = &v
+		vCopy := v
+		tags[k] = &vCopy
 	}
 
 	discoveredIDs, err := o.ResourceGraphDiscoveryClient.DiscoverMonitorWorkspaceIDs(ctx)
@@ -193,7 +194,7 @@ func (o *CompletedReconcileOptions) getExistingIntegrations(ctx context.Context,
 				continue
 			}
 			if integration.AzureMonitorWorkspaceResourceID != nil {
-				logger.Info("preserving existing integration", "workspace-id", *integration.AzureMonitorWorkspaceResourceID)
+				logger.Info("found existing integration", "workspace-id", *integration.AzureMonitorWorkspaceResourceID)
 				ids = append(ids, *integration.AzureMonitorWorkspaceResourceID)
 			}
 		}
