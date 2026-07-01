@@ -77,6 +77,12 @@ func (opts *RawSyncDashboardsOptions) Run(ctx context.Context) error {
 		return fmt.Errorf("completion failed: %w", err)
 	}
 
+	if opts.Timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, opts.Timeout)
+		defer cancel()
+	}
+
 	return completed.Run(ctx)
 }
 

@@ -48,8 +48,8 @@ type ValidatedAddDatasourceOptions struct {
 // for add datasource operations.
 type CompletedAddDatasourceOptions struct {
 	*validatedAddDatasourceOptions
-	MonitorWorkspaceClient *azure.MonitorWorkspaceClient
-	ManagedGrafanaClient   *azure.ManagedGrafanaClient
+	ManagedGrafanaClient         *azure.ManagedGrafanaClient
+	ResourceGraphDiscoveryClient *azure.ResourceGraphDiscoveryClient
 }
 
 // DefaultAddDatasourceOptions returns a new RawAddDatasourceOptions with default values
@@ -107,14 +107,14 @@ func (o *ValidatedAddDatasourceOptions) Complete(ctx context.Context) (*Complete
 		return nil, fmt.Errorf("failed to create managed Grafana client: %w", err)
 	}
 
-	monitorWorkspaceClient, err := azure.NewMonitorWorkspaceClient(o.SubscriptionID, cred, clientOpts)
+	resourceGraphClient, err := azure.NewResourceGraphDiscoveryClient(cred, clientOpts)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create monitor workspace client: %w", err)
+		return nil, fmt.Errorf("failed to create Resource Graph discovery client: %w", err)
 	}
 
 	return &CompletedAddDatasourceOptions{
 		validatedAddDatasourceOptions: o.validatedAddDatasourceOptions,
-		MonitorWorkspaceClient:        monitorWorkspaceClient,
 		ManagedGrafanaClient:          managedGrafanaClient,
+		ResourceGraphDiscoveryClient:  resourceGraphClient,
 	}, nil
 }

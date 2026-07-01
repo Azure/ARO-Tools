@@ -22,6 +22,8 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/spf13/cobra"
+
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/dashboard/armdashboard/v2"
 )
 
 const datasourcesGroupID = "datasources"
@@ -86,6 +88,12 @@ func (opts *RawCleanDatasourcesOptions) Run(ctx context.Context) error {
 		return fmt.Errorf("completion failed: %w", err)
 	}
 
+	if opts.Timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, opts.Timeout)
+		defer cancel()
+	}
+
 	return completed.Run(ctx)
 }
 
@@ -99,24 +107,30 @@ func (o *CompletedCleanDatasourcesOptions) Run(ctx context.Context) error {
 		return fmt.Errorf("failed to get Azure Monitor Workspace integrations: %w", err)
 	}
 
-	integrations := grafana.Properties.GrafanaIntegrations.AzureMonitorWorkspaceIntegrations
+	var integrations []*armdashboard.AzureMonitorWorkspaceIntegration
+	if grafana.Properties != nil && grafana.Properties.GrafanaIntegrations != nil {
+		integrations = grafana.Properties.GrafanaIntegrations.AzureMonitorWorkspaceIntegrations
+	}
 
 	logger.Info("Found Azure Monitor Workspace integrations", "count", len(integrations))
 
-	monitorWorkspaces, err := o.MonitorWorkspaceClient.GetAllMonitorWorkspaces(ctx)
+	discoveredIDs, err := o.ResourceGraphDiscoveryClient.DiscoverMonitorWorkspaceIDs(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to list Prometheus instances: %w", err)
+		return fmt.Errorf("failed to discover Azure Monitor Workspaces via Resource Graph: %w", err)
 	}
 
 	activePrometheusResourceIds := make(map[string]bool)
-	for _, monitorWorkspace := range monitorWorkspaces {
-		activePrometheusResourceIds[strings.ToLower(*monitorWorkspace.ID)] = true
+	for _, id := range discoveredIDs {
+		activePrometheusResourceIds[strings.ToLower(id)] = true
 	}
 
 	keptIntegrations := make([]string, 0)
 	removedCount := 0
 
 	for _, integration := range integrations {
+		if integration == nil || integration.AzureMonitorWorkspaceResourceID == nil {
+			continue
+		}
 		lowerIntegrationID := strings.ToLower(*integration.AzureMonitorWorkspaceResourceID)
 		if _, ok := activePrometheusResourceIds[lowerIntegrationID]; ok {
 			logger.Info("Keeping Azure Monitor Workspace integration", "resourceId", lowerIntegrationID)
@@ -154,6 +168,12 @@ func (opts *RawCleanDatasourcesOptions) RunFixup(ctx context.Context) error {
 	completed, err := validated.Complete(ctx)
 	if err != nil {
 		return fmt.Errorf("completion failed: %w", err)
+	}
+
+	if opts.Timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, opts.Timeout)
+		defer cancel()
 	}
 
 	return completed.RunFixup(ctx)

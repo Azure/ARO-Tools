@@ -24,7 +24,7 @@ import (
 
 	"k8s.io/utils/set"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/monitor/armmonitor"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/dashboard/armdashboard/v2"
 )
 
 const datasourceGroupID = "datasource"
@@ -81,28 +81,28 @@ func (opts *RawAddDatasourceOptions) Run(ctx context.Context) error {
 		return fmt.Errorf("completion failed: %w", err)
 	}
 
+	if opts.Timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, opts.Timeout)
+		defer cancel()
+	}
+
 	return completed.Run(ctx)
 }
 
 func (o *CompletedAddDatasourceOptions) getMatchingWorkspaceIDs(ctx context.Context, logger logr.Logger) (set.Set[string], error) {
-	validWorkspaceIDs := set.New[string]()
-
-	monitorWorkspaces, err := o.MonitorWorkspaceClient.GetAllMonitorWorkspaces(ctx)
+	discoveredIDs, err := o.ResourceGraphDiscoveryClient.DiscoverMonitorWorkspaceIDs(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list Azure Monitor Workspaces: %w", err)
+		return nil, fmt.Errorf("failed to discover Azure Monitor Workspaces via Resource Graph: %w", err)
 	}
 
-	for _, workspace := range monitorWorkspaces {
-		if workspace.Properties == nil || workspace.Properties.ProvisioningState == nil || workspace.ID == nil {
-			continue
-		}
-		if *workspace.Properties.ProvisioningState == armmonitor.ProvisioningStateSucceeded {
-			logger.Info("Found", "workspace-id", *workspace.ID, "provisioning-state", *workspace.Properties.ProvisioningState)
-			validWorkspaceIDs.Insert(strings.ToLower(*workspace.ID))
-		}
+	workspaceIDs := set.New[string]()
+	for _, id := range discoveredIDs {
+		workspaceIDs.Insert(strings.ToLower(id))
 	}
+	logger.Info("discovered Azure Monitor Workspaces via Resource Graph", "count", workspaceIDs.Len())
 
-	return validWorkspaceIDs, nil
+	return workspaceIDs, nil
 }
 
 func (o *CompletedAddDatasourceOptions) Run(ctx context.Context) error {
@@ -121,9 +121,13 @@ func (o *CompletedAddDatasourceOptions) Run(ctx context.Context) error {
 	}
 
 	integrationList := set.New[string]()
-	for _, integration := range grafana.Properties.GrafanaIntegrations.AzureMonitorWorkspaceIntegrations {
-		if integration.AzureMonitorWorkspaceResourceID == nil {
-			return fmt.Errorf("got nil resource ID for integration, this looks like a bug")
+	var existingIntegrations []*armdashboard.AzureMonitorWorkspaceIntegration
+	if grafana.Properties != nil && grafana.Properties.GrafanaIntegrations != nil {
+		existingIntegrations = grafana.Properties.GrafanaIntegrations.AzureMonitorWorkspaceIntegrations
+	}
+	for _, integration := range existingIntegrations {
+		if integration == nil || integration.AzureMonitorWorkspaceResourceID == nil {
+			continue
 		}
 		integrationID := strings.ToLower(*integration.AzureMonitorWorkspaceResourceID)
 		if validWorkspaceIDs.Has(integrationID) {

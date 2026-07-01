@@ -725,6 +725,9 @@
             "observabilityConfig": {
               "type": "string"
             },
+            "timeout": {
+              "$ref": "#/definitions/durationString"
+            },
             "identityFrom": {
               "$ref": "#/definitions/input"
             }
@@ -732,6 +735,61 @@
           "required": [
             "grafanaName",
             "observabilityConfig",
+            "identityFrom"
+          ]
+        }
+      ]
+    },
+    "grafanaManageStep": {
+      "unevaluatedProperties": false,
+      "allOf": [
+        {
+          "$ref": "#/definitions/stepMeta"
+        },
+        {
+          "properties": {
+            "action": {
+              "const": "GrafanaManage"
+            },
+            "grafanaName": {
+              "type": "string"
+            },
+            "location": {
+              "type": "string"
+            },
+            "sku": {
+              "type": "string"
+            },
+            "majorVersion": {
+              "type": "string"
+            },
+            "zoneRedundancy": {
+              "type": "string",
+              "enum": [
+                "Enabled",
+                "Disabled"
+              ]
+            },
+            "crossTenantSecurityGroup": {
+              "type": "string"
+            },
+            "tags": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              },
+              "description": "Azure resource tags for the Grafana instance"
+            },
+            "timeout": {
+              "$ref": "#/definitions/durationString"
+            },
+            "identityFrom": {
+              "$ref": "#/definitions/input"
+            }
+          },
+          "required": [
+            "grafanaName",
+            "location",
             "identityFrom"
           ]
         }
@@ -757,6 +815,9 @@
                 "true",
                 "false"
               ]
+            },
+            "timeout": {
+              "$ref": "#/definitions/durationString"
             },
             "identityFrom": {
               "$ref": "#/definitions/input"
@@ -1970,6 +2031,22 @@
                   },
                   "then": {
                     "$ref": "#/definitions/prowJobStep"
+                  }
+                },
+                {
+                  "if": {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "GrafanaManage"
+                      }
+                    },
+                    "required": [
+                      "action"
+                    ]
+                  },
+                  "then": {
+                    "$ref": "#/definitions/grafanaManageStep"
                   }
                 },
                 {

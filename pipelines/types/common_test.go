@@ -290,6 +290,22 @@ func TestRequiredInputs(t *testing.T) {
 			name:  "runGenevaAction empty",
 			input: &RunGenevaActionStep{},
 		},
+		{
+			name: "grafana manage full",
+			input: &GrafanaManageStep{
+				IdentityFrom: Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step"}},
+			},
+			expected: []StepDependency{
+				{ResourceGroup: "rg", Step: "step"},
+			},
+		},
+		{
+			name:  "grafana manage empty",
+			input: &GrafanaManageStep{},
+			expected: []StepDependency{
+				{},
+			},
+		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			if diff := cmp.Diff(testCase.expected, testCase.input.RequiredInputs()); diff != "" {
@@ -326,6 +342,7 @@ func TestIsWellFormedOverInputs(t *testing.T) {
 		{in: &RunGenevaActionStep{}, expected: true},
 		{in: &PublishGenevaActionStep{}, expected: true},
 		{in: &GenevaHealthStep{}, expected: true},
+		{in: &GrafanaManageStep{}, expected: true},
 		{in: &GenericStep{}, expected: false},
 		{in: &GenericValidationStep{}, expected: false},
 		{in: &ShellValidationStep{}, expected: false},

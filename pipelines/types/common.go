@@ -737,6 +737,7 @@ type GrafanaDashboardsStep struct {
 
 	GrafanaName         string `json:"grafanaName"`
 	ObservabilityConfig string `json:"observabilityConfig"`
+	Timeout             string `json:"timeout,omitempty"`
 
 	// IdentityFrom specifies the managed identity with which this deployment will run in Ev2.
 	IdentityFrom Input `json:"identityFrom,omitempty"`
@@ -761,6 +762,43 @@ func (s *GrafanaDashboardsStep) IsWellFormedOverInputs() bool {
 	return true
 }
 
+const StepActionGrafanaManage = "GrafanaManage"
+
+type GrafanaManageStep struct {
+	StepMeta `json:",inline"`
+
+	GrafanaName              string            `json:"grafanaName"`
+	Location                 string            `json:"location"`
+	SKU                      string            `json:"sku,omitempty"`
+	MajorVersion             string            `json:"majorVersion,omitempty"`
+	ZoneRedundancy           string            `json:"zoneRedundancy,omitempty"`
+	CrossTenantSecurityGroup string            `json:"crossTenantSecurityGroup,omitempty"`
+	Tags                     map[string]string `json:"tags,omitempty"`
+	Timeout                  string            `json:"timeout,omitempty"`
+
+	// IdentityFrom specifies the managed identity with which this deployment will run in Ev2.
+	IdentityFrom Input `json:"identityFrom,omitempty"`
+}
+
+func (s *GrafanaManageStep) Description() string {
+	return fmt.Sprintf("Step %s\n  Kind: %s\n", s.Name, s.Action)
+}
+
+func (s *GrafanaManageStep) RequiredInputs() []StepDependency {
+	var deps []StepDependency
+	for _, val := range []Input{s.IdentityFrom} {
+		deps = append(deps, val.StepDependency)
+	}
+
+	slices.SortFunc(deps, SortDependencies)
+	deps = slices.Compact(deps)
+	return deps
+}
+
+func (s *GrafanaManageStep) IsWellFormedOverInputs() bool {
+	return true
+}
+
 const StepActionGrafanaDatasources = "GrafanaDatasources"
 
 type GrafanaDatasourcesStep struct {
@@ -770,6 +808,7 @@ type GrafanaDatasourcesStep struct {
 
 	// SkipSync indicates whether to skip syncing datasources. It is intended for prow jobs to skip syncing datasources.
 	SkipSync string `json:"skipSync,omitempty"`
+	Timeout  string `json:"timeout,omitempty"`
 
 	// IdentityFrom specifies the managed identity with which this deployment will run in Ev2.
 	IdentityFrom Input `json:"identityFrom,omitempty"`
