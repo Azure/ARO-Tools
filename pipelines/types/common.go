@@ -228,17 +228,23 @@ func (s *SetCertificateIssuerStep) RequiredInputs() []StepDependency {
 
 const StepActionCreateCertificate = "CreateCertificate"
 
+const (
+	CertificateManageEnabled  = "Enabled"
+	CertificateManageDisabled = "Disabled"
+)
+
 type CreateCertificateStep struct {
 	StepMeta        `json:",inline"`
-	VaultBaseUrl    Value `json:"vaultBaseUrl,omitempty"`
-	CertificateName Value `json:"certificateName,omitempty"`
-	ContentType     Value `json:"contentType,omitempty"`
-	SAN             Value `json:"san,omitempty"`
-	Issuer          Value `json:"issuer,omitempty"`
-	SecretKeyVault  Value `json:"secretKeyVault,omitempty"`
-	SecretName      Value `json:"secretName,omitempty"`
-	ApplicationId   Value `json:"applicationId,omitempty"`
-	CommonName      Value `json:"commonName,omitempty"`
+	VaultBaseUrl    Value  `json:"vaultBaseUrl,omitempty"`
+	CertificateName Value  `json:"certificateName,omitempty"`
+	ContentType     Value  `json:"contentType,omitempty"`
+	SAN             Value  `json:"san,omitempty"`
+	Issuer          Value  `json:"issuer,omitempty"`
+	SecretKeyVault  Value  `json:"secretKeyVault,omitempty"`
+	SecretName      Value  `json:"secretName,omitempty"`
+	ApplicationId   Value  `json:"applicationId,omitempty"`
+	CommonName      Value  `json:"commonName,omitempty"`
+	Manage          *Value `json:"manage,omitempty"`
 }
 
 func (s *CreateCertificateStep) Description() string {
@@ -251,6 +257,9 @@ func (s *CreateCertificateStep) RequiredInputs() []StepDependency {
 		if val.Input != nil {
 			deps = append(deps, val.Input.StepDependency)
 		}
+	}
+	if s.Manage != nil && s.Manage.Input != nil {
+		deps = append(deps, s.Manage.Input.StepDependency)
 	}
 	slices.SortFunc(deps, SortDependencies)
 	deps = slices.Compact(deps)

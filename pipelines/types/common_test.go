@@ -96,6 +96,7 @@ func TestRequiredInputs(t *testing.T) {
 				SecretName:      Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step6"}}},
 				ApplicationId:   Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step7"}}},
 				CommonName:      Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step8"}}},
+				Manage:          &Value{ConfigRef: "some.config.manage"},
 			},
 			expected: []StepDependency{
 				{ResourceGroup: "rg", Step: "step"},

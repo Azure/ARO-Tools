@@ -142,6 +142,8 @@ resourceGroups:
       value: x-pem-file
     issuer:
       value: OneCertV2-PrivateCA
+    manage:
+      configRef: certificates.manage
     name: cert
     san:
       value: hcp-mdsd.geneva.keyvault.aro-int.azure.com
