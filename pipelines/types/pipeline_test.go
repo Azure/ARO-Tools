@@ -79,6 +79,8 @@ resourceGroups:
   - name: deploy
     action: Shell
     command: echo hello
+    shellIdentity:
+      value: existing-msi
 `,
 			expectError: false,
 			description: "backfillSubscriptionId alone should be valid",
@@ -101,6 +103,8 @@ resourceGroups:
   - name: deploy
     action: Shell
     command: echo hello
+    shellIdentity:
+      value: existing-msi
 `,
 			expectError: false,
 			description: "displayName and roleAssignment alone should be valid",
@@ -124,6 +128,8 @@ resourceGroups:
   - name: deploy
     action: Shell
     command: echo hello
+    shellIdentity:
+      value: existing-msi
 `,
 			expectError: false,
 			description: "backfillSubscriptionId with displayName should be valid (new behavior)",
@@ -152,6 +158,8 @@ resourceGroups:
   - name: deploy
     action: Shell
     command: echo hello
+    shellIdentity:
+      value: existing-msi
 `,
 			expectError: false,
 			description: "backfillSubscriptionId with all other fields should be valid (new behavior)",
@@ -173,6 +181,8 @@ resourceGroups:
   - name: deploy
     action: Shell
     command: echo hello
+    shellIdentity:
+      value: existing-msi
 `,
 			expectError: true,
 			description: "missing both required patterns should fail validation",
@@ -194,6 +204,8 @@ resourceGroups:
   - name: deploy
     action: Shell
     command: echo hello
+    shellIdentity:
+      value: existing-msi
 `,
 			expectError: true,
 			description: "displayName without roleAssignment should fail validation",
