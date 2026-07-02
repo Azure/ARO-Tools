@@ -160,6 +160,8 @@ resourceGroups:
       value: OneCertV2-PrivateCA
     commonName:
       value: hcp-mdsd.geneva.keyvault.aro-int.azure.com
+    manage:
+      configRef: certificates.manage
   - name: rpRegistration
     action: ResourceProviderRegistration
     resourceProviderNamespaces:

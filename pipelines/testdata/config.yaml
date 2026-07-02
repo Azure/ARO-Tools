@@ -29,6 +29,8 @@ defaults:
   clustersService:
     imageTag: abcdef
     replicas: 3
+  certificates:
+    manage: Enabled
   parentZone: example.com
   childZone: child.example.com
   vaultBaseUrl: myvault.azure.com
