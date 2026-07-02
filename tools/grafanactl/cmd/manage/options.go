@@ -33,7 +33,6 @@ type RawReconcileOptions struct {
 	MajorVersion             string
 	ZoneRedundancy           string
 	CrossTenantSecurityGroup string
-	Tags                     map[string]string
 }
 
 type validatedReconcileOptions struct {
@@ -75,7 +74,6 @@ func BindReconcileOptions(opts *RawReconcileOptions, cmd *cobra.Command) error {
 	flags.StringVar(&opts.MajorVersion, "major-version", opts.MajorVersion, "Grafana major version (e.g. 11)")
 	flags.StringVar(&opts.ZoneRedundancy, "zone-redundancy", opts.ZoneRedundancy, "Zone redundancy mode: Enabled or Disabled")
 	flags.StringVar(&opts.CrossTenantSecurityGroup, "cross-tenant-security-group", opts.CrossTenantSecurityGroup, "Cross-tenant security group (format: GroupObjectId;TenantId)")
-	flags.StringToStringVar(&opts.Tags, "tags", opts.Tags, "Additional Azure resource tags for the Grafana instance (key=value,key2=value2)")
 
 	return nil
 }
