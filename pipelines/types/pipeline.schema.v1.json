@@ -770,7 +770,7 @@
               "$ref": "#/definitions/value"
             },
             "timeout": {
-              "$ref": "#/definitions/value"
+              "$ref": "#/definitions/durationString"
             },
             "identityFrom": {
               "$ref": "#/definitions/input"

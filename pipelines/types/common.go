@@ -767,13 +767,13 @@ const StepActionGrafanaManage = "GrafanaManage"
 type GrafanaManageStep struct {
 	StepMeta `json:",inline"`
 
-	GrafanaName              Value `json:"grafanaName"`
-	Location                 Value `json:"location"`
-	SKU                      Value `json:"sku,omitempty"`
-	MajorVersion             Value `json:"majorVersion,omitempty"`
-	ZoneRedundancy           Value `json:"zoneRedundancy,omitempty"`
-	CrossTenantSecurityGroup Value `json:"crossTenantSecurityGroup,omitempty"`
-	Timeout                  Value `json:"timeout,omitempty"`
+	GrafanaName              Value  `json:"grafanaName"`
+	Location                 Value  `json:"location"`
+	SKU                      Value  `json:"sku,omitempty"`
+	MajorVersion             Value  `json:"majorVersion,omitempty"`
+	ZoneRedundancy           Value  `json:"zoneRedundancy,omitempty"`
+	CrossTenantSecurityGroup Value  `json:"crossTenantSecurityGroup,omitempty"`
+	Timeout                  string `json:"timeout,omitempty"`
 
 	// IdentityFrom specifies the managed identity with which this deployment will run in Ev2.
 	IdentityFrom Input `json:"identityFrom,omitempty"`
