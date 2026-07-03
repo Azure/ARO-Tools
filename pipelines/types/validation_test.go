@@ -303,6 +303,9 @@ func TestValidatePipelineSchema(t *testing.T) {
 								"name":    "step",
 								"action":  "Shell",
 								"command": "echo hello",
+								"shellIdentity": map[string]interface{}{
+									"value": "test-msi",
+								},
 							},
 						},
 					},
@@ -325,6 +328,9 @@ func TestValidatePipelineSchema(t *testing.T) {
 								"action":  "Shell",
 								"command": "echo hello",
 								"timeout": "75m",
+								"shellIdentity": map[string]interface{}{
+									"value": "test-msi",
+								},
 							},
 						},
 					},
