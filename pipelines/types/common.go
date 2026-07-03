@@ -785,10 +785,12 @@ func (s *GrafanaManageStep) Description() string {
 
 func (s *GrafanaManageStep) RequiredInputs() []StepDependency {
 	var deps []StepDependency
-	for _, val := range []Input{s.IdentityFrom} {
-		deps = append(deps, val.StepDependency)
+	for _, val := range []Value{s.GrafanaName, s.Location, s.SKU, s.MajorVersion, s.ZoneRedundancy, s.CrossTenantSecurityGroup} {
+		if val.Input != nil {
+			deps = append(deps, val.Input.StepDependency)
+		}
 	}
-
+	deps = append(deps, s.IdentityFrom.StepDependency)
 	slices.SortFunc(deps, SortDependencies)
 	deps = slices.Compact(deps)
 	return deps
