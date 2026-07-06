@@ -776,14 +776,13 @@ const StepActionGrafanaManage = "GrafanaManage"
 type GrafanaManageStep struct {
 	StepMeta `json:",inline"`
 
-	GrafanaName              string            `json:"grafanaName"`
-	Location                 string            `json:"location"`
-	SKU                      string            `json:"sku,omitempty"`
-	MajorVersion             string            `json:"majorVersion,omitempty"`
-	ZoneRedundancy           string            `json:"zoneRedundancy,omitempty"`
-	CrossTenantSecurityGroup string            `json:"crossTenantSecurityGroup,omitempty"`
-	Tags                     map[string]string `json:"tags,omitempty"`
-	Timeout                  string            `json:"timeout,omitempty"`
+	GrafanaName              Value  `json:"grafanaName"`
+	Location                 Value  `json:"location"`
+	SKU                      Value  `json:"sku,omitempty"`
+	MajorVersion             Value  `json:"majorVersion,omitempty"`
+	ZoneRedundancy           Value  `json:"zoneRedundancy,omitempty"`
+	CrossTenantSecurityGroup Value  `json:"crossTenantSecurityGroup,omitempty"`
+	Timeout                  string `json:"timeout,omitempty"`
 
 	// IdentityFrom specifies the managed identity with which this deployment will run in Ev2.
 	IdentityFrom Input `json:"identityFrom,omitempty"`
@@ -795,10 +794,12 @@ func (s *GrafanaManageStep) Description() string {
 
 func (s *GrafanaManageStep) RequiredInputs() []StepDependency {
 	var deps []StepDependency
-	for _, val := range []Input{s.IdentityFrom} {
-		deps = append(deps, val.StepDependency)
+	for _, val := range []Value{s.GrafanaName, s.Location, s.SKU, s.MajorVersion, s.ZoneRedundancy, s.CrossTenantSecurityGroup} {
+		if val.Input != nil {
+			deps = append(deps, val.Input.StepDependency)
+		}
 	}
-
+	deps = append(deps, s.IdentityFrom.StepDependency)
 	slices.SortFunc(deps, SortDependencies)
 	deps = slices.Compact(deps)
 	return deps

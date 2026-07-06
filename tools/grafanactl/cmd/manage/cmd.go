@@ -90,10 +90,6 @@ func (o *CompletedReconcileOptions) Run(ctx context.Context) error {
 	if o.CrossTenantSecurityGroup != "" {
 		tags["AMG.CrossTenant.SecurityGroup"] = &o.CrossTenantSecurityGroup
 	}
-	for k, v := range o.Tags {
-		vCopy := v
-		tags[k] = &vCopy
-	}
 
 	discoveredIDs, err := o.ResourceGraphDiscoveryClient.DiscoverMonitorWorkspaceIDs(ctx)
 	if err != nil {

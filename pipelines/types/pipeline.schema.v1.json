@@ -753,33 +753,22 @@
               "const": "GrafanaManage"
             },
             "grafanaName": {
-              "type": "string"
+              "$ref": "#/definitions/value"
             },
             "location": {
-              "type": "string"
+              "$ref": "#/definitions/value"
             },
             "sku": {
-              "type": "string"
+              "$ref": "#/definitions/value"
             },
             "majorVersion": {
-              "type": "string"
+              "$ref": "#/definitions/value"
             },
             "zoneRedundancy": {
-              "type": "string",
-              "enum": [
-                "Enabled",
-                "Disabled"
-              ]
+              "$ref": "#/definitions/value"
             },
             "crossTenantSecurityGroup": {
-              "type": "string"
-            },
-            "tags": {
-              "type": "object",
-              "additionalProperties": {
-                "type": "string"
-              },
-              "description": "Azure resource tags for the Grafana instance"
+              "$ref": "#/definitions/value"
             },
             "timeout": {
               "$ref": "#/definitions/durationString"

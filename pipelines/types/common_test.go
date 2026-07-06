@@ -294,10 +294,14 @@ func TestRequiredInputs(t *testing.T) {
 		{
 			name: "grafana manage full",
 			input: &GrafanaManageStep{
-				IdentityFrom: Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step"}},
+				GrafanaName:  Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step1"}}},
+				Location:     Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step2"}}},
+				IdentityFrom: Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step3"}},
 			},
 			expected: []StepDependency{
-				{ResourceGroup: "rg", Step: "step"},
+				{ResourceGroup: "rg", Step: "step1"},
+				{ResourceGroup: "rg", Step: "step2"},
+				{ResourceGroup: "rg", Step: "step3"},
 			},
 		},
 		{
