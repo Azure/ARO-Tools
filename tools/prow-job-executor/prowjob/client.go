@@ -104,7 +104,7 @@ func deriveBulkURL(gangwayURL string) string {
 	if err != nil {
 		return gangwayURL
 	}
-	u.Path = strings.TrimSuffix(u.Path, executionsPath) + bulkStatusChangePath
+	u.Path = strings.TrimSuffix(strings.TrimSuffix(u.Path, "/"), executionsPath) + bulkStatusChangePath
 	u.RawQuery = ""
 	return u.String()
 }
@@ -287,6 +287,20 @@ func (c *Client) AbortJob(ctx context.Context, prowExecutionID string) error {
 		return nil
 	}
 
+	if job.Spec.Refs == nil {
+		// refs (org/repo) are part of the bulk selector and the API cannot filter
+		// by job name; aborting with nil refs could match a much broader set of
+		// jobs sharing only type/state. Refuse rather than risk over-selecting.
+		// Checked before the isolation probe below so we skip its extra HTTP calls
+		// during shutdown when we would refuse to abort anyway.
+		logger.Info("Job has no refs; skipping abort to avoid selecting unrelated jobs")
+		return nil
+	}
+	refs, err := prowgangway.FromCrdRefs(job.Spec.Refs)
+	if err != nil {
+		return fmt.Errorf("failed to convert refs for job %s: %w", prowExecutionID, err)
+	}
+
 	// Region-aware isolation check: ensure no other concurrent execution of the
 	// same job in the same state shares the StartTime window we are about to
 	// abort. Because the bulk API is region-blind and second-precise, aborting
@@ -300,18 +314,6 @@ func (c *Client) AbortJob(ctx context.Context, prowExecutionID string) error {
 	}
 	if !isolated {
 		return nil
-	}
-
-	if job.Spec.Refs == nil {
-		// refs (org/repo) are part of the bulk selector and the API cannot filter
-		// by job name; aborting with nil refs could match a much broader set of
-		// jobs sharing only type/state. Refuse rather than risk over-selecting.
-		logger.Info("Job has no refs; skipping abort to avoid selecting unrelated jobs")
-		return nil
-	}
-	refs, err := prowgangway.FromCrdRefs(job.Spec.Refs)
-	if err != nil {
-		return fmt.Errorf("failed to convert refs for job %s: %w", prowExecutionID, err)
 	}
 
 	// Pin the window to the StartTime; isMatchingCondition treats the bounds

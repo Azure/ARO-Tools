@@ -178,6 +178,11 @@ func TestDeriveBulkURL(t *testing.T) {
 			in:   "https://gangway-ci.example.com/gangway/v1/executions",
 			want: "https://gangway-ci.example.com/gangway/v1/bulk-job-status-update",
 		},
+		{
+			name: "trailing slash on executions",
+			in:   "https://gangway-ci.example.com/v1/executions/",
+			want: "https://gangway-ci.example.com/v1/bulk-job-status-update",
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
