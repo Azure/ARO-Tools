@@ -542,41 +542,43 @@ const graphSuffix = `}`
 
 // MarshalDOT marshals the graph described by the list of nodes into the DOT notation used by the graphviz library.
 // See documentation here: https://graphviz.gitlab.io/doc/info/lang.html
-func MarshalDOT(nodes []Node, serviceValidationSteps map[Identifier]types.ValidationStep) ([]byte, error) {
+func MarshalDOT(g *Graph) ([]byte, error) {
 	out := bytes.Buffer{}
 	if n, err := out.WriteString(graphPrefix); err != nil || n != len(graphPrefix) {
 		return nil, fmt.Errorf("failed to write graph prefix: wrote %d/%d bytes: %w", n, len(graphPrefix), err)
 	}
 
-	for _, node := range nodes {
+	for _, node := range g.Nodes {
 		serviceGroup, err := shortenServiceGroup(node.ServiceGroup)
 		if err != nil {
 			return nil, err
 		}
 
-		if _, err := out.WriteString(fmt.Sprintf(" \"%s_%s_%s\" [label=\"%s/%s/%s\"];\n", serviceGroup, node.ResourceGroup, node.Step, serviceGroup, node.ResourceGroup, node.Step)); err != nil {
+		nodeID := dotID(serviceGroup, node.Identifier)
+		nodeLabel := dotLabel(serviceGroup, node.Identifier, g.ResourceGroups)
+		if _, err := fmt.Fprintf(&out, " \"%s\" [label=\"%s\"];\n", nodeID, nodeLabel); err != nil {
 			return nil, err
 		}
 
-		// n.b. we don't handle parent links, as they will be written by traversing children on the parent node
 		for _, child := range node.Children {
 			childServiceGroup, err := shortenServiceGroup(child.ServiceGroup)
 			if err != nil {
 				return nil, err
 			}
 
-			if _, err := out.WriteString(fmt.Sprintf(" \"%s_%s_%s\" -> \"%s_%s_%s\";\n", serviceGroup, node.ResourceGroup, node.Step, childServiceGroup, child.ResourceGroup, child.Step)); err != nil {
+			childID := dotID(childServiceGroup, child)
+			if _, err := fmt.Fprintf(&out, " \"%s\" -> \"%s\";\n", nodeID, childID); err != nil {
 				return nil, err
 			}
 		}
 	}
 
-	for identifier := range serviceValidationSteps {
+	for identifier := range g.ServiceValidationSteps {
 		shortServiceGroup, err := shortenServiceGroup(identifier.ServiceGroup)
 		if err != nil {
 			return nil, err
 		}
-		if _, err := out.WriteString(fmt.Sprintf(" \"serviceValidation\" -> \"%s_%s_%s\";\n", shortServiceGroup, identifier.ResourceGroup, identifier.Step)); err != nil {
+		if _, err := fmt.Fprintf(&out, " \"serviceValidation\" -> \"%s\";\n", dotID(shortServiceGroup, identifier)); err != nil {
 			return nil, err
 		}
 	}
@@ -585,6 +587,18 @@ func MarshalDOT(nodes []Node, serviceValidationSteps map[Identifier]types.Valida
 		return nil, fmt.Errorf("failed to write graph suffix: wrote %d/%d bytes: %w", n, len(graphSuffix), err)
 	}
 	return out.Bytes(), nil
+}
+
+func dotID(shortSG string, id Identifier) string {
+	return fmt.Sprintf("%s_%s_%s", shortSG, id.ResourceGroup, id.Step)
+}
+
+func dotLabel(shortSG string, id Identifier, resourceGroups map[string]*types.ResourceGroupMeta) string {
+	rgName := id.ResourceGroup
+	if rg, ok := resourceGroups[id.ResourceGroup]; ok {
+		rgName = rg.ResourceGroup
+	}
+	return fmt.Sprintf("%s/%s/%s", shortSG, rgName, id.Step)
 }
 
 func shortenServiceGroup(serviceGroup string) (string, error) {

@@ -34,13 +34,13 @@ func TestForPipeline(t *testing.T) {
 		t.Fatalf("Failed to create graph for pipeline: %v", err)
 	}
 
-	compareGraph(t, ctx.Nodes, ctx.ServiceValidationSteps)
+	compareGraph(t, ctx)
 }
 
-func compareGraph(t *testing.T, nodes []Node, serviceValidationSteps map[Identifier]types.ValidationStep) {
+func compareGraph(t *testing.T, g *Graph) {
 	t.Helper()
 
-	encoded, err := MarshalDOT(nodes, serviceValidationSteps)
+	encoded, err := MarshalDOT(g)
 	if err != nil {
 		t.Fatalf("Failed to marshal graph: %v", err)
 	}
@@ -84,7 +84,7 @@ func TestForEntrypoint(t *testing.T) {
 		t.Fatalf("Failed to create graph for entrypoint: %v", err)
 	}
 
-	compareGraph(t, ctx.Nodes, ctx.ServiceValidationSteps)
+	compareGraph(t, ctx)
 }
 
 func TestForEntrypointDuplicateResourceGroups(t *testing.T) {
