@@ -48,7 +48,7 @@ type Service struct {
 	ExternalParent *string `json:"externalParent,omitempty"`
 
 	// Stamped marks this service group as stamp-scoped. Children inherit stamped from their parent.
-	Stamped bool `json:"stamped,omitempty"`
+	Stamped *bool `json:"stamped,omitempty"`
 }
 
 // Entrypoint describes an individual pipeline in the tree.
@@ -148,12 +148,20 @@ func (t *Topology) PropagateStamped() {
 }
 
 func propagateStamped(s *Service, parentStamped bool) {
-	if parentStamped {
-		s.Stamped = true
+	if parentStamped && s.Stamped == nil {
+		s.Stamped = ptr(true)
 	}
 	for i := range s.Children {
-		propagateStamped(&s.Children[i], s.Stamped)
+		propagateStamped(&s.Children[i], s.IsStamped())
 	}
+}
+
+func (s *Service) IsStamped() bool {
+	return s.Stamped != nil && *s.Stamped
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }
 
 func (t *Topology) Validate() error {
@@ -203,7 +211,7 @@ type validator struct {
 
 func (v *validator) validate(t *Topology) error {
 	for _, root := range t.Services {
-		if err := v.walk(root); err != nil {
+		if err := v.walk(root, false); err != nil {
 			return err
 		}
 	}
@@ -234,7 +242,7 @@ func (e *InvalidServiceGroupError) Error() string {
 	return fmt.Sprintf("invalid service group %s, must be of form Microsoft.Azure.ARO.Service.Component(.Subcomponent)?", e.ServiceGroup)
 }
 
-func (v *validator) walk(s Service) error {
+func (v *validator) walk(s Service, parentStamped bool) error {
 	if !strings.HasPrefix(s.ServiceGroup, "Microsoft.Azure.ARO.") {
 		return &InvalidServiceGroupError{ServiceGroup: s.ServiceGroup}
 	}
@@ -246,6 +254,10 @@ func (v *validator) walk(s Service) error {
 
 	if parts[3] == "" {
 		return &InvalidServiceGroupError{ServiceGroup: s.ServiceGroup}
+	}
+
+	if parentStamped && s.Stamped != nil && !*s.Stamped {
+		return fmt.Errorf("service %s explicitly sets stamped=false but its parent is stamped; stamped subtrees cannot have opt-outs", s.ServiceGroup)
 	}
 
 	if v.seen.Has(s.ServiceGroup) {
@@ -260,8 +272,10 @@ func (v *validator) walk(s Service) error {
 		return fmt.Errorf("failed to default pipeline: %w", err)
 	}
 
+	// parentStamped carries inherited state through intermediates with nil Stamped
+	effectiveStamped := parentStamped || s.IsStamped()
 	for _, child := range s.Children {
-		if err := v.walk(child); err != nil {
+		if err := v.walk(child, effectiveStamped); err != nil {
 			return err
 		}
 	}
