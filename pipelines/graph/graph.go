@@ -39,6 +39,25 @@ type Node struct {
 	Parents []Identifier
 }
 
+func newGraphBuilder() *graphBuilder {
+	return &graphBuilder{
+		Graph: &Graph{
+			Services:               map[string]*topology.Service{},
+			ResourceGroups:         map[string]*types.ResourceGroupMeta{},
+			resourceGroupOwners:    map[string]sets.Set[string]{},
+			Steps:                  map[string]map[string]map[string]types.Step{},
+			Nodes:                  []Node{},
+			ServiceValidationSteps: map[Identifier]types.ValidationStep{},
+		},
+		nodeIndex: map[Identifier]int{},
+	}
+}
+
+type graphBuilder struct {
+	*Graph
+	nodeIndex map[Identifier]int
+}
+
 // Graph holds a set of nodes, recording parent/child relationships for each, along with a set of lookup tables for
 // the services, resource groups, steps, etc. that the nodes represent.
 type Graph struct {
@@ -98,20 +117,13 @@ func ForPipeline(service *topology.Service, pipeline *types.Pipeline) (*Graph, e
 		Stamped:      service.Stamped,
 	}
 
-	graph := &Graph{
-		Services:               map[string]*topology.Service{},
-		ResourceGroups:         map[string]*types.ResourceGroupMeta{},
-		resourceGroupOwners:    map[string]sets.Set[string]{},
-		Steps:                  map[string]map[string]map[string]types.Step{},
-		Nodes:                  []Node{},
-		ServiceValidationSteps: map[Identifier]types.ValidationStep{},
-	}
+	b := newGraphBuilder()
 
-	if err := graph.accumulate(withoutChildren, map[string]*types.Pipeline{pipeline.ServiceGroup: pipeline}); err != nil {
+	if err := b.accumulate(withoutChildren, map[string]*types.Pipeline{pipeline.ServiceGroup: pipeline}); err != nil {
 		return nil, err
 	}
 
-	return graph, graph.detectCycles()
+	return b.Graph, b.detectCycles()
 }
 
 // ForEntrypoint generates a graph for all pipelines in the sub-tree of the topology identified by the entrypoint.
@@ -130,17 +142,10 @@ func ForEntrypoints(topo *topology.Topology, entrypoints []*topology.Entrypoint,
 		roots = append(roots, root)
 	}
 
-	graph := &Graph{
-		Services:               map[string]*topology.Service{},
-		ResourceGroups:         map[string]*types.ResourceGroupMeta{},
-		resourceGroupOwners:    map[string]sets.Set[string]{},
-		Steps:                  map[string]map[string]map[string]types.Step{},
-		Nodes:                  []Node{},
-		ServiceValidationSteps: map[Identifier]types.ValidationStep{},
-	}
+	b := newGraphBuilder()
 
 	for _, root := range roots {
-		if err := graph.accumulate(root, pipelines); err != nil {
+		if err := b.accumulate(root, pipelines); err != nil {
 			return nil, err
 		}
 	}
@@ -149,15 +154,15 @@ func ForEntrypoints(topo *topology.Topology, entrypoints []*topology.Entrypoint,
 	// so the `nodesFor()` method can no longer generate bi-directional edges as it does not see other nodes to add
 	// child relations. Instead of trying to teach `nodesFor()` how to do half of these edges, we can just do a pass
 	// now will full context.
-	if err := graph.addExternalDependencyEdges(); err != nil {
+	if err := b.addExternalDependencyEdges(); err != nil {
 		return nil, err
 	}
 
-	return graph, graph.detectCycles()
+	return b.Graph, b.detectCycles()
 }
 
 // accumulate recursively traverses the service and all children, building a graph of how steps in each service depend on each other.
-func (c *Graph) accumulate(service *topology.Service, pipelines map[string]*types.Pipeline) error {
+func (c *graphBuilder) accumulate(service *topology.Service, pipelines map[string]*types.Pipeline) error {
 	if _, alreadyRecorded := c.Services[service.ServiceGroup]; alreadyRecorded {
 		return fmt.Errorf("service group %s already recorded", service.ServiceGroup)
 	}
@@ -200,7 +205,10 @@ func (c *Graph) accumulate(service *topology.Service, pipelines map[string]*type
 	}
 	c.Steps[service.ServiceGroup] = steps
 	maps.Copy(c.ServiceValidationSteps, serviceValidationSteps)
-	c.Nodes = append(c.Nodes, nodes...)
+	for _, n := range nodes {
+		c.nodeIndex[n.Identifier] = len(c.Nodes)
+		c.Nodes = append(c.Nodes, n)
+	}
 
 	var leaves []Identifier
 	for _, node := range nodes {
@@ -288,16 +296,15 @@ func (c *Graph) lookup(node Identifier) (*topology.Service, *types.ResourceGroup
 	return svc, resourceGroup, step, nil
 }
 
-func (c *Graph) node(id Identifier) (int, error) {
-	for i, node := range c.Nodes {
-		if node.ServiceGroup == id.ServiceGroup && node.ResourceGroup == id.ResourceGroup && node.Step == id.Step {
-			return i, nil
-		}
+func (c *graphBuilder) node(id Identifier) (int, error) {
+	idx, ok := c.nodeIndex[id]
+	if !ok {
+		return 0, fmt.Errorf("node %s not found", id)
 	}
-	return 0, fmt.Errorf("node %s not found", id)
+	return idx, nil
 }
 
-func (c *Graph) addExternalDependencyEdges() error {
+func (c *graphBuilder) addExternalDependencyEdges() error {
 	for i, node := range c.Nodes {
 		step, ok := c.Steps[node.ServiceGroup][node.ResourceGroup][node.Step]
 		if !ok {
