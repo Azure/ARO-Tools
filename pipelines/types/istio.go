@@ -22,10 +22,18 @@ type IstioUpgradeStep struct {
 	StepMeta   `json:",inline"`
 	AKSCluster string `json:"aksCluster"`
 	DryRun     bool   `json:"dryRun,omitempty"`
+	// "install" installs the new control plane alongside the existing one
+	// and stops before workload migration. "upgrade" migrates workloads and
+	// completes the canary. Empty runs the full lifecycle in one step.
+	Phase string `json:"phase,omitempty"`
 }
 
 func (s *IstioUpgradeStep) Description() string {
-	return fmt.Sprintf("Step %s\n  Kind: %s\n  AKSCluster: %s\n  DryRun: %v\n", s.Name, s.Action, s.AKSCluster, s.DryRun)
+	phase := s.Phase
+	if phase == "" {
+		phase = "full"
+	}
+	return fmt.Sprintf("Step %s\n  Kind: %s\n  AKSCluster: %s\n  DryRun: %v\n  Phase: %s\n", s.Name, s.Action, s.AKSCluster, s.DryRun, phase)
 }
 
 func (s *IstioUpgradeStep) RequiredInputs() []StepDependency {
