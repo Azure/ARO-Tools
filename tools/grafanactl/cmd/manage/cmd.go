@@ -26,6 +26,7 @@ import (
 	"k8s.io/utils/set"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/dashboard/armdashboard/v2"
 )
 
@@ -133,6 +134,11 @@ func (o *CompletedReconcileOptions) Run(ctx context.Context) error {
 		Tags: tags,
 		Properties: &armdashboard.ManagedGrafanaProperties{
 			ZoneRedundancy: &zoneRedundancy,
+			GrafanaConfigurations: &armdashboard.GrafanaConfigurations{
+				Users: &armdashboard.Users{
+					ViewersCanEdit: to.Ptr(true),
+				},
+			},
 			GrafanaIntegrations: &armdashboard.GrafanaIntegrations{
 				AzureMonitorWorkspaceIntegrations: integrations,
 			},
