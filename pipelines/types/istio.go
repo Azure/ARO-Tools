@@ -20,12 +20,11 @@ const StepActionIstioUpgrade = "IstioUpgrade"
 
 type IstioUpgradeStep struct {
 	StepMeta   `json:",inline"`
-	AKSCluster string `json:"aksCluster"`
-	DryRun     bool   `json:"dryRun,omitempty"`
+	AKSCluster Value `json:"aksCluster"`
 }
 
 func (s *IstioUpgradeStep) Description() string {
-	return fmt.Sprintf("Step %s\n  Kind: %s\n  AKSCluster: %s\n  DryRun: %v\n", s.Name, s.Action, s.AKSCluster, s.DryRun)
+	return fmt.Sprintf("Step %s\n  Kind: %s\n  AKSCluster: %s\n", s.Name, s.Action, s.AKSCluster.String())
 }
 
 func (s *IstioUpgradeStep) RequiredInputs() []StepDependency {

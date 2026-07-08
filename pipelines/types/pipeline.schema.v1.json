@@ -832,10 +832,13 @@
               "const": "IstioUpgrade"
             },
             "aksCluster": {
-              "type": "string"
+              "$ref": "#/definitions/value"
             },
-            "dryRun": {
-              "type": "boolean"
+            "timeout": {
+              "$ref": "#/definitions/durationString"
+            },
+            "shellIdentity": {
+              "$ref": "#/definitions/value"
             }
           },
           "required": [
