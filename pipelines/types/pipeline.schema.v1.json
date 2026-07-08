@@ -820,6 +820,37 @@
         }
       ]
     },
+    "istioUpgradeStep": {
+      "unevaluatedProperties": false,
+      "allOf": [
+        {
+          "$ref": "#/definitions/stepMeta"
+        },
+        {
+          "properties": {
+            "action": {
+              "const": "IstioUpgrade"
+            },
+            "aksCluster": {
+              "type": "string"
+            },
+            "dryRun": {
+              "type": "boolean"
+            },
+            "phase": {
+              "type": "string",
+              "enum": [
+                "install",
+                "upgrade"
+              ]
+            }
+          },
+          "required": [
+            "aksCluster"
+          ]
+        }
+      ]
+    },
     "helmStep": {
       "unevaluatedProperties": false,
       "allOf": [
@@ -2072,6 +2103,22 @@
                   },
                   "then": {
                     "$ref": "#/definitions/grafanaDatasourcesStep"
+                  }
+                },
+                {
+                  "if": {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "IstioUpgrade"
+                      }
+                    },
+                    "required": [
+                      "action"
+                    ]
+                  },
+                  "then": {
+                    "$ref": "#/definitions/istioUpgradeStep"
                   }
                 }
               ],
