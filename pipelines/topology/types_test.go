@@ -216,6 +216,52 @@ services:
     pipeline: foo`,
 			err: true,
 		},
+		{
+			name: "explicit false under stamped parent rejected",
+			input: `services:
+- serviceGroup: Microsoft.Azure.ARO.HCP
+  pipelinePath: foo
+  purpose: root
+  stamped: true
+  children:
+  - serviceGroup: Microsoft.Azure.ARO.HCP.Child
+    pipelinePath: bar
+    purpose: child
+    stamped: false`,
+			err: true,
+		},
+		{
+			name: "explicit false grandchild under stamped grandparent with nil intermediate rejected",
+			input: `services:
+- serviceGroup: Microsoft.Azure.ARO.HCP
+  pipelinePath: foo
+  purpose: root
+  stamped: true
+  children:
+  - serviceGroup: Microsoft.Azure.ARO.HCP.Middle
+    pipelinePath: bar
+    purpose: middle
+    children:
+    - serviceGroup: Microsoft.Azure.ARO.HCP.Middle.Leaf
+      pipelinePath: baz
+      purpose: leaf
+      stamped: false`,
+			err: true,
+		},
+		{
+			name: "explicit true under stamped parent tolerated",
+			input: `services:
+- serviceGroup: Microsoft.Azure.ARO.HCP
+  pipelinePath: foo
+  purpose: root
+  stamped: true
+  children:
+  - serviceGroup: Microsoft.Azure.ARO.HCP.Child
+    pipelinePath: bar
+    purpose: child
+    stamped: true`,
+			err: false,
+		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			var topo Topology
@@ -351,7 +397,7 @@ func TestPropagateStamped(t *testing.T) {
 				Services: []Service{
 					{
 						ServiceGroup: "parent",
-						Stamped:      true,
+						Stamped:      ptr(true),
 						Children: []Service{
 							{ServiceGroup: "child-a"},
 							{ServiceGroup: "child-b", Children: []Service{
@@ -365,11 +411,11 @@ func TestPropagateStamped(t *testing.T) {
 				Services: []Service{
 					{
 						ServiceGroup: "parent",
-						Stamped:      true,
+						Stamped:      ptr(true),
 						Children: []Service{
-							{ServiceGroup: "child-a", Stamped: true},
-							{ServiceGroup: "child-b", Stamped: true, Children: []Service{
-								{ServiceGroup: "grandchild", Stamped: true},
+							{ServiceGroup: "child-a", Stamped: ptr(true)},
+							{ServiceGroup: "child-b", Stamped: ptr(true), Children: []Service{
+								{ServiceGroup: "grandchild", Stamped: ptr(true)},
 							}},
 						},
 					},
@@ -382,7 +428,7 @@ func TestPropagateStamped(t *testing.T) {
 				Services: []Service{
 					{
 						ServiceGroup: "stamped-parent",
-						Stamped:      true,
+						Stamped:      ptr(true),
 						Children: []Service{
 							{ServiceGroup: "stamped-child"},
 						},
@@ -399,15 +445,42 @@ func TestPropagateStamped(t *testing.T) {
 				Services: []Service{
 					{
 						ServiceGroup: "stamped-parent",
-						Stamped:      true,
+						Stamped:      ptr(true),
 						Children: []Service{
-							{ServiceGroup: "stamped-child", Stamped: true},
+							{ServiceGroup: "stamped-child", Stamped: ptr(true)},
 						},
 					},
 					{
 						ServiceGroup: "non-stamped-sibling",
 						Children: []Service{
 							{ServiceGroup: "non-stamped-child"},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "child with explicit stamped=true is preserved",
+			input: Topology{
+				Services: []Service{
+					{
+						ServiceGroup: "parent",
+						Stamped:      ptr(true),
+						Children: []Service{
+							{ServiceGroup: "child-explicit", Stamped: ptr(true)},
+							{ServiceGroup: "child-nil"},
+						},
+					},
+				},
+			},
+			expected: Topology{
+				Services: []Service{
+					{
+						ServiceGroup: "parent",
+						Stamped:      ptr(true),
+						Children: []Service{
+							{ServiceGroup: "child-explicit", Stamped: ptr(true)},
+							{ServiceGroup: "child-nil", Stamped: ptr(true)},
 						},
 					},
 				},
@@ -465,11 +538,11 @@ func TestLoad_PropagateStamped(t *testing.T) {
 		Services: []Service{
 			{
 				ServiceGroup: "parent",
-				Stamped:      true,
+				Stamped:      ptr(true),
 				Children: []Service{
-					{ServiceGroup: "child-a", Stamped: true},
-					{ServiceGroup: "child-b", Stamped: true, Children: []Service{
-						{ServiceGroup: "grandchild", Stamped: true},
+					{ServiceGroup: "child-a", Stamped: ptr(true)},
+					{ServiceGroup: "child-b", Stamped: ptr(true), Children: []Service{
+						{ServiceGroup: "grandchild", Stamped: ptr(true)},
 					}},
 				},
 			},
@@ -726,20 +799,20 @@ func TestLoadCombined(t *testing.T) {
 						ServiceGroup: "Microsoft.Azure.ARO.HCP",
 						PipelinePath: "foo",
 						Purpose:      "root",
-						Stamped:      true,
+						Stamped:      ptr(true),
 						Children: []Service{
 							{
 								ServiceGroup:   "Microsoft.Azure.ARO.HCP.Child",
 								PipelinePath:   "bar",
 								Purpose:        "grafted child",
-								Stamped:        true,
+								Stamped:        ptr(true),
 								ExternalParent: func() *string { s := "Microsoft.Azure.ARO.HCP"; return &s }(),
 								Children: []Service{
 									{
 										ServiceGroup: "Microsoft.Azure.ARO.HCP.Child.Grand",
 										PipelinePath: "baz",
 										Purpose:      "grandchild",
-										Stamped:      true,
+										Stamped:      ptr(true),
 									},
 								},
 							},

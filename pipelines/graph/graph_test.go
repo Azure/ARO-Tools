@@ -34,13 +34,13 @@ func TestForPipeline(t *testing.T) {
 		t.Fatalf("Failed to create graph for pipeline: %v", err)
 	}
 
-	compareGraph(t, ctx.Nodes, ctx.ServiceValidationSteps)
+	compareGraph(t, ctx)
 }
 
-func compareGraph(t *testing.T, nodes []Node, serviceValidationSteps map[Identifier]types.ValidationStep) {
+func compareGraph(t *testing.T, g *Graph) {
 	t.Helper()
 
-	encoded, err := MarshalDOT(nodes, serviceValidationSteps)
+	encoded, err := MarshalDOT(g)
 	if err != nil {
 		t.Fatalf("Failed to marshal graph: %v", err)
 	}
@@ -84,7 +84,7 @@ func TestForEntrypoint(t *testing.T) {
 		t.Fatalf("Failed to create graph for entrypoint: %v", err)
 	}
 
-	compareGraph(t, ctx.Nodes, ctx.ServiceValidationSteps)
+	compareGraph(t, ctx)
 }
 
 func TestForEntrypointDuplicateResourceGroups(t *testing.T) {
@@ -102,6 +102,54 @@ func TestForEntrypointDuplicateResourceGroups(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "new service:") {
 		t.Fatalf("expected error to contain 'new service:', got %v", err)
+	}
+}
+
+func TestFindLeavesErrorsOnMissingChild(t *testing.T) {
+	parentID := Identifier{
+		ServiceGroup: "svc",
+		StepDependency: types.StepDependency{
+			ResourceGroup: "rg",
+			Step:          "parent",
+		},
+	}
+	missingChildID := Identifier{
+		ServiceGroup: "svc",
+		StepDependency: types.StepDependency{
+			ResourceGroup: "rg",
+			Step:          "missing",
+		},
+	}
+
+	graphBuilder := &graphBuilder{
+		Graph: &Graph{
+			Services: map[string]*topology.Service{
+				"svc": {ServiceGroup: "svc"},
+			},
+			ResourceGroups: map[ResourceGroupKey]*types.ResourceGroupMeta{
+				{Name: "rg"}: {Name: "rg"},
+			},
+			Steps: map[Identifier]types.Step{
+				parentID: &types.GenericStep{StepMeta: types.StepMeta{Name: "parent"}},
+			},
+			Nodes: []Node{
+				{
+					Identifier: parentID,
+					Children:   []Identifier{missingChildID},
+				},
+			},
+		},
+	}
+
+	_, err := graphBuilder.findLeaves(graphBuilder.Nodes)
+	if err == nil {
+		t.Fatal("expected error for missing child lookup, got nil")
+	}
+	if !strings.Contains(err.Error(), "missing") {
+		t.Fatalf("expected error to mention missing child, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "parent") {
+		t.Fatalf("expected error to mention parent node, got: %v", err)
 	}
 }
 
