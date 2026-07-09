@@ -316,9 +316,12 @@ func (c *Client) AbortJob(ctx context.Context, prowExecutionID string) error {
 		return nil
 	}
 
-	// Pin the window to the StartTime; isMatchingCondition treats the bounds
-	// inclusively, so [StartTime, StartTime] is the tightest window the API allows.
-	start := timestamppb.New(job.Status.StartTime.Time)
+	// Pin the window to the StartTime, truncated to seconds so it matches the
+	// same second-precision window the isolation check uses (and the precision at
+	// which ProwJob StartTime is serialized). isMatchingCondition treats the
+	// bounds inclusively, so [StartTime, StartTime] is the tightest window the
+	// API allows.
+	start := timestamppb.New(job.Status.StartTime.Truncate(time.Second))
 	request := &prowgangway.BulkJobStatusChangeRequest{
 		JobStatusChange: &prowgangway.JobStatusChange{
 			Current: prowgangway.TranslateProwJobStatus(&job.Status),

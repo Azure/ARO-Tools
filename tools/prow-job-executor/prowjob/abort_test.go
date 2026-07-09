@@ -249,6 +249,35 @@ func TestAbortJobRunningJob(t *testing.T) {
 	}
 }
 
+// TestAbortJobTruncatesWindowToSeconds verifies that a StartTime carrying
+// sub-second nanoseconds is truncated to the second before pinning the bulk
+// window, so the request matches the same second-precision window used by the
+// isolation check and by Gangway's serialized StartTime.
+func TestAbortJobTruncatesWindowToSeconds(t *testing.T) {
+	second := time.Now().Truncate(time.Second)
+	subSecond := second.Add(123456789 * time.Nanosecond)
+	f := newAbortFixture(t, map[string]*prowjobs.ProwJob{
+		"job-exec-123": testJob(prowjobs.PendingState, prowjobs.PostsubmitJob, postsubmitRefs(), subSecond, "eastus"),
+	})
+
+	if err := f.client().AbortJob(testContext(), "job-exec-123"); err != nil {
+		t.Fatalf("AbortJob returned error: %v", err)
+	}
+	if got := f.bulkRequests(); got != 1 {
+		t.Fatalf("expected exactly 1 bulk request, got %d", got)
+	}
+
+	f.mu.Lock()
+	req := f.lastBulk
+	f.mu.Unlock()
+	if req == nil {
+		t.Fatal("bulk request body was not captured")
+	}
+	if !req.GetStartedAfter().AsTime().Equal(second) || !req.GetStartedBefore().AsTime().Equal(second) {
+		t.Errorf("window = [%v, %v], want both truncated to %v", req.GetStartedAfter().AsTime(), req.GetStartedBefore().AsTime(), second)
+	}
+}
+
 func TestAbortJobTerminalIsNoop(t *testing.T) {
 	start := time.Now().Truncate(time.Second)
 	f := newAbortFixture(t, map[string]*prowjobs.ProwJob{
