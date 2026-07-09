@@ -104,7 +104,7 @@ func deriveBulkURL(gangwayURL string) string {
 	if err != nil {
 		return gangwayURL
 	}
-	u.Path = strings.TrimSuffix(strings.TrimSuffix(u.Path, "/"), executionsPath) + bulkStatusChangePath
+	u.Path = strings.TrimSuffix(strings.TrimRight(u.Path, "/"), executionsPath) + bulkStatusChangePath
 	u.RawQuery = ""
 	return u.String()
 }
