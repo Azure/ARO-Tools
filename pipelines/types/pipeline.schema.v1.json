@@ -294,7 +294,9 @@
         },
         "fileSourceToDestination": {
           "type": "object",
-          "additionalProperties": { "type": "string" }
+          "additionalProperties": {
+            "type": "string"
+          }
         }
       }
     },
@@ -837,8 +839,8 @@
             "timeout": {
               "$ref": "#/definitions/durationString"
             },
-            "shellIdentity": {
-              "$ref": "#/definitions/value"
+            "identityFrom": {
+              "$ref": "#/definitions/input"
             }
           },
           "required": [

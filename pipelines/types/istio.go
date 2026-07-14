@@ -22,10 +22,10 @@ import (
 const StepActionIstioUpgrade = "IstioUpgrade"
 
 type IstioUpgradeStep struct {
-	StepMeta      `json:",inline"`
-	AKSCluster    Value  `json:"aksCluster"`
-	Timeout       string `json:"timeout,omitempty"`
-	ShellIdentity Value  `json:"shellIdentity,omitempty"`
+	StepMeta     `json:",inline"`
+	AKSCluster   Value  `json:"aksCluster"`
+	Timeout      string `json:"timeout,omitempty"`
+	IdentityFrom Input  `json:"identityFrom,omitempty"`
 }
 
 func (s *IstioUpgradeStep) Description() string {
@@ -37,9 +37,7 @@ func (s *IstioUpgradeStep) RequiredInputs() []StepDependency {
 	if s.AKSCluster.Input != nil {
 		deps = append(deps, s.AKSCluster.Input.StepDependency)
 	}
-	if s.ShellIdentity.Input != nil {
-		deps = append(deps, s.ShellIdentity.Input.StepDependency)
-	}
+	deps = append(deps, s.IdentityFrom.StepDependency)
 	slices.SortFunc(deps, SortDependencies)
 	deps = slices.Compact(deps)
 	return deps

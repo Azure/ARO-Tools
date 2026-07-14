@@ -403,8 +403,10 @@ func TestValidatePipelineSchema(t *testing.T) {
 									"configRef": "svc.aks.name",
 								},
 								"timeout": "75m",
-								"shellIdentity": map[string]interface{}{
-									"value": "test-msi",
+								"identityFrom": map[string]interface{}{
+									"resourceGroup": "rg",
+									"step":          "output",
+									"name":          "globalMSIId",
 								},
 							},
 						},
