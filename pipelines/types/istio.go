@@ -37,7 +37,9 @@ func (s *IstioUpgradeStep) RequiredInputs() []StepDependency {
 	if s.AKSCluster.Input != nil {
 		deps = append(deps, s.AKSCluster.Input.StepDependency)
 	}
-	deps = append(deps, s.IdentityFrom.StepDependency)
+	if s.IdentityFrom.StepDependency != (StepDependency{}) {
+		deps = append(deps, s.IdentityFrom.StepDependency)
+	}
 	slices.SortFunc(deps, SortDependencies)
 	deps = slices.Compact(deps)
 	return deps
