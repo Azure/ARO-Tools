@@ -28,7 +28,11 @@ func (s *IstioUpgradeStep) Description() string {
 }
 
 func (s *IstioUpgradeStep) RequiredInputs() []StepDependency {
-	return []StepDependency{}
+	var deps []StepDependency
+	if s.AKSCluster.Input != nil {
+		deps = append(deps, s.AKSCluster.Input.StepDependency)
+	}
+	return deps
 }
 
 func (s *IstioUpgradeStep) IsWellFormedOverInputs() bool {
