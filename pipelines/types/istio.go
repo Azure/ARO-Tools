@@ -19,8 +19,10 @@ import "fmt"
 const StepActionIstioUpgrade = "IstioUpgrade"
 
 type IstioUpgradeStep struct {
-	StepMeta   `json:",inline"`
-	AKSCluster Value `json:"aksCluster"`
+	StepMeta      `json:",inline"`
+	AKSCluster    Value  `json:"aksCluster"`
+	Timeout       string `json:"timeout,omitempty"`
+	ShellIdentity Value  `json:"shellIdentity,omitempty"`
 }
 
 func (s *IstioUpgradeStep) Description() string {
@@ -31,6 +33,9 @@ func (s *IstioUpgradeStep) RequiredInputs() []StepDependency {
 	var deps []StepDependency
 	if s.AKSCluster.Input != nil {
 		deps = append(deps, s.AKSCluster.Input.StepDependency)
+	}
+	if s.ShellIdentity.Input != nil {
+		deps = append(deps, s.ShellIdentity.Input.StepDependency)
 	}
 	return deps
 }
