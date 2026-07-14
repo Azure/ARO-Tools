@@ -45,7 +45,7 @@ func makeTopology(root topology.Service) *topology.Topology {
 }
 
 // makePipeline builds a single-resource-group pipeline with auto-derived RG metadata.
-func makePipeline(serviceGroup, rgName string, steps ...types.Step) *types.Pipeline {
+func makePipeline(serviceGroup, rgName string, stamped bool, steps ...types.Step) *types.Pipeline {
 	return &types.Pipeline{
 		ServiceGroup: serviceGroup,
 		ResourceGroups: []*types.ResourceGroup{
@@ -54,6 +54,7 @@ func makePipeline(serviceGroup, rgName string, steps ...types.Step) *types.Pipel
 					Name:          rgName,
 					ResourceGroup: rgName,
 					Subscription:  "sub-" + rgName,
+					Stamped:       stamped,
 				},
 				Steps: steps,
 			},
@@ -120,16 +121,16 @@ func TestStampedUnstampedParent(t *testing.T) {
 		},
 	})
 
-	infraPipeline := makePipeline("SG.Infra", "infra-rg", deploy)
+	infraPipeline := makePipeline("SG.Infra", "infra-rg", false, deploy)
 
 	twoStampPipelines := map[Stamp]map[string]*types.Pipeline{
 		mustStamp("1"): {
 			"SG.Infra": infraPipeline,
-			"SG.Mgmt":  makePipelineWithRGMeta("SG.Mgmt", &types.ResourceGroupMeta{Name: "mgmt-rg", ResourceGroup: "mgmt-rg-1", Subscription: "sub-1"}, deploy),
+			"SG.Mgmt":  makePipelineWithRGMeta("SG.Mgmt", &types.ResourceGroupMeta{Name: "mgmt-rg", ResourceGroup: "mgmt-rg-1", Subscription: "sub-1", Stamped: true}, deploy),
 		},
 		mustStamp("2"): {
 			"SG.Infra": infraPipeline,
-			"SG.Mgmt":  makePipelineWithRGMeta("SG.Mgmt", &types.ResourceGroupMeta{Name: "mgmt-rg", ResourceGroup: "mgmt-rg-2", Subscription: "sub-2"}, deploy),
+			"SG.Mgmt":  makePipelineWithRGMeta("SG.Mgmt", &types.ResourceGroupMeta{Name: "mgmt-rg", ResourceGroup: "mgmt-rg-2", Subscription: "sub-2", Stamped: true}, deploy),
 		},
 	}
 
@@ -213,7 +214,7 @@ func TestStampedUnstampedParent(t *testing.T) {
 			stampPipelines: map[Stamp]map[string]*types.Pipeline{
 				mustStamp("1"): {
 					"SG.Infra": infraPipeline,
-					"SG.Mgmt":  makePipelineWithRGMeta("SG.Mgmt", &types.ResourceGroupMeta{Name: "mgmt-rg", ResourceGroup: "mgmt-rg-1", Subscription: "sub-1"}, deploy),
+					"SG.Mgmt":  makePipelineWithRGMeta("SG.Mgmt", &types.ResourceGroupMeta{Name: "mgmt-rg", ResourceGroup: "mgmt-rg-1", Subscription: "sub-1", Stamped: true}, deploy),
 				},
 			},
 			validate: func(t *testing.T, result *Graph) {
@@ -246,13 +247,13 @@ func TestStampedUnstampedParent(t *testing.T) {
 					mustStamp("1"): {
 						"SG.Infra": infraPipeline,
 						"SG.Mgmt": makePipelineWithValidation("SG.Mgmt",
-							&types.ResourceGroupMeta{Name: "mgmt-rg", ResourceGroup: "mgmt-rg-1", Subscription: "sub-1"},
+							&types.ResourceGroupMeta{Name: "mgmt-rg", ResourceGroup: "mgmt-rg-1", Subscription: "sub-1", Stamped: true},
 							[]types.ValidationStep{valStep}, deploy),
 					},
 					mustStamp("2"): {
 						"SG.Infra": infraPipeline,
 						"SG.Mgmt": makePipelineWithValidation("SG.Mgmt",
-							&types.ResourceGroupMeta{Name: "mgmt-rg", ResourceGroup: "mgmt-rg-2", Subscription: "sub-2"},
+							&types.ResourceGroupMeta{Name: "mgmt-rg", ResourceGroup: "mgmt-rg-2", Subscription: "sub-2", Stamped: true},
 							[]types.ValidationStep{valStep}, deploy),
 					},
 				}
@@ -287,19 +288,19 @@ func TestStampedMixedSiblings(t *testing.T) {
 		},
 	})
 
-	regionalPipeline := makePipeline("SG.Regional", "regional-rg", deploy)
-	svcPipeline := makePipeline("SG.Svc", "svc-rg", deploy)
+	regionalPipeline := makePipeline("SG.Regional", "regional-rg", false, deploy)
+	svcPipeline := makePipeline("SG.Svc", "svc-rg", false, deploy)
 
 	stampPipelines := map[Stamp]map[string]*types.Pipeline{
 		mustStamp("1"): {
 			"SG.Regional": regionalPipeline,
 			"SG.Svc":      svcPipeline,
-			"SG.Mgmt":     makePipelineWithRGMeta("SG.Mgmt", &types.ResourceGroupMeta{Name: "mgmt-rg", ResourceGroup: "mgmt-rg-1", Subscription: "sub-1"}, deploy),
+			"SG.Mgmt":     makePipelineWithRGMeta("SG.Mgmt", &types.ResourceGroupMeta{Name: "mgmt-rg", ResourceGroup: "mgmt-rg-1", Subscription: "sub-1", Stamped: true}, deploy),
 		},
 		mustStamp("2"): {
 			"SG.Regional": regionalPipeline,
 			"SG.Svc":      svcPipeline,
-			"SG.Mgmt":     makePipelineWithRGMeta("SG.Mgmt", &types.ResourceGroupMeta{Name: "mgmt-rg", ResourceGroup: "mgmt-rg-2", Subscription: "sub-2"}, deploy),
+			"SG.Mgmt":     makePipelineWithRGMeta("SG.Mgmt", &types.ResourceGroupMeta{Name: "mgmt-rg", ResourceGroup: "mgmt-rg-2", Subscription: "sub-2", Stamped: true}, deploy),
 		},
 	}
 
@@ -370,20 +371,20 @@ func TestStampedNestedChildren(t *testing.T) {
 		},
 	})
 
-	regionalPipeline := makePipeline("SG.Regional", "regional-rg", deploy)
+	regionalPipeline := makePipeline("SG.Regional", "regional-rg", false, deploy)
 
 	stampPipelines := map[Stamp]map[string]*types.Pipeline{
 		mustStamp("1"): {
 			"SG.Regional": regionalPipeline,
-			"SG.Mgmt":     makePipelineWithRGMeta("SG.Mgmt", &types.ResourceGroupMeta{Name: "mgmt-rg", ResourceGroup: "mgmt-rg-1", Subscription: "sub-1"}, deploy),
-			"SG.MgmtDB":   makePipeline("SG.MgmtDB", "db-rg", deploy),
-			"SG.MgmtNet":  makePipeline("SG.MgmtNet", "net-rg", deploy),
+			"SG.Mgmt":     makePipelineWithRGMeta("SG.Mgmt", &types.ResourceGroupMeta{Name: "mgmt-rg", ResourceGroup: "mgmt-rg-1", Subscription: "sub-1", Stamped: true}, deploy),
+			"SG.MgmtDB":   makePipeline("SG.MgmtDB", "db-rg", true, deploy),
+			"SG.MgmtNet":  makePipeline("SG.MgmtNet", "net-rg", true, deploy),
 		},
 		mustStamp("2"): {
 			"SG.Regional": regionalPipeline,
-			"SG.Mgmt":     makePipelineWithRGMeta("SG.Mgmt", &types.ResourceGroupMeta{Name: "mgmt-rg", ResourceGroup: "mgmt-rg-2", Subscription: "sub-2"}, deploy),
-			"SG.MgmtDB":   makePipeline("SG.MgmtDB", "db-rg", deploy),
-			"SG.MgmtNet":  makePipeline("SG.MgmtNet", "net-rg", deploy),
+			"SG.Mgmt":     makePipelineWithRGMeta("SG.Mgmt", &types.ResourceGroupMeta{Name: "mgmt-rg", ResourceGroup: "mgmt-rg-2", Subscription: "sub-2", Stamped: true}, deploy),
+			"SG.MgmtDB":   makePipeline("SG.MgmtDB", "db-rg", true, deploy),
+			"SG.MgmtNet":  makePipeline("SG.MgmtNet", "net-rg", true, deploy),
 		},
 	}
 
@@ -486,19 +487,19 @@ func TestStampedExternalDeps(t *testing.T) {
 						{ServiceGroup: "SG.MgmtDB", StepDependency: types.StepDependency{ResourceGroup: "db-rg", Step: "deploy"}},
 					},
 				}}
-				regionalPipeline := makePipeline("SG.Regional", "regional-rg", deploy)
+				regionalPipeline := makePipeline("SG.Regional", "regional-rg", false, deploy)
 				return map[Stamp]map[string]*types.Pipeline{
 					mustStamp("1"): {
 						"SG.Regional": regionalPipeline,
-						"SG.Mgmt":     makePipelineWithRGMeta("SG.Mgmt", &types.ResourceGroupMeta{Name: "mgmt-rg", ResourceGroup: "mgmt-rg-1", Subscription: "sub-1"}, deploy),
-						"SG.MgmtDB":   makePipeline("SG.MgmtDB", "db-rg", deploy),
-						"SG.MgmtNet":  makePipeline("SG.MgmtNet", "net-rg", netDeploy),
+						"SG.Mgmt":     makePipelineWithRGMeta("SG.Mgmt", &types.ResourceGroupMeta{Name: "mgmt-rg", ResourceGroup: "mgmt-rg-1", Subscription: "sub-1", Stamped: true}, deploy),
+						"SG.MgmtDB":   makePipeline("SG.MgmtDB", "db-rg", true, deploy),
+						"SG.MgmtNet":  makePipeline("SG.MgmtNet", "net-rg", true, netDeploy),
 					},
 					mustStamp("2"): {
 						"SG.Regional": regionalPipeline,
-						"SG.Mgmt":     makePipelineWithRGMeta("SG.Mgmt", &types.ResourceGroupMeta{Name: "mgmt-rg", ResourceGroup: "mgmt-rg-2", Subscription: "sub-2"}, deploy),
-						"SG.MgmtDB":   makePipeline("SG.MgmtDB", "db-rg", deploy),
-						"SG.MgmtNet":  makePipeline("SG.MgmtNet", "net-rg", netDeploy),
+						"SG.Mgmt":     makePipelineWithRGMeta("SG.Mgmt", &types.ResourceGroupMeta{Name: "mgmt-rg", ResourceGroup: "mgmt-rg-2", Subscription: "sub-2", Stamped: true}, deploy),
+						"SG.MgmtDB":   makePipeline("SG.MgmtDB", "db-rg", true, deploy),
+						"SG.MgmtNet":  makePipeline("SG.MgmtNet", "net-rg", true, netDeploy),
 					},
 				}
 			}(),
@@ -527,7 +528,7 @@ func TestStampedExternalDeps(t *testing.T) {
 			stampPipelines: func() map[Stamp]map[string]*types.Pipeline {
 				mgmtDeploy := func(rgName string) *types.Pipeline {
 					return makePipelineWithRGMeta("SG.Mgmt",
-						&types.ResourceGroupMeta{Name: "mgmt-rg", ResourceGroup: rgName, Subscription: "sub-" + rgName},
+						&types.ResourceGroupMeta{Name: "mgmt-rg", ResourceGroup: rgName, Subscription: "sub-" + rgName, Stamped: true},
 						&types.ShellStep{StepMeta: types.StepMeta{
 							Name: "deploy",
 							ExternalDependsOn: []types.ExternalStepDependency{
@@ -535,8 +536,8 @@ func TestStampedExternalDeps(t *testing.T) {
 							},
 						}})
 				}
-				regionalPipeline := makePipeline("SG.Regional", "regional-rg", deploy)
-				svcPipeline := makePipeline("SG.Svc", "svc-rg", deploy)
+				regionalPipeline := makePipeline("SG.Regional", "regional-rg", false, deploy)
+				svcPipeline := makePipeline("SG.Svc", "svc-rg", false, deploy)
 				return map[Stamp]map[string]*types.Pipeline{
 					mustStamp("1"): {"SG.Regional": regionalPipeline, "SG.Svc": svcPipeline, "SG.Mgmt": mgmtDeploy("mgmt-rg-1")},
 					mustStamp("2"): {"SG.Regional": regionalPipeline, "SG.Svc": svcPipeline, "SG.Mgmt": mgmtDeploy("mgmt-rg-2")},
@@ -580,22 +581,22 @@ func TestStampedExternalDeps(t *testing.T) {
 						{ServiceGroup: "SG.Mgmt", StepDependency: types.StepDependency{ResourceGroup: "mgmt-rg", Step: "deploy"}},
 					},
 				}}
-				regionalPipeline := makePipeline("SG.Regional", "regional-rg", deploy)
-				svcPipeline := makePipeline("SG.Svc", "svc-rg", svcDeploy)
+				regionalPipeline := makePipeline("SG.Regional", "regional-rg", false, deploy)
+				svcPipeline := makePipeline("SG.Svc", "svc-rg", false, svcDeploy)
 				return map[Stamp]map[string]*types.Pipeline{
 					mustStamp("1"): {
 						"SG.Regional": regionalPipeline,
 						"SG.Svc":      svcPipeline,
-						"SG.Mgmt":     makePipelineWithRGMeta("SG.Mgmt", &types.ResourceGroupMeta{Name: "mgmt-rg", ResourceGroup: "mgmt-rg-1", Subscription: "sub-1"}, deploy),
+						"SG.Mgmt":     makePipelineWithRGMeta("SG.Mgmt", &types.ResourceGroupMeta{Name: "mgmt-rg", ResourceGroup: "mgmt-rg-1", Subscription: "sub-1", Stamped: true}, deploy),
 					},
 					mustStamp("2"): {
 						"SG.Regional": regionalPipeline,
 						"SG.Svc":      svcPipeline,
-						"SG.Mgmt":     makePipelineWithRGMeta("SG.Mgmt", &types.ResourceGroupMeta{Name: "mgmt-rg", ResourceGroup: "mgmt-rg-2", Subscription: "sub-2"}, deploy),
+						"SG.Mgmt":     makePipelineWithRGMeta("SG.Mgmt", &types.ResourceGroupMeta{Name: "mgmt-rg", ResourceGroup: "mgmt-rg-2", Subscription: "sub-2", Stamped: true}, deploy),
 					},
 				}
 			}(),
-			expectErr: "cannot depend on stamped service",
+			expectErr: `step "deploy" in unstamped resource group "svc-rg" (service "SG.Svc") has external dependency on stamped resource group "mgmt-rg" in service "SG.Mgmt"`,
 		},
 		{
 			name: "unstamped to stamped rejected without expansion",
@@ -615,13 +616,13 @@ func TestStampedExternalDeps(t *testing.T) {
 				}}
 				return map[Stamp]map[string]*types.Pipeline{
 					Unstamped(): {
-						"SG.Regional": makePipeline("SG.Regional", "regional-rg", deploy),
-						"SG.Svc":      makePipeline("SG.Svc", "svc-rg", svcDeploy),
-						"SG.Mgmt":     makePipeline("SG.Mgmt", "mgmt-rg", deploy),
+						"SG.Regional": makePipeline("SG.Regional", "regional-rg", false, deploy),
+						"SG.Svc":      makePipeline("SG.Svc", "svc-rg", false, svcDeploy),
+						"SG.Mgmt":     makePipeline("SG.Mgmt", "mgmt-rg", true, deploy),
 					},
 				}
 			}(),
-			expectErr: "cannot depend on stamped service",
+			expectErr: `step "deploy" in unstamped resource group "svc-rg" (service "SG.Svc") has external dependency on stamped resource group "mgmt-rg" in service "SG.Mgmt"`,
 		},
 	}
 
@@ -693,9 +694,9 @@ func TestNoExpansionMode(t *testing.T) {
 				},
 			}),
 			pipelines: map[string]*types.Pipeline{
-				"SG.Regional": makePipeline("SG.Regional", "regional-rg", deploy),
-				"SG.Svc":      makePipeline("SG.Svc", "svc-rg", deploy),
-				"SG.Mgmt":     makePipeline("SG.Mgmt", "mgmt-rg", deploy),
+				"SG.Regional": makePipeline("SG.Regional", "regional-rg", false, deploy),
+				"SG.Svc":      makePipeline("SG.Svc", "svc-rg", false, deploy),
+				"SG.Mgmt":     makePipeline("SG.Mgmt", "mgmt-rg", true, deploy),
 			},
 		},
 		{
@@ -707,8 +708,8 @@ func TestNoExpansionMode(t *testing.T) {
 				},
 			}),
 			pipelines: map[string]*types.Pipeline{
-				"SG.Infra": makePipeline("SG.Infra", "infra-rg", deploy),
-				"SG.Mgmt":  makePipeline("SG.Mgmt", "mgmt-rg", deploy),
+				"SG.Infra": makePipeline("SG.Infra", "infra-rg", false, deploy),
+				"SG.Mgmt":  makePipeline("SG.Mgmt", "mgmt-rg", true, deploy),
 			},
 		},
 		{
@@ -732,10 +733,10 @@ func TestNoExpansionMode(t *testing.T) {
 					},
 				}}
 				return map[string]*types.Pipeline{
-					"SG.Regional": makePipeline("SG.Regional", "regional-rg", deploy),
-					"SG.Mgmt":     makePipeline("SG.Mgmt", "mgmt-rg", deploy),
-					"SG.MgmtDB":   makePipeline("SG.MgmtDB", "db-rg", deploy),
-					"SG.MgmtNet":  makePipeline("SG.MgmtNet", "net-rg", netDeploy),
+					"SG.Regional": makePipeline("SG.Regional", "regional-rg", false, deploy),
+					"SG.Mgmt":     makePipeline("SG.Mgmt", "mgmt-rg", true, deploy),
+					"SG.MgmtDB":   makePipeline("SG.MgmtDB", "db-rg", true, deploy),
+					"SG.MgmtNet":  makePipeline("SG.MgmtNet", "net-rg", true, netDeploy),
 				}
 			}(),
 			validate: func(t *testing.T, result *Graph) {
@@ -780,7 +781,7 @@ func TestForPipelineStampedService(t *testing.T) {
 	service := &topology.Service{
 		ServiceGroup: "SG.Mgmt", Purpose: "mgmt", Stamped: ptr(true), PipelinePath: "mgmt.yaml",
 	}
-	pipeline := makePipeline("SG.Mgmt", "mgmt-rg", deploy)
+	pipeline := makePipeline("SG.Mgmt", "mgmt-rg", true, deploy)
 
 	result, err := ForPipeline(service, pipeline)
 	assert.NoError(t, err)
@@ -794,24 +795,29 @@ func TestForPipelineStampedService(t *testing.T) {
 //
 //	Region (unstamped, step: deploy)
 //	  ├─ Service.Infra (unstamped, step: deploy)
-//	  └─ Management.Infra (stamped, steps: infra → deploy, infra → configure)
-//	       ├─ Maestro.Agent (stamped, step: deploy, external dep on Service.Infra) - target unstamped
-//	       └─ Fleet.Registration (stamped, step: deploy, external dep on Maestro.Agent) - both stamped
+//	  └─ Management.Infra (stamped, mixed RGs)
+//	       ├─ svc-rg (unstamped, shared with Service.Infra, step: lookup)
+//	       ├─ mgmt-rg (stamped, steps: infra → deploy, infra → configure, deploy depends on svc-rg/lookup)
+//	       ├─ Maestro.Agent (stamped, step: deploy, external dep on Service.Infra)
+//	       └─ Fleet.Registration (stamped, RG "svc-rg-stamped" targets same Azure RG as svc-rg, step: register)
 //
 // Covers:
 //   - unstamped → unstamped topology: Region → Service.Infra
 //   - unstamped → stamped fan-out: Region → Management.Infra ×2 stamps
+//   - mixed RGs in stamped service: shared unstamped svc-rg (single node, no color) + stamped mgmt-rg (per-stamp, colored)
+//   - intra-pipeline fan-out: unstamped svc-rg/lookup → stamped mgmt-rg/deploy ×2
 //   - stamped → stamped same-stamp topology: Management.Infra → Maestro.Agent / Fleet.Registration
-//   - fan-in: both Management.Infra leaves (deploy + configure) → each child root
-//   - external dep stamped → stamped: Fleet.Registration → Maestro.Agent (same stamp)
+//   - fan-in stamped → unstamped: Management.Infra stamped leaves (deploy + configure) → unstamped child roots
 //   - external dep stamped → unstamped: Maestro.Agent → Service.Infra
+//   - stamped RG targeting same Azure RG: Fleet.Registration "svc" RG → same physical svc-rg, per-stamp colored
 func TestStampedEntrypointDOT(t *testing.T) {
 	deploy := &types.ShellStep{StepMeta: types.StepMeta{Name: "deploy"}}
 
+	mgmtLookup := &types.ShellStep{StepMeta: types.StepMeta{Name: "lookup"}}
 	mgmtInfra := &types.ShellStep{StepMeta: types.StepMeta{Name: "infra"}}
 	mgmtDeploy := &types.ShellStep{StepMeta: types.StepMeta{
 		Name:      "deploy",
-		DependsOn: []types.StepDependency{{ResourceGroup: "mgmt-rg", Step: "infra"}},
+		DependsOn: []types.StepDependency{{ResourceGroup: "mgmt-rg", Step: "infra"}, {ResourceGroup: "svc-rg", Step: "lookup"}},
 	}}
 	mgmtConfigure := &types.ShellStep{StepMeta: types.StepMeta{
 		Name:      "configure",
@@ -825,12 +831,7 @@ func TestStampedEntrypointDOT(t *testing.T) {
 		},
 	}}
 
-	fleetDeploy := &types.ShellStep{StepMeta: types.StepMeta{
-		Name: "deploy",
-		ExternalDependsOn: []types.ExternalStepDependency{
-			{ServiceGroup: "Microsoft.Azure.ARO.HCP.Maestro.Agent", StepDependency: types.StepDependency{ResourceGroup: "maestro-rg", Step: "deploy"}},
-		},
-	}}
+	fleetRegister := &types.ShellStep{StepMeta: types.StepMeta{Name: "register"}}
 
 	topo := makeTopology(topology.Service{
 		ServiceGroup: "Microsoft.Azure.ARO.HCP.Region", Purpose: "region", PipelinePath: "region.yaml",
@@ -845,23 +846,43 @@ func TestStampedEntrypointDOT(t *testing.T) {
 		},
 	})
 
-	regionPipeline := makePipeline("Microsoft.Azure.ARO.HCP.Region", "region-rg", deploy)
-	svcPipeline := makePipeline("Microsoft.Azure.ARO.HCP.Service.Infra", "svc-rg", deploy)
+	regionPipeline := makePipeline("Microsoft.Azure.ARO.HCP.Region", "region-rg", false, deploy)
+	svcPipeline := makePipeline("Microsoft.Azure.ARO.HCP.Service.Infra", "svc-rg", false, deploy)
+
+	mgmtPipeline := func(rgName, sub string) *types.Pipeline {
+		return &types.Pipeline{
+			ServiceGroup: "Microsoft.Azure.ARO.HCP.Management.Infra",
+			ResourceGroups: []*types.ResourceGroup{
+				{
+					ResourceGroupMeta: &types.ResourceGroupMeta{
+						Name: "svc-rg", ResourceGroup: "svc-rg", Subscription: "sub-svc-rg",
+					},
+					Steps: types.Steps{mgmtLookup},
+				},
+				{
+					ResourceGroupMeta: &types.ResourceGroupMeta{
+						Name: "mgmt-rg", ResourceGroup: rgName, Subscription: sub, Stamped: true,
+					},
+					Steps: types.Steps{mgmtInfra, mgmtDeploy, mgmtConfigure},
+				},
+			},
+		}
+	}
 
 	stampPipelines := map[Stamp]map[string]*types.Pipeline{
 		mustStamp("1"): {
 			"Microsoft.Azure.ARO.HCP.Region":             regionPipeline,
 			"Microsoft.Azure.ARO.HCP.Service.Infra":      svcPipeline,
-			"Microsoft.Azure.ARO.HCP.Management.Infra":   makePipelineWithRGMeta("Microsoft.Azure.ARO.HCP.Management.Infra", &types.ResourceGroupMeta{Name: "mgmt-rg", ResourceGroup: "mgmt-rg-1", Subscription: "sub-1"}, mgmtInfra, mgmtDeploy, mgmtConfigure),
-			"Microsoft.Azure.ARO.HCP.Maestro.Agent":      makePipeline("Microsoft.Azure.ARO.HCP.Maestro.Agent", "maestro-rg", maestroDeploy),
-			"Microsoft.Azure.ARO.HCP.Fleet.Registration": makePipeline("Microsoft.Azure.ARO.HCP.Fleet.Registration", "fleet-rg", fleetDeploy),
+			"Microsoft.Azure.ARO.HCP.Management.Infra":   mgmtPipeline("mgmt-rg-1", "sub-1"),
+			"Microsoft.Azure.ARO.HCP.Maestro.Agent":      makePipeline("Microsoft.Azure.ARO.HCP.Maestro.Agent", "maestro-rg", true, maestroDeploy),
+			"Microsoft.Azure.ARO.HCP.Fleet.Registration": makePipelineWithRGMeta("Microsoft.Azure.ARO.HCP.Fleet.Registration", &types.ResourceGroupMeta{Name: "svc-rg-stamped", ResourceGroup: "svc-rg", Subscription: "sub-svc-rg", Stamped: true}, fleetRegister),
 		},
 		mustStamp("2"): {
 			"Microsoft.Azure.ARO.HCP.Region":             regionPipeline,
 			"Microsoft.Azure.ARO.HCP.Service.Infra":      svcPipeline,
-			"Microsoft.Azure.ARO.HCP.Management.Infra":   makePipelineWithRGMeta("Microsoft.Azure.ARO.HCP.Management.Infra", &types.ResourceGroupMeta{Name: "mgmt-rg", ResourceGroup: "mgmt-rg-2", Subscription: "sub-2"}, mgmtInfra, mgmtDeploy, mgmtConfigure),
-			"Microsoft.Azure.ARO.HCP.Maestro.Agent":      makePipeline("Microsoft.Azure.ARO.HCP.Maestro.Agent", "maestro-rg", maestroDeploy),
-			"Microsoft.Azure.ARO.HCP.Fleet.Registration": makePipeline("Microsoft.Azure.ARO.HCP.Fleet.Registration", "fleet-rg", fleetDeploy),
+			"Microsoft.Azure.ARO.HCP.Management.Infra":   mgmtPipeline("mgmt-rg-2", "sub-2"),
+			"Microsoft.Azure.ARO.HCP.Maestro.Agent":      makePipeline("Microsoft.Azure.ARO.HCP.Maestro.Agent", "maestro-rg", true, maestroDeploy),
+			"Microsoft.Azure.ARO.HCP.Fleet.Registration": makePipelineWithRGMeta("Microsoft.Azure.ARO.HCP.Fleet.Registration", &types.ResourceGroupMeta{Name: "svc-rg-stamped", ResourceGroup: "svc-rg", Subscription: "sub-svc-rg", Stamped: true}, fleetRegister),
 		},
 	}
 
@@ -894,7 +915,7 @@ func TestForStampedPipeline(t *testing.T) {
 				ServiceGroup: "SG.Infra", Purpose: "infra", PipelinePath: "infra.yaml",
 			},
 			stampPipelines: map[Stamp]map[string]*types.Pipeline{
-				Unstamped(): {"SG.Infra": makePipeline("SG.Infra", "infra-rg", deploy)},
+				Unstamped(): {"SG.Infra": makePipeline("SG.Infra", "infra-rg", false, deploy)},
 			},
 			validate: func(t *testing.T, result *Graph) {
 				assert.Equal(t, 1, len(result.Nodes))
@@ -910,8 +931,8 @@ func TestForStampedPipeline(t *testing.T) {
 				ServiceGroup: "SG.Mgmt", Purpose: "mgmt", Stamped: ptr(true), PipelinePath: "mgmt.yaml",
 			},
 			stampPipelines: map[Stamp]map[string]*types.Pipeline{
-				mustStamp("1"): {"SG.Mgmt": makePipelineWithRGMeta("SG.Mgmt", &types.ResourceGroupMeta{Name: "mgmt-rg", ResourceGroup: "mgmt-rg-1", Subscription: "sub-1"}, deploy)},
-				mustStamp("2"): {"SG.Mgmt": makePipelineWithRGMeta("SG.Mgmt", &types.ResourceGroupMeta{Name: "mgmt-rg", ResourceGroup: "mgmt-rg-2", Subscription: "sub-2"}, deploy)},
+				mustStamp("1"): {"SG.Mgmt": makePipelineWithRGMeta("SG.Mgmt", &types.ResourceGroupMeta{Name: "mgmt-rg", ResourceGroup: "mgmt-rg-1", Subscription: "sub-1", Stamped: true}, deploy)},
+				mustStamp("2"): {"SG.Mgmt": makePipelineWithRGMeta("SG.Mgmt", &types.ResourceGroupMeta{Name: "mgmt-rg", ResourceGroup: "mgmt-rg-2", Subscription: "sub-2", Stamped: true}, deploy)},
 			},
 			validate: func(t *testing.T, result *Graph) {
 				assert.Equal(t, 2, len(result.Nodes))
@@ -934,7 +955,7 @@ func TestForStampedPipeline(t *testing.T) {
 				},
 			},
 			stampPipelines: map[Stamp]map[string]*types.Pipeline{
-				mustStamp("1"): {"SG.Mgmt": makePipeline("SG.Mgmt", "mgmt-rg", deploy)},
+				mustStamp("1"): {"SG.Mgmt": makePipeline("SG.Mgmt", "mgmt-rg", true, deploy)},
 			},
 			validate: func(t *testing.T, result *Graph) {
 				assert.Equal(t, 1, len(result.Services))
@@ -948,7 +969,7 @@ func TestForStampedPipeline(t *testing.T) {
 				ServiceGroup: "SG.Mgmt", Purpose: "mgmt", Stamped: ptr(true), PipelinePath: "mgmt.yaml",
 			},
 			stampPipelines: map[Stamp]map[string]*types.Pipeline{
-				mustStamp("1"): {"SG.Mgmt": makePipeline("SG.Mgmt", "mgmt-rg", deploy, configure)},
+				mustStamp("1"): {"SG.Mgmt": makePipeline("SG.Mgmt", "mgmt-rg", true, deploy, configure)},
 			},
 			validate: func(t *testing.T, result *Graph) {
 				assert.Equal(t, 2, len(result.Nodes))
@@ -963,6 +984,310 @@ func TestForStampedPipeline(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			result, err := ForStampedPipeline(tc.service, tc.stampPipelines)
+			require.NoError(t, err)
+			tc.validate(t, result)
+		})
+	}
+}
+
+// TestStampedResourceGroupValidation tests the stamped RG guardrails:
+// consistency, boundary (definition), boundary (cross-dependency), and mixed RGs.
+func TestStampedResourceGroupValidation(t *testing.T) {
+	deploy := &types.ShellStep{StepMeta: types.StepMeta{Name: "deploy"}}
+
+	testCases := []struct {
+		name           string
+		topo           *topology.Topology
+		stampPipelines map[Stamp]map[string]*types.Pipeline
+		expectErr      string
+		validate       func(t *testing.T, result *Graph)
+	}{
+		{
+			name: "inconsistent stamped declaration across pipelines",
+			topo: makeTopology(topology.Service{
+				ServiceGroup: "SG.Regional", Purpose: "regional", PipelinePath: "regional.yaml",
+				Children: []topology.Service{
+					{ServiceGroup: "SG.Mgmt", Purpose: "mgmt", Stamped: ptr(true), PipelinePath: "mgmt.yaml"},
+				},
+			}),
+			stampPipelines: func() map[Stamp]map[string]*types.Pipeline {
+				return map[Stamp]map[string]*types.Pipeline{
+					mustStamp("1"): {
+						"SG.Regional": makePipeline("SG.Regional", "shared-rg", false, deploy),
+						"SG.Mgmt":     makePipeline("SG.Mgmt", "shared-rg", true, deploy),
+					},
+				}
+			}(),
+			expectErr: `resource group "shared-rg" has inconsistent stamped declaration: stamped=false in service "SG.Regional", stamped=true in service "SG.Mgmt"`,
+		},
+		{
+			name: "unstamped service defines stamped resource group",
+			topo: makeTopology(topology.Service{
+				ServiceGroup: "SG.Regional", Purpose: "regional", Stamped: ptr(false), PipelinePath: "regional.yaml",
+			}),
+			stampPipelines: map[Stamp]map[string]*types.Pipeline{
+				Unstamped(): {
+					"SG.Regional": makePipeline("SG.Regional", "stamped-rg", true, deploy),
+				},
+			},
+			expectErr: `unstamped service "SG.Regional" defines stamped resource group "stamped-rg"`,
+		},
+		{
+			name: "unstamped service step has external dep on stamped RG",
+			topo: makeTopology(topology.Service{
+				ServiceGroup: "SG.Regional", Purpose: "regional", PipelinePath: "regional.yaml",
+				Children: []topology.Service{
+					{ServiceGroup: "SG.Svc", Purpose: "svc", PipelinePath: "svc.yaml"},
+					{ServiceGroup: "SG.Mgmt", Purpose: "mgmt", Stamped: ptr(true), PipelinePath: "mgmt.yaml"},
+				},
+			}),
+			stampPipelines: func() map[Stamp]map[string]*types.Pipeline {
+				svcDeploy := &types.ShellStep{StepMeta: types.StepMeta{
+					Name: "deploy",
+					ExternalDependsOn: []types.ExternalStepDependency{
+						{ServiceGroup: "SG.Mgmt", StepDependency: types.StepDependency{ResourceGroup: "mgmt-rg", Step: "deploy"}},
+					},
+				}}
+				regionalPipeline := makePipeline("SG.Regional", "regional-rg", false, deploy)
+				svcPipeline := makePipeline("SG.Svc", "svc-rg", false, svcDeploy)
+				return map[Stamp]map[string]*types.Pipeline{
+					mustStamp("1"): {
+						"SG.Regional": regionalPipeline,
+						"SG.Svc":      svcPipeline,
+						"SG.Mgmt":     makePipelineWithRGMeta("SG.Mgmt", &types.ResourceGroupMeta{Name: "mgmt-rg", ResourceGroup: "mgmt-rg-1", Subscription: "sub-1", Stamped: true}, deploy),
+					},
+				}
+			}(),
+			expectErr: `step "deploy" in unstamped resource group "svc-rg" (service "SG.Svc") has external dependency on stamped resource group "mgmt-rg" in service "SG.Mgmt"`,
+		},
+		{
+			name: "mixed RGs in stamped service — stamped RG gets per-stamp nodes, unstamped RG single node",
+			topo: makeTopology(topology.Service{
+				ServiceGroup: "SG.Regional", Purpose: "regional", PipelinePath: "regional.yaml",
+				Children: []topology.Service{
+					{ServiceGroup: "SG.Mgmt", Purpose: "mgmt", Stamped: ptr(true), PipelinePath: "mgmt.yaml"},
+				},
+			}),
+			stampPipelines: func() map[Stamp]map[string]*types.Pipeline {
+				lookup := &types.ShellStep{StepMeta: types.StepMeta{Name: "lookup"}}
+				stampedDeploy := &types.ShellStep{StepMeta: types.StepMeta{
+					Name:      "deploy",
+					DependsOn: []types.StepDependency{{ResourceGroup: "lookup-rg", Step: "lookup"}},
+				}}
+				mixedPipeline := func(rgName, sub string) *types.Pipeline {
+					return &types.Pipeline{
+						ServiceGroup: "SG.Mgmt",
+						ResourceGroups: []*types.ResourceGroup{
+							{
+								ResourceGroupMeta: &types.ResourceGroupMeta{
+									Name: "lookup-rg", ResourceGroup: "lookup-rg", Subscription: "sub-lookup",
+								},
+								Steps: types.Steps{lookup},
+							},
+							{
+								ResourceGroupMeta: &types.ResourceGroupMeta{
+									Name: "mgmt-rg", ResourceGroup: rgName, Subscription: sub, Stamped: true,
+								},
+								Steps: types.Steps{stampedDeploy},
+							},
+						},
+					}
+				}
+				regionalPipeline := makePipeline("SG.Regional", "regional-rg", false, deploy)
+				return map[Stamp]map[string]*types.Pipeline{
+					mustStamp("1"): {
+						"SG.Regional": regionalPipeline,
+						"SG.Mgmt":     mixedPipeline("mgmt-rg-1", "sub-1"),
+					},
+					mustStamp("2"): {
+						"SG.Regional": regionalPipeline,
+						"SG.Mgmt":     mixedPipeline("mgmt-rg-2", "sub-2"),
+					},
+				}
+			}(),
+			validate: func(t *testing.T, result *Graph) {
+				mgmtNodes := nodesForSG(result, "SG.Mgmt")
+
+				var stampedNodes, unstampedNodes []Node
+				for _, n := range mgmtNodes {
+					if n.Stamp.IsSet() {
+						stampedNodes = append(stampedNodes, n)
+					} else {
+						unstampedNodes = append(unstampedNodes, n)
+					}
+				}
+
+				assert.Equal(t, 2, len(stampedNodes), "stamped RG produces per-stamp nodes")
+				assert.Equal(t, 1, len(unstampedNodes), "unstamped RG produces single node")
+				assert.Equal(t, "deploy", stampedNodes[0].Step)
+				assert.Equal(t, "lookup", unstampedNodes[0].Step)
+
+				// Stamped deploy nodes depend on the unstamped lookup node
+				lookupID := unstampedNodes[0].Identifier
+				for _, sn := range stampedNodes {
+					assert.Contains(t, sn.Parents, lookupID,
+						"stamp %s deploy should depend on unstamped lookup", sn.Stamp)
+				}
+
+				// Unstamped lookup node has both stamped deploy nodes as children
+				assert.Equal(t, 2, len(unstampedNodes[0].Children),
+					"unstamped lookup should fan out to both stamped deploys")
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			entrypoint := &tc.topo.Entrypoints[0]
+			result, err := ForStampedEntrypoints(tc.topo, []*topology.Entrypoint{entrypoint}, tc.stampPipelines)
+			if tc.expectErr != "" {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tc.expectErr)
+				return
+			}
+			require.NoError(t, err)
+			tc.validate(t, result)
+		})
+	}
+}
+
+// TestUnstampedRGExternalDeps tests external dependency validation for unstamped RG nodes
+// within stamped services — both the error case (dep on stamped RG) and the success case
+// (dep on unstamped RG, the cosmosdb lookup scenario).
+func TestUnstampedRGExternalDeps(t *testing.T) {
+	deploy := &types.ShellStep{StepMeta: types.StepMeta{Name: "deploy"}}
+
+	testCases := []struct {
+		name           string
+		topo           *topology.Topology
+		stampPipelines map[Stamp]map[string]*types.Pipeline
+		expectErr      string
+		validate       func(t *testing.T, result *Graph)
+	}{
+		{
+			name: "unstamped RG node cannot depend on stamped RG",
+			topo: makeTopology(topology.Service{
+				ServiceGroup: "SG.Regional", Purpose: "regional", PipelinePath: "regional.yaml",
+				Children: []topology.Service{
+					{ServiceGroup: "SG.Other", Purpose: "other", Stamped: ptr(true), PipelinePath: "other.yaml"},
+					{ServiceGroup: "SG.Mgmt", Purpose: "mgmt", Stamped: ptr(true), PipelinePath: "mgmt.yaml"},
+				},
+			}),
+			stampPipelines: func() map[Stamp]map[string]*types.Pipeline {
+				lookupWithExtDep := &types.ShellStep{StepMeta: types.StepMeta{
+					Name: "lookup",
+					ExternalDependsOn: []types.ExternalStepDependency{
+						{ServiceGroup: "SG.Other", StepDependency: types.StepDependency{ResourceGroup: "other-rg", Step: "deploy"}},
+					},
+				}}
+				mgmtPipeline := &types.Pipeline{
+					ServiceGroup: "SG.Mgmt",
+					ResourceGroups: []*types.ResourceGroup{
+						{
+							ResourceGroupMeta: &types.ResourceGroupMeta{
+								Name: "lookup-rg", ResourceGroup: "lookup-rg", Subscription: "sub-lookup",
+							},
+							Steps: types.Steps{lookupWithExtDep},
+						},
+						{
+							ResourceGroupMeta: &types.ResourceGroupMeta{
+								Name: "mgmt-rg", ResourceGroup: "mgmt-rg", Subscription: "sub-mgmt", Stamped: true,
+							},
+							Steps: types.Steps{deploy},
+						},
+					},
+				}
+				regionalPipeline := makePipeline("SG.Regional", "regional-rg", false, deploy)
+				return map[Stamp]map[string]*types.Pipeline{
+					mustStamp("1"): {
+						"SG.Regional": regionalPipeline,
+						"SG.Mgmt":     mgmtPipeline,
+						"SG.Other":    makePipeline("SG.Other", "other-rg", true, deploy),
+					},
+				}
+			}(),
+			expectErr: `step "lookup" in unstamped resource group "lookup-rg" (service "SG.Mgmt") has external dependency on stamped resource group "other-rg" in service "SG.Other"`,
+		},
+		{
+			name: "unstamped RG node can depend on unstamped RG",
+			topo: makeTopology(topology.Service{
+				ServiceGroup: "SG.Regional", Purpose: "regional", PipelinePath: "regional.yaml",
+				Children: []topology.Service{
+					{ServiceGroup: "SG.Svc", Purpose: "svc", PipelinePath: "svc.yaml"},
+					{ServiceGroup: "SG.Mgmt", Purpose: "mgmt", Stamped: ptr(true), PipelinePath: "mgmt.yaml"},
+				},
+			}),
+			stampPipelines: func() map[Stamp]map[string]*types.Pipeline {
+				lookupWithExtDep := &types.ShellStep{StepMeta: types.StepMeta{
+					Name: "lookup",
+					ExternalDependsOn: []types.ExternalStepDependency{
+						{ServiceGroup: "SG.Svc", StepDependency: types.StepDependency{ResourceGroup: "svc-rg", Step: "deploy"}},
+					},
+				}}
+				mgmtPipeline := &types.Pipeline{
+					ServiceGroup: "SG.Mgmt",
+					ResourceGroups: []*types.ResourceGroup{
+						{
+							ResourceGroupMeta: &types.ResourceGroupMeta{
+								Name: "lookup-rg", ResourceGroup: "lookup-rg", Subscription: "sub-lookup",
+							},
+							Steps: types.Steps{lookupWithExtDep},
+						},
+						{
+							ResourceGroupMeta: &types.ResourceGroupMeta{
+								Name: "mgmt-rg", ResourceGroup: "mgmt-rg", Subscription: "sub-mgmt", Stamped: true,
+							},
+							Steps: types.Steps{deploy},
+						},
+					},
+				}
+				regionalPipeline := makePipeline("SG.Regional", "regional-rg", false, deploy)
+				svcPipeline := makePipeline("SG.Svc", "svc-rg", false, deploy)
+				return map[Stamp]map[string]*types.Pipeline{
+					mustStamp("1"): {
+						"SG.Regional": regionalPipeline,
+						"SG.Svc":      svcPipeline,
+						"SG.Mgmt":     mgmtPipeline,
+					},
+					mustStamp("2"): {
+						"SG.Regional": regionalPipeline,
+						"SG.Svc":      svcPipeline,
+						"SG.Mgmt":     mgmtPipeline,
+					},
+				}
+			}(),
+			validate: func(t *testing.T, result *Graph) {
+				lookupNodes := nodesForSG(result, "SG.Mgmt")
+				var lookupNode Node
+				for _, n := range lookupNodes {
+					if n.Step == "lookup" {
+						lookupNode = n
+						break
+					}
+				}
+				assert.False(t, lookupNode.Stamp.IsSet(), "lookup is in unstamped RG")
+
+				var svcParents []Identifier
+				for _, parent := range lookupNode.Parents {
+					if parent.ServiceGroup == "SG.Svc" {
+						svcParents = append(svcParents, parent)
+					}
+				}
+				assert.Equal(t, 1, len(svcParents), "unstamped lookup should have one svc parent via external dep")
+				assert.False(t, svcParents[0].Stamp.IsSet(), "external dep to unstamped RG resolves without stamp")
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			entrypoint := &tc.topo.Entrypoints[0]
+			result, err := ForStampedEntrypoints(tc.topo, []*topology.Entrypoint{entrypoint}, tc.stampPipelines)
+			if tc.expectErr != "" {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tc.expectErr)
+				return
+			}
 			require.NoError(t, err)
 			tc.validate(t, result)
 		})
