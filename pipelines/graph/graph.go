@@ -38,6 +38,14 @@ func (s Stamp) IsSet() bool { return len(s.value) > 0 }
 
 func (s Stamp) String() string { return s.value }
 
+// If returns this stamp when stamped is true, otherwise Unstamped().
+func (s Stamp) If(stamped bool) Stamp {
+	if stamped {
+		return s
+	}
+	return Unstamped()
+}
+
 // Identifier records a dependency on a step in a particular service group and resource group.
 // This is the minimum amount of precision required to identify a step in a multi-pipeline execution environment.
 // Stamp is set by callers that expand stamped services into multiple graph copies — it distinguishes
@@ -90,15 +98,24 @@ func newGraphBuilder() *graphBuilder {
 			Nodes:                  []Node{},
 			ServiceValidationSteps: map[Identifier]types.ValidationStep{},
 		},
-		nodeIndex: map[Identifier]int{},
+		nodeIndex:            map[Identifier]int{},
+		resourceGroupStamped: map[string]stampedRecord{},
 	}
+}
+
+// stampedRecord tracks the stamped declaration for a resource group name and the service
+// that first declared it, so inconsistencies can be reported with both sides.
+type stampedRecord struct {
+	stamped      bool
+	serviceGroup string
 }
 
 // graphBuilder holds transient build-time state (like nodeIndex) that should not
 // persist on the final Graph. Call build() to discard the builder and return the Graph.
 type graphBuilder struct {
 	*Graph
-	nodeIndex map[Identifier]int
+	nodeIndex            map[Identifier]int
+	resourceGroupStamped map[string]stampedRecord
 }
 
 // Graph holds a set of nodes, recording parent/child relationships for each, along with a set of lookup tables for
@@ -168,7 +185,7 @@ func ForPipeline(service *topology.Service, pipeline *types.Pipeline) (*Graph, e
 		PipelinePath: service.PipelinePath,
 		Children:     nil, // explicitly omitted to generate graph for one pipeline only
 		Metadata:     service.Metadata,
-		Stamped:      nil, // one pipeline in, nothing to stamp-multiply
+		Stamped:      service.Stamped,
 	}
 
 	graphBuilder := newGraphBuilder()
@@ -278,7 +295,12 @@ func (c *graphBuilder) accumulate(service *topology.Service, stampPipelines map[
 		if err != nil {
 			return err
 		}
-		allLeaves[iter.stamp] = leaves
+		for _, leaf := range leaves {
+			allLeaves[leaf.Stamp] = append(allLeaves[leaf.Stamp], leaf)
+		}
+	}
+	for stamp, leaves := range allLeaves {
+		allLeaves[stamp] = deduplicateIdentifiers(leaves)
 	}
 
 	// Wire inter-service edges: connect this service's leaves to child service roots.
@@ -286,7 +308,7 @@ func (c *graphBuilder) accumulate(service *topology.Service, stampPipelines map[
 		if err := c.accumulate(&child, stampPipelines); err != nil {
 			return err
 		}
-		if err := c.wireInterServiceEdges(service, &child, allLeaves); err != nil {
+		if err := c.wireInterServiceEdges(&child, allLeaves); err != nil {
 			return err
 		}
 	}
@@ -342,13 +364,25 @@ func resolveIterations(service *topology.Service, stampPipelines map[Stamp]map[s
 // accumulateIteration processes one stamp iteration: generates nodes, registers resource groups,
 // steps, and metadata, and returns the leaf nodes for inter-service wiring.
 func (c *graphBuilder) accumulateIteration(serviceGroup string, iter stampIteration) ([]Identifier, error) {
+	service := c.Services[serviceGroup]
+
 	resourceGroups, subscription, steps, serviceValidationSteps, nodes, err := nodesFor(iter.pipeline, iter.stamp)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate graph for pipeline %s: %v", serviceGroup, err)
 	}
 
-	if err := c.registerResourceGroups(serviceGroup, iter.stamp, resourceGroups); err != nil {
-		return nil, err
+	if !service.IsStamped() {
+		for name, rg := range resourceGroups {
+			if rg.Stamped {
+				return nil, fmt.Errorf("unstamped service %q defines stamped resource group %q", serviceGroup, name)
+			}
+		}
+	}
+
+	for name, group := range resourceGroups {
+		if err := c.registerResourceGroup(serviceGroup, iter.stamp, name, group); err != nil {
+			return nil, err
+		}
 	}
 
 	if subscription != nil && c.Subscription != nil {
@@ -359,35 +393,58 @@ func (c *graphBuilder) accumulateIteration(serviceGroup string, iter stampIterat
 	}
 
 	// Register steps and validation steps with stamp-qualified identifiers.
+	// Stamped RGs use the iteration stamp; unstamped RGs use Unstamped().
 	for rg, stepMap := range steps {
 		for stepName, step := range stepMap {
-			c.Steps[Identifier{Stamp: iter.stamp, ServiceGroup: serviceGroup, StepDependency: types.StepDependency{ResourceGroup: rg, Step: stepName}}] = step
+			rgStamp := iter.stamp.If(resourceGroups[rg].Stamped)
+			// Unstamped RGs produce identical keys across stamp iterations; overwrite is safe.
+			c.Steps[Identifier{Stamp: rgStamp, ServiceGroup: serviceGroup, StepDependency: types.StepDependency{ResourceGroup: rg, Step: stepName}}] = step
 		}
 	}
 	maps.Copy(c.ServiceValidationSteps, serviceValidationSteps)
 	for _, n := range nodes {
-		c.nodeIndex[n.Identifier] = len(c.Nodes)
-		c.Nodes = append(c.Nodes, n)
+		c.registerNode(n)
 	}
 
 	return c.findLeaves(nodes)
 }
 
-// registerResourceGroups records resource groups, detecting conflicts across services and stamps.
-func (c *graphBuilder) registerResourceGroups(serviceGroup string, stamp Stamp, resourceGroups map[string]*types.ResourceGroupMeta) error {
-	for name, group := range resourceGroups {
-		key := ResourceGroupKey{Stamp: stamp, Name: name}
-		other, alreadyRecorded := c.ResourceGroups[key]
-		if alreadyRecorded && !resourceGroupMetaEqual(group, other) {
-			existingOwners := sets.List(c.resourceGroupOwners[key])
-			return fmt.Errorf("resource group %s already recorded with different step meta (existing services: %s, new service: %s), diff: %v", name, strings.Join(existingOwners, ", "), serviceGroup, cmp.Diff(group, other))
-		}
-		if !alreadyRecorded {
-			c.ResourceGroups[key] = group
-			c.resourceGroupOwners[key] = sets.New[string]()
-		}
-		c.resourceGroupOwners[key].Insert(serviceGroup)
+// registerNode adds a node to the graph or merges its edges into an existing node with the same
+// Identifier. Merging is needed because unstamped RG nodes within stamped services are produced by
+// every stamp iteration with identical Identifiers but different edges (e.g. deploy(stamp=1) vs
+// deploy(stamp=2) as children). Sorting and compacting after each merge keeps edges deduplicated.
+func (c *graphBuilder) registerNode(n Node) {
+	idx, exists := c.nodeIndex[n.Identifier]
+	if !exists {
+		idx = len(c.Nodes)
+		c.nodeIndex[n.Identifier] = idx
+		c.Nodes = append(c.Nodes, Node{Identifier: n.Identifier})
 	}
+	existing := &c.Nodes[idx]
+	existing.Children = deduplicateIdentifiers(append(existing.Children, n.Children...))
+	existing.Parents = deduplicateIdentifiers(append(existing.Parents, n.Parents...))
+}
+
+// registerResourceGroup records a resource group, checking stamped consistency across
+// pipelines and detecting metadata conflicts across services.
+func (c *graphBuilder) registerResourceGroup(serviceGroup string, stamp Stamp, name string, group *types.ResourceGroupMeta) error {
+	if existing, ok := c.resourceGroupStamped[name]; ok && existing.stamped != group.Stamped {
+		return fmt.Errorf("resource group %q has inconsistent stamped declaration: stamped=%v in service %q, stamped=%v in service %q", name, existing.stamped, existing.serviceGroup, group.Stamped, serviceGroup)
+	}
+	c.resourceGroupStamped[name] = stampedRecord{stamped: group.Stamped, serviceGroup: serviceGroup}
+
+	key := ResourceGroupKey{Stamp: stamp.If(group.Stamped), Name: name}
+
+	other, alreadyRecorded := c.ResourceGroups[key]
+	if alreadyRecorded && !resourceGroupMetaEqual(group, other) {
+		existingOwners := sets.List(c.resourceGroupOwners[key])
+		return fmt.Errorf("resource group %s already recorded with different step meta (existing services: %s, new service: %s), diff: %v", name, strings.Join(existingOwners, ", "), serviceGroup, cmp.Diff(group, other))
+	}
+	if !alreadyRecorded {
+		c.ResourceGroups[key] = group
+		c.resourceGroupOwners[key] = sets.New[string]()
+	}
+	c.resourceGroupOwners[key].Insert(serviceGroup)
 	return nil
 }
 
@@ -443,9 +500,9 @@ func (c *graphBuilder) hasCompletionChild(node Node) (bool, error) {
 // When stamps are involved, wiring is stamp-scoped: stamp-1 leaves connect to stamp-1 roots only.
 // Unstamped leaves (Unstamped) connect to all child roots that share Unstamped or fan out
 // to all stamps when the child is stamped and the parent is not.
-func (c *graphBuilder) wireInterServiceEdges(parent *topology.Service, child *topology.Service, allLeaves map[Stamp][]Identifier) error {
+func (c *graphBuilder) wireInterServiceEdges(child *topology.Service, allLeaves map[Stamp][]Identifier) error {
 	for parentStamp, leaves := range allLeaves {
-		roots := c.findChildRoots(parent, child, parentStamp)
+		roots := c.findChildRoots(child, parentStamp)
 		rootList := roots.UnsortedList()
 		slices.SortFunc(rootList, CompareDependencies)
 
@@ -471,16 +528,16 @@ func (c *graphBuilder) wireInterServiceEdges(parent *topology.Service, child *to
 // findChildRoots returns identifiers of root nodes (no parents) for the child service.
 // Our topology allows each service to depend on one and only one parent, so len(node.Parents) == 0
 // safely identifies root nodes, and this is the only time any actor will add parents to these roots.
-// When both parent and child are stamped, only matching-stamp roots are returned.
-func (c *graphBuilder) findChildRoots(parent, child *topology.Service, parentStamp Stamp) sets.Set[Identifier] {
+// When both parent and child are stamped, only matching-stamp and unstamped-RG roots are returned.
+func (c *graphBuilder) findChildRoots(child *topology.Service, parentStamp Stamp) sets.Set[Identifier] {
 	roots := sets.New[Identifier]()
 	for _, node := range c.Nodes {
 		if node.ServiceGroup != child.ServiceGroup || len(node.Parents) != 0 {
 			continue
 		}
-		// When both parent and child are stamped, only wire matching stamps.
-		// When parent is unstamped, all stamped child roots get these leaves (fan-out).
-		if parent.IsStamped() && child.IsStamped() && node.Stamp != parentStamp {
+		// Skip child roots whose stamp doesn't match. Unstamped parents or
+		// unstamped-RG child roots (IsSet=false) are never filtered — they fan out.
+		if parentStamp.IsSet() && node.Stamp.IsSet() && node.Stamp != parentStamp {
 			continue
 		}
 		roots.Insert(node.Identifier)
@@ -530,14 +587,23 @@ func (c *graphBuilder) addExternalDependencyEdges() error {
 					Step:          dep.Step,
 				},
 			}
-			// Unstamped services cannot declare external dependencies on stamped services —
-			// there is no single stamp to resolve to. When both sides are stamped, resolve
-			// to the same stamp: stamp-1 work depends on stamp-1 of the target.
-			if targetService := c.Services[dep.ServiceGroup]; targetService != nil && targetService.IsStamped() {
-				sourceService := c.Services[node.ServiceGroup]
-				if sourceService == nil || !sourceService.IsStamped() {
-					return fmt.Errorf("unstamped node %s has an external dependency on stamped service %s — unstamped services cannot depend on stamped services", node.Identifier, dep.ServiceGroup)
-				}
+
+			targetRec, ok := c.resourceGroupStamped[dep.ResourceGroup]
+			if !ok {
+				return fmt.Errorf("step %q in resource group %q (service %q) has external dependency on unknown resource group %q in service %q", node.Step, node.ResourceGroup, node.ServiceGroup, dep.ResourceGroup, dep.ServiceGroup)
+			}
+			targetRGStamped := targetRec.stamped
+
+			sourceRec, ok := c.resourceGroupStamped[node.ResourceGroup]
+			if !ok {
+				return fmt.Errorf("step %q references unknown resource group %q (service %q)", node.Step, node.ResourceGroup, node.ServiceGroup)
+			}
+			sourceRGStamped := sourceRec.stamped
+			if targetRGStamped && !sourceRGStamped {
+				return fmt.Errorf("step %q in unstamped resource group %q (service %q) has external dependency on stamped resource group %q in service %q", node.Step, node.ResourceGroup, node.ServiceGroup, dep.ResourceGroup, dep.ServiceGroup)
+			}
+
+			if targetRGStamped {
 				parent.Stamp = node.Stamp
 			}
 			parentNodeIdx, err := c.node(parent)
@@ -545,15 +611,12 @@ func (c *graphBuilder) addExternalDependencyEdges() error {
 				return err
 			}
 			parentNode := c.Nodes[parentNodeIdx]
-			parentNode.Children = append(parentNode.Children, node.Identifier)
-			slices.SortFunc(parentNode.Children, CompareDependencies)
-			parentNode.Children = slices.Compact(parentNode.Children)
+			parentNode.Children = deduplicateIdentifiers(append(parentNode.Children, node.Identifier))
 			c.Nodes[parentNodeIdx] = parentNode
 
 			node.Parents = append(node.Parents, parent)
 		}
-		slices.SortFunc(node.Parents, CompareDependencies)
-		node.Parents = slices.Compact(node.Parents)
+		node.Parents = deduplicateIdentifiers(node.Parents)
 		c.Nodes[i] = node
 	}
 	return nil
@@ -571,9 +634,11 @@ func nodesFor(pipeline *types.Pipeline, stamp Stamp) (
 	stepsByResourceGroupAndName := map[string]map[string]types.Step{}
 	serviceValidationSteps := map[Identifier]types.ValidationStep{}
 	resourceGroupsByName := map[string]*types.ResourceGroupMeta{}
+	rgStamped := map[string]bool{}
 	var subscription *Subscription
 	for _, rg := range pipeline.ResourceGroups {
 		resourceGroupsByName[rg.Name] = rg.ResourceGroupMeta
+		rgStamped[rg.Name] = rg.Stamped
 		if rg.SubscriptionProvisioning != nil && subscription != nil {
 			return nil, nil, nil, nil, nil, fmt.Errorf("multiple subscriptions found for pipeline %s", pipeline.ServiceGroup)
 		}
@@ -590,7 +655,7 @@ func nodesFor(pipeline *types.Pipeline, stamp Stamp) (
 		}
 		for _, step := range rg.ValidationSteps {
 			serviceValidationSteps[Identifier{
-				Stamp:        stamp,
+				Stamp:        stamp.If(rg.Stamped),
 				ServiceGroup: pipeline.ServiceGroup,
 				StepDependency: types.StepDependency{
 					ResourceGroup: rg.Name,
@@ -610,7 +675,7 @@ func nodesFor(pipeline *types.Pipeline, stamp Stamp) (
 			for _, dep := range dependsOn {
 				stepDependencies = append(stepDependencies, edge{
 					from: Identifier{
-						Stamp:        stamp,
+						Stamp:        stamp.If(rgStamped[dep.ResourceGroup]),
 						ServiceGroup: pipeline.ServiceGroup,
 						StepDependency: types.StepDependency{
 							ResourceGroup: dep.ResourceGroup,
@@ -618,7 +683,7 @@ func nodesFor(pipeline *types.Pipeline, stamp Stamp) (
 						},
 					},
 					to: Identifier{
-						Stamp:        stamp,
+						Stamp:        stamp.If(rgStamped[rg.Name]),
 						ServiceGroup: pipeline.ServiceGroup,
 						StepDependency: types.StepDependency{
 							ResourceGroup: rg.Name,
@@ -648,7 +713,7 @@ func nodesFor(pipeline *types.Pipeline, stamp Stamp) (
 	for resourceGroup, steps := range stepsByResourceGroupAndName {
 		for stepName := range steps {
 			id := Identifier{
-				Stamp:        stamp,
+				Stamp:        stamp.If(rgStamped[resourceGroup]),
 				ServiceGroup: pipeline.ServiceGroup,
 				StepDependency: types.StepDependency{
 					ResourceGroup: resourceGroup,
@@ -668,6 +733,11 @@ func nodesFor(pipeline *types.Pipeline, stamp Stamp) (
 	})
 
 	return resourceGroupsByName, subscription, stepsByResourceGroupAndName, serviceValidationSteps, nodes, nil
+}
+
+func deduplicateIdentifiers(ids []Identifier) []Identifier {
+	slices.SortFunc(ids, CompareDependencies)
+	return slices.Compact(ids)
 }
 
 func CompareDependencies(a, b Identifier) int {
@@ -695,6 +765,9 @@ func resourceGroupMetaEqual(a, b *types.ResourceGroupMeta) bool {
 		return false
 	}
 	if a.Subscription != b.Subscription {
+		return false
+	}
+	if a.Stamped != b.Stamped {
 		return false
 	}
 	if len(a.ExecutionConstraints) != len(b.ExecutionConstraints) {

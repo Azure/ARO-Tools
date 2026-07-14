@@ -42,6 +42,9 @@ type ResourceGroupMeta struct {
 	ResourceGroup string `json:"resourceGroup"`
 	// Subscription is the subscription *key* in which work will occur.
 	Subscription string `json:"subscription"`
+	// Stamped declares that this resource group is stamp-scoped — it is deployed once per stamp.
+	// Unstamped services must not define or depend on stamped resource groups.
+	Stamped bool `json:"stamped,omitempty"`
 
 	// ExecutionConstraints define a set of constraints on where this pipeline should be executed.
 	// If unset, the default behavior is to deploy to all clouds, environments, regions, and stamps.
