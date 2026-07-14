@@ -361,6 +361,106 @@ func TestValidatePipelineSchema(t *testing.T) {
 			err: "pipeline is not compliant with schema pipeline.schema.v1",
 		},
 		{
+			name: "valid istio upgrade",
+			pipeline: map[string]interface{}{
+				"serviceGroup": "test",
+				"rolloutName":  "test",
+				"resourceGroups": []interface{}{
+					map[string]interface{}{
+						"name":          "rg",
+						"resourceGroup": "rg",
+						"subscription":  "sub",
+						"aksCluster":    "aks",
+						"steps": []interface{}{
+							map[string]interface{}{
+								"name":   "step",
+								"action": "IstioUpgrade",
+								"aksCluster": map[string]interface{}{
+									"configRef": "svc.aks.name",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "valid istio upgrade with optional fields",
+			pipeline: map[string]interface{}{
+				"serviceGroup": "test",
+				"rolloutName":  "test",
+				"resourceGroups": []interface{}{
+					map[string]interface{}{
+						"name":          "rg",
+						"resourceGroup": "rg",
+						"subscription":  "sub",
+						"aksCluster":    "aks",
+						"steps": []interface{}{
+							map[string]interface{}{
+								"name":   "step",
+								"action": "IstioUpgrade",
+								"aksCluster": map[string]interface{}{
+									"configRef": "svc.aks.name",
+								},
+								"timeout": "75m",
+								"shellIdentity": map[string]interface{}{
+									"value": "test-msi",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "invalid istio upgrade missing aksCluster",
+			pipeline: map[string]interface{}{
+				"serviceGroup": "test",
+				"rolloutName":  "test",
+				"resourceGroups": []interface{}{
+					map[string]interface{}{
+						"name":          "rg",
+						"resourceGroup": "rg",
+						"subscription":  "sub",
+						"aksCluster":    "aks",
+						"steps": []interface{}{
+							map[string]interface{}{
+								"name":   "step",
+								"action": "IstioUpgrade",
+							},
+						},
+					},
+				},
+			},
+			err: "pipeline is not compliant with schema pipeline.schema.v1",
+		},
+		{
+			name: "invalid istio upgrade bad timeout",
+			pipeline: map[string]interface{}{
+				"serviceGroup": "test",
+				"rolloutName":  "test",
+				"resourceGroups": []interface{}{
+					map[string]interface{}{
+						"name":          "rg",
+						"resourceGroup": "rg",
+						"subscription":  "sub",
+						"aksCluster":    "aks",
+						"steps": []interface{}{
+							map[string]interface{}{
+								"name":   "step",
+								"action": "IstioUpgrade",
+								"aksCluster": map[string]interface{}{
+									"configRef": "svc.aks.name",
+								},
+								"timeout": "tomorrow",
+							},
+						},
+					},
+				},
+			},
+			err: "pipeline is not compliant with schema pipeline.schema.v1",
+		},
+		{
 			name: "invalid",
 			pipeline: map[string]interface{}{
 				"serviceGroup": "test",
