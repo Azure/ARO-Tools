@@ -19,7 +19,11 @@ retry() {
 }
 
 get_acr_domain_suffix() {
-    az cloud show --query "suffixes.acrLoginServerEndpoint" --output tsv
+    local suffix
+    if ! suffix="$(az cloud show --query "suffixes.acrLoginServerEndpoint" --output tsv)"; then
+        return 1
+    fi
+    printf '%s' "${suffix}"
 }
 
 copyImageFromRegistry() {
@@ -98,11 +102,12 @@ copyImageFromRegistry() {
     }
     retry 5 acr_login_target
     TARGET_ACR_LOGIN_SERVER="$(jq --raw-output .loginServer <<<"${RESPONSE}" )"
+    ACCESS_TOKEN="$(jq --raw-output .accessToken <<<"${RESPONSE}" )"
     oras_login_target() {
       oras login --registry-config "${AUTH_JSON}" \
                  --username 00000000-0000-0000-0000-000000000000 \
                  --password-stdin \
-                 "${TARGET_ACR_LOGIN_SERVER}" <<<"$( jq --raw-output .accessToken <<<"${RESPONSE}" )"
+                 "${TARGET_ACR_LOGIN_SERVER}" <<<"${ACCESS_TOKEN}"
     }
     retry 5 oras_login_target
 
