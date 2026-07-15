@@ -311,6 +311,21 @@ func TestRequiredInputs(t *testing.T) {
 				{},
 			},
 		},
+		{
+			name: "istio upgrade full",
+			input: &IstioUpgradeStep{
+				AKSCluster:   Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step1"}}},
+				IdentityFrom: Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step2"}},
+			},
+			expected: []StepDependency{
+				{ResourceGroup: "rg", Step: "step1"},
+				{ResourceGroup: "rg", Step: "step2"},
+			},
+		},
+		{
+			name:  "istio upgrade empty",
+			input: &IstioUpgradeStep{},
+		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			if diff := cmp.Diff(testCase.expected, testCase.input.RequiredInputs()); diff != "" {

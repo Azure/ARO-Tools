@@ -294,7 +294,9 @@
         },
         "fileSourceToDestination": {
           "type": "object",
-          "additionalProperties": { "type": "string" }
+          "additionalProperties": {
+            "type": "string"
+          }
         }
       }
     },
@@ -816,6 +818,33 @@
           "required": [
             "grafanaName",
             "identityFrom"
+          ]
+        }
+      ]
+    },
+    "istioUpgradeStep": {
+      "unevaluatedProperties": false,
+      "allOf": [
+        {
+          "$ref": "#/definitions/stepMeta"
+        },
+        {
+          "properties": {
+            "action": {
+              "const": "IstioUpgrade"
+            },
+            "aksCluster": {
+              "$ref": "#/definitions/value"
+            },
+            "timeout": {
+              "$ref": "#/definitions/durationString"
+            },
+            "identityFrom": {
+              "$ref": "#/definitions/input"
+            }
+          },
+          "required": [
+            "aksCluster"
           ]
         }
       ]
@@ -2075,6 +2104,22 @@
                   },
                   "then": {
                     "$ref": "#/definitions/grafanaDatasourcesStep"
+                  }
+                },
+                {
+                  "if": {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "IstioUpgrade"
+                      }
+                    },
+                    "required": [
+                      "action"
+                    ]
+                  },
+                  "then": {
+                    "$ref": "#/definitions/istioUpgradeStep"
                   }
                 }
               ],

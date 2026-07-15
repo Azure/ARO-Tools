@@ -14,22 +14,35 @@
 
 package types
 
-import "fmt"
+import (
+	"fmt"
+	"slices"
+)
 
 const StepActionIstioUpgrade = "IstioUpgrade"
 
 type IstioUpgradeStep struct {
-	StepMeta   `json:",inline"`
-	AKSCluster string `json:"aksCluster"`
-	DryRun     bool   `json:"dryRun,omitempty"`
+	StepMeta     `json:",inline"`
+	AKSCluster   Value  `json:"aksCluster"`
+	Timeout      string `json:"timeout,omitempty"`
+	IdentityFrom Input  `json:"identityFrom,omitempty"`
 }
 
 func (s *IstioUpgradeStep) Description() string {
-	return fmt.Sprintf("Step %s\n  Kind: %s\n  AKSCluster: %s\n  DryRun: %v\n", s.Name, s.Action, s.AKSCluster, s.DryRun)
+	return fmt.Sprintf("Step %s\n  Kind: %s\n  AKSCluster: %s\n", s.Name, s.Action, s.AKSCluster.String())
 }
 
 func (s *IstioUpgradeStep) RequiredInputs() []StepDependency {
-	return []StepDependency{}
+	var deps []StepDependency
+	if s.AKSCluster.Input != nil {
+		deps = append(deps, s.AKSCluster.Input.StepDependency)
+	}
+	if s.IdentityFrom.StepDependency != (StepDependency{}) {
+		deps = append(deps, s.IdentityFrom.StepDependency)
+	}
+	slices.SortFunc(deps, SortDependencies)
+	deps = slices.Compact(deps)
+	return deps
 }
 
 func (s *IstioUpgradeStep) IsWellFormedOverInputs() bool {
