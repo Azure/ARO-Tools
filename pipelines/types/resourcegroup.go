@@ -148,6 +148,8 @@ func (s *Steps) UnmarshalJSON(data []byte) error {
 			step = &GrafanaManageStep{}
 		case StepActionGrafanaDatasources:
 			step = &GrafanaDatasourcesStep{}
+		case StepActionKustoEntityGroups:
+			step = &KustoEntityGroupsStep{}
 		case StepActionIstioUpgrade:
 			step = &IstioUpgradeStep{}
 		default:

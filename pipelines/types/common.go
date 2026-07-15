@@ -842,3 +842,33 @@ func (s *GrafanaDatasourcesStep) RequiredInputs() []StepDependency {
 func (s *GrafanaDatasourcesStep) IsWellFormedOverInputs() bool {
 	return true
 }
+
+const StepActionKustoEntityGroups = "KustoEntityGroups"
+
+type KustoEntityGroupsStep struct {
+	StepMeta `json:",inline"`
+
+	// EntityGroups is a list of entity group definitions in "name:database" format.
+	EntityGroups []string `json:"entityGroups"`
+
+	Timeout string `json:"timeout,omitempty"`
+
+	// IdentityFrom specifies the managed identity with which this deployment will run in Ev2.
+	IdentityFrom Input `json:"identityFrom,omitempty"`
+}
+
+func (s *KustoEntityGroupsStep) Description() string {
+	return fmt.Sprintf("Step %s\n  Kind: %s\n", s.Name, s.Action)
+}
+
+func (s *KustoEntityGroupsStep) RequiredInputs() []StepDependency {
+	var deps []StepDependency
+	deps = append(deps, s.IdentityFrom.StepDependency)
+	slices.SortFunc(deps, SortDependencies)
+	deps = slices.Compact(deps)
+	return deps
+}
+
+func (s *KustoEntityGroupsStep) IsWellFormedOverInputs() bool {
+	return true
+}
