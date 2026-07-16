@@ -1142,6 +1142,10 @@
                 {
                   "const": "ManageAppId",
                   "description": "Manage the application ID"
+                },
+                {
+                  "const": "GetAccount",
+                  "description": "Get Pav2 Account(s)"
                 }
               ]
             },
@@ -1213,6 +1217,22 @@
                   "secretKeyVault",
                   "secretName",
                   "smeAppidParameter"
+                ]
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "operation": {
+                    "const": "GetAccount"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "operation",
+                  "secretKeyVault",
+                  "secretName"
                 ]
               }
             }
