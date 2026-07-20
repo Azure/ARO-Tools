@@ -171,6 +171,30 @@ type DryRun struct {
 	Command   string     `json:"command,omitempty"`
 }
 
+const StepActionSafeFly = "SafeFly"
+
+// SafeFlyStep submits a SafeFly request for the current rollout.
+type SafeFlyStep struct {
+	StepMeta      `json:",inline"`
+	ShellIdentity Value `json:"shellIdentity"`
+}
+
+func (s *SafeFlyStep) Description() string {
+	return fmt.Sprintf("Step %s\n  Kind: %s\n", s.Name, s.Action)
+}
+
+func (s *SafeFlyStep) RequiredInputs() []StepDependency {
+	if s.ShellIdentity.Input == nil {
+		return nil
+	}
+	return []StepDependency{s.ShellIdentity.Input.StepDependency}
+}
+
+// IsWellFormedOverInputs returns false because the current rollout is an implicit input.
+func (s *SafeFlyStep) IsWellFormedOverInputs() bool {
+	return false
+}
+
 const StepActionDelegateChildZone = "DelegateChildZone"
 
 type DelegateChildZoneStep struct {
