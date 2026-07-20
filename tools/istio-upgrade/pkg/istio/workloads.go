@@ -286,6 +286,7 @@ type staleWorkloads struct {
 	OrphanPods   []string
 	Deployments  map[string]bool
 	StatefulSets map[string]bool
+	DaemonSets   map[string]bool
 }
 
 func identifyStaleWorkloads(ctx context.Context, client kubernetes.Interface, namespace, targetRevision string) (*staleWorkloads, error) {
@@ -302,6 +303,7 @@ func identifyStaleWorkloads(ctx context.Context, client kubernetes.Interface, na
 	result := &staleWorkloads{
 		Deployments:  make(map[string]bool),
 		StatefulSets: make(map[string]bool),
+		DaemonSets:   make(map[string]bool),
 	}
 	for _, pi := range podInfos {
 		if pi.Revision == targetRevision {
@@ -316,9 +318,15 @@ func identifyStaleWorkloads(ctx context.Context, client kubernetes.Interface, na
 		case "ReplicaSet":
 			if depName, ok := rsOwners[controller.Name]; ok {
 				result.Deployments[depName] = true
+			} else {
+				result.OrphanPods = append(result.OrphanPods, pi.Pod.Name)
 			}
 		case "StatefulSet":
 			result.StatefulSets[controller.Name] = true
+		case "DaemonSet":
+			result.DaemonSets[controller.Name] = true
+		default:
+			result.OrphanPods = append(result.OrphanPods, pi.Pod.Name)
 		}
 	}
 	return result, nil
@@ -371,6 +379,15 @@ func executeRestart(ctx context.Context, client kubernetes.Interface, namespace,
 			continue
 		}
 		result.Restarted = append(result.Restarted, "statefulset/"+name)
+	}
+
+	for name := range stale.DaemonSets {
+		if _, err := client.AppsV1().DaemonSets(namespace).Patch(ctx, name,
+			types.StrategicMergePatchType, buildRestartPatch(), metav1.PatchOptions{}); err != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("daemonset/%s: %v", name, err))
+			continue
+		}
+		result.Restarted = append(result.Restarted, "daemonset/"+name)
 	}
 
 	if len(result.Restarted) > 0 || len(result.Errors) > 0 {
@@ -519,6 +536,27 @@ func WaitForRollout(ctx context.Context, client kubernetes.Interface, namespace 
 			}
 			if s.Status.UpdatedReplicas < desired || s.Status.ReadyReplicas < desired {
 				pending = append(pending, fmt.Sprintf("sts/%s(%d/%d)", s.Name, s.Status.ReadyReplicas, desired))
+			}
+		}
+
+		dss, err := client.AppsV1().DaemonSets(namespace).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return false, fmt.Errorf("failed to list daemonsets: %w", err)
+		}
+		for _, ds := range dss.Items {
+			if ds.Spec.Template.Annotations["sidecar.istio.io/inject"] == "false" {
+				continue
+			}
+			desired := ds.Status.DesiredNumberScheduled
+			if desired == 0 {
+				continue
+			}
+			if ds.Status.ObservedGeneration < ds.Generation {
+				pending = append(pending, fmt.Sprintf("ds/%s(generation-lag)", ds.Name))
+				continue
+			}
+			if ds.Status.UpdatedNumberScheduled < desired || ds.Status.NumberReady < desired {
+				pending = append(pending, fmt.Sprintf("ds/%s(%d/%d)", ds.Name, ds.Status.NumberReady, desired))
 			}
 		}
 

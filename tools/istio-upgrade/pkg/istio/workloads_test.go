@@ -213,6 +213,60 @@ func TestExecuteRestart(t *testing.T) {
 	}
 }
 
+func TestExecuteRestart_DaemonSet(t *testing.T) {
+	client := fake.NewSimpleClientset(
+		&corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "ds-pod", Namespace: "app-ns",
+				OwnerReferences: []metav1.OwnerReference{{Name: "logging", Kind: "DaemonSet", APIVersion: "apps/v1", Controller: ptr.To(true)}},
+				Annotations:     map[string]string{"sidecar.istio.io/status": `{"revision":"asm-1-28"}`},
+			},
+			Status: corev1.PodStatus{Phase: corev1.PodRunning},
+		},
+		&corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "ds-pod-current", Namespace: "app-ns",
+				OwnerReferences: []metav1.OwnerReference{{Name: "logging", Kind: "DaemonSet", APIVersion: "apps/v1", Controller: ptr.To(true)}},
+				Annotations:     map[string]string{"sidecar.istio.io/status": `{"revision":"asm-1-29"}`},
+			},
+			Status: corev1.PodStatus{Phase: corev1.PodRunning},
+		},
+		&appsv1.DaemonSet{
+			ObjectMeta: metav1.ObjectMeta{Name: "logging", Namespace: "app-ns"},
+		},
+	)
+
+	result, err := executeRestart(context.Background(), client, "app-ns", "asm-1-29")
+	require.NoError(t, err)
+	assert.Contains(t, result.Restarted, "daemonset/logging")
+}
+
+func TestExecuteRestart_BareReplicaSet(t *testing.T) {
+	client := fake.NewSimpleClientset(
+		&corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "bare-rs-pod", Namespace: "app-ns",
+				OwnerReferences: []metav1.OwnerReference{{Name: "orphan-rs", Kind: "ReplicaSet", APIVersion: "apps/v1", Controller: ptr.To(true)}},
+				Annotations:     map[string]string{"sidecar.istio.io/status": `{"revision":"asm-1-28"}`},
+			},
+			Status: corev1.PodStatus{Phase: corev1.PodRunning},
+		},
+		&appsv1.ReplicaSet{
+			ObjectMeta: metav1.ObjectMeta{Name: "orphan-rs", Namespace: "app-ns"},
+		},
+	)
+
+	result, err := executeRestart(context.Background(), client, "app-ns", "asm-1-29")
+	require.NoError(t, err)
+	assert.Contains(t, result.Restarted, "pod/bare-rs-pod", "bare RS pod should be deleted as orphan")
+
+	pods, err := client.CoreV1().Pods("app-ns").List(context.Background(), metav1.ListOptions{})
+	require.NoError(t, err)
+	for _, p := range pods.Items {
+		assert.NotEqual(t, "bare-rs-pod", p.Name, "bare RS pod should have been deleted")
+	}
+}
+
 func TestExecuteRestartAllNamespaces(t *testing.T) {
 	client := fake.NewSimpleClientset(
 		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "ns-a", Labels: map[string]string{"istio.io/rev": "asm-1-29"}}},
@@ -371,6 +425,41 @@ func TestWaitForRollout_SkipsZeroReplicas(t *testing.T) {
 
 	err := WaitForRollout(context.Background(), client, "app-ns", 5*time.Second, 100*time.Millisecond)
 	require.NoError(t, err, "zero-replica deployment should be skipped")
+}
+
+func TestWaitForRollout_DaemonSetReady(t *testing.T) {
+	client := fake.NewSimpleClientset(
+		&appsv1.DaemonSet{
+			ObjectMeta: metav1.ObjectMeta{Name: "logging", Namespace: "app-ns", Generation: 1},
+			Status: appsv1.DaemonSetStatus{
+				ObservedGeneration:     1,
+				DesiredNumberScheduled: 3,
+				UpdatedNumberScheduled: 3,
+				NumberReady:            3,
+			},
+		},
+	)
+
+	err := WaitForRollout(context.Background(), client, "app-ns", 5*time.Second, 100*time.Millisecond)
+	require.NoError(t, err)
+}
+
+func TestWaitForRollout_DaemonSetStuck(t *testing.T) {
+	client := fake.NewSimpleClientset(
+		&appsv1.DaemonSet{
+			ObjectMeta: metav1.ObjectMeta{Name: "logging", Namespace: "app-ns", Generation: 2},
+			Status: appsv1.DaemonSetStatus{
+				ObservedGeneration:     1,
+				DesiredNumberScheduled: 3,
+				UpdatedNumberScheduled: 1,
+				NumberReady:            1,
+			},
+		},
+	)
+
+	err := WaitForRollout(context.Background(), client, "app-ns", 200*time.Millisecond, 50*time.Millisecond)
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "timeout waiting for rollout in app-ns")
 }
 
 func TestWaitForRollout_Timeout(t *testing.T) {

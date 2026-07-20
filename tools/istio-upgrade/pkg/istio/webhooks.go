@@ -83,6 +83,14 @@ func EnsureRevisionTag(ctx context.Context, client kubernetes.Interface, tagName
 			wh.Webhooks[i].ClientConfig.CABundle = newCABundle
 			changed = true
 		}
+		if ptr.Deref(wh.Webhooks[i].ClientConfig.Service.Path, "") != "/inject" {
+			wh.Webhooks[i].ClientConfig.Service.Path = ptr.To("/inject")
+			changed = true
+		}
+		if ptr.Deref(wh.Webhooks[i].ClientConfig.Service.Port, 0) != 443 {
+			wh.Webhooks[i].ClientConfig.Service.Port = ptr.To(int32(443))
+			changed = true
+		}
 	}
 	if !changed {
 		return nil
