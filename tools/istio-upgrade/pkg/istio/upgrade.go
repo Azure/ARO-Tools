@@ -391,11 +391,8 @@ func ensureIngress(ctx context.Context, kubeClient kubernetes.Interface, opts Up
 	return nil
 }
 
-// AKS-managed Istio revisions follow the pattern asm-{major}-{minor}.
-var directRevisionPattern = regexp.MustCompile(`^asm-\d+-\d+$`)
-
 func isDirectRevision(label string) bool {
-	return directRevisionPattern.MatchString(label)
+	return revisionPattern.MatchString(label)
 }
 
 func hasTagBasedNamespaces(ctx context.Context, kubeClient kubernetes.Interface, target string) (bool, error) {
