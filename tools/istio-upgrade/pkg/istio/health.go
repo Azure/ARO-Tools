@@ -133,7 +133,9 @@ func VerifyUpgrade(ctx context.Context, client kubernetes.Interface, targetRevis
 		} else {
 			expectedSvc := istiodServiceName(targetRevision)
 			for _, w := range wh.Webhooks {
-				if w.ClientConfig.Service != nil && w.ClientConfig.Service.Name != expectedSvc {
+				if w.ClientConfig.Service == nil {
+					v.addIssue("tag webhook %s entry %q has no service-based config", webhookName, w.Name)
+				} else if w.ClientConfig.Service.Name != expectedSvc {
 					v.addIssue("tag webhook %s points at %s, expected %s", webhookName, w.ClientConfig.Service.Name, expectedSvc)
 				}
 			}
