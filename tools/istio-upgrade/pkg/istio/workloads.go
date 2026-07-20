@@ -20,10 +20,10 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
+	"golang.org/x/sync/errgroup"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -230,6 +230,8 @@ func migrateWorkloads(ctx context.Context, kubeClient kubernetes.Interface, opts
 	return nil
 }
 
+const namespaceConcurrencyLimit = 10
+
 func ExecuteRestartAllNamespaces(ctx context.Context, client kubernetes.Interface, targetRevision string) ([]RestartResult, error) {
 	namespaces, err := GetMeshNamespaces(ctx, client)
 	if err != nil {
@@ -242,16 +244,16 @@ func ExecuteRestartAllNamespaces(ctx context.Context, client kubernetes.Interfac
 	}
 	outcomes := make([]restartOutcome, len(namespaces))
 
-	var wg sync.WaitGroup
+	g, ctx := errgroup.WithContext(ctx)
+	g.SetLimit(namespaceConcurrencyLimit)
 	for i, ns := range namespaces {
-		wg.Add(1)
-		go func(idx int, namespace string) {
-			defer wg.Done()
-			result, err := executeRestart(ctx, client, namespace, targetRevision)
-			outcomes[idx] = restartOutcome{result: result, err: err}
-		}(i, ns.Name)
+		g.Go(func() error {
+			result, err := executeRestart(ctx, client, ns.Name, targetRevision)
+			outcomes[i] = restartOutcome{result: result, err: err}
+			return nil
+		})
 	}
-	wg.Wait()
+	g.Wait()
 
 	var results []RestartResult
 	var errs []error
@@ -470,15 +472,15 @@ func WaitForRolloutAllNamespaces(ctx context.Context, client kubernetes.Interfac
 	}
 
 	errs := make([]error, len(namespaces))
-	var wg sync.WaitGroup
+	g, ctx := errgroup.WithContext(ctx)
+	g.SetLimit(namespaceConcurrencyLimit)
 	for i, ns := range namespaces {
-		wg.Add(1)
-		go func(idx int, namespace string) {
-			defer wg.Done()
-			errs[idx] = WaitForRollout(ctx, client, namespace, timeout, pollInterval)
-		}(i, ns.Name)
+		g.Go(func() error {
+			errs[i] = WaitForRollout(ctx, client, ns.Name, timeout, pollInterval)
+			return nil
+		})
 	}
-	wg.Wait()
+	g.Wait()
 
 	return errors.Join(errs...)
 }
