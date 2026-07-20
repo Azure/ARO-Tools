@@ -1636,6 +1636,38 @@
       "required": [
         "name"
       ]
+    },
+    "kustoEntityGroupsStep": {
+      "unevaluatedProperties": false,
+      "allOf": [
+        {
+          "$ref": "#/definitions/stepMeta"
+        },
+        {
+          "properties": {
+            "action": {
+              "const": "KustoEntityGroups"
+            },
+            "entityGroups": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "minItems": 1
+            },
+            "timeout": {
+              "$ref": "#/definitions/durationString"
+            },
+            "identityFrom": {
+              "$ref": "#/definitions/input"
+            }
+          },
+          "required": [
+            "entityGroups",
+            "identityFrom"
+          ]
+        }
+      ]
     }
   },
   "properties": {
@@ -2120,6 +2152,22 @@
                   },
                   "then": {
                     "$ref": "#/definitions/istioUpgradeStep"
+                  }
+                },
+                {
+                  "if": {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "KustoEntityGroups"
+                      }
+                    },
+                    "required": [
+                      "action"
+                    ]
+                  },
+                  "then": {
+                    "$ref": "#/definitions/kustoEntityGroupsStep"
                   }
                 }
               ],

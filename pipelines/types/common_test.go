@@ -363,6 +363,7 @@ func TestIsWellFormedOverInputs(t *testing.T) {
 		{in: &PublishGenevaActionStep{}, expected: true},
 		{in: &GenevaHealthStep{}, expected: true},
 		{in: &GrafanaManageStep{}, expected: true},
+		{in: &KustoEntityGroupsStep{}, expected: true},
 		{in: &GenericStep{}, expected: false},
 		{in: &GenericValidationStep{}, expected: false},
 		{in: &ShellValidationStep{}, expected: false},
