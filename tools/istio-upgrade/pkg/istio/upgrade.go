@@ -71,7 +71,8 @@ func DefaultUpgradeOptions() UpgradeOptions {
 	return UpgradeOptions{
 		RolloutTimeout:      15 * time.Minute,
 		RolloutPollInterval: 10 * time.Second,
-		OverallTimeout:      25 * time.Minute,
+		// EV2 shell step caps execution at PT1H; keep at or below 60m for graceful shutdown.
+		OverallTimeout: 60 * time.Minute,
 		MaxOrphanRetries:    3,
 	}
 }
