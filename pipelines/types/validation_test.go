@@ -338,6 +338,50 @@ func TestValidatePipelineSchema(t *testing.T) {
 			},
 		},
 		{
+			name: "valid safefly",
+			pipeline: map[string]interface{}{
+				"serviceGroup": "test",
+				"rolloutName":  "test",
+				"resourceGroups": []interface{}{
+					map[string]interface{}{
+						"name":          "rg",
+						"resourceGroup": "rg",
+						"subscription":  "sub",
+						"steps": []interface{}{
+							map[string]interface{}{
+								"name":   "step",
+								"action": "SafeFly",
+								"shellIdentity": map[string]interface{}{
+									"configRef": "safeFlyMsiId",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "invalid safefly missing shell identity",
+			pipeline: map[string]interface{}{
+				"serviceGroup": "test",
+				"rolloutName":  "test",
+				"resourceGroups": []interface{}{
+					map[string]interface{}{
+						"name":          "rg",
+						"resourceGroup": "rg",
+						"subscription":  "sub",
+						"steps": []interface{}{
+							map[string]interface{}{
+								"name":   "step",
+								"action": "SafeFly",
+							},
+						},
+					},
+				},
+			},
+			err: "pipeline is not compliant with schema pipeline.schema.v1",
+		},
+		{
 			name: "invalid shell timeout",
 			pipeline: map[string]interface{}{
 				"serviceGroup": "test",

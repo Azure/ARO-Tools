@@ -538,6 +538,10 @@ resourceGroups:
       resourceGroup: regional
       step: deploy
     name: datasources
+  - action: SafeFly
+    name: safefly-submit
+    shellIdentity:
+      configRef: aroDevopsMsiId
   subscription: hcp-uksouth
   subscriptionProvisioning:
     displayName:

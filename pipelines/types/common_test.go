@@ -33,6 +33,19 @@ func TestRequiredInputs(t *testing.T) {
 			input: &ShellStep{},
 		},
 		{
+			name: "safefly full",
+			input: &SafeFlyStep{
+				ShellIdentity: Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step"}}},
+			},
+			expected: []StepDependency{
+				{ResourceGroup: "rg", Step: "step"},
+			},
+		},
+		{
+			name:  "safefly empty",
+			input: &SafeFlyStep{},
+		},
+		{
 			name: "arm full",
 			input: &ARMStep{
 				Variables: []Variable{
@@ -342,6 +355,7 @@ func TestIsWellFormedOverInputs(t *testing.T) {
 	}{
 		{in: &ShellStep{}, expected: false},
 		{in: &ShellStep{WorkingDir: "something"}, expected: true},
+		{in: &SafeFlyStep{}, expected: false},
 		{in: &HelmStep{}, expected: true},
 		{in: &ARMStep{}, expected: true},
 		{in: &ARMStackStep{}, expected: true},

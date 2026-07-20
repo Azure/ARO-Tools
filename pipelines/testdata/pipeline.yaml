@@ -519,6 +519,10 @@ resourceGroups:
         resourceGroup: regional
         step: deploy
         name: whatever
+    - name: safefly-submit
+      action: SafeFly
+      shellIdentity:
+        configRef: aroDevopsMsiId
   validationSteps:
   - name: e2e
     action: ProwJob

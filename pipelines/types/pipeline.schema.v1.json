@@ -468,6 +468,27 @@
         }
       ]
     },
+    "safeFlyStep": {
+      "unevaluatedProperties": false,
+      "allOf": [
+        {
+          "$ref": "#/definitions/stepMeta"
+        },
+        {
+          "properties": {
+            "action": {
+              "const": "SafeFly"
+            },
+            "shellIdentity": {
+              "$ref": "#/definitions/value"
+            }
+          },
+          "required": [
+            "shellIdentity"
+          ]
+        }
+      ]
+    },
     "shellValidationStep": {
       "unevaluatedProperties": false,
       "allOf": [
@@ -1797,6 +1818,22 @@
                   },
                   "then": {
                     "$ref": "#/definitions/shellStep"
+                  }
+                },
+                {
+                  "if": {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "SafeFly"
+                      }
+                    },
+                    "required": [
+                      "action"
+                    ]
+                  },
+                  "then": {
+                    "$ref": "#/definitions/safeFlyStep"
                   }
                 },
                 {
