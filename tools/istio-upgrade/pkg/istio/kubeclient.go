@@ -17,6 +17,7 @@ package istio
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sync"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -50,7 +51,7 @@ func NewKubeClientFromInterface(client kubernetes.Interface) *KubeClient {
 func (k *KubeClient) GetMeshNamespaces(ctx context.Context) ([]MeshNamespace, error) {
 	k.mu.RLock()
 	if k.nsCacheValid {
-		ns := k.cachedNS
+		ns := slices.Clone(k.cachedNS)
 		k.mu.RUnlock()
 		return ns, nil
 	}
@@ -60,7 +61,7 @@ func (k *KubeClient) GetMeshNamespaces(ctx context.Context) ([]MeshNamespace, er
 	defer k.mu.Unlock()
 	// Re-check after acquiring write lock.
 	if k.nsCacheValid {
-		return k.cachedNS, nil
+		return slices.Clone(k.cachedNS), nil
 	}
 	nsList, err := k.client.CoreV1().Namespaces().List(ctx, metav1.ListOptions{
 		LabelSelector: "istio.io/rev",
@@ -77,7 +78,7 @@ func (k *KubeClient) GetMeshNamespaces(ctx context.Context) ([]MeshNamespace, er
 	}
 	k.cachedNS = namespaces
 	k.nsCacheValid = true
-	return namespaces, nil
+	return slices.Clone(namespaces), nil
 }
 
 func (k *KubeClient) InvalidateNamespaceCache() {
