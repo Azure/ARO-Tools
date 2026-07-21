@@ -18,6 +18,8 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/go-logr/logr"
 )
 
 type Action string
@@ -30,107 +32,143 @@ const (
 	ActionCleanupAndUpgrade Action = "cleanup-and-upgrade"
 )
 
-type ClusterState struct {
-	Name              string
-	Revisions         []string
-	AvailableUpgrades []string
-	KubernetesVersion string
-	ProvisioningState string
-	UpgradeInProgress bool
+// UpgradeState combines cluster provisioning state with Istio mesh profile
+// state to drive the upgrade decision engine.
+type UpgradeState struct {
+	ClusterName            string
+	MeshProfileRevisions   []string
+	IstioAvailableUpgrades []string
+	KubernetesVersion      string
+	ProvisioningState      string
+	IstioUpgradeInProgress bool
 }
 
-type Decision struct {
-	Action Action
-	Reason string
-}
+type scenario int
 
-func Decide(state ClusterState, targetVersion string) Decision {
-	cluster := state.Name
+const (
+	scenarioNotReady          scenario = iota
+	scenarioFreshInstall
+	scenarioAlreadyAtTarget
+	scenarioMidUpgrade
+	scenarioTooManyRevisions
+	scenarioStaleCanary
+	scenarioDowngrade
+	scenarioUpgradeAvailable
+	scenarioUpgradeUnavailable
+)
 
+func classify(state UpgradeState, target string) scenario {
 	if state.ProvisioningState != "Succeeded" {
-		return Decision{
-			Action: ActionSkip,
-			Reason: cluster + " provisioning state is " + state.ProvisioningState,
-		}
+		return scenarioNotReady
 	}
 
-	if len(state.Revisions) == 0 {
-		return Decision{
-			Action: ActionInstall,
-			Reason: cluster + " has no revisions installed — installing " + targetVersion + " from svc.istio.versions",
+	if state.IstioUpgradeInProgress {
+		if slices.Contains(state.MeshProfileRevisions, target) {
+			return scenarioMidUpgrade
 		}
+		return scenarioNotReady
+	}
+
+	if len(state.MeshProfileRevisions) == 0 {
+		return scenarioFreshInstall
 	}
 
 	hasTarget := false
-	hasOlder := false
-	for _, rev := range state.Revisions {
-		if rev == targetVersion {
+	hasOther := false
+	for _, rev := range state.MeshProfileRevisions {
+		if rev == target {
 			hasTarget = true
 		} else {
-			hasOlder = true
+			hasOther = true
 		}
 	}
 
-	if hasTarget && !hasOlder {
-		return Decision{
-			Action: ActionSkip,
-			Reason: cluster + " already at svc.istio.versions target " + targetVersion,
-		}
+	if hasTarget && !hasOther {
+		return scenarioAlreadyAtTarget
+	}
+	if hasTarget && hasOther {
+		return scenarioMidUpgrade
 	}
 
-	if hasTarget && hasOlder {
-		return Decision{
-			Action: ActionResume,
-			Reason: cluster + " mid-upgrade detected — " + strings.Join(state.Revisions, ", ") + " installed, resuming upgrade to svc.istio.versions target " + targetVersion,
-		}
+	if len(state.MeshProfileRevisions) > 2 {
+		return scenarioTooManyRevisions
 	}
 
-	if len(state.Revisions) > 2 {
-		return Decision{
-			Action: ActionSkip,
-			Reason: cluster + " has " + strconv.Itoa(len(state.Revisions)) + " revisions installed — unexpected state, manual intervention required",
-		}
+	highest := slices.MaxFunc(state.MeshProfileRevisions, compareRevisions)
+	if compareRevisions(highest, target) > 0 {
+		return scenarioDowngrade
 	}
 
-	if len(state.Revisions) > 1 {
-		highest := slices.MaxFunc(state.Revisions, compareRevisions)
-		if compareRevisions(highest, targetVersion) > 0 {
-			return Decision{
-				Action: ActionSkip,
-				Reason: cluster + " downgrade detected — installed " + highest + " is newer than svc.istio.versions target " + targetVersion,
-			}
-		}
-		return Decision{
-			Action: ActionCleanupAndUpgrade,
-			Reason: cluster + " stale canary detected — " + strings.Join(state.Revisions, ", ") + " installed but config target is " + targetVersion + " — will clean up " + highest + " and upgrade",
-		}
+	if !slices.Contains(state.IstioAvailableUpgrades, target) {
+		return scenarioUpgradeUnavailable
 	}
 
-	if state.UpgradeInProgress {
-		return Decision{
-			Action: ActionResume,
-			Reason: cluster + " upgrade already in progress (409 ServiceMeshUpgradeInProgress)",
-		}
+	// Single revision with target available — normal upgrade path.
+	if len(state.MeshProfileRevisions) == 1 {
+		return scenarioUpgradeAvailable
 	}
 
-	highest := slices.MaxFunc(state.Revisions, compareRevisions)
-	if compareRevisions(highest, targetVersion) > 0 {
-		return Decision{
-			Action: ActionSkip,
-			Reason: cluster + " downgrade detected — installed " + highest + " is newer than svc.istio.versions target " + targetVersion,
-		}
-	}
+	// Two revisions with target available — stale canary from a prior failed upgrade.
+	return scenarioStaleCanary
+}
 
-	if slices.Contains(state.AvailableUpgrades, targetVersion) {
-		return Decision{
-			Action: ActionUpgrade,
-			Reason: cluster + " upgrading from " + highest + " → " + targetVersion + " (svc.istio.versions target available, compatible with k8s " + state.KubernetesVersion + ")",
+func Decide(logger logr.Logger, state UpgradeState, target string) Action {
+	sc := classify(state, target)
+	switch sc {
+	case scenarioNotReady:
+		if state.IstioUpgradeInProgress {
+			logger.Info("Skipping: ARM upgrade still provisioning, will retry",
+				"provisioningState", state.ProvisioningState,
+				"installed", state.MeshProfileRevisions)
+		} else {
+			logger.Info("Skipping: cluster not ready",
+				"provisioningState", state.ProvisioningState)
 		}
-	}
-
-	return Decision{
-		Action: ActionSkip,
-		Reason: cluster + " svc.istio.versions target " + targetVersion + " is not in available upgrades — may be incompatible with k8s " + state.KubernetesVersion + " or not yet available in this region",
+		return ActionSkip
+	case scenarioFreshInstall:
+		logger.Info("No revisions installed, installing from svc.istio.versions",
+			"target", target)
+		return ActionInstall
+	case scenarioAlreadyAtTarget:
+		logger.Info("Already at svc.istio.versions target",
+			"target", target)
+		return ActionSkip
+	case scenarioMidUpgrade:
+		logger.Info("Mid-upgrade detected, resuming",
+			"installed", state.MeshProfileRevisions,
+			"target", target)
+		return ActionResume
+	case scenarioTooManyRevisions:
+		logger.Info("Unexpected revision count, manual intervention required",
+			"revisions", state.MeshProfileRevisions,
+			"count", len(state.MeshProfileRevisions))
+		return ActionSkip
+	case scenarioStaleCanary:
+		logger.Info("Stale canary detected, will clean up and upgrade",
+			"installed", state.MeshProfileRevisions,
+			"target", target)
+		return ActionCleanupAndUpgrade
+	case scenarioDowngrade:
+		highest := slices.MaxFunc(state.MeshProfileRevisions, compareRevisions)
+		logger.Info("Downgrade detected, skipping",
+			"installed", highest,
+			"target", target)
+		return ActionSkip
+	case scenarioUpgradeAvailable:
+		highest := slices.MaxFunc(state.MeshProfileRevisions, compareRevisions)
+		logger.Info("Upgrading to svc.istio.versions target",
+			"from", highest,
+			"to", target,
+			"k8sVersion", state.KubernetesVersion)
+		return ActionUpgrade
+	case scenarioUpgradeUnavailable:
+		logger.Info("Target not in available upgrades, skipping",
+			"target", target,
+			"k8sVersion", state.KubernetesVersion)
+		return ActionSkip
+	default:
+		logger.Info("Unhandled scenario, skipping")
+		return ActionSkip
 	}
 }
 

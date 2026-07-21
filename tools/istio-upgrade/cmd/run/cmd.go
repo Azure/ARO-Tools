@@ -17,10 +17,13 @@ package run
 import (
 	"github.com/go-logr/logr"
 	"github.com/spf13/cobra"
-
-	"github.com/Azure/ARO-Tools/tools/istio-upgrade/pkg/istio"
 )
 
+// Required permissions:
+//
+//	ARM: Contributor + Reader on subscription
+//	Kubernetes: cluster-admin equivalent (namespaces, configmaps, deployments,
+//	  statefulsets, daemonsets, pods, services, mutatingwebhookconfigurations)
 func NewCommand() (*cobra.Command, error) {
 	opts := DefaultOptions()
 	cmd := &cobra.Command{
@@ -29,25 +32,20 @@ func NewCommand() (*cobra.Command, error) {
 		SilenceErrors: true,
 		SilenceUsage:  true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := opts.Validate(); err != nil {
+			validated, err := opts.Validate()
+			if err != nil {
 				return err
 			}
 
 			ctx := cmd.Context()
 			logger := logr.FromContextOrDiscard(ctx)
-			upgradeOpts := opts.ToUpgradeOptions()
 
-			aksClient, err := istio.NewAKSClient(opts.SubscriptionID, logger, istio.DefaultAKSClientConfig())
+			completed, err := validated.Complete(logger)
 			if err != nil {
 				return err
 			}
 
-			kubeClient, err := istio.NewKubeClient(opts.KubeconfigPath)
-			if err != nil {
-				return err
-			}
-
-			return istio.RunUpgrade(ctx, upgradeOpts, aksClient, kubeClient)
+			return completed.Run(ctx)
 		},
 	}
 	if err := BindOptions(opts, cmd); err != nil {

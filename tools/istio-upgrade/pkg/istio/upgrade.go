@@ -25,15 +25,30 @@ import (
 
 	"github.com/go-logr/logr"
 
-	"k8s.io/client-go/kubernetes"
 )
 
 var (
 	ErrRetireRevisionWouldOrphanWorkloads = errors.New("retiring revision would orphan workloads: stale sidecar pods remain after restart retries")
 	ErrControlPlaneUnhealthy              = errors.New("control plane unhealthy: one or more istiod pods are not ready")
+	// TODO: add "ingress gateway unhealthy" to svc-pipeline.yaml errorContainsAny for EV2 automated retry
+	ErrIngressUnhealthy = errors.New("ingress gateway unhealthy")
 )
 
-var revisionPattern = regexp.MustCompile(`^asm-\d+-\d+$`)
+func healthCheckError(phase string, health *CheckResult) error {
+	var sentinels []error
+	if health.CPUnhealthy {
+		sentinels = append(sentinels, ErrControlPlaneUnhealthy)
+	}
+	if health.GWUnhealthy {
+		sentinels = append(sentinels, ErrIngressUnhealthy)
+	}
+	if len(sentinels) == 0 {
+		return fmt.Errorf("%s health check failed: %v", phase, health.Issues)
+	}
+	return fmt.Errorf("%s health check failed: %w: %v", phase, errors.Join(sentinels...), health.Issues)
+}
+
+var RevisionPattern = regexp.MustCompile(`^asm-\d+-\d+$`)
 
 type StopAfter string
 
@@ -54,7 +69,6 @@ func ValidateStopAfter(raw string) (StopAfter, error) {
 type UpgradeOptions struct {
 	ResourceGroup       string
 	ClusterName         string
-	KubeconfigPath      string
 	Versions            string
 	Tag                 string
 	IngressIPName       string
@@ -77,7 +91,7 @@ func DefaultUpgradeOptions() UpgradeOptions {
 	}
 }
 
-func RunUpgrade(ctx context.Context, opts UpgradeOptions, aksClient AKSClusterClient, kubeClient kubernetes.Interface) error {
+func RunUpgrade(ctx context.Context, opts UpgradeOptions, aksClient AKSClusterClient, kubeClient *KubeClient) error {
 	if opts.OverallTimeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, opts.OverallTimeout)
@@ -88,13 +102,14 @@ func RunUpgrade(ctx context.Context, opts UpgradeOptions, aksClient AKSClusterCl
 		"cluster", opts.ClusterName,
 		"versions", opts.Versions,
 	)
+	ctx = logr.NewContext(ctx, logger)
 
 	target := strings.TrimSpace(opts.Versions)
 	if target == "" {
 		return fmt.Errorf("no versions specified in config")
 	}
-	if !revisionPattern.MatchString(target) {
-		return fmt.Errorf("invalid target version %q: must match %s", target, revisionPattern.String())
+	if !RevisionPattern.MatchString(target) {
+		return fmt.Errorf("invalid target version %q: must match %s", target, RevisionPattern.String())
 	}
 
 	clusterInfo, meshProfile, err := aksClient.GetClusterState(ctx, opts.ResourceGroup, opts.ClusterName)
@@ -106,7 +121,7 @@ func RunUpgrade(ctx context.Context, opts UpgradeOptions, aksClient AKSClusterCl
 		return fmt.Errorf("failed to get upgrade targets: %w", err)
 	}
 
-	logger.Info("Istio upgrade — cluster state",
+	logger.Info("Istio upgrade -- cluster state",
 		"k8sVersion", clusterInfo.KubernetesVersion,
 		"provisioningState", clusterInfo.ProvisioningState,
 		"installedRevisions", meshProfile.Revisions,
@@ -114,46 +129,27 @@ func RunUpgrade(ctx context.Context, opts UpgradeOptions, aksClient AKSClusterCl
 		"upgradeInProgress", upgradeInfo.UpgradeInProgress,
 	)
 
-	state := ClusterState{
-		Name:              opts.ClusterName,
-		Revisions:         meshProfile.Revisions,
-		AvailableUpgrades: upgradeInfo.AvailableUpgrades,
-		KubernetesVersion: clusterInfo.KubernetesVersion,
-		ProvisioningState: clusterInfo.ProvisioningState,
-		UpgradeInProgress: upgradeInfo.UpgradeInProgress,
+	state := UpgradeState{
+		ClusterName:            opts.ClusterName,
+		MeshProfileRevisions:   meshProfile.Revisions,
+		IstioAvailableUpgrades: upgradeInfo.AvailableUpgrades,
+		KubernetesVersion:      clusterInfo.KubernetesVersion,
+		ProvisioningState:      clusterInfo.ProvisioningState,
+		IstioUpgradeInProgress: upgradeInfo.UpgradeInProgress,
 	}
 
-	decision := Decide(state, target)
-	logger.Info("Istio upgrade — decision", "action", decision.Action, "reason", decision.Reason)
+	action := Decide(logger, state, target)
 
 	logMeshState(ctx, kubeClient, logger)
 
 	if opts.DryRun {
-		logger.Info("Istio upgrade — [DRY-RUN] would execute", "action", decision.Action, "target", target)
+		logger.Info("Istio upgrade -- [DRY-RUN] would execute", "action", action, "target", target)
 		return nil
 	}
 
-	switch decision.Action {
+	switch action {
 	case ActionSkip:
-		if !slices.Contains(meshProfile.Revisions, target) {
-			logger.Info("Istio upgrade — installed revision does not match config target",
-				"installed", meshProfile.Revisions,
-				"expected", target,
-			)
-			return nil
-		}
-		if err := CreateRevisionConfigMap(ctx, kubeClient, target); err != nil {
-			logger.Info("Istio upgrade — failed to ensure ConfigMap on skip (non-fatal)", "error", err)
-		}
-		if opts.Tag != "" {
-			if err := EnsureRevisionTag(ctx, kubeClient, opts.Tag, target); err != nil {
-				logger.Info("Istio upgrade — failed to ensure tag webhook on skip (non-fatal)", "error", err)
-			}
-		}
-		if err := ensureIngress(ctx, kubeClient, opts); err != nil {
-			logger.Info("Istio upgrade — failed to ensure ingress on skip (non-fatal)", "error", err)
-		}
-		return nil
+		return runActionSkip(ctx, logger, kubeClient, opts, target, meshProfile.Revisions)
 	case ActionInstall:
 		return runInitialInstall(ctx, logger, aksClient, kubeClient, opts, target)
 	case ActionResume:
@@ -163,11 +159,36 @@ func RunUpgrade(ctx context.Context, opts UpgradeOptions, aksClient AKSClusterCl
 	case ActionCleanupAndUpgrade:
 		return runCleanupAndUpgrade(ctx, logger, aksClient, kubeClient, opts, target, meshProfile.Revisions)
 	default:
-		return fmt.Errorf("unhandled action %q", decision.Action)
+		return fmt.Errorf("unhandled action %q", action)
 	}
 }
 
-func runInitialInstall(ctx context.Context, logger logr.Logger, aksClient AKSClusterClient, kubeClient kubernetes.Interface, opts UpgradeOptions, target string) error {
+// runActionSkip heals persistent drift (missing ConfigMap, stale tag webhook, un-annotated ingress)
+// without re-running the full upgrade. Errors are logged but not returned — the cluster is already
+// at the target revision, so failing a skip would block subsequent pipeline steps for no benefit.
+func runActionSkip(ctx context.Context, logger logr.Logger, kubeClient *KubeClient, opts UpgradeOptions, target string, currentRevisions []string) error {
+	if !slices.Contains(currentRevisions, target) {
+		logger.Info("Installed revision does not match config target",
+			"installed", currentRevisions,
+			"expected", target,
+		)
+		return nil
+	}
+	if err := CreateRevisionConfigMap(ctx, kubeClient, target); err != nil {
+		logger.Error(err, "Failed to ensure ConfigMap on skip (non-fatal)")
+	}
+	if opts.Tag != "" {
+		if err := EnsureRevisionTag(ctx, kubeClient, opts.Tag, target); err != nil {
+			logger.Error(err, "Failed to ensure tag webhook on skip (non-fatal)")
+		}
+	}
+	if err := ensureIngress(ctx, kubeClient, opts); err != nil {
+		logger.Error(err, "Failed to ensure ingress on skip (non-fatal)")
+	}
+	return nil
+}
+
+func runInitialInstall(ctx context.Context, logger logr.Logger, aksClient AKSClusterClient, kubeClient *KubeClient, opts UpgradeOptions, target string) error {
 	logger.Info("Enabling mesh on new cluster", "revision", target)
 	if err := aksClient.EnableMesh(ctx, opts.ResourceGroup, opts.ClusterName, target); err != nil {
 		return fmt.Errorf("failed to enable mesh: %w", err)
@@ -189,14 +210,14 @@ func runInitialInstall(ctx context.Context, logger logr.Logger, aksClient AKSClu
 	return nil
 }
 
-func runCanaryUpgrade(ctx context.Context, logger logr.Logger, aksClient AKSClusterClient, kubeClient kubernetes.Interface, opts UpgradeOptions, target string, currentRevisions []string) error {
-	logger.Info("Starting canary — installing target alongside current")
+func runCanaryUpgrade(ctx context.Context, logger logr.Logger, aksClient AKSClusterClient, kubeClient *KubeClient, opts UpgradeOptions, target string, currentRevisions []string) error {
+	logger.Info("Starting canary -- installing target alongside current")
 	if err := aksClient.StartCanaryUpgrade(ctx, opts.ResourceGroup, opts.ClusterName, target); err != nil {
 		return fmt.Errorf("failed to start canary: %w", err)
 	}
 
 	if opts.StopAfter == StopAfterCanaryStart {
-		logger.Info("Stopping after canary start as requested — cluster has two revisions, re-run to resume")
+		logger.Info("Stopping after canary start as requested -- cluster has two revisions, re-run to resume")
 		return nil
 	}
 
@@ -207,7 +228,7 @@ func runCanaryUpgrade(ctx context.Context, logger logr.Logger, aksClient AKSClus
 // failed canary where neither revision matches the new target. Consolidates
 // workloads onto the older stable revision, completes ARM to remove the stale
 // one, then starts a fresh canary to the target.
-func runCleanupAndUpgrade(ctx context.Context, logger logr.Logger, aksClient AKSClusterClient, kubeClient kubernetes.Interface, opts UpgradeOptions, target string, revisions []string) error {
+func runCleanupAndUpgrade(ctx context.Context, logger logr.Logger, aksClient AKSClusterClient, kubeClient *KubeClient, opts UpgradeOptions, target string, revisions []string) error {
 	staleRevision := slices.MaxFunc(revisions, compareRevisions)
 	oldRevision := stableRevisionFrom(revisions, staleRevision)
 	if oldRevision == "" {
@@ -237,7 +258,7 @@ func runCleanupAndUpgrade(ctx context.Context, logger logr.Logger, aksClient AKS
 		return fmt.Errorf("cleanup health check failed: %w", err)
 	}
 	if !health.Passed {
-		return fmt.Errorf("cleanup health check failed: %w: %v", ErrControlPlaneUnhealthy, health.Issues)
+		return healthCheckError("cleanup", health)
 	}
 
 	if err := aksClient.CompleteCanaryUpgrade(ctx, opts.ResourceGroup, opts.ClusterName, oldRevision); err != nil {
@@ -256,24 +277,23 @@ func runCleanupAndUpgrade(ctx context.Context, logger logr.Logger, aksClient AKS
 		return fmt.Errorf("cleanup verification failed: %v", verification.Issues)
 	}
 
-	logger.Info("Stale canary cleaned up — starting fresh upgrade", "from", oldRevision, "to", target)
+	logger.Info("Stale canary cleaned up -- starting fresh upgrade", "from", oldRevision, "to", target)
 	return runCanaryUpgrade(ctx, logger, aksClient, kubeClient, opts, target, []string{oldRevision})
 }
 
-func rollbackAndReturn(ctx context.Context, logger logr.Logger, kubeClient kubernetes.Interface, opts UpgradeOptions, previousRevisions []string, target string, originalErr error) error {
+func rollbackAndReturn(ctx context.Context, logger logr.Logger, kubeClient *KubeClient, opts UpgradeOptions, previousRevisions []string, target string, originalErr error) error {
 	oldRevision := oldRevisionFrom(previousRevisions, target)
 	if oldRevision != "" {
 		logger.Info("Rolling back workloads to previous revision before returning error", "old", oldRevision)
-		if rbErr := rollbackWorkloads(ctx, logger, kubeClient, opts, oldRevision); rbErr != nil {
+		if rbErr := rollbackWorkloads(ctx, kubeClient, opts, oldRevision); rbErr != nil {
 			return errors.Join(originalErr, fmt.Errorf("workload rollback also failed: %w", rbErr))
 		}
-		logger.Info("Workloads rolled back — cluster still has two control planes, next run will retry via ActionResume")
+		logger.Info("Workloads rolled back -- cluster still has two control planes, next run will retry via ActionResume")
 	}
 	return originalErr
 }
 
-func rollbackWorkloads(ctx context.Context, logger logr.Logger, kubeClient kubernetes.Interface, opts UpgradeOptions, oldRevision string) error {
-	logger.Info("Rolling back workloads to previous revision", "revision", oldRevision)
+func rollbackWorkloads(ctx context.Context, kubeClient *KubeClient, opts UpgradeOptions, oldRevision string) error {
 	return migrateWorkloads(ctx, kubeClient, opts, oldRevision)
 }
 
@@ -300,7 +320,7 @@ func stableRevisionFrom(revisions []string, exclude string) string {
 	})
 }
 
-func runCanaryPostInstall(ctx context.Context, logger logr.Logger, aksClient AKSClusterClient, kubeClient kubernetes.Interface, opts UpgradeOptions, target string, previousRevisions []string) error {
+func runCanaryPostInstall(ctx context.Context, logger logr.Logger, aksClient AKSClusterClient, kubeClient *KubeClient, opts UpgradeOptions, target string, previousRevisions []string) error {
 	if err := CreateRevisionConfigMap(ctx, kubeClient, target); err != nil {
 		return fmt.Errorf("failed to ensure ConfigMap on resume: %w", err)
 	}
@@ -311,7 +331,7 @@ func runCanaryPostInstall(ctx context.Context, logger logr.Logger, aksClient AKS
 			return fmt.Errorf("failed to check namespace labels: %w", err)
 		}
 		if hasTaggedNamespaces {
-			return fmt.Errorf("namespaces use tag-based injection labels but no tag is configured — " +
+			return fmt.Errorf("namespaces use tag-based injection labels but no tag is configured -- " +
 				"set svc.istio.tag in config or pass --tag to enable webhook flipping")
 		}
 	}
@@ -321,7 +341,7 @@ func runCanaryPostInstall(ctx context.Context, logger logr.Logger, aksClient AKS
 	}
 
 	if err := ensureIngress(ctx, kubeClient, opts); err != nil {
-		return err
+		return rollbackAndReturn(ctx, logger, kubeClient, opts, previousRevisions, target, err)
 	}
 
 	if err := migrateWorkloads(ctx, kubeClient, opts, target); err != nil {
@@ -330,25 +350,22 @@ func runCanaryPostInstall(ctx context.Context, logger logr.Logger, aksClient AKS
 
 	health, err := HealthCheck(ctx, kubeClient)
 	if err != nil {
-		return fmt.Errorf("health check failed: %w", err)
-	}
-	if !health.Passed {
-		healthErr := fmt.Errorf("post-upgrade health check failed: %w: %v", ErrControlPlaneUnhealthy, health.Issues)
+		healthErr := fmt.Errorf("health check failed: %w", err)
 		return rollbackAndReturn(ctx, logger, kubeClient, opts, previousRevisions, target, healthErr)
 	}
-	logger.Info("Health check passed — checking for orphaned workloads before completing canary")
+	if !health.Passed {
+		return rollbackAndReturn(ctx, logger, kubeClient, opts, previousRevisions, target, healthCheckError("post-upgrade", health))
+	}
+	logger.Info("Health check passed -- checking for orphaned workloads before completing canary")
 
 	if err := retireOrphanedWorkloads(ctx, logger, kubeClient, target, previousRevisions, opts); err != nil {
-		if errors.Is(err, ErrRetireRevisionWouldOrphanWorkloads) {
-			return rollbackAndReturn(ctx, logger, kubeClient, opts, previousRevisions, target, err)
-		}
-		return err
+		return rollbackAndReturn(ctx, logger, kubeClient, opts, previousRevisions, target, err)
 	}
 
-	logger.Info("No orphaned workloads — completing canary")
+	logger.Info("No orphaned workloads -- completing canary")
 
 	if opts.StopAfter == StopAfterOrphanCheck {
-		logger.Info("Stopping after orphan check as requested — workloads migrated and verified, re-run to complete canary")
+		logger.Info("Stopping after orphan check as requested -- workloads migrated and verified, re-run to complete canary")
 		return nil
 	}
 
@@ -376,7 +393,7 @@ func runCanaryPostInstall(ctx context.Context, logger logr.Logger, aksClient AKS
 	return nil
 }
 
-func ensureIngress(ctx context.Context, kubeClient kubernetes.Interface, opts UpgradeOptions) error {
+func ensureIngress(ctx context.Context, kubeClient *KubeClient, opts UpgradeOptions) error {
 	if opts.IngressIPName == "" && opts.RegionRG == "" {
 		return nil
 	}
@@ -392,11 +409,11 @@ func ensureIngress(ctx context.Context, kubeClient kubernetes.Interface, opts Up
 }
 
 func isDirectRevision(label string) bool {
-	return revisionPattern.MatchString(label)
+	return RevisionPattern.MatchString(label)
 }
 
-func hasTagBasedNamespaces(ctx context.Context, kubeClient kubernetes.Interface, target string) (bool, error) {
-	namespaces, err := GetMeshNamespaces(ctx, kubeClient)
+func hasTagBasedNamespaces(ctx context.Context, kubeClient *KubeClient, target string) (bool, error) {
+	namespaces, err := kubeClient.GetMeshNamespaces(ctx)
 	if err != nil {
 		return false, err
 	}
@@ -408,7 +425,7 @@ func hasTagBasedNamespaces(ctx context.Context, kubeClient kubernetes.Interface,
 	return false, nil
 }
 
-func retireOrphanedWorkloads(ctx context.Context, logger logr.Logger, kubeClient kubernetes.Interface, target string, previousRevisions []string, opts UpgradeOptions) error {
+func retireOrphanedWorkloads(ctx context.Context, logger logr.Logger, kubeClient *KubeClient, target string, previousRevisions []string, opts UpgradeOptions) error {
 	for attempt := 1; ; attempt++ {
 		orphaned, err := CheckOrphanedWorkloads(ctx, kubeClient, target, previousRevisions)
 		if err != nil {
@@ -421,7 +438,7 @@ func retireOrphanedWorkloads(ctx context.Context, logger logr.Logger, kubeClient
 			return fmt.Errorf("%d pod(s) still on old revision after %d restart attempts: %v: %w",
 				len(orphaned), opts.MaxOrphanRetries, orphaned, ErrRetireRevisionWouldOrphanWorkloads)
 		}
-		logger.Info("Orphaned workloads found — restarting stale pods",
+		logger.Info("Orphaned workloads found -- restarting stale pods",
 			"attempt", attempt,
 			"orphaned", len(orphaned),
 			"pods", orphaned,
@@ -435,7 +452,7 @@ func retireOrphanedWorkloads(ctx context.Context, logger logr.Logger, kubeClient
 	}
 }
 
-func verifyControlPlaneAndTag(ctx context.Context, kubeClient kubernetes.Interface, tag, target string) error {
+func verifyControlPlaneAndTag(ctx context.Context, kubeClient *KubeClient, tag, target string) error {
 	cpStatus, err := GetControlPlaneStatus(ctx, kubeClient)
 	if err != nil {
 		return fmt.Errorf("failed to get control plane status: %w", err)
@@ -450,12 +467,12 @@ func verifyControlPlaneAndTag(ctx context.Context, kubeClient kubernetes.Interfa
 		}
 	}
 	if !targetFound {
-		return fmt.Errorf("target revision %s control plane not found — upgrade may be targeting a different revision: %w", target, ErrControlPlaneUnhealthy)
+		return fmt.Errorf("target revision %s control plane not found -- upgrade may be targeting a different revision: %w", target, ErrControlPlaneUnhealthy)
 	}
 
 	if tag != "" {
 		if err := EnsureRevisionTag(ctx, kubeClient, tag, target); err != nil {
-			return fmt.Errorf("failed to ensure revision tag %s → %s: %w", tag, target, err)
+			return fmt.Errorf("failed to ensure revision tag %s -> %s: %w", tag, target, err)
 		}
 	}
 

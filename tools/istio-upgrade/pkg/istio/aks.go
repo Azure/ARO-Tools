@@ -76,7 +76,7 @@ type AKSClusterClient interface {
 	CompleteCanaryUpgrade(ctx context.Context, resourceGroup, clusterName, keepRevision string) error
 }
 
-func NewAKSClient(subscriptionID string, logger logr.Logger, config AKSClientConfig) (*AKSClient, error) {
+func NewAKSClient(subscriptionID string, logger logr.Logger, config AKSClientConfig) (AKSClusterClient, error) {
 	cred, err := azidentity.NewDefaultAzureCredential(&azidentity.DefaultAzureCredentialOptions{RequireAzureTokenCredentials: true})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create credential: %w", err)

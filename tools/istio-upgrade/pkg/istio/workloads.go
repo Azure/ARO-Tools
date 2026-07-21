@@ -28,8 +28,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/utils/ptr"
 )
 
@@ -43,26 +43,9 @@ type MeshNamespace struct {
 	RevisionLabel string
 }
 
-func GetMeshNamespaces(ctx context.Context, client kubernetes.Interface) ([]MeshNamespace, error) {
-	nsList, err := client.CoreV1().Namespaces().List(ctx, metav1.ListOptions{
-		LabelSelector: "istio.io/rev",
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to list mesh namespaces: %w", err)
-	}
-	var namespaces []MeshNamespace
-	for _, ns := range nsList.Items {
-		namespaces = append(namespaces, MeshNamespace{
-			Name:          ns.Name,
-			RevisionLabel: ns.Labels["istio.io/rev"],
-		})
-	}
-	return namespaces, nil
-}
-
-func UpdateMeshNamespaceLabels(ctx context.Context, client kubernetes.Interface, newRevision string) (int, error) {
+func UpdateMeshNamespaceLabels(ctx context.Context, kubeClient *KubeClient, newRevision string) (int, error) {
 	logger := logr.FromContextOrDiscard(ctx).WithName("namespace-labels")
-	namespaces, err := GetMeshNamespaces(ctx, client)
+	namespaces, err := kubeClient.GetMeshNamespaces(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -76,12 +59,13 @@ func UpdateMeshNamespaceLabels(ctx context.Context, client kubernetes.Interface,
 			continue
 		}
 		patch := fmt.Appendf(nil, `{"metadata":{"labels":{"istio.io/rev":%s}}}`, revJSON)
-		if _, err := client.CoreV1().Namespaces().Patch(ctx, ns.Name, types.MergePatchType, patch, metav1.PatchOptions{}); err != nil {
+		if _, err := kubeClient.client.CoreV1().Namespaces().Patch(ctx, ns.Name, types.MergePatchType, patch, metav1.PatchOptions{}); err != nil {
 			return updated, fmt.Errorf("failed to update label on namespace %s: %w", ns.Name, err)
 		}
 		logger.Info("Updated revision label", "namespace", ns.Name, "from", ns.RevisionLabel, "to", newRevision)
 		updated++
 	}
+	kubeClient.InvalidateNamespaceCache()
 	return updated, nil
 }
 
@@ -92,8 +76,8 @@ type ControlPlaneStatus struct {
 	Available int32
 }
 
-func GetControlPlaneStatus(ctx context.Context, client kubernetes.Interface) ([]ControlPlaneStatus, error) {
-	deps, err := client.AppsV1().Deployments(istioSystemNamespace).List(ctx, metav1.ListOptions{})
+func GetControlPlaneStatus(ctx context.Context, kubeClient *KubeClient) ([]ControlPlaneStatus, error) {
+	deps, err := kubeClient.client.AppsV1().Deployments(istioSystemNamespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list istiod deployments: %w", err)
 	}
@@ -123,12 +107,12 @@ type IngressGatewayStatus struct {
 	Annotations map[string]string
 }
 
-func GetIngressGatewayStatus(ctx context.Context, client kubernetes.Interface) ([]IngressGatewayStatus, error) {
-	svcs, err := client.CoreV1().Services(istioIngressNamespace).List(ctx, metav1.ListOptions{})
+func GetIngressGatewayStatus(ctx context.Context, kubeClient *KubeClient) ([]IngressGatewayStatus, error) {
+	svcs, err := kubeClient.client.CoreV1().Services(istioIngressNamespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list ingress services: %w", err)
 	}
-	pods, err := client.CoreV1().Pods(istioIngressNamespace).List(ctx, metav1.ListOptions{})
+	pods, err := kubeClient.client.CoreV1().Pods(istioIngressNamespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list ingress pods: %w", err)
 	}
@@ -155,10 +139,10 @@ func GetIngressGatewayStatus(ctx context.Context, client kubernetes.Interface) (
 	return results, nil
 }
 
-func EnsureIngressAnnotations(ctx context.Context, client kubernetes.Interface, resourceGroup string, annotationMap map[string]string) (bool, error) {
+func EnsureIngressAnnotations(ctx context.Context, kubeClient *KubeClient, resourceGroup string, annotationMap map[string]string) (bool, error) {
 	logger := logr.FromContextOrDiscard(ctx).WithName("ingress-annotations")
 
-	svcs, err := client.CoreV1().Services(istioIngressNamespace).List(ctx, metav1.ListOptions{})
+	svcs, err := kubeClient.client.CoreV1().Services(istioIngressNamespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return false, fmt.Errorf("failed to list ingress services: %w", err)
 	}
@@ -180,11 +164,14 @@ func EnsureIngressAnnotations(ctx context.Context, client kubernetes.Interface, 
 		}
 
 		logger.Info("Applying annotations", "service", svc.Name)
+		// json.Marshal on a string value cannot fail
+		rgJSON, _ := json.Marshal(resourceGroup)
+		pipJSON, _ := json.Marshal(pipName)
 		patch := fmt.Appendf(nil,
-			`{"metadata":{"annotations":{"service.beta.kubernetes.io/azure-load-balancer-resource-group":%q,"service.beta.kubernetes.io/azure-pip-name":%q}}}`,
-			resourceGroup, pipName,
+			`{"metadata":{"annotations":{"service.beta.kubernetes.io/azure-load-balancer-resource-group":%s,"service.beta.kubernetes.io/azure-pip-name":%s}}}`,
+			rgJSON, pipJSON,
 		)
-		if _, err := client.CoreV1().Services(svc.Namespace).Patch(ctx, svc.Name, types.MergePatchType, patch, metav1.PatchOptions{}); err != nil {
+		if _, err := kubeClient.client.CoreV1().Services(svc.Namespace).Patch(ctx, svc.Name, types.MergePatchType, patch, metav1.PatchOptions{}); err != nil {
 			return applied, fmt.Errorf("failed to patch annotations on %s: %w", svc.Name, err)
 		}
 		applied = true
@@ -195,15 +182,15 @@ func EnsureIngressAnnotations(ctx context.Context, client kubernetes.Interface, 
 type RestartResult struct {
 	Namespace string
 	Restarted []string
-	Errors    []string
+	Errors    []error
 }
 
-func migrateWorkloads(ctx context.Context, kubeClient kubernetes.Interface, opts UpgradeOptions, toRevision string) error {
+func migrateWorkloads(ctx context.Context, kubeClient *KubeClient, opts UpgradeOptions, toRevision string) error {
 	logger := logr.FromContextOrDiscard(ctx).WithName("migrate-workloads")
 
 	if opts.Tag != "" {
 		if err := EnsureRevisionTag(ctx, kubeClient, opts.Tag, toRevision); err != nil {
-			return fmt.Errorf("failed to flip revision tag %s → %s: %w", opts.Tag, toRevision, err)
+			return fmt.Errorf("failed to flip revision tag %s -> %s: %w", opts.Tag, toRevision, err)
 		}
 	} else {
 		if _, err := UpdateMeshNamespaceLabels(ctx, kubeClient, toRevision); err != nil {
@@ -232,10 +219,10 @@ func migrateWorkloads(ctx context.Context, kubeClient kubernetes.Interface, opts
 
 const namespaceConcurrencyLimit = 10
 
-func ExecuteRestartAllNamespaces(ctx context.Context, client kubernetes.Interface, targetRevision string) ([]RestartResult, error) {
-	namespaces, err := GetMeshNamespaces(ctx, client)
+func ExecuteRestartAllNamespaces(ctx context.Context, kubeClient *KubeClient, targetRevision string) ([]RestartResult, error) {
+	namespaces, err := kubeClient.GetMeshNamespaces(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to list mesh namespaces for restart: %w", err)
 	}
 
 	type restartOutcome struct {
@@ -248,12 +235,13 @@ func ExecuteRestartAllNamespaces(ctx context.Context, client kubernetes.Interfac
 	g.SetLimit(namespaceConcurrencyLimit)
 	for i, ns := range namespaces {
 		g.Go(func() error {
-			result, err := executeRestart(ctx, client, ns.Name, targetRevision)
+			result, err := executeRestart(ctx, kubeClient, ns.Name, targetRevision)
 			outcomes[i] = restartOutcome{result: result, err: err}
+			// Always return nil so errgroup runs all namespaces; errors are collected and joined below.
 			return nil
 		})
 	}
-	g.Wait()
+	_ = g.Wait() // always nil — goroutines collect errors in outcomes slice
 
 	var results []RestartResult
 	var errs []error
@@ -286,26 +274,26 @@ func controllingOwner(refs []metav1.OwnerReference) *metav1.OwnerReference {
 
 type staleWorkloads struct {
 	OrphanPods   []string
-	Deployments  map[string]bool
-	StatefulSets map[string]bool
-	DaemonSets   map[string]bool
+	Deployments  sets.Set[string]
+	StatefulSets sets.Set[string]
+	DaemonSets   sets.Set[string]
 }
 
-func identifyStaleWorkloads(ctx context.Context, client kubernetes.Interface, namespace, targetRevision string) (*staleWorkloads, error) {
-	podInfos, err := listRunningPodsWithSidecar(ctx, client, namespace)
+func identifyStaleWorkloads(ctx context.Context, kubeClient *KubeClient, namespace, targetRevision string) (*staleWorkloads, error) {
+	podInfos, err := listRunningPodsWithSidecar(ctx, kubeClient, namespace)
 	if err != nil {
 		return nil, err
 	}
 
-	rsOwners, err := buildReplicaSetOwnerMap(ctx, client, namespace)
+	rsOwners, err := buildReplicaSetOwnerMap(ctx, kubeClient, namespace)
 	if err != nil {
 		return nil, err
 	}
 
 	result := &staleWorkloads{
-		Deployments:  make(map[string]bool),
-		StatefulSets: make(map[string]bool),
-		DaemonSets:   make(map[string]bool),
+		Deployments:  sets.New[string](),
+		StatefulSets: sets.New[string](),
+		DaemonSets:   sets.New[string](),
 	}
 	for _, pi := range podInfos {
 		if pi.Revision == targetRevision {
@@ -319,14 +307,14 @@ func identifyStaleWorkloads(ctx context.Context, client kubernetes.Interface, na
 		switch controller.Kind {
 		case "ReplicaSet":
 			if depName, ok := rsOwners[controller.Name]; ok {
-				result.Deployments[depName] = true
+				result.Deployments.Insert(depName)
 			} else {
 				result.OrphanPods = append(result.OrphanPods, pi.Pod.Name)
 			}
 		case "StatefulSet":
-			result.StatefulSets[controller.Name] = true
+			result.StatefulSets.Insert(controller.Name)
 		case "DaemonSet":
-			result.DaemonSets[controller.Name] = true
+			result.DaemonSets.Insert(controller.Name)
 		default:
 			result.OrphanPods = append(result.OrphanPods, pi.Pod.Name)
 		}
@@ -334,8 +322,8 @@ func identifyStaleWorkloads(ctx context.Context, client kubernetes.Interface, na
 	return result, nil
 }
 
-func buildReplicaSetOwnerMap(ctx context.Context, client kubernetes.Interface, namespace string) (map[string]string, error) {
-	rsList, err := client.AppsV1().ReplicaSets(namespace).List(ctx, metav1.ListOptions{})
+func buildReplicaSetOwnerMap(ctx context.Context, kubeClient *KubeClient, namespace string) (map[string]string, error) {
+	rsList, err := kubeClient.client.AppsV1().ReplicaSets(namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list replicasets in %s: %w", namespace, err)
 	}
@@ -348,45 +336,45 @@ func buildReplicaSetOwnerMap(ctx context.Context, client kubernetes.Interface, n
 	return owners, nil
 }
 
-func executeRestart(ctx context.Context, client kubernetes.Interface, namespace, targetRevision string) (*RestartResult, error) {
+func executeRestart(ctx context.Context, kubeClient *KubeClient, namespace, targetRevision string) (*RestartResult, error) {
 	logger := logr.FromContextOrDiscard(ctx).WithName("restart").WithValues("namespace", namespace)
 	result := &RestartResult{Namespace: namespace}
 
-	stale, err := identifyStaleWorkloads(ctx, client, namespace, targetRevision)
+	stale, err := identifyStaleWorkloads(ctx, kubeClient, namespace, targetRevision)
 	if err != nil {
 		return nil, err
 	}
 
 	for _, podName := range stale.OrphanPods {
-		if err := client.CoreV1().Pods(namespace).Delete(ctx, podName, metav1.DeleteOptions{}); err != nil {
-			result.Errors = append(result.Errors, fmt.Sprintf("pod/%s: %v", podName, err))
+		if err := kubeClient.client.CoreV1().Pods(namespace).Delete(ctx, podName, metav1.DeleteOptions{}); err != nil {
+			result.Errors = append(result.Errors, fmt.Errorf("pod/%s: %w", podName, err))
 			continue
 		}
 		result.Restarted = append(result.Restarted, "pod/"+podName)
 	}
 
 	for name := range stale.Deployments {
-		if _, err := client.AppsV1().Deployments(namespace).Patch(ctx, name,
+		if _, err := kubeClient.client.AppsV1().Deployments(namespace).Patch(ctx, name,
 			types.StrategicMergePatchType, buildRestartPatch(), metav1.PatchOptions{}); err != nil {
-			result.Errors = append(result.Errors, fmt.Sprintf("deployment/%s: %v", name, err))
+			result.Errors = append(result.Errors, fmt.Errorf("deployment/%s: %w", name, err))
 			continue
 		}
 		result.Restarted = append(result.Restarted, "deployment/"+name)
 	}
 
 	for name := range stale.StatefulSets {
-		if _, err := client.AppsV1().StatefulSets(namespace).Patch(ctx, name,
+		if _, err := kubeClient.client.AppsV1().StatefulSets(namespace).Patch(ctx, name,
 			types.StrategicMergePatchType, buildRestartPatch(), metav1.PatchOptions{}); err != nil {
-			result.Errors = append(result.Errors, fmt.Sprintf("statefulset/%s: %v", name, err))
+			result.Errors = append(result.Errors, fmt.Errorf("statefulset/%s: %w", name, err))
 			continue
 		}
 		result.Restarted = append(result.Restarted, "statefulset/"+name)
 	}
 
 	for name := range stale.DaemonSets {
-		if _, err := client.AppsV1().DaemonSets(namespace).Patch(ctx, name,
+		if _, err := kubeClient.client.AppsV1().DaemonSets(namespace).Patch(ctx, name,
 			types.StrategicMergePatchType, buildRestartPatch(), metav1.PatchOptions{}); err != nil {
-			result.Errors = append(result.Errors, fmt.Sprintf("daemonset/%s: %v", name, err))
+			result.Errors = append(result.Errors, fmt.Errorf("daemonset/%s: %w", name, err))
 			continue
 		}
 		result.Restarted = append(result.Restarted, "daemonset/"+name)
@@ -396,11 +384,7 @@ func executeRestart(ctx context.Context, client kubernetes.Interface, namespace,
 		logger.Info("Restart complete", "restarted", len(result.Restarted), "errors", len(result.Errors))
 	}
 	if len(result.Errors) > 0 {
-		var errs []error
-		for _, e := range result.Errors {
-			errs = append(errs, fmt.Errorf("%s", e))
-		}
-		return result, fmt.Errorf("restart errors in %s: %w", namespace, errors.Join(errs...))
+		return result, fmt.Errorf("restart errors in %s: %w", namespace, errors.Join(result.Errors...))
 	}
 	return result, nil
 }
@@ -444,8 +428,8 @@ type PodSidecarInfo struct {
 	Revision string
 }
 
-func listRunningPodsWithSidecar(ctx context.Context, client kubernetes.Interface, namespace string) ([]PodSidecarInfo, error) {
-	pods, err := client.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
+func listRunningPodsWithSidecar(ctx context.Context, kubeClient *KubeClient, namespace string) ([]PodSidecarInfo, error) {
+	pods, err := kubeClient.client.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
 		FieldSelector: "status.phase=Running",
 	})
 	if err != nil {
@@ -465,8 +449,8 @@ func listRunningPodsWithSidecar(ctx context.Context, client kubernetes.Interface
 	return result, nil
 }
 
-func WaitForRolloutAllNamespaces(ctx context.Context, client kubernetes.Interface, timeout, pollInterval time.Duration) error {
-	namespaces, err := GetMeshNamespaces(ctx, client)
+func WaitForRolloutAllNamespaces(ctx context.Context, kubeClient *KubeClient, timeout, pollInterval time.Duration) error {
+	namespaces, err := kubeClient.GetMeshNamespaces(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get mesh namespaces: %w", err)
 	}
@@ -476,16 +460,30 @@ func WaitForRolloutAllNamespaces(ctx context.Context, client kubernetes.Interfac
 	g.SetLimit(namespaceConcurrencyLimit)
 	for i, ns := range namespaces {
 		g.Go(func() error {
-			errs[i] = WaitForRollout(ctx, client, ns.Name, timeout, pollInterval)
+			errs[i] = WaitForRollout(ctx, kubeClient, ns.Name, timeout, pollInterval)
+			// Always return nil so errgroup runs all namespaces; errors are collected and joined below.
 			return nil
 		})
 	}
-	g.Wait()
+	_ = g.Wait() // always nil — goroutines collect errors in errs slice
 
 	return errors.Join(errs...)
 }
 
-func WaitForRollout(ctx context.Context, client kubernetes.Interface, namespace string, timeout, pollInterval time.Duration) error {
+func checkWorkloadPending(kind, name string, desired, updated, ready int32, generation, observedGeneration int64) string {
+	if desired == 0 {
+		return ""
+	}
+	if observedGeneration < generation {
+		return fmt.Sprintf("%s/%s(generation-lag)", kind, name)
+	}
+	if updated < desired || ready < desired {
+		return fmt.Sprintf("%s/%s(%d/%d)", kind, name, ready, desired)
+	}
+	return ""
+}
+
+func WaitForRollout(ctx context.Context, kubeClient *KubeClient, namespace string, timeout, pollInterval time.Duration) error {
 	logger := logr.FromContextOrDiscard(ctx).WithName("rollout-wait").WithValues("namespace", namespace)
 	var lastPending string
 	waited := false
@@ -493,7 +491,7 @@ func WaitForRollout(ctx context.Context, client kubernetes.Interface, namespace 
 	err := wait.PollUntilContextTimeout(ctx, pollInterval, timeout, true, func(ctx context.Context) (bool, error) {
 		var pending []string
 
-		deps, err := client.AppsV1().Deployments(namespace).List(ctx, metav1.ListOptions{})
+		deps, err := kubeClient.client.AppsV1().Deployments(namespace).List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return false, fmt.Errorf("failed to list deployments: %w", err)
 		}
@@ -501,23 +499,13 @@ func WaitForRollout(ctx context.Context, client kubernetes.Interface, namespace 
 			if d.Spec.Template.Annotations["sidecar.istio.io/inject"] == "false" {
 				continue
 			}
-			desired := int32(1)
-			if d.Spec.Replicas != nil {
-				desired = *d.Spec.Replicas
-			}
-			if desired == 0 {
-				continue
-			}
-			if d.Status.ObservedGeneration < d.Generation {
-				pending = append(pending, fmt.Sprintf("deploy/%s(generation-lag)", d.Name))
-				continue
-			}
-			if d.Status.UpdatedReplicas < desired || d.Status.ReadyReplicas < desired {
-				pending = append(pending, fmt.Sprintf("deploy/%s(%d/%d)", d.Name, d.Status.ReadyReplicas, desired))
+			desired := ptr.Deref(d.Spec.Replicas, 1)
+			if s := checkWorkloadPending("deploy", d.Name, desired, d.Status.UpdatedReplicas, d.Status.ReadyReplicas, d.Generation, d.Status.ObservedGeneration); s != "" {
+				pending = append(pending, s)
 			}
 		}
 
-		sts, err := client.AppsV1().StatefulSets(namespace).List(ctx, metav1.ListOptions{})
+		sts, err := kubeClient.client.AppsV1().StatefulSets(namespace).List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return false, fmt.Errorf("failed to list statefulsets: %w", err)
 		}
@@ -525,23 +513,13 @@ func WaitForRollout(ctx context.Context, client kubernetes.Interface, namespace 
 			if s.Spec.Template.Annotations["sidecar.istio.io/inject"] == "false" {
 				continue
 			}
-			desired := int32(1)
-			if s.Spec.Replicas != nil {
-				desired = *s.Spec.Replicas
-			}
-			if desired == 0 {
-				continue
-			}
-			if s.Status.ObservedGeneration < s.Generation {
-				pending = append(pending, fmt.Sprintf("sts/%s(generation-lag)", s.Name))
-				continue
-			}
-			if s.Status.UpdatedReplicas < desired || s.Status.ReadyReplicas < desired {
-				pending = append(pending, fmt.Sprintf("sts/%s(%d/%d)", s.Name, s.Status.ReadyReplicas, desired))
+			desired := ptr.Deref(s.Spec.Replicas, 1)
+			if p := checkWorkloadPending("sts", s.Name, desired, s.Status.UpdatedReplicas, s.Status.ReadyReplicas, s.Generation, s.Status.ObservedGeneration); p != "" {
+				pending = append(pending, p)
 			}
 		}
 
-		dss, err := client.AppsV1().DaemonSets(namespace).List(ctx, metav1.ListOptions{})
+		dss, err := kubeClient.client.AppsV1().DaemonSets(namespace).List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return false, fmt.Errorf("failed to list daemonsets: %w", err)
 		}
@@ -549,16 +527,8 @@ func WaitForRollout(ctx context.Context, client kubernetes.Interface, namespace 
 			if ds.Spec.Template.Annotations["sidecar.istio.io/inject"] == "false" {
 				continue
 			}
-			desired := ds.Status.DesiredNumberScheduled
-			if desired == 0 {
-				continue
-			}
-			if ds.Status.ObservedGeneration < ds.Generation {
-				pending = append(pending, fmt.Sprintf("ds/%s(generation-lag)", ds.Name))
-				continue
-			}
-			if ds.Status.UpdatedNumberScheduled < desired || ds.Status.NumberReady < desired {
-				pending = append(pending, fmt.Sprintf("ds/%s(%d/%d)", ds.Name, ds.Status.NumberReady, desired))
+			if p := checkWorkloadPending("ds", ds.Name, ds.Status.DesiredNumberScheduled, ds.Status.UpdatedNumberScheduled, ds.Status.NumberReady, ds.Generation, ds.Status.ObservedGeneration); p != "" {
+				pending = append(pending, p)
 			}
 		}
 
@@ -578,7 +548,28 @@ func WaitForRollout(ctx context.Context, client kubernetes.Interface, namespace 
 		return false, nil
 	})
 	if err != nil {
-		return fmt.Errorf("timeout waiting for rollout in %s: %w", namespace, err)
+		return fmt.Errorf("rollout did not converge in %s: %w", namespace, err)
 	}
 	return nil
+}
+
+func matchesSelector(labels, selector map[string]string) bool {
+	if len(selector) == 0 {
+		return false
+	}
+	for k, v := range selector {
+		if labels[k] != v {
+			return false
+		}
+	}
+	return true
+}
+
+func isPodReady(pod corev1.Pod) bool {
+	for _, c := range pod.Status.Conditions {
+		if c.Type == corev1.PodReady && c.Status == corev1.ConditionTrue {
+			return true
+		}
+	}
+	return false
 }

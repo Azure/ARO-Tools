@@ -18,13 +18,13 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"maps"
 
 	"github.com/go-logr/logr"
 
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/utils/ptr"
 )
 
@@ -32,21 +32,21 @@ func revisionTagWebhookName(tagName string) string {
 	return fmt.Sprintf("istio-revision-tag-%s-%s", tagName, istioSystemNamespace)
 }
 
-func EnsureRevisionTag(ctx context.Context, client kubernetes.Interface, tagName, newRevision string) error {
+func EnsureRevisionTag(ctx context.Context, kubeClient *KubeClient, tagName, newRevision string) error {
 	logger := logr.FromContextOrDiscard(ctx).WithName("revision-tag")
 	webhookName := revisionTagWebhookName(tagName)
 	newServiceName := istiodServiceName(newRevision)
 
-	wh, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(ctx, webhookName, metav1.GetOptions{})
+	wh, err := kubeClient.client.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(ctx, webhookName, metav1.GetOptions{})
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
 			return fmt.Errorf("failed to get webhook %s: %w", webhookName, err)
 		}
-		wh, err = buildTagWebhook(ctx, client, tagName, newRevision)
+		wh, err = buildTagWebhook(ctx, kubeClient, tagName, newRevision)
 		if err != nil {
 			return fmt.Errorf("failed to build tag webhook: %w", err)
 		}
-		if _, err = client.AdmissionregistrationV1().MutatingWebhookConfigurations().Create(ctx, wh, metav1.CreateOptions{}); err != nil {
+		if _, err = kubeClient.client.AdmissionregistrationV1().MutatingWebhookConfigurations().Create(ctx, wh, metav1.CreateOptions{}); err != nil {
 			return fmt.Errorf("failed to create tag webhook %s: %w", webhookName, err)
 		}
 		logger.Info("Created revision tag webhook", "webhook", webhookName, "revision", newRevision)
@@ -54,7 +54,7 @@ func EnsureRevisionTag(ctx context.Context, client kubernetes.Interface, tagName
 	}
 
 	revWHName := revisionWebhookName(newRevision)
-	revWH, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(ctx, revWHName, metav1.GetOptions{})
+	revWH, err := kubeClient.client.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(ctx, revWHName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to get revision webhook %s for caBundle: %w", revWHName, err)
 	}
@@ -66,37 +66,60 @@ func EnsureRevisionTag(ctx context.Context, client kubernetes.Interface, tagName
 		return fmt.Errorf("revision webhook %s has empty caBundle", revWHName)
 	}
 
+	if len(wh.Webhooks) == 0 {
+		return fmt.Errorf("webhook %s has no webhook entries", webhookName)
+	}
+
+	updated := wh.DeepCopy()
 	changed := false
-	for i := range wh.Webhooks {
-		if wh.Webhooks[i].ClientConfig.Service == nil {
+
+	for i := range updated.Webhooks {
+		if updated.Webhooks[i].ClientConfig.Service == nil {
 			return fmt.Errorf("webhook %s entry %d has no service-based config", webhookName, i)
 		}
-		if wh.Webhooks[i].ClientConfig.Service.Name != newServiceName {
-			wh.Webhooks[i].ClientConfig.Service.Name = newServiceName
+		if updated.Webhooks[i].ClientConfig.Service.Name != newServiceName {
+			updated.Webhooks[i].ClientConfig.Service.Name = newServiceName
 			changed = true
 		}
-		if wh.Webhooks[i].ClientConfig.Service.Namespace != istioSystemNamespace {
-			wh.Webhooks[i].ClientConfig.Service.Namespace = istioSystemNamespace
+		if updated.Webhooks[i].ClientConfig.Service.Namespace != istioSystemNamespace {
+			updated.Webhooks[i].ClientConfig.Service.Namespace = istioSystemNamespace
 			changed = true
 		}
-		if !bytes.Equal(wh.Webhooks[i].ClientConfig.CABundle, newCABundle) {
-			wh.Webhooks[i].ClientConfig.CABundle = newCABundle
+		if !bytes.Equal(updated.Webhooks[i].ClientConfig.CABundle, newCABundle) {
+			updated.Webhooks[i].ClientConfig.CABundle = newCABundle
 			changed = true
 		}
-		if ptr.Deref(wh.Webhooks[i].ClientConfig.Service.Path, "") != "/inject" {
-			wh.Webhooks[i].ClientConfig.Service.Path = ptr.To("/inject")
+		if ptr.Deref(updated.Webhooks[i].ClientConfig.Service.Path, "") != "/inject" {
+			updated.Webhooks[i].ClientConfig.Service.Path = ptr.To("/inject")
 			changed = true
 		}
-		if ptr.Deref(wh.Webhooks[i].ClientConfig.Service.Port, 0) != 443 {
-			wh.Webhooks[i].ClientConfig.Service.Port = ptr.To(int32(443))
+		if ptr.Deref(updated.Webhooks[i].ClientConfig.Service.Port, 0) != 443 {
+			updated.Webhooks[i].ClientConfig.Service.Port = ptr.To(int32(443))
 			changed = true
 		}
 	}
+
+	expectedLabels := map[string]string{
+		"istio.io/rev": tagName,
+		"istio.io/tag": tagName,
+		"app":          "sidecar-injector",
+	}
+	for k, v := range expectedLabels {
+		if wh.Labels[k] != v {
+			changed = true
+			break
+		}
+	}
+
 	if !changed {
 		return nil
 	}
 
-	if _, err = client.AdmissionregistrationV1().MutatingWebhookConfigurations().Update(ctx, wh, metav1.UpdateOptions{}); err != nil {
+	if updated.Labels == nil {
+		updated.Labels = make(map[string]string, len(expectedLabels))
+	}
+	maps.Copy(updated.Labels, expectedLabels)
+	if _, err = kubeClient.client.AdmissionregistrationV1().MutatingWebhookConfigurations().Update(ctx, updated, metav1.UpdateOptions{}); err != nil {
 		return fmt.Errorf("failed to update webhook %s: %w", webhookName, err)
 	}
 	logger.Info("Updated revision tag webhook", "webhook", webhookName, "revision", newRevision)
@@ -109,10 +132,10 @@ func revisionWebhookName(revision string) string {
 
 // buildTagWebhook constructs a MutatingWebhookConfiguration that routes injection
 // for namespaces labeled istio.io/rev=<tagName> to istiod-<revision>. The caBundle
-// is copied from the revision's AKS-managed webhook — equivalent to istioctl tag set.
-func buildTagWebhook(ctx context.Context, client kubernetes.Interface, tagName, revision string) (*admissionregistrationv1.MutatingWebhookConfiguration, error) {
+// is copied from the revision's AKS-managed webhook -- equivalent to istioctl tag set.
+func buildTagWebhook(ctx context.Context, kubeClient *KubeClient, tagName, revision string) (*admissionregistrationv1.MutatingWebhookConfiguration, error) {
 	revWHName := revisionWebhookName(revision)
-	revWH, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(ctx, revWHName, metav1.GetOptions{})
+	revWH, err := kubeClient.client.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(ctx, revWHName, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get revision webhook %s for caBundle: %w", revWHName, err)
 	}

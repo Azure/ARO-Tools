@@ -22,58 +22,61 @@ import (
 	"github.com/go-logr/logr"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 )
 
-func logMeshState(ctx context.Context, client kubernetes.Interface, logger logr.Logger) {
-	namespaces, err := GetMeshNamespaces(ctx, client)
+func logMeshState(ctx context.Context, kubeClient *KubeClient, logger logr.Logger) {
+	var namespaceCount, istioWebhooks, configMapCount int
+	var cpInfo []string
+	var gwCount int
+
+	namespaces, err := kubeClient.GetMeshNamespaces(ctx)
 	if err != nil {
 		logger.Error(err, "failed to query mesh namespaces for inspection")
-		return
+	} else {
+		namespaceCount = len(namespaces)
 	}
 
-	cpStatuses, err := GetControlPlaneStatus(ctx, client)
+	cpStatuses, err := GetControlPlaneStatus(ctx, kubeClient)
 	if err != nil {
 		logger.Error(err, "failed to query control planes for inspection")
-		return
-	}
-
-	gwStatuses, err := GetIngressGatewayStatus(ctx, client)
-	if err != nil {
-		logger.Error(err, "failed to query ingress gateways for inspection")
-		return
-	}
-
-	webhooks, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(ctx, metav1.ListOptions{})
-	if err != nil {
-		logger.Error(err, "failed to query webhooks for inspection")
-		return
-	}
-	istioWebhooks := 0
-	for _, wh := range webhooks.Items {
-		if strings.Contains(wh.Name, "istio") {
-			istioWebhooks++
+	} else {
+		for _, cp := range cpStatuses {
+			cpInfo = append(cpInfo, fmt.Sprintf("%s(%d/%d)", cp.Revision, cp.Available, cp.Replicas))
 		}
 	}
 
-	cms, err := client.CoreV1().ConfigMaps(istioSystemNamespace).List(ctx, metav1.ListOptions{
+	gwStatuses, err := GetIngressGatewayStatus(ctx, kubeClient)
+	if err != nil {
+		logger.Error(err, "failed to query ingress gateways for inspection")
+	} else {
+		gwCount = len(gwStatuses)
+	}
+
+	webhooks, err := kubeClient.client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		logger.Error(err, "failed to query webhooks for inspection")
+	} else {
+		for _, wh := range webhooks.Items {
+			if strings.Contains(wh.Name, "istio") {
+				istioWebhooks++
+			}
+		}
+	}
+
+	cms, err := kubeClient.client.CoreV1().ConfigMaps(istioSystemNamespace).List(ctx, metav1.ListOptions{
 		LabelSelector: "istio.io/rev",
 	})
 	if err != nil {
 		logger.Error(err, "failed to query configmaps for inspection")
-		return
+	} else {
+		configMapCount = len(cms.Items)
 	}
 
-	var cpInfo []string
-	for _, cp := range cpStatuses {
-		cpInfo = append(cpInfo, fmt.Sprintf("%s(%d/%d)", cp.Revision, cp.Available, cp.Replicas))
-	}
-
-	logger.Info("Istio upgrade — mesh state",
-		"namespaces", len(namespaces),
+	logger.Info("Istio upgrade -- mesh state",
+		"namespaces", namespaceCount,
 		"controlPlanes", strings.Join(cpInfo, ","),
-		"ingressGateways", len(gwStatuses),
+		"ingressGateways", gwCount,
 		"webhooks", istioWebhooks,
-		"configMaps", len(cms.Items),
+		"configMaps", configMapCount,
 	)
 }

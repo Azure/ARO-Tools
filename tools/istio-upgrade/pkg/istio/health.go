@@ -18,15 +18,16 @@ import (
 	"context"
 	"fmt"
 
-	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 type CheckResult struct {
-	Passed bool
-	Issues []string
+	Passed       bool
+	Issues       []string
+	CPUnhealthy  bool
+	GWUnhealthy  bool
 }
 
 func (c *CheckResult) addIssue(format string, args ...any) {
@@ -34,8 +35,8 @@ func (c *CheckResult) addIssue(format string, args ...any) {
 	c.Issues = append(c.Issues, fmt.Sprintf(format, args...))
 }
 
-func namespaceExists(ctx context.Context, client kubernetes.Interface, name string) (bool, error) {
-	_, err := client.CoreV1().Namespaces().Get(ctx, name, metav1.GetOptions{})
+func namespaceExists(ctx context.Context, kubeClient *KubeClient, name string) (bool, error) {
+	_, err := kubeClient.client.CoreV1().Namespaces().Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return false, nil
@@ -45,11 +46,11 @@ func namespaceExists(ctx context.Context, client kubernetes.Interface, name stri
 	return true, nil
 }
 
-func HealthCheck(ctx context.Context, client kubernetes.Interface) (*CheckResult, error) {
+func HealthCheck(ctx context.Context, kubeClient *KubeClient) (*CheckResult, error) {
 	summary := &CheckResult{Passed: true}
 
 	for _, ns := range []string{istioSystemNamespace, istioIngressNamespace} {
-		exists, err := namespaceExists(ctx, client, ns)
+		exists, err := namespaceExists(ctx, kubeClient, ns)
 		if err != nil {
 			return nil, err
 		}
@@ -61,43 +62,48 @@ func HealthCheck(ctx context.Context, client kubernetes.Interface) (*CheckResult
 		return summary, nil
 	}
 
-	cpStatus, err := GetControlPlaneStatus(ctx, client)
+	cpStatus, err := GetControlPlaneStatus(ctx, kubeClient)
 	if err != nil {
 		return nil, fmt.Errorf("control plane check: %w", err)
 	}
 	if len(cpStatus) == 0 {
 		summary.addIssue("no istiod deployments found")
+		summary.CPUnhealthy = true
 	}
 	for _, cp := range cpStatus {
 		if !cp.Ready {
 			summary.addIssue("istiod-%s not ready (%d/%d)", cp.Revision, cp.Available, cp.Replicas)
+			summary.CPUnhealthy = true
 		}
 	}
 
-	gwStatus, err := GetIngressGatewayStatus(ctx, client)
+	gwStatus, err := GetIngressGatewayStatus(ctx, kubeClient)
 	if err != nil {
 		return nil, fmt.Errorf("ingress check: %w", err)
 	}
 	if len(gwStatus) == 0 {
 		summary.addIssue("no ingress gateway services found")
+		summary.GWUnhealthy = true
 	}
 	for _, gw := range gwStatus {
 		if gw.ExternalIP == "" {
 			summary.addIssue("gateway %s has no external IP", gw.ServiceName)
+			summary.GWUnhealthy = true
 		}
 		if gw.HealthyPods == 0 {
 			summary.addIssue("gateway %s has no healthy pods", gw.ServiceName)
+			summary.GWUnhealthy = true
 		}
 	}
 
 	return summary, nil
 }
 
-func VerifyUpgrade(ctx context.Context, client kubernetes.Interface, targetRevision, tag string) (*CheckResult, error) {
+func VerifyUpgrade(ctx context.Context, kubeClient *KubeClient, targetRevision, tag string) (*CheckResult, error) {
 	v := &CheckResult{Passed: true}
 
 	cmName := revisionConfigMapName(targetRevision)
-	_, err := client.CoreV1().ConfigMaps(istioSystemNamespace).Get(ctx, cmName, metav1.GetOptions{})
+	_, err := kubeClient.client.CoreV1().ConfigMaps(istioSystemNamespace).Get(ctx, cmName, metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			v.addIssue("ConfigMap %s not found in %s", cmName, istioSystemNamespace)
@@ -106,7 +112,7 @@ func VerifyUpgrade(ctx context.Context, client kubernetes.Interface, targetRevis
 		}
 	}
 
-	namespaces, err := GetMeshNamespaces(ctx, client)
+	namespaces, err := kubeClient.GetMeshNamespaces(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list mesh namespaces: %w", err)
 	}
@@ -123,7 +129,7 @@ func VerifyUpgrade(ctx context.Context, client kubernetes.Interface, targetRevis
 
 	if tag != "" {
 		webhookName := revisionTagWebhookName(tag)
-		wh, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(ctx, webhookName, metav1.GetOptions{})
+		wh, err := kubeClient.client.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(ctx, webhookName, metav1.GetOptions{})
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				v.addIssue("tag webhook %s not found", webhookName)
@@ -143,9 +149,9 @@ func VerifyUpgrade(ctx context.Context, client kubernetes.Interface, targetRevis
 	}
 
 	for _, ns := range namespaces {
-		podInfos, err := listRunningPodsWithSidecar(ctx, client, ns.Name)
+		podInfos, err := listRunningPodsWithSidecar(ctx, kubeClient, ns.Name)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to verify pods in namespace %s: %w", ns.Name, err)
 		}
 		for _, pi := range podInfos {
 			if pi.Revision != targetRevision {
@@ -157,30 +163,30 @@ func VerifyUpgrade(ctx context.Context, client kubernetes.Interface, targetRevis
 	return v, nil
 }
 
-func CheckOrphanedWorkloads(ctx context.Context, client kubernetes.Interface, targetRevision string, retiringRevisions []string) ([]string, error) {
-	retiring := make(map[string]bool)
+func CheckOrphanedWorkloads(ctx context.Context, kubeClient *KubeClient, targetRevision string, retiringRevisions []string) ([]string, error) {
+	retiring := sets.New[string]()
 	for _, rev := range retiringRevisions {
 		if rev != targetRevision {
-			retiring[rev] = true
+			retiring.Insert(rev)
 		}
 	}
-	if len(retiring) == 0 {
+	if retiring.Len() == 0 {
 		return nil, nil
 	}
 
-	namespaces, err := GetMeshNamespaces(ctx, client)
+	namespaces, err := kubeClient.GetMeshNamespaces(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list mesh namespaces: %w", err)
 	}
 
 	var orphaned []string
 	for _, ns := range namespaces {
-		podInfos, err := listRunningPodsWithSidecar(ctx, client, ns.Name)
+		podInfos, err := listRunningPodsWithSidecar(ctx, kubeClient, ns.Name)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to check orphaned pods in namespace %s: %w", ns.Name, err)
 		}
 		for _, pi := range podInfos {
-			if retiring[pi.Revision] {
+			if retiring.Has(pi.Revision) {
 				orphaned = append(orphaned, fmt.Sprintf("%s/%s (sidecar revision: %s)", pi.Pod.Namespace, pi.Pod.Name, pi.Revision))
 			}
 		}
@@ -188,23 +194,3 @@ func CheckOrphanedWorkloads(ctx context.Context, client kubernetes.Interface, ta
 	return orphaned, nil
 }
 
-func matchesSelector(labels, selector map[string]string) bool {
-	if len(selector) == 0 {
-		return false
-	}
-	for k, v := range selector {
-		if labels[k] != v {
-			return false
-		}
-	}
-	return true
-}
-
-func isPodReady(pod corev1.Pod) bool {
-	for _, c := range pod.Status.Conditions {
-		if c.Type == corev1.PodReady && c.Status == corev1.ConditionTrue {
-			return true
-		}
-	}
-	return false
-}
