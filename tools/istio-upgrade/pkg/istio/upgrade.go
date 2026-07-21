@@ -148,23 +148,45 @@ func RunUpgrade(ctx context.Context, opts UpgradeOptions, aksClient AKSClusterCl
 
 	switch action {
 	case ActionSkip:
+		// Already at target, downgrade, or unavailable. Heals persistent drift
+		// (missing ConfigMap, stale tag webhook, un-annotated ingress) without
+		// re-running the full upgrade. Errors are logged but not returned so
+		// the cluster does not block subsequent pipeline steps.
 		return runActionSkip(ctx, logger, kubeClient, opts, target, meshProfile.Revisions)
+
 	case ActionInstall:
+		// No mesh installed. Enables mesh via ARM, creates the MISE ext-authz
+		// ConfigMap, verifies CP readiness, flips the tag webhook to point at
+		// the new istiod, and pins ingress gateway annotations.
 		return runInitialInstall(ctx, logger, aksClient, kubeClient, opts, target)
+
 	case ActionResume:
+		// Mid-canary detected (target + old both installed). Re-enters the
+		// post-install flow: verify CP, flip tag, restart workloads, wait for
+		// rollout, health check, orphan guard, ARM complete, cleanup old
+		// ConfigMap, final verification. Auto-rollback on failure keeps
+		// workloads on the old sidecar between EV2 retries.
 		return runCanaryPostInstall(ctx, logger, aksClient, kubeClient, opts, target, meshProfile.Revisions)
+
 	case ActionUpgrade:
+		// Single revision installed, target is available. Starts a canary via
+		// ARM (installs target alongside current), then runs the full
+		// post-install flow (same as ActionResume).
 		return runCanaryUpgrade(ctx, logger, aksClient, kubeClient, opts, target, meshProfile.Revisions)
+
 	case ActionCleanupAndUpgrade:
+		// Two revisions from a prior failed canary, neither matches the new
+		// target. Consolidates workloads onto the older stable revision,
+		// ARM-completes to remove the stale one, then starts a fresh canary
+		// to the target. Allows operators to skip a bad version by pointing
+		// config at a newer one without manual cleanup.
 		return runCleanupAndUpgrade(ctx, logger, aksClient, kubeClient, opts, target, meshProfile.Revisions)
+
 	default:
 		return fmt.Errorf("unhandled action %q", action)
 	}
 }
 
-// runActionSkip heals persistent drift (missing ConfigMap, stale tag webhook, un-annotated ingress)
-// without re-running the full upgrade. Errors are logged but not returned — the cluster is already
-// at the target revision, so failing a skip would block subsequent pipeline steps for no benefit.
 func runActionSkip(ctx context.Context, logger logr.Logger, kubeClient *KubeClient, opts UpgradeOptions, target string, currentRevisions []string) error {
 	if !slices.Contains(currentRevisions, target) {
 		logger.Info("Installed revision does not match config target",
@@ -188,19 +210,23 @@ func runActionSkip(ctx context.Context, logger logr.Logger, kubeClient *KubeClie
 }
 
 func runInitialInstall(ctx context.Context, logger logr.Logger, aksClient AKSClusterClient, kubeClient *KubeClient, opts UpgradeOptions, target string) error {
+	// Step 1: ARM enable — installs istiod and ingress gateway for the target revision
 	logger.Info("Enabling mesh on new cluster", "revision", target)
 	if err := aksClient.EnableMesh(ctx, opts.ResourceGroup, opts.ClusterName, target); err != nil {
 		return fmt.Errorf("failed to enable mesh: %w", err)
 	}
 
+	// Step 2: MISE ext-authz ConfigMap — must exist before any workloads start sending traffic
 	if err := CreateRevisionConfigMap(ctx, kubeClient, target); err != nil {
 		return fmt.Errorf("failed to create ConfigMap: %w", err)
 	}
 
+	// Step 3: verify CP is ready and flip the tag webhook to point at new istiod
 	if err := verifyControlPlaneAndTag(ctx, kubeClient, opts.Tag, target); err != nil {
 		return err
 	}
 
+	// Step 4: pin ingress gateway to the static PIP so external traffic routes correctly
 	if err := ensureIngress(ctx, kubeClient, opts); err != nil {
 		return err
 	}
@@ -210,24 +236,26 @@ func runInitialInstall(ctx context.Context, logger logr.Logger, aksClient AKSClu
 }
 
 func runCanaryUpgrade(ctx context.Context, logger logr.Logger, aksClient AKSClusterClient, kubeClient *KubeClient, opts UpgradeOptions, target string, currentRevisions []string) error {
+	// ARM start-canary installs the target revision alongside the current one.
+	// After this, the cluster has two control planes. No workloads move yet.
 	logger.Info("Starting canary -- installing target alongside current")
 	if err := aksClient.StartCanaryUpgrade(ctx, opts.ResourceGroup, opts.ClusterName, target); err != nil {
 		return fmt.Errorf("failed to start canary: %w", err)
 	}
 
+	// --stop-after=canary-start halts here for staged rollouts or manual inspection
 	if opts.StopAfter == StopAfterCanaryStart {
 		logger.Info("Stopping after canary start as requested -- cluster has two revisions, re-run to resume")
 		return nil
 	}
 
+	// Hand off to the post-install flow (same path ActionResume takes)
 	return runCanaryPostInstall(ctx, logger, aksClient, kubeClient, opts, target, currentRevisions)
 }
 
-// runCleanupAndUpgrade handles clusters stuck with two revisions from a prior
-// failed canary where neither revision matches the new target. Consolidates
-// workloads onto the older stable revision, completes ARM to remove the stale
-// one, then starts a fresh canary to the target.
 func runCleanupAndUpgrade(ctx context.Context, logger logr.Logger, aksClient AKSClusterClient, kubeClient *KubeClient, opts UpgradeOptions, target string, revisions []string) error {
+	// Identify which revision to keep (older/stable) and which to remove (stale canary).
+	// The stale revision is the highest — it was the failed canary target.
 	staleRevision := slices.MaxFunc(revisions, compareRevisions)
 	oldRevision := stableRevisionFrom(revisions, staleRevision)
 	if oldRevision == "" {
@@ -236,22 +264,31 @@ func runCleanupAndUpgrade(ctx context.Context, logger logr.Logger, aksClient AKS
 
 	logger.Info("Cleaning up stale canary before upgrading", "keeping", oldRevision, "removing", staleRevision, "target", target)
 
+	// Phase 1: Consolidate everything onto the old stable revision.
+	// This is safe because the old revision was the last known-good state.
+	// No auto-rollback here — there's nothing further to fall back to.
+
+	// Step 1a: ensure MISE ext-authz ConfigMap exists for the old revision
 	if err := CreateRevisionConfigMap(ctx, kubeClient, oldRevision); err != nil {
 		return fmt.Errorf("failed to ensure ConfigMap for old revision: %w", err)
 	}
 
+	// Step 1b: verify old CP is healthy and flip tag webhook back to old istiod
 	if err := verifyControlPlaneAndTag(ctx, kubeClient, opts.Tag, oldRevision); err != nil {
 		return fmt.Errorf("old revision control plane unhealthy during cleanup: %w", err)
 	}
 
+	// Step 1c: pin ingress
 	if err := ensureIngress(ctx, kubeClient, opts); err != nil {
 		return fmt.Errorf("failed to ensure ingress during cleanup: %w", err)
 	}
 
+	// Step 1d: restart workloads to move all pods back to old sidecars
 	if err := migrateWorkloads(ctx, kubeClient, opts, oldRevision); err != nil {
 		return fmt.Errorf("cleanup workload migration failed: %w", err)
 	}
 
+	// Step 1e: health check before ARM complete — must pass before we remove the stale CP
 	health, err := HealthCheck(ctx, kubeClient)
 	if err != nil {
 		return fmt.Errorf("cleanup health check failed: %w", err)
@@ -260,14 +297,19 @@ func runCleanupAndUpgrade(ctx context.Context, logger logr.Logger, aksClient AKS
 		return healthCheckError("cleanup", health)
 	}
 
+	// Phase 2: Remove the stale revision via ARM and clean up its resources.
+
+	// Step 2a: ARM complete — tells AKS to remove the stale revision's control plane
 	if err := aksClient.CompleteCanaryUpgrade(ctx, opts.ResourceGroup, opts.ClusterName, oldRevision); err != nil {
 		return fmt.Errorf("cleanup ARM completion failed: %w", err)
 	}
 
+	// Step 2b: delete stale revision's ConfigMap (best-effort)
 	if err := DeleteRevisionConfigMap(ctx, kubeClient, staleRevision); err != nil {
 		logger.Info("Failed to delete stale ConfigMap (non-fatal)", "revision", staleRevision, "error", err)
 	}
 
+	// Step 2c: verify we're back to a clean single-revision state
 	verification, err := VerifyUpgrade(ctx, kubeClient, oldRevision, opts.Tag)
 	if err != nil {
 		return fmt.Errorf("cleanup verification failed: %w", err)
@@ -276,10 +318,16 @@ func runCleanupAndUpgrade(ctx context.Context, logger logr.Logger, aksClient AKS
 		return fmt.Errorf("cleanup verification failed: %v", verification.Issues)
 	}
 
+	// Phase 3: Start a fresh canary from old to target — this runs the full
+	// post-install flow with health checks, orphan guard, and auto-rollback.
 	logger.Info("Stale canary cleaned up -- starting fresh upgrade", "from", oldRevision, "to", target)
 	return runCanaryUpgrade(ctx, logger, aksClient, kubeClient, opts, target, []string{oldRevision})
 }
 
+// rollbackAndReturn is the auto-rollback safety net during canary upgrades. When a
+// health check, orphan guard, or workload migration fails, it flips the tag webhook
+// back to the old istiod and restarts workloads to re-inject old sidecars. Both
+// control planes stay installed so the next EV2 retry enters ActionResume.
 func rollbackAndReturn(ctx context.Context, logger logr.Logger, kubeClient *KubeClient, opts UpgradeOptions, previousRevisions []string, target string, originalErr error) error {
 	oldRevision := oldRevisionFrom(previousRevisions, target)
 	if oldRevision != "" {
@@ -319,11 +367,19 @@ func stableRevisionFrom(revisions []string, exclude string) string {
 	})
 }
 
+// runCanaryPostInstall is the core post-install sequence shared by ActionUpgrade and
+// ActionResume. Every step from here through ARM completion has auto-rollback: on
+// failure, workloads are flipped back to the old sidecar so the cluster stays healthy
+// between EV2 retries. AKS does not support rollback after CompleteCanaryUpgrade,
+// which is why all health checks run before that step.
 func runCanaryPostInstall(ctx context.Context, logger logr.Logger, aksClient AKSClusterClient, kubeClient *KubeClient, opts UpgradeOptions, target string, previousRevisions []string) error {
+	// Step 1: ensure MISE ext-authz ConfigMap for the target revision
 	if err := CreateRevisionConfigMap(ctx, kubeClient, target); err != nil {
 		return fmt.Errorf("failed to ensure ConfigMap on resume: %w", err)
 	}
 
+	// Safety check: if namespaces use tag-based labels (e.g. prod-stable) but no
+	// tag is configured, fail early — without a tag the webhook can't be flipped
 	if opts.Tag == "" {
 		hasTaggedNamespaces, err := hasTagBasedNamespaces(ctx, kubeClient, target)
 		if err != nil {
@@ -335,18 +391,26 @@ func runCanaryPostInstall(ctx context.Context, logger logr.Logger, aksClient AKS
 		}
 	}
 
+	// Step 2: verify both control planes are healthy, then flip the tag webhook
+	// to route injection requests to the new istiod. This is what makes new pods
+	// get the new sidecar — namespace labels stay unchanged.
 	if err := verifyControlPlaneAndTag(ctx, kubeClient, opts.Tag, target); err != nil {
 		return rollbackAndReturn(ctx, logger, kubeClient, opts, previousRevisions, target, err)
 	}
 
+	// Step 3: pin ingress gateway to static PIP
 	if err := ensureIngress(ctx, kubeClient, opts); err != nil {
 		return rollbackAndReturn(ctx, logger, kubeClient, opts, previousRevisions, target, err)
 	}
 
+	// Step 4: rolling-restart all mesh workloads to pick up the new sidecar,
+	// then wait for rollout convergence in each namespace
 	if err := migrateWorkloads(ctx, kubeClient, opts, target); err != nil {
 		return rollbackAndReturn(ctx, logger, kubeClient, opts, previousRevisions, target, err)
 	}
 
+	// Step 5: health check — CP readiness, ingress gateway, namespace coverage.
+	// Must pass before we remove the old control plane (irreversible).
 	health, err := HealthCheck(ctx, kubeClient)
 	if err != nil {
 		healthErr := fmt.Errorf("health check failed: %w", err)
@@ -357,6 +421,10 @@ func runCanaryPostInstall(ctx context.Context, logger logr.Logger, aksClient AKS
 	}
 	logger.Info("Health check passed -- checking for orphaned workloads before completing canary")
 
+	// Step 6: orphan guard — verify no pods are still running old sidecars.
+	// Retries up to MaxOrphanRetries because pods can lag behind the rolling
+	// restart (e.g. slow scheduling). Must pass before ARM complete because
+	// removing the old CP orphans any pods still on old sidecars (mTLS certs expire).
 	if err := retireOrphanedWorkloads(ctx, logger, kubeClient, target, previousRevisions, opts); err != nil {
 		return rollbackAndReturn(ctx, logger, kubeClient, opts, previousRevisions, target, err)
 	}
@@ -368,10 +436,13 @@ func runCanaryPostInstall(ctx context.Context, logger logr.Logger, aksClient AKS
 		return nil
 	}
 
+	// Step 7: ARM complete — tells AKS to remove the old revision's control plane.
+	// This is irreversible. All safety checks above must pass first.
 	if err := aksClient.CompleteCanaryUpgrade(ctx, opts.ResourceGroup, opts.ClusterName, target); err != nil {
 		return fmt.Errorf("failed to complete canary: %w", err)
 	}
 
+	// Step 8: clean up old revision's ConfigMap (best-effort)
 	for _, oldRev := range previousRevisions {
 		if oldRev != target {
 			if err := DeleteRevisionConfigMap(ctx, kubeClient, oldRev); err != nil {
@@ -380,6 +451,7 @@ func runCanaryPostInstall(ctx context.Context, logger logr.Logger, aksClient AKS
 		}
 	}
 
+	// Step 9: final verification — confirms single revision, correct tag, all pods on target
 	verification, err := VerifyUpgrade(ctx, kubeClient, target, opts.Tag)
 	if err != nil {
 		return fmt.Errorf("upgrade verification failed: %w", err)

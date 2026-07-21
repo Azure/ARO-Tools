@@ -142,7 +142,7 @@ func (c *AKSClient) GetMeshUpgradeTargets(ctx context.Context, resourceGroup, cl
 	return info, nil
 }
 
-func (c *AKSClient) updateMeshProfile(ctx context.Context, resourceGroup, clusterName, operation string, modify func(resp *armcontainerservice.ManagedClustersClientGetResponse) error) error {
+func (c *AKSClient) modifyClusterProperties(ctx context.Context, resourceGroup, clusterName, operation string, modify func(resp *armcontainerservice.ManagedClustersClientGetResponse) error) error {
 	start := time.Now()
 	c.log.Info("Starting ARM operation", "operation", operation, "cluster", clusterName)
 
@@ -173,7 +173,7 @@ func (c *AKSClient) updateMeshProfile(ctx context.Context, resourceGroup, cluste
 }
 
 func (c *AKSClient) EnableMesh(ctx context.Context, resourceGroup, clusterName, revision string) error {
-	return c.updateMeshProfile(ctx, resourceGroup, clusterName, "enable-mesh", func(resp *armcontainerservice.ManagedClustersClientGetResponse) error {
+	return c.modifyClusterProperties(ctx, resourceGroup, clusterName, "enable-mesh", func(resp *armcontainerservice.ManagedClustersClientGetResponse) error {
 		if resp.Properties == nil {
 			return fmt.Errorf("cluster properties are nil")
 		}
@@ -193,7 +193,7 @@ func (c *AKSClient) EnableMesh(ctx context.Context, resourceGroup, clusterName, 
 }
 
 func (c *AKSClient) StartCanaryUpgrade(ctx context.Context, resourceGroup, clusterName, newRevision string) error {
-	return c.updateMeshProfile(ctx, resourceGroup, clusterName, "start-canary", func(resp *armcontainerservice.ManagedClustersClientGetResponse) error {
+	return c.modifyClusterProperties(ctx, resourceGroup, clusterName, "start-canary", func(resp *armcontainerservice.ManagedClustersClientGetResponse) error {
 		if resp.Properties == nil || resp.Properties.ServiceMeshProfile == nil ||
 			resp.Properties.ServiceMeshProfile.Istio == nil {
 			return fmt.Errorf("cluster has no service mesh profile")
@@ -211,7 +211,7 @@ func (c *AKSClient) StartCanaryUpgrade(ctx context.Context, resourceGroup, clust
 }
 
 func (c *AKSClient) CompleteCanaryUpgrade(ctx context.Context, resourceGroup, clusterName, keepRevision string) error {
-	return c.updateMeshProfile(ctx, resourceGroup, clusterName, "complete-canary", func(resp *armcontainerservice.ManagedClustersClientGetResponse) error {
+	return c.modifyClusterProperties(ctx, resourceGroup, clusterName, "complete-canary", func(resp *armcontainerservice.ManagedClustersClientGetResponse) error {
 		if resp.Properties == nil || resp.Properties.ServiceMeshProfile == nil ||
 			resp.Properties.ServiceMeshProfile.Istio == nil {
 			return fmt.Errorf("cluster has no service mesh profile")
