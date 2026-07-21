@@ -792,35 +792,56 @@ func resourceGroupMetaEqual(a, b *types.ResourceGroupMeta) bool {
 	return true
 }
 
-// detectCycles runs a depth-first traversal of the tree, starting at every node, to detect cycles
+// detectCycles uses 3-color DFS to detect cycles in O(V+E) time.
 func (c *Graph) detectCycles() error {
 	nodesByID := make(map[Identifier]Node, len(c.Nodes))
 	for _, node := range c.Nodes {
 		nodesByID[node.Identifier] = node
 	}
-	for _, node := range c.Nodes {
-		if err := traverse(node, nodesByID, []Identifier{node.Identifier}); err != nil {
-			return err
-		}
-	}
-	return nil
-}
 
-func traverse(node Node, nodesByID map[Identifier]Node, seen []Identifier) error {
-	for _, child := range node.Children {
-		if slices.Contains(seen, child) {
+	const (
+		white uint8 = iota // unvisited
+		gray               // on current DFS path
+		black              // fully explored
+	)
+	color := make(map[Identifier]uint8, len(c.Nodes))
+	var path []Identifier
+
+	var visit func(id Identifier) error
+	visit = func(id Identifier) error {
+		switch color[id] {
+		case black:
+			return nil
+		case gray:
 			var cycle []string
-			for _, i := range seen {
-				cycle = append(cycle, i.String())
+			for _, p := range path {
+				cycle = append(cycle, p.String())
 			}
-			return fmt.Errorf("cycle detected, reached %s via %s", child, strings.Join(cycle, " -> "))
+			return fmt.Errorf("cycle detected, reached %s via %s", id, strings.Join(cycle, " -> "))
 		}
-		childNode, found := nodesByID[child]
-		if !found {
-			return fmt.Errorf("could not find child node %s - programmer error", child)
+
+		color[id] = gray
+		path = append(path, id)
+
+		for _, child := range nodesByID[id].Children {
+			if _, ok := nodesByID[child]; !ok {
+				return fmt.Errorf("could not find child node %s - programmer error", child)
+			}
+			if err := visit(child); err != nil {
+				return err
+			}
 		}
-		if err := traverse(childNode, nodesByID, append(seen[:len(seen):len(seen)], child)); err != nil {
-			return err
+
+		path = path[:len(path)-1]
+		color[id] = black
+		return nil
+	}
+
+	for _, node := range c.Nodes {
+		if color[node.Identifier] == white {
+			if err := visit(node.Identifier); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
