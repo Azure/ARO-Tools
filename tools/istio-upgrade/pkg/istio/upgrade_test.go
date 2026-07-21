@@ -41,6 +41,8 @@ type aksCallArgs struct {
 	Revision      string
 }
 
+var _ AKSClusterClient = (*fakeAKSClient)(nil)
+
 type fakeAKSClient struct {
 	clusterInfo     *ClusterInfo
 	meshProfile     *MeshProfile
@@ -141,14 +143,14 @@ func healthyKubeClient() *fake.Clientset {
 func TestRunUpgrade_EmptyVersions(t *testing.T) {
 	opts := baseOpts()
 	opts.Versions = ""
-	err := RunUpgrade(testCtx(t), opts, &fakeAKSClient{}, fake.NewSimpleClientset())
+	err := RunUpgrade(testCtx(t), opts, &fakeAKSClient{}, NewKubeClientFromInterface(fake.NewSimpleClientset()))
 	assert.ErrorContains(t, err, "no versions specified")
 }
 
 func TestRunUpgrade_InvalidVersion(t *testing.T) {
 	opts := baseOpts()
 	opts.Versions = "asm 1 29!!"
-	err := RunUpgrade(testCtx(t), opts, &fakeAKSClient{}, fake.NewSimpleClientset())
+	err := RunUpgrade(testCtx(t), opts, &fakeAKSClient{}, NewKubeClientFromInterface(fake.NewSimpleClientset()))
 	assert.ErrorContains(t, err, "invalid target version")
 }
 
@@ -161,11 +163,11 @@ func TestRunUpgrade_DryRun(t *testing.T) {
 	opts := baseOpts()
 	opts.DryRun = true
 
-	err := RunUpgrade(testCtx(t), opts, aks, fake.NewSimpleClientset())
+	err := RunUpgrade(testCtx(t), opts, aks, NewKubeClientFromInterface(fake.NewSimpleClientset()))
 	require.NoError(t, err)
-	assert.NotContains(t, aks.calls, "EnableMesh")
-	assert.NotContains(t, aks.calls, "StartCanaryUpgrade")
-	assert.NotContains(t, aks.calls, "CompleteCanaryUpgrade")
+	assert.NotContains(t, aks.calls, "EnableMesh", "should not call EnableMesh")
+	assert.NotContains(t, aks.calls, "StartCanaryUpgrade", "should not call StartCanaryUpgrade")
+	assert.NotContains(t, aks.calls, "CompleteCanaryUpgrade", "should not call CompleteCanaryUpgrade")
 }
 
 func TestRunUpgrade_AlreadyAtTarget(t *testing.T) {
@@ -196,10 +198,10 @@ func TestRunUpgrade_AlreadyAtTarget(t *testing.T) {
 		},
 	}
 	kubeClient := fake.NewSimpleClientset(revisionWebhook)
-	err := RunUpgrade(testCtx(t), opts, aks, kubeClient)
+	err := RunUpgrade(testCtx(t), opts, aks, NewKubeClientFromInterface(kubeClient))
 	require.NoError(t, err)
-	assert.NotContains(t, aks.calls, "EnableMesh")
-	assert.NotContains(t, aks.calls, "StartCanaryUpgrade")
+	assert.NotContains(t, aks.calls, "EnableMesh", "should not call EnableMesh")
+	assert.NotContains(t, aks.calls, "StartCanaryUpgrade", "should not call StartCanaryUpgrade")
 
 	cm, err := kubeClient.CoreV1().ConfigMaps("aks-istio-system").Get(
 		context.Background(), "istio-shared-configmap-asm-1-29", metav1.GetOptions{})
@@ -220,10 +222,10 @@ func TestRunUpgrade_Install(t *testing.T) {
 	}
 
 	kubeClient := healthyKubeClient()
-	err := RunUpgrade(testCtx(t), baseOpts(), aks, kubeClient)
+	err := RunUpgrade(testCtx(t), baseOpts(), aks, NewKubeClientFromInterface(kubeClient))
 	require.NoError(t, err)
-	assert.Contains(t, aks.calls, "EnableMesh")
-	assert.NotContains(t, aks.calls, "StartCanaryUpgrade")
+	assert.Contains(t, aks.calls, "EnableMesh", "should call EnableMesh")
+	assert.NotContains(t, aks.calls, "StartCanaryUpgrade", "should not call StartCanaryUpgrade")
 	assert.Equal(t, "rg-test", aks.enableArgs.ResourceGroup)
 	assert.Equal(t, "cluster-1", aks.enableArgs.ClusterName)
 	assert.Equal(t, "asm-1-29", aks.enableArgs.Revision)
@@ -258,9 +260,9 @@ func TestRunUpgrade_InstallWithTag(t *testing.T) {
 	opts := baseOpts()
 	opts.Tag = "prod-stable"
 
-	err := RunUpgrade(testCtx(t), opts, aks, kubeClient)
+	err := RunUpgrade(testCtx(t), opts, aks, NewKubeClientFromInterface(kubeClient))
 	require.NoError(t, err)
-	assert.Contains(t, aks.calls, "EnableMesh")
+	assert.Contains(t, aks.calls, "EnableMesh", "should call EnableMesh")
 
 	tagWH, err := kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(
 		context.Background(), "istio-revision-tag-prod-stable-aks-istio-system", metav1.GetOptions{})
@@ -320,10 +322,10 @@ func TestRunUpgrade_ResumeWithTag(t *testing.T) {
 	opts := baseOpts()
 	opts.Tag = "prod-stable"
 
-	err := RunUpgrade(testCtx(t), opts, aks, kubeClient)
+	err := RunUpgrade(testCtx(t), opts, aks, NewKubeClientFromInterface(kubeClient))
 	require.NoError(t, err)
-	assert.NotContains(t, aks.calls, "StartCanaryUpgrade")
-	assert.Contains(t, aks.calls, "CompleteCanaryUpgrade")
+	assert.NotContains(t, aks.calls, "StartCanaryUpgrade", "should not call StartCanaryUpgrade")
+	assert.Contains(t, aks.calls, "CompleteCanaryUpgrade", "should call CompleteCanaryUpgrade")
 
 	// Tag webhook should now point at the target revision
 	tagWH, err := kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(
@@ -357,10 +359,10 @@ func TestRunUpgrade_Upgrade(t *testing.T) {
 		Status:     appsv1.DeploymentStatus{UpdatedReplicas: 1, ReadyReplicas: 1},
 	})
 
-	err := RunUpgrade(testCtx(t), baseOpts(), aks, kubeClient)
+	err := RunUpgrade(testCtx(t), baseOpts(), aks, NewKubeClientFromInterface(kubeClient))
 	require.NoError(t, err)
-	assert.Contains(t, aks.calls, "StartCanaryUpgrade")
-	assert.Contains(t, aks.calls, "CompleteCanaryUpgrade")
+	assert.Contains(t, aks.calls, "StartCanaryUpgrade", "should call StartCanaryUpgrade")
+	assert.Contains(t, aks.calls, "CompleteCanaryUpgrade", "should call CompleteCanaryUpgrade")
 	assert.Equal(t, "asm-1-29", aks.canaryArgs.Revision)
 	assert.Equal(t, "asm-1-29", aks.completeArgs.Revision)
 }
@@ -417,7 +419,7 @@ func TestRunUpgrade_DirectRevisionUpdatesNamespaceBeforeRestart(t *testing.T) {
 		return false, nil, nil
 	})
 
-	err := RunUpgrade(testCtx(t), baseOpts(), aks, kubeClient)
+	err := RunUpgrade(testCtx(t), baseOpts(), aks, NewKubeClientFromInterface(kubeClient))
 	require.NoError(t, err)
 	assert.True(t, observedRestart, "stale workload should have been restarted during the upgrade")
 }
@@ -430,15 +432,30 @@ func TestRunUpgrade_EnableMeshError(t *testing.T) {
 		enableErr:   fmt.Errorf("ARM 500"),
 	}
 
-	err := RunUpgrade(testCtx(t), baseOpts(), aks, healthyKubeClient())
+	err := RunUpgrade(testCtx(t), baseOpts(), aks, NewKubeClientFromInterface(healthyKubeClient()))
 	assert.ErrorContains(t, err, "ARM 500")
+}
+
+func TestRunUpgrade_InstallCPVerificationFailure(t *testing.T) {
+	aks := &fakeAKSClient{
+		clusterInfo: &ClusterInfo{ProvisioningState: "Succeeded"},
+		meshProfile: &MeshProfile{Revisions: nil},
+		upgradeInfo: &MeshUpgradeInfo{},
+	}
+
+	client := fake.NewSimpleClientset(
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "aks-istio-system"}},
+	)
+	err := RunUpgrade(testCtx(t), baseOpts(), aks, NewKubeClientFromInterface(client))
+	assert.ErrorIs(t, err, ErrControlPlaneUnhealthy)
+	assert.Contains(t, aks.calls, "EnableMesh", "should call EnableMesh")
 }
 
 func TestRunUpgrade_GetClusterStateError(t *testing.T) {
 	aks := &fakeAKSClient{
 		getStateErr: fmt.Errorf("ARM throttled"),
 	}
-	err := RunUpgrade(testCtx(t), baseOpts(), aks, fake.NewSimpleClientset())
+	err := RunUpgrade(testCtx(t), baseOpts(), aks, NewKubeClientFromInterface(fake.NewSimpleClientset()))
 	assert.ErrorContains(t, err, "failed to get cluster state")
 	assert.ErrorContains(t, err, "ARM throttled")
 }
@@ -449,7 +466,7 @@ func TestRunUpgrade_GetUpgradeTargetsError(t *testing.T) {
 		meshProfile:   &MeshProfile{Revisions: []string{"asm-1-28"}},
 		getUpgradeErr: fmt.Errorf("network timeout"),
 	}
-	err := RunUpgrade(testCtx(t), baseOpts(), aks, fake.NewSimpleClientset())
+	err := RunUpgrade(testCtx(t), baseOpts(), aks, NewKubeClientFromInterface(fake.NewSimpleClientset()))
 	assert.ErrorContains(t, err, "failed to get upgrade targets")
 	assert.ErrorContains(t, err, "network timeout")
 }
@@ -465,10 +482,10 @@ func TestRunUpgrade_Resume(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "app-ns", Labels: map[string]string{"istio.io/rev": "asm-1-28"}},
 	})
 
-	err := RunUpgrade(testCtx(t), baseOpts(), aks, kubeClient)
+	err := RunUpgrade(testCtx(t), baseOpts(), aks, NewKubeClientFromInterface(kubeClient))
 	require.NoError(t, err)
-	assert.NotContains(t, aks.calls, "StartCanaryUpgrade")
-	assert.Contains(t, aks.calls, "CompleteCanaryUpgrade")
+	assert.NotContains(t, aks.calls, "StartCanaryUpgrade", "should not call StartCanaryUpgrade")
+	assert.Contains(t, aks.calls, "CompleteCanaryUpgrade", "should call CompleteCanaryUpgrade")
 
 	cm, err := kubeClient.CoreV1().ConfigMaps("aks-istio-system").Get(
 		context.Background(), "istio-shared-configmap-asm-1-29", metav1.GetOptions{})
@@ -488,7 +505,7 @@ func TestRunUpgrade_TagBasedNamespacesWithoutTagConfig(t *testing.T) {
 	})
 
 	opts := baseOpts()
-	err := RunUpgrade(testCtx(t), opts, aks, kubeClient)
+	err := RunUpgrade(testCtx(t), opts, aks, NewKubeClientFromInterface(kubeClient))
 	assert.ErrorContains(t, err, "tag-based injection labels but no tag is configured")
 }
 
@@ -545,9 +562,9 @@ func TestRunUpgrade_OrphanRetrySucceeds(t *testing.T) {
 	opts := baseOpts()
 	opts.MaxOrphanRetries = 3
 
-	err := RunUpgrade(testCtx(t), opts, aks, kubeClient)
+	err := RunUpgrade(testCtx(t), opts, aks, NewKubeClientFromInterface(kubeClient))
 	require.NoError(t, err)
-	assert.Contains(t, aks.calls, "CompleteCanaryUpgrade")
+	assert.Contains(t, aks.calls, "CompleteCanaryUpgrade", "should call CompleteCanaryUpgrade")
 	assert.GreaterOrEqual(t, patchCount, 2, "orphan retry loop should have triggered a second restart")
 }
 
@@ -570,14 +587,14 @@ func TestValidateStopAfter(t *testing.T) {
 				assert.Error(t, err)
 			} else {
 				require.NoError(t, err)
-				assert.Equal(t, tt.want, got)
+				assert.Equal(t, tt.want, got, "unexpected StopAfter for %q", tt.name)
 			}
 		})
 	}
 }
 
 func TestRunUpgrade_SkipWithMismatchWarning(t *testing.T) {
-	// ARM installed asm-1-29 (default) but config targets asm-1-28 — downgrade skip
+	// ARM installed asm-1-29 (default) but config targets asm-1-28 --downgrade skip
 	aks := &fakeAKSClient{
 		clusterInfo: &ClusterInfo{ProvisioningState: "Succeeded"},
 		meshProfile: &MeshProfile{Revisions: []string{"asm-1-29"}},
@@ -586,11 +603,11 @@ func TestRunUpgrade_SkipWithMismatchWarning(t *testing.T) {
 	opts := baseOpts()
 	opts.Versions = "asm-1-28"
 
-	err := RunUpgrade(testCtx(t), opts, aks, fake.NewSimpleClientset())
+	err := RunUpgrade(testCtx(t), opts, aks, NewKubeClientFromInterface(fake.NewSimpleClientset()))
 	require.NoError(t, err)
-	assert.NotContains(t, aks.calls, "EnableMesh")
-	assert.NotContains(t, aks.calls, "StartCanaryUpgrade")
-	assert.NotContains(t, aks.calls, "CompleteCanaryUpgrade")
+	assert.NotContains(t, aks.calls, "EnableMesh", "should not call EnableMesh")
+	assert.NotContains(t, aks.calls, "StartCanaryUpgrade", "should not call StartCanaryUpgrade")
+	assert.NotContains(t, aks.calls, "CompleteCanaryUpgrade", "should not call CompleteCanaryUpgrade")
 }
 
 func TestRunUpgrade_FreshClusterUpgradesToConfigTarget(t *testing.T) {
@@ -614,10 +631,10 @@ func TestRunUpgrade_FreshClusterUpgradesToConfigTarget(t *testing.T) {
 	opts := baseOpts()
 	opts.Versions = "asm-1-29"
 
-	err := RunUpgrade(testCtx(t), opts, aks, kubeClient)
+	err := RunUpgrade(testCtx(t), opts, aks, NewKubeClientFromInterface(kubeClient))
 	require.NoError(t, err)
-	assert.Contains(t, aks.calls, "StartCanaryUpgrade")
-	assert.Contains(t, aks.calls, "CompleteCanaryUpgrade")
+	assert.Contains(t, aks.calls, "StartCanaryUpgrade", "should call StartCanaryUpgrade")
+	assert.Contains(t, aks.calls, "CompleteCanaryUpgrade", "should call CompleteCanaryUpgrade")
 	assert.Equal(t, "asm-1-29", aks.canaryArgs.Revision)
 }
 
@@ -632,7 +649,7 @@ func TestRunUpgrade_StopAfterCanaryStart(t *testing.T) {
 	opts := baseOpts()
 	opts.StopAfter = StopAfterCanaryStart
 
-	err := RunUpgrade(testCtx(t), opts, aks, kubeClient)
+	err := RunUpgrade(testCtx(t), opts, aks, NewKubeClientFromInterface(kubeClient))
 	require.NoError(t, err)
 	assert.Contains(t, aks.calls, "StartCanaryUpgrade", "should start canary before stopping")
 	assert.NotContains(t, aks.calls, "CompleteCanaryUpgrade", "should not complete canary when stopping after canary-start")
@@ -657,7 +674,7 @@ func TestRunUpgrade_StopAfterOrphanCheck(t *testing.T) {
 	opts := baseOpts()
 	opts.StopAfter = StopAfterOrphanCheck
 
-	err := RunUpgrade(testCtx(t), opts, aks, kubeClient)
+	err := RunUpgrade(testCtx(t), opts, aks, NewKubeClientFromInterface(kubeClient))
 	require.NoError(t, err)
 	assert.Contains(t, aks.calls, "StartCanaryUpgrade", "should start canary")
 	assert.NotContains(t, aks.calls, "CompleteCanaryUpgrade", "should not complete canary when stopping after orphan-check")
@@ -693,10 +710,10 @@ func TestRunUpgrade_UpgradeWithTag(t *testing.T) {
 	opts := baseOpts()
 	opts.Tag = "prod-stable"
 
-	err := RunUpgrade(testCtx(t), opts, aks, kubeClient)
+	err := RunUpgrade(testCtx(t), opts, aks, NewKubeClientFromInterface(kubeClient))
 	require.NoError(t, err)
-	assert.Contains(t, aks.calls, "StartCanaryUpgrade")
-	assert.Contains(t, aks.calls, "CompleteCanaryUpgrade")
+	assert.Contains(t, aks.calls, "StartCanaryUpgrade", "should call StartCanaryUpgrade")
+	assert.Contains(t, aks.calls, "CompleteCanaryUpgrade", "should call CompleteCanaryUpgrade")
 
 	ns, err := kubeClient.CoreV1().Namespaces().Get(context.Background(), "app-ns", metav1.GetOptions{})
 	require.NoError(t, err)
@@ -736,9 +753,9 @@ func TestRunUpgrade_OrphanRetryExhausted(t *testing.T) {
 	opts := baseOpts()
 	opts.MaxOrphanRetries = 1
 
-	err := RunUpgrade(testCtx(t), opts, aks, kubeClient)
+	err := RunUpgrade(testCtx(t), opts, aks, NewKubeClientFromInterface(kubeClient))
 	assert.ErrorIs(t, err, ErrRetireRevisionWouldOrphanWorkloads)
-	assert.NotContains(t, aks.calls, "CompleteCanaryUpgrade")
+	assert.NotContains(t, aks.calls, "CompleteCanaryUpgrade", "should not call CompleteCanaryUpgrade")
 }
 
 func TestRunUpgrade_HealthCheckFailsRollsBackWorkloads(t *testing.T) {
@@ -780,7 +797,7 @@ func TestRunUpgrade_HealthCheckFailsRollsBackWorkloads(t *testing.T) {
 	)
 
 	opts := baseOpts()
-	err := RunUpgrade(testCtx(t), opts, aks, kubeClient)
+	err := RunUpgrade(testCtx(t), opts, aks, NewKubeClientFromInterface(kubeClient))
 	assert.ErrorIs(t, err, ErrControlPlaneUnhealthy, "should return health check error")
 	assert.NotContains(t, aks.calls, "CompleteCanaryUpgrade", "should not complete canary on health failure")
 }
@@ -825,13 +842,13 @@ func TestRunUpgrade_CleanupAndUpgrade(t *testing.T) {
 	opts := baseOpts()
 	opts.Versions = "asm-1-30"
 
-	err := RunUpgrade(testCtx(t), opts, aks, kubeClient)
+	err := RunUpgrade(testCtx(t), opts, aks, NewKubeClientFromInterface(kubeClient))
 	require.NoError(t, err)
 
 	require.GreaterOrEqual(t, len(aks.allCompleteArgs), 2, "should have two CompleteCanaryUpgrade calls")
 	assert.Equal(t, "asm-1-28", aks.allCompleteArgs[0].Revision, "first complete should keep old stable revision")
 	assert.Equal(t, "asm-1-30", aks.allCompleteArgs[1].Revision, "second complete should finalize fresh canary")
-	assert.Contains(t, aks.calls, "StartCanaryUpgrade")
+	assert.Contains(t, aks.calls, "StartCanaryUpgrade", "should call StartCanaryUpgrade")
 	assert.Equal(t, "asm-1-30", aks.canaryArgs.Revision, "fresh canary should target new version")
 }
 
@@ -900,10 +917,10 @@ func TestRunUpgrade_CleanupAndUpgradeWithTag(t *testing.T) {
 	opts.Versions = "asm-1-30"
 	opts.Tag = "prod-stable"
 
-	err := RunUpgrade(testCtx(t), opts, aks, kubeClient)
+	err := RunUpgrade(testCtx(t), opts, aks, NewKubeClientFromInterface(kubeClient))
 	require.NoError(t, err)
-	assert.Contains(t, aks.calls, "CompleteCanaryUpgrade")
-	assert.Contains(t, aks.calls, "StartCanaryUpgrade")
+	assert.Contains(t, aks.calls, "CompleteCanaryUpgrade", "should call CompleteCanaryUpgrade")
+	assert.Contains(t, aks.calls, "StartCanaryUpgrade", "should call StartCanaryUpgrade")
 	require.GreaterOrEqual(t, len(aks.allCompleteArgs), 2)
 	assert.Equal(t, "asm-1-28", aks.allCompleteArgs[0].Revision, "cleanup should keep old stable revision")
 }
@@ -943,7 +960,7 @@ func TestOldRevisionFrom(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := oldRevisionFrom(tt.revisions, tt.target)
-			assert.Equal(t, tt.want, got)
+			assert.Equal(t, tt.want, got, "unexpected old revision for %q", tt.name)
 		})
 	}
 }
@@ -1011,7 +1028,7 @@ func TestRunUpgrade_RollbackDoubleFailure(t *testing.T) {
 		return true, nil, fmt.Errorf("simulated rollback patch failure")
 	})
 
-	err := RunUpgrade(testCtx(t), baseOpts(), aks, kubeClient)
+	err := RunUpgrade(testCtx(t), baseOpts(), aks, NewKubeClientFromInterface(kubeClient))
 	assert.ErrorIs(t, err, ErrControlPlaneUnhealthy, "should contain original health check error")
 	assert.ErrorContains(t, err, "rollback also failed", "should contain rollback failure")
 }
@@ -1025,10 +1042,10 @@ func TestRunUpgrade_StartCanaryError(t *testing.T) {
 	}
 	kubeClient := healthyKubeClient()
 
-	err := RunUpgrade(testCtx(t), baseOpts(), aks, kubeClient)
+	err := RunUpgrade(testCtx(t), baseOpts(), aks, NewKubeClientFromInterface(kubeClient))
 	assert.ErrorContains(t, err, "ARM 409 conflict")
 	assert.ErrorContains(t, err, "failed to start canary")
-	assert.NotContains(t, aks.calls, "CompleteCanaryUpgrade")
+	assert.NotContains(t, aks.calls, "CompleteCanaryUpgrade", "should not call CompleteCanaryUpgrade")
 }
 
 func TestRunUpgrade_CompleteCanaryFailureMidCleanup(t *testing.T) {
@@ -1067,7 +1084,7 @@ func TestRunUpgrade_CompleteCanaryFailureMidCleanup(t *testing.T) {
 	opts := baseOpts()
 	opts.Versions = "asm-1-30"
 
-	err := RunUpgrade(testCtx(t), opts, aks, kubeClient)
+	err := RunUpgrade(testCtx(t), opts, aks, NewKubeClientFromInterface(kubeClient))
 	assert.ErrorContains(t, err, "cleanup ARM completion failed")
 	assert.ErrorContains(t, err, "ARM timeout on complete")
 }
@@ -1083,11 +1100,9 @@ func TestRunUpgrade_PostCompleteVerificationFailure(t *testing.T) {
 	// After CompleteCanaryUpgrade, the target ConfigMap is deleted by
 	// external interference. VerifyUpgrade catches the missing ConfigMap.
 	configMapDeleted := false
-	origComplete := aks.CompleteCanaryUpgrade
-	_ = origComplete
 	// We can't easily hook the fake AKS client's CompleteCanaryUpgrade,
 	// so instead we use a reactor that deletes the ConfigMap on the
-	// DeleteRevisionConfigMap call for the old revision — which runs
+	// DeleteRevisionConfigMap call for the old revision --which runs
 	// right after complete. The reactor also deletes the target ConfigMap.
 	kubeClient.PrependReactor("delete", "configmaps", func(action k8stesting.Action) (bool, runtime.Object, error) {
 		if !configMapDeleted {
@@ -1101,10 +1116,10 @@ func TestRunUpgrade_PostCompleteVerificationFailure(t *testing.T) {
 	})
 
 	opts := baseOpts()
-	err := RunUpgrade(testCtx(t), opts, aks, kubeClient)
+	err := RunUpgrade(testCtx(t), opts, aks, NewKubeClientFromInterface(kubeClient))
 
 	assert.Contains(t, aks.calls, "CompleteCanaryUpgrade",
-		"canary should have been completed — this state is non-recoverable")
+		"canary should have been completed --this state is non-recoverable")
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "post-upgrade verification failed")
 	assert.NotContains(t, aks.calls, "EnableMesh",
@@ -1122,7 +1137,7 @@ func TestRunUpgrade_OverallTimeout(t *testing.T) {
 	opts := baseOpts()
 	opts.OverallTimeout = 1 * time.Nanosecond
 
-	err := RunUpgrade(testCtx(t), opts, aks, healthyKubeClient())
+	err := RunUpgrade(testCtx(t), opts, aks, NewKubeClientFromInterface(healthyKubeClient()))
 	assert.Error(t, err, "should fail with deadline or canary error")
 }
 
@@ -1192,7 +1207,7 @@ func TestRunUpgrade_HealthCheckFailsVerifiesRollbackRestarted(t *testing.T) {
 		return false, nil, nil
 	})
 
-	err := RunUpgrade(testCtx(t), baseOpts(), aks, kubeClient)
+	err := RunUpgrade(testCtx(t), baseOpts(), aks, NewKubeClientFromInterface(kubeClient))
 	assert.ErrorIs(t, err, ErrControlPlaneUnhealthy)
 	assert.Greater(t, rollbackPatchCount, 0, "rollback should have triggered deployment patches to restore old sidecar")
 }
@@ -1278,7 +1293,7 @@ func TestRunUpgrade_HealthCheckFailsRollsBackTagWebhook(t *testing.T) {
 	opts := baseOpts()
 	opts.Tag = "prod-stable"
 
-	err := RunUpgrade(testCtx(t), opts, aks, kubeClient)
+	err := RunUpgrade(testCtx(t), opts, aks, NewKubeClientFromInterface(kubeClient))
 	assert.ErrorIs(t, err, ErrControlPlaneUnhealthy, "should return health check error")
 	assert.NotContains(t, aks.calls, "CompleteCanaryUpgrade", "should not complete canary on health failure")
 
@@ -1392,9 +1407,9 @@ func TestRunUpgrade_OrphanRetryExhaustedRollsBackTagWebhook(t *testing.T) {
 	opts.Tag = "prod-stable"
 	opts.MaxOrphanRetries = 1
 
-	err := RunUpgrade(testCtx(t), opts, aks, kubeClient)
+	err := RunUpgrade(testCtx(t), opts, aks, NewKubeClientFromInterface(kubeClient))
 	assert.ErrorIs(t, err, ErrRetireRevisionWouldOrphanWorkloads)
-	assert.NotContains(t, aks.calls, "CompleteCanaryUpgrade")
+	assert.NotContains(t, aks.calls, "CompleteCanaryUpgrade", "should not call CompleteCanaryUpgrade")
 
 	tagWH, err := kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(
 		context.Background(), "istio-revision-tag-prod-stable-aks-istio-system", metav1.GetOptions{})
@@ -1500,7 +1515,7 @@ func TestRunUpgrade_CleanupUpdatesNamespaceBeforeRestart(t *testing.T) {
 	opts := baseOpts()
 	opts.Versions = "asm-1-30"
 
-	err := RunUpgrade(testCtx(t), opts, aks, kubeClient)
+	err := RunUpgrade(testCtx(t), opts, aks, NewKubeClientFromInterface(kubeClient))
 	require.NoError(t, err)
 	assert.True(t, cleanupRestartVerified, "cleanup phase should have restarted workloads with labels already updated")
 }
@@ -1548,7 +1563,7 @@ func TestRunUpgrade_DirectRevisionRollbackUpdatesLabels(t *testing.T) {
 	opts := baseOpts()
 	opts.Versions = "asm-1-29"
 
-	err := RunUpgrade(testCtx(t), opts, aks, kubeClient)
+	err := RunUpgrade(testCtx(t), opts, aks, NewKubeClientFromInterface(kubeClient))
 	assert.ErrorIs(t, err, ErrControlPlaneUnhealthy, "should fail due to unhealthy CP")
 
 	ns, err := kubeClient.CoreV1().Namespaces().Get(context.Background(), "app-ns", metav1.GetOptions{})
@@ -1558,7 +1573,7 @@ func TestRunUpgrade_DirectRevisionRollbackUpdatesLabels(t *testing.T) {
 }
 
 func TestEnsureIngress_PartialConfigErrors(t *testing.T) {
-	client := fake.NewSimpleClientset()
+	client := NewKubeClientFromInterface(fake.NewSimpleClientset())
 	ctx := logr.NewContext(context.Background(), testr.New(t))
 
 	tests := []struct {

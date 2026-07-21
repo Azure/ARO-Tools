@@ -24,6 +24,7 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/utils/ptr"
 )
 
 func TestEnsureRevisionTag(t *testing.T) {
@@ -53,8 +54,9 @@ func TestEnsureRevisionTag(t *testing.T) {
 		},
 	}
 	client := fake.NewSimpleClientset(webhook, revisionWebhook)
+	kubeClient := NewKubeClientFromInterface(client)
 
-	err := EnsureRevisionTag(context.Background(), client, "default", "asm-1-29")
+	err := EnsureRevisionTag(context.Background(), kubeClient, "default", "asm-1-29")
 	require.NoError(t, err)
 
 	updated, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(context.Background(), "istio-revision-tag-default-aks-istio-system", metav1.GetOptions{})
@@ -88,8 +90,9 @@ func TestEnsureRevisionTag_UpdatesCABundleFromTargetRevision(t *testing.T) {
 		},
 	}
 	client := fake.NewSimpleClientset(webhook, revisionWebhook)
+	kubeClient := NewKubeClientFromInterface(client)
 
-	err := EnsureRevisionTag(context.Background(), client, "default", "asm-1-29")
+	err := EnsureRevisionTag(context.Background(), kubeClient, "default", "asm-1-29")
 	require.NoError(t, err)
 
 	updated, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(context.Background(), "istio-revision-tag-default-aks-istio-system", metav1.GetOptions{})
@@ -132,8 +135,9 @@ func TestEnsureRevisionTag_ReconcilePathAndPort(t *testing.T) {
 		},
 	}
 	client := fake.NewSimpleClientset(webhook, revisionWebhook)
+	kubeClient := NewKubeClientFromInterface(client)
 
-	err := EnsureRevisionTag(context.Background(), client, "default", "asm-1-29")
+	err := EnsureRevisionTag(context.Background(), kubeClient, "default", "asm-1-29")
 	require.NoError(t, err)
 
 	updated, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(context.Background(), "istio-revision-tag-default-aks-istio-system", metav1.GetOptions{})
@@ -144,13 +148,25 @@ func TestEnsureRevisionTag_ReconcilePathAndPort(t *testing.T) {
 
 func TestEnsureRevisionTag_NoOpWhenAlreadyCorrect(t *testing.T) {
 	webhook := &admissionregistrationv1.MutatingWebhookConfiguration{
-		ObjectMeta: metav1.ObjectMeta{Name: "istio-revision-tag-default-aks-istio-system"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "istio-revision-tag-default-aks-istio-system",
+			Labels: map[string]string{
+				"istio.io/rev": "default",
+				"istio.io/tag": "default",
+				"app":          "sidecar-injector",
+			},
+		},
 		Webhooks: []admissionregistrationv1.MutatingWebhook{
 			{
 				Name: "rev.validation.istio.io",
 				ClientConfig: admissionregistrationv1.WebhookClientConfig{
 					CABundle: []byte("current-ca-bundle"),
-					Service:  &admissionregistrationv1.ServiceReference{Name: "istiod-asm-1-29", Namespace: "aks-istio-system"},
+					Service: &admissionregistrationv1.ServiceReference{
+						Name:      "istiod-asm-1-29",
+						Namespace: "aks-istio-system",
+						Path:      ptr.To("/inject"),
+						Port:      ptr.To(int32(443)),
+					},
 				},
 			},
 		},
@@ -168,9 +184,15 @@ func TestEnsureRevisionTag_NoOpWhenAlreadyCorrect(t *testing.T) {
 		},
 	}
 	client := fake.NewSimpleClientset(webhook, revisionWebhook)
+	kubeClient := NewKubeClientFromInterface(client)
 
-	err := EnsureRevisionTag(context.Background(), client, "default", "asm-1-29")
+	err := EnsureRevisionTag(context.Background(), kubeClient, "default", "asm-1-29")
 	require.NoError(t, err)
+
+	for _, action := range client.Actions() {
+		assert.NotEqual(t, "update", action.GetVerb(),
+			"no-op path should not issue update calls")
+	}
 }
 
 func TestEnsureRevisionTag_CreatesWhenNotFound(t *testing.T) {
@@ -192,8 +214,9 @@ func TestEnsureRevisionTag_CreatesWhenNotFound(t *testing.T) {
 		},
 	}
 	client := fake.NewSimpleClientset(revisionWebhook)
+	kubeClient := NewKubeClientFromInterface(client)
 
-	err := EnsureRevisionTag(context.Background(), client, "prod-stable", "asm-1-29")
+	err := EnsureRevisionTag(context.Background(), kubeClient, "prod-stable", "asm-1-29")
 	require.NoError(t, err)
 
 	created, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(
@@ -256,9 +279,36 @@ func TestEnsureRevisionTag_FailsWhenRevisionWebhookEmpty(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			client := fake.NewSimpleClientset(tc.revisionWebhook)
-			err := EnsureRevisionTag(context.Background(), client, "prod-stable", "asm-1-29")
+			kubeClient := NewKubeClientFromInterface(client)
+			err := EnsureRevisionTag(context.Background(), kubeClient, "prod-stable", "asm-1-29")
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), tc.errContains)
 		})
 	}
+}
+
+func TestEnsureRevisionTag_UpdatePathNilService(t *testing.T) {
+	tagWebhook := &admissionregistrationv1.MutatingWebhookConfiguration{
+		ObjectMeta: metav1.ObjectMeta{Name: "istio-revision-tag-prod-stable-aks-istio-system"},
+		Webhooks: []admissionregistrationv1.MutatingWebhook{{
+			Name:         "rev-tag.istio.io",
+			ClientConfig: admissionregistrationv1.WebhookClientConfig{CABundle: []byte("ca")},
+		}},
+	}
+	revisionWebhook := &admissionregistrationv1.MutatingWebhookConfiguration{
+		ObjectMeta: metav1.ObjectMeta{Name: "istio-sidecar-injector-asm-1-29-aks-istio-system"},
+		Webhooks: []admissionregistrationv1.MutatingWebhook{{
+			Name: "rev.namespace.sidecar-injector.istio.io",
+			ClientConfig: admissionregistrationv1.WebhookClientConfig{
+				CABundle: []byte("test-ca-bundle"),
+				Service:  &admissionregistrationv1.ServiceReference{Name: "istiod-asm-1-29", Namespace: "aks-istio-system"},
+			},
+		}},
+	}
+	client := fake.NewSimpleClientset(tagWebhook, revisionWebhook)
+	kubeClient := NewKubeClientFromInterface(client)
+
+	err := EnsureRevisionTag(context.Background(), kubeClient, "prod-stable", "asm-1-29")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no service-based config")
 }

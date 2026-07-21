@@ -16,191 +16,206 @@ package istio
 
 import (
 	"testing"
+
+	"github.com/go-logr/logr"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestDecide(t *testing.T) {
 	tests := []struct {
 		name       string
-		state      ClusterState
+		state      UpgradeState
 		target     string
 		wantAction Action
 	}{
 		{
 			name: "already at target",
-			state: ClusterState{
-				Name:              "svc-cluster-01",
-				Revisions:         []string{"asm-1-28"},
-				AvailableUpgrades: []string{"asm-1-29"},
-				ProvisioningState: "Succeeded",
+			state: UpgradeState{
+				ClusterName:            "svc-cluster-01",
+				MeshProfileRevisions:   []string{"asm-1-28"},
+				IstioAvailableUpgrades: []string{"asm-1-29"},
+				ProvisioningState:      "Succeeded",
 			},
 			target:     "asm-1-28",
 			wantAction: ActionSkip,
 		},
 		{
 			name: "upgrade available",
-			state: ClusterState{
-				Name:              "svc-cluster-01",
-				Revisions:         []string{"asm-1-28"},
-				AvailableUpgrades: []string{"asm-1-29"},
-				ProvisioningState: "Succeeded",
+			state: UpgradeState{
+				ClusterName:            "svc-cluster-01",
+				MeshProfileRevisions:   []string{"asm-1-28"},
+				IstioAvailableUpgrades: []string{"asm-1-29"},
+				ProvisioningState:      "Succeeded",
 			},
 			target:     "asm-1-29",
 			wantAction: ActionUpgrade,
 		},
 		{
 			name: "mid-upgrade resume",
-			state: ClusterState{
-				Name:              "svc-cluster-01",
-				Revisions:         []string{"asm-1-28", "asm-1-29"},
-				ProvisioningState: "Succeeded",
+			state: UpgradeState{
+				ClusterName:          "svc-cluster-01",
+				MeshProfileRevisions: []string{"asm-1-28", "asm-1-29"},
+				ProvisioningState:    "Succeeded",
 			},
 			target:     "asm-1-29",
 			wantAction: ActionResume,
 		},
 		{
 			name: "target not available in region",
-			state: ClusterState{
-				Name:              "svc-cluster-01",
-				Revisions:         []string{"asm-1-27"},
-				AvailableUpgrades: []string{"asm-1-28"},
-				KubernetesVersion: "1.35",
-				ProvisioningState: "Succeeded",
+			state: UpgradeState{
+				ClusterName:            "svc-cluster-01",
+				MeshProfileRevisions:   []string{"asm-1-27"},
+				IstioAvailableUpgrades: []string{"asm-1-28"},
+				KubernetesVersion:      "1.35",
+				ProvisioningState:      "Succeeded",
 			},
 			target:     "asm-1-29",
 			wantAction: ActionSkip,
 		},
 		{
 			name: "downgrade detected",
-			state: ClusterState{
-				Name:              "svc-cluster-01",
-				Revisions:         []string{"asm-1-29"},
-				ProvisioningState: "Succeeded",
+			state: UpgradeState{
+				ClusterName:          "svc-cluster-01",
+				MeshProfileRevisions: []string{"asm-1-29"},
+				ProvisioningState:    "Succeeded",
 			},
 			target:     "asm-1-28",
 			wantAction: ActionSkip,
 		},
 		{
 			name: "downgrade detected with multiple revisions",
-			state: ClusterState{
-				Name:              "svc-cluster-01",
-				Revisions:         []string{"asm-1-27", "asm-1-30"},
-				ProvisioningState: "Succeeded",
+			state: UpgradeState{
+				ClusterName:          "svc-cluster-01",
+				MeshProfileRevisions: []string{"asm-1-27", "asm-1-30"},
+				ProvisioningState:    "Succeeded",
 			},
 			target:     "asm-1-29",
 			wantAction: ActionSkip,
 		},
 		{
 			name: "cluster in Failed state",
-			state: ClusterState{
-				Name:              "svc-cluster-01",
-				Revisions:         []string{"asm-1-28"},
-				AvailableUpgrades: []string{"asm-1-29"},
-				ProvisioningState: "Failed",
+			state: UpgradeState{
+				ClusterName:            "svc-cluster-01",
+				MeshProfileRevisions:   []string{"asm-1-28"},
+				IstioAvailableUpgrades: []string{"asm-1-29"},
+				ProvisioningState:      "Failed",
 			},
 			target:     "asm-1-29",
 			wantAction: ActionSkip,
 		},
 		{
 			name: "new cluster install",
-			state: ClusterState{
-				Name:              "svc-cluster-01",
-				Revisions:         []string{},
-				ProvisioningState: "Succeeded",
+			state: UpgradeState{
+				ClusterName:          "svc-cluster-01",
+				MeshProfileRevisions: []string{},
+				ProvisioningState:    "Succeeded",
 			},
 			target:     "asm-1-28",
 			wantAction: ActionInstall,
 		},
 		{
 			name: "new cluster nil revisions",
-			state: ClusterState{
-				Name:              "svc-cluster-01",
-				Revisions:         nil,
-				ProvisioningState: "Succeeded",
+			state: UpgradeState{
+				ClusterName:          "svc-cluster-01",
+				MeshProfileRevisions: nil,
+				ProvisioningState:    "Succeeded",
 			},
 			target:     "asm-1-28",
 			wantAction: ActionInstall,
 		},
 		{
 			name: "new cluster in Failed state skips install",
-			state: ClusterState{
-				Name:              "svc-cluster-01",
-				Revisions:         nil,
-				ProvisioningState: "Failed",
+			state: UpgradeState{
+				ClusterName:          "svc-cluster-01",
+				MeshProfileRevisions: nil,
+				ProvisioningState:    "Failed",
 			},
 			target:     "asm-1-28",
 			wantAction: ActionSkip,
 		},
 		{
-			name: "ARM default matches config — no action needed",
-			state: ClusterState{
-				Name:              "svc-cluster-01",
-				Revisions:         []string{"asm-1-28"},
-				AvailableUpgrades: []string{"asm-1-29"},
-				ProvisioningState: "Succeeded",
+			name: "ARM default matches config - no action needed",
+			state: UpgradeState{
+				ClusterName:            "svc-cluster-01",
+				MeshProfileRevisions:   []string{"asm-1-28"},
+				IstioAvailableUpgrades: []string{"asm-1-29"},
+				ProvisioningState:      "Succeeded",
 			},
 			target:     "asm-1-28",
 			wantAction: ActionSkip,
 		},
 		{
-			name: "ARM default behind config — upgrade to reach target",
-			state: ClusterState{
-				Name:              "svc-cluster-01",
-				Revisions:         []string{"asm-1-28"},
-				AvailableUpgrades: []string{"asm-1-29"},
-				ProvisioningState: "Succeeded",
+			name: "ARM default behind config - upgrade to reach target",
+			state: UpgradeState{
+				ClusterName:            "svc-cluster-01",
+				MeshProfileRevisions:   []string{"asm-1-28"},
+				IstioAvailableUpgrades: []string{"asm-1-29"},
+				ProvisioningState:      "Succeeded",
 			},
 			target:     "asm-1-29",
 			wantAction: ActionUpgrade,
 		},
 		{
-			name: "ARM default ahead of config — downgrade skip",
-			state: ClusterState{
-				Name:              "svc-cluster-01",
-				Revisions:         []string{"asm-1-29"},
-				AvailableUpgrades: []string{},
-				ProvisioningState: "Succeeded",
+			name: "ARM default ahead of config - downgrade skip",
+			state: UpgradeState{
+				ClusterName:            "svc-cluster-01",
+				MeshProfileRevisions:   []string{"asm-1-29"},
+				IstioAvailableUpgrades: []string{},
+				ProvisioningState:      "Succeeded",
 			},
 			target:     "asm-1-28",
 			wantAction: ActionSkip,
 		},
 		{
-			name: "upgrade in progress from 409",
-			state: ClusterState{
-				Name:              "svc-cluster-01",
-				Revisions:         []string{"asm-1-28"},
-				ProvisioningState: "Succeeded",
-				UpgradeInProgress: true,
+			name: "upgrade already in progress but target not yet installed skips",
+			state: UpgradeState{
+				ClusterName:            "svc-cluster-01",
+				MeshProfileRevisions:   []string{"asm-1-28"},
+				ProvisioningState:      "Succeeded",
+				IstioUpgradeInProgress: true,
 			},
 			target:     "asm-1-29",
-			wantAction: ActionResume,
+			wantAction: ActionSkip,
 		},
 		{
 			name: "stale canary triggers cleanup and upgrade",
-			state: ClusterState{
-				Name:              "svc-cluster-01",
-				Revisions:         []string{"asm-1-28", "asm-1-29"},
-				ProvisioningState: "Succeeded",
+			state: UpgradeState{
+				ClusterName:            "svc-cluster-01",
+				MeshProfileRevisions:   []string{"asm-1-28", "asm-1-29"},
+				IstioAvailableUpgrades: []string{"asm-1-30"},
+				ProvisioningState:      "Succeeded",
 			},
 			target:     "asm-1-30",
 			wantAction: ActionCleanupAndUpgrade,
 		},
 		{
+			name: "stale canary skips when target unavailable",
+			state: UpgradeState{
+				ClusterName:            "svc-cluster-01",
+				MeshProfileRevisions:   []string{"asm-1-28", "asm-1-29"},
+				IstioAvailableUpgrades: []string{"asm-1-29"},
+				ProvisioningState:      "Succeeded",
+			},
+			target:     "asm-1-30",
+			wantAction: ActionSkip,
+		},
+		{
 			name: "three or more revisions skips with manual intervention",
-			state: ClusterState{
-				Name:              "svc-cluster-01",
-				Revisions:         []string{"asm-1-27", "asm-1-28", "asm-1-29"},
-				ProvisioningState: "Succeeded",
+			state: UpgradeState{
+				ClusterName:          "svc-cluster-01",
+				MeshProfileRevisions: []string{"asm-1-27", "asm-1-28", "asm-1-29"},
+				ProvisioningState:    "Succeeded",
 			},
 			target:     "asm-1-30",
 			wantAction: ActionSkip,
 		},
 		{
 			name: "single digit minor not treated as newer",
-			state: ClusterState{
-				Name:              "svc-cluster-01",
-				Revisions:         []string{"asm-1-9"},
-				AvailableUpgrades: []string{"asm-1-28"},
-				ProvisioningState: "Succeeded",
+			state: UpgradeState{
+				ClusterName:            "svc-cluster-01",
+				MeshProfileRevisions:   []string{"asm-1-9"},
+				IstioAvailableUpgrades: []string{"asm-1-28"},
+				ProvisioningState:      "Succeeded",
 			},
 			target:     "asm-1-28",
 			wantAction: ActionUpgrade,
@@ -208,30 +223,186 @@ func TestDecide(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			d := Decide(tt.state, tt.target)
-			if d.Action != tt.wantAction {
-				t.Errorf("Decide() action = %s, want %s (reason: %s)", d.Action, tt.wantAction, d.Reason)
-			}
+			action := Decide(logr.Discard(), tt.state, tt.target)
+			assert.Equal(t, tt.wantAction, action, "unexpected action for %q", tt.name)
+		})
+	}
+}
+
+func TestClassify(t *testing.T) {
+	tests := []struct {
+		name     string
+		state    UpgradeState
+		target   string
+		want     scenario
+	}{
+		{
+			name: "not ready",
+			state: UpgradeState{ProvisioningState: "Failed"},
+			target: "asm-1-29",
+			want:   scenarioNotReady,
+		},
+		{
+			name: "fresh install",
+			state: UpgradeState{ProvisioningState: "Succeeded"},
+			target: "asm-1-29",
+			want:   scenarioFreshInstall,
+		},
+		{
+			name: "already at target",
+			state: UpgradeState{
+				ProvisioningState:    "Succeeded",
+				MeshProfileRevisions: []string{"asm-1-29"},
+			},
+			target: "asm-1-29",
+			want:   scenarioAlreadyAtTarget,
+		},
+		{
+			name: "mid upgrade",
+			state: UpgradeState{
+				ProvisioningState:    "Succeeded",
+				MeshProfileRevisions: []string{"asm-1-28", "asm-1-29"},
+			},
+			target: "asm-1-29",
+			want:   scenarioMidUpgrade,
+		},
+		{
+			name: "upgrade already in progress but target not yet installed",
+			state: UpgradeState{
+				ProvisioningState:      "Succeeded",
+				MeshProfileRevisions:   []string{"asm-1-28"},
+				IstioUpgradeInProgress: true,
+			},
+			target: "asm-1-29",
+			want:   scenarioNotReady,
+		},
+		{
+			name: "too many revisions",
+			state: UpgradeState{
+				ProvisioningState:    "Succeeded",
+				MeshProfileRevisions: []string{"asm-1-27", "asm-1-28", "asm-1-29"},
+			},
+			target: "asm-1-30",
+			want:   scenarioTooManyRevisions,
+		},
+		{
+			name: "stale canary",
+			state: UpgradeState{
+				ProvisioningState:      "Succeeded",
+				MeshProfileRevisions:   []string{"asm-1-28", "asm-1-29"},
+				IstioAvailableUpgrades: []string{"asm-1-30"},
+			},
+			target: "asm-1-30",
+			want:   scenarioStaleCanary,
+		},
+		{
+			name: "stale canary with unavailable target",
+			state: UpgradeState{
+				ProvisioningState:      "Succeeded",
+				MeshProfileRevisions:   []string{"asm-1-28", "asm-1-29"},
+				IstioAvailableUpgrades: []string{"asm-1-29"},
+			},
+			target: "asm-1-30",
+			want:   scenarioUpgradeUnavailable,
+		},
+		{
+			name: "downgrade single revision",
+			state: UpgradeState{
+				ProvisioningState:    "Succeeded",
+				MeshProfileRevisions: []string{"asm-1-29"},
+			},
+			target: "asm-1-28",
+			want:   scenarioDowngrade,
+		},
+		{
+			name: "downgrade multiple revisions",
+			state: UpgradeState{
+				ProvisioningState:    "Succeeded",
+				MeshProfileRevisions: []string{"asm-1-27", "asm-1-30"},
+			},
+			target: "asm-1-29",
+			want:   scenarioDowngrade,
+		},
+		{
+			name: "upgrade available",
+			state: UpgradeState{
+				ProvisioningState:      "Succeeded",
+				MeshProfileRevisions:   []string{"asm-1-28"},
+				IstioAvailableUpgrades: []string{"asm-1-29"},
+			},
+			target: "asm-1-29",
+			want:   scenarioUpgradeAvailable,
+		},
+		{
+			name: "upgrade unavailable",
+			state: UpgradeState{
+				ProvisioningState:      "Succeeded",
+				MeshProfileRevisions:   []string{"asm-1-28"},
+				IstioAvailableUpgrades: []string{"asm-1-29"},
+			},
+			target: "asm-1-30",
+			want:   scenarioUpgradeUnavailable,
+		},
+		{
+			name: "upgrade unavailable with empty available list",
+			state: UpgradeState{
+				ProvisioningState:    "Succeeded",
+				MeshProfileRevisions: []string{"asm-1-28"},
+			},
+			target: "asm-1-29",
+			want:   scenarioUpgradeUnavailable,
+		},
+		{
+			name: "3+ revisions with target present",
+			state: UpgradeState{
+				ProvisioningState:    "Succeeded",
+				MeshProfileRevisions: []string{"asm-1-27", "asm-1-28", "asm-1-29"},
+			},
+			target: "asm-1-29",
+			want:   scenarioMidUpgrade,
+		},
+		{
+			name: "upgrade in progress with two revisions including target",
+			state: UpgradeState{
+				ProvisioningState:      "Succeeded",
+				MeshProfileRevisions:   []string{"asm-1-28", "asm-1-29"},
+				IstioUpgradeInProgress: true,
+			},
+			target: "asm-1-29",
+			want:   scenarioMidUpgrade,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := classify(tt.state, tt.target)
+			assert.Equal(t, tt.want, got, "unexpected scenario for %q", tt.name)
 		})
 	}
 }
 
 func TestCompareRevisions(t *testing.T) {
 	tests := []struct {
+		name string
 		a, b string
 		want int
 	}{
-		{"asm-1-28", "asm-1-28", 0},
-		{"asm-1-29", "asm-1-28", 1},
-		{"asm-1-28", "asm-1-29", -1},
-		{"asm-1-9", "asm-1-28", -1},
-		{"asm-1-28", "asm-1-9", 1},
-		{"asm-2-1", "asm-1-99", 1},
+		{"equal revisions", "asm-1-28", "asm-1-28", 0},
+		{"a newer than b", "asm-1-29", "asm-1-28", 1},
+		{"a older than b", "asm-1-28", "asm-1-29", -1},
+		{"single digit vs double digit minor", "asm-1-9", "asm-1-28", -1},
+		{"double digit vs single digit minor", "asm-1-28", "asm-1-9", 1},
+		{"major version difference", "asm-2-1", "asm-1-99", 1},
 	}
 	for _, tt := range tests {
-		got := compareRevisions(tt.a, tt.b)
-		if (tt.want < 0 && got >= 0) || (tt.want > 0 && got <= 0) || (tt.want == 0 && got != 0) {
-			t.Errorf("compareRevisions(%q, %q) = %d, want sign %d", tt.a, tt.b, got, tt.want)
-		}
+		t.Run(tt.name, func(t *testing.T) {
+			got := compareRevisions(tt.a, tt.b)
+			if tt.want < 0 {
+				assert.Negative(t, got, "compareRevisions(%q, %q)", tt.a, tt.b)
+			} else if tt.want > 0 {
+				assert.Positive(t, got, "compareRevisions(%q, %q)", tt.a, tt.b)
+			} else {
+				assert.Zero(t, got, "compareRevisions(%q, %q)", tt.a, tt.b)
+			}
+		})
 	}
 }
