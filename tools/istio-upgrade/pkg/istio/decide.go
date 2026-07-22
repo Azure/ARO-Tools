@@ -46,7 +46,7 @@ type UpgradeState struct {
 type scenario int
 
 const (
-	scenarioNotReady          scenario = iota
+	scenarioNotReady scenario = iota
 	scenarioFreshInstall
 	scenarioAlreadyAtTarget
 	scenarioMidUpgrade

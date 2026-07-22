@@ -24,10 +24,10 @@ import (
 )
 
 type CheckResult struct {
-	Passed       bool
-	Issues       []string
-	CPUnhealthy  bool
-	GWUnhealthy  bool
+	Passed      bool
+	Issues      []string
+	CPUnhealthy bool
+	GWUnhealthy bool
 }
 
 func (c *CheckResult) addIssue(format string, args ...any) {
@@ -193,4 +193,3 @@ func CheckOrphanedWorkloads(ctx context.Context, kubeClient *KubeClient, targetR
 	}
 	return orphaned, nil
 }
-
