@@ -85,8 +85,8 @@ func DefaultUpgradeOptions() UpgradeOptions {
 		RolloutTimeout:      15 * time.Minute,
 		RolloutPollInterval: 10 * time.Second,
 		// EV2 shell step caps execution at PT1H; keep at or below 60m for graceful shutdown.
-		OverallTimeout: 60 * time.Minute,
-		MaxOrphanRetries:    3,
+		OverallTimeout:   60 * time.Minute,
+		MaxOrphanRetries: 3,
 	}
 }
 
@@ -148,11 +148,13 @@ func RunUpgrade(ctx context.Context, opts UpgradeOptions, aksClient AKSClusterCl
 
 	switch action {
 	case ActionSkip:
-		// Already at target, downgrade, or unavailable. Heals persistent drift
-		// (missing ConfigMap, stale tag webhook, un-annotated ingress) without
-		// re-running the full upgrade. Errors are logged but not returned so
-		// the cluster does not block subsequent pipeline steps.
-		return runActionSkip(ctx, logger, kubeClient, opts, target, meshProfile.Revisions)
+		return nil
+
+	case ActionReconcile:
+		// Already at target revision. Reconcile resource drift — ensures
+		// ConfigMap, tag webhook, and ingress annotations are correct.
+		// Healing errors are logged but never fail the pipeline.
+		return runReconcile(ctx, logger, kubeClient, opts, target, meshProfile.Revisions)
 
 	case ActionInstall:
 		// No mesh installed. Enables mesh via ARM, creates the MISE ext-authz
@@ -187,7 +189,7 @@ func RunUpgrade(ctx context.Context, opts UpgradeOptions, aksClient AKSClusterCl
 	}
 }
 
-func runActionSkip(ctx context.Context, logger logr.Logger, kubeClient *KubeClient, opts UpgradeOptions, target string, currentRevisions []string) error {
+func runReconcile(ctx context.Context, logger logr.Logger, kubeClient *KubeClient, opts UpgradeOptions, target string, currentRevisions []string) error {
 	if !slices.Contains(currentRevisions, target) {
 		logger.Info("Installed revision does not match config target",
 			"installed", currentRevisions,

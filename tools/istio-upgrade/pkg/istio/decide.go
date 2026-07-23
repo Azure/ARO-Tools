@@ -30,6 +30,7 @@ const (
 	ActionSkip              Action = "skip"
 	ActionResume            Action = "resume"
 	ActionCleanupAndUpgrade Action = "cleanup-and-upgrade"
+	ActionReconcile         Action = "reconcile"
 )
 
 // UpgradeState combines cluster provisioning state with Istio mesh profile
@@ -130,9 +131,9 @@ func Decide(logger logr.Logger, state UpgradeState, target string) Action {
 			"target", target)
 		return ActionInstall
 	case scenarioAlreadyAtTarget:
-		logger.Info("Already at svc.istio.versions target",
+		logger.Info("Already at target -- reconciling expected resource state",
 			"target", target)
-		return ActionSkip
+		return ActionReconcile
 	case scenarioMidUpgrade:
 		logger.Info("Mid-upgrade detected, resuming",
 			"installed", state.MeshProfileRevisions,

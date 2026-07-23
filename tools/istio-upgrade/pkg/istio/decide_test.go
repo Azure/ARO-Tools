@@ -37,7 +37,7 @@ func TestDecide(t *testing.T) {
 				ProvisioningState:      "Succeeded",
 			},
 			target:     "asm-1-28",
-			wantAction: ActionSkip,
+			wantAction: ActionReconcile,
 		},
 		{
 			name: "upgrade available",
@@ -142,7 +142,7 @@ func TestDecide(t *testing.T) {
 				ProvisioningState:      "Succeeded",
 			},
 			target:     "asm-1-28",
-			wantAction: ActionSkip,
+			wantAction: ActionReconcile,
 		},
 		{
 			name: "ARM default behind config - upgrade to reach target",
@@ -231,20 +231,20 @@ func TestDecide(t *testing.T) {
 
 func TestClassify(t *testing.T) {
 	tests := []struct {
-		name     string
-		state    UpgradeState
-		target   string
-		want     scenario
+		name   string
+		state  UpgradeState
+		target string
+		want   scenario
 	}{
 		{
-			name: "not ready",
-			state: UpgradeState{ProvisioningState: "Failed"},
+			name:   "not ready",
+			state:  UpgradeState{ProvisioningState: "Failed"},
 			target: "asm-1-29",
 			want:   scenarioNotReady,
 		},
 		{
-			name: "fresh install",
-			state: UpgradeState{ProvisioningState: "Succeeded"},
+			name:   "fresh install",
+			state:  UpgradeState{ProvisioningState: "Succeeded"},
 			target: "asm-1-29",
 			want:   scenarioFreshInstall,
 		},

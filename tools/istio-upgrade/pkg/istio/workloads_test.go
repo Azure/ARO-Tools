@@ -531,7 +531,7 @@ func TestCreateRevisionConfigMap_UpdatePreservesAnnotations(t *testing.T) {
 			Labels:    map[string]string{"istio.io/rev": "asm-1-29"},
 			Annotations: map[string]string{
 				"kubectl.kubernetes.io/last-applied-configuration": "{}",
-				"custom-annotation":                                "keep-me",
+				"custom-annotation": "keep-me",
 			},
 		},
 		Data: map[string]string{"mesh": "old-data"},
@@ -865,26 +865,26 @@ func TestCheckWorkloadPending(t *testing.T) {
 		want               string
 	}{
 		{
-			name:         "zero desired is not pending",
-			kind:         "Deployment", workloadName: "app",
+			name: "zero desired is not pending",
+			kind: "Deployment", workloadName: "app",
 			desired: 0, updated: 0, ready: 0, gen: 1, observed: 1,
 			want: "",
 		},
 		{
-			name:         "generation lag",
-			kind:         "Deployment", workloadName: "app",
+			name: "generation lag",
+			kind: "Deployment", workloadName: "app",
 			desired: 2, updated: 2, ready: 2, gen: 3, observed: 2,
 			want: "Deployment/app(generation-lag)",
 		},
 		{
-			name:         "partial ready",
-			kind:         "StatefulSet", workloadName: "db",
+			name: "partial ready",
+			kind: "StatefulSet", workloadName: "db",
 			desired: 3, updated: 3, ready: 1, gen: 1, observed: 1,
 			want: "StatefulSet/db(1/3)",
 		},
 		{
-			name:         "fully ready",
-			kind:         "DaemonSet", workloadName: "agent",
+			name: "fully ready",
+			kind: "DaemonSet", workloadName: "agent",
 			desired: 5, updated: 5, ready: 5, gen: 2, observed: 2,
 			want: "",
 		},
