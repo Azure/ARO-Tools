@@ -134,11 +134,12 @@ func Decide(logger logr.Logger, state UpgradeState, target string) Action {
 	switch sc {
 	case scenarioNotReady:
 		if state.IstioUpgradeInProgress {
-			logger.Info("Skipping: ARM upgrade still provisioning, will retry",
+			logger.Info("Skipping: ARM upgrade to a different revision is in progress, will retry on next pipeline run",
 				"provisioningState", state.ProvisioningState,
-				"installed", state.MeshProfileRevisions)
+				"installed", state.MeshProfileRevisions,
+				"configTarget", target)
 		} else {
-			logger.Info("Skipping: cluster not ready",
+			logger.Info("Skipping: cluster provisioning has not succeeded",
 				"provisioningState", state.ProvisioningState)
 		}
 		return ActionSkip
