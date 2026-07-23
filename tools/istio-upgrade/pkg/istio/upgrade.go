@@ -201,15 +201,15 @@ func runReconcile(ctx context.Context, logger logr.Logger, kubeClient *KubeClien
 		return nil
 	}
 	if err := CreateRevisionConfigMap(ctx, kubeClient, target); err != nil {
-		logger.Error(err, "Failed to ensure ConfigMap on skip (non-fatal)")
+		logger.Error(err, "Failed to ensure ConfigMap on reconcile (non-fatal)")
 	}
 	if opts.Tag != "" {
 		if err := EnsureRevisionTag(ctx, kubeClient, opts.Tag, target); err != nil {
-			logger.Error(err, "Failed to ensure tag webhook on skip (non-fatal)")
+			logger.Error(err, "Failed to ensure tag webhook on reconcile (non-fatal)")
 		}
 	}
 	if err := ensureIngress(ctx, kubeClient, opts); err != nil {
-		logger.Error(err, "Failed to ensure ingress on skip (non-fatal)")
+		logger.Error(err, "Failed to ensure ingress on reconcile (non-fatal)")
 	}
 	return nil
 }
