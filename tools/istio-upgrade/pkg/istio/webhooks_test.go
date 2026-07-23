@@ -16,6 +16,7 @@ package istio
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -23,7 +24,9 @@ import (
 
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
+	k8stesting "k8s.io/client-go/testing"
 	"k8s.io/utils/ptr"
 )
 
@@ -311,4 +314,15 @@ func TestEnsureRevisionTag_UpdatePathNilService(t *testing.T) {
 	err := EnsureRevisionTag(context.Background(), kubeClient, "prod-stable", "asm-1-29")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no service-based config")
+}
+
+func TestEnsureRevisionTag_GetWebhookNonNotFoundError(t *testing.T) {
+	client := fake.NewSimpleClientset()
+	client.PrependReactor("get", "mutatingwebhookconfigurations", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, fmt.Errorf("forbidden: insufficient permissions")
+	})
+
+	kubeClient := NewKubeClientFromInterface(client)
+	err := EnsureRevisionTag(context.Background(), kubeClient, "prod-stable", "asm-1-29")
+	assert.ErrorContains(t, err, "forbidden: insufficient permissions")
 }

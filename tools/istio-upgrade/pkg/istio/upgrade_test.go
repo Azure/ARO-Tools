@@ -28,6 +28,7 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
@@ -1279,6 +1280,104 @@ func TestRunUpgrade_DirectRevisionRollbackUpdatesLabels(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "asm-1-28", ns.Labels["istio.io/rev"],
 		"rollback should revert namespace label to old revision")
+}
+
+func TestStableRevisionFrom(t *testing.T) {
+	tests := []struct {
+		name      string
+		revisions []string
+		exclude   string
+		want      string
+	}{
+		{
+			name:      "picks older when ordered ascending",
+			revisions: []string{"asm-1-28", "asm-1-29"},
+			exclude:   "asm-1-29",
+			want:      "asm-1-28",
+		},
+		{
+			name:      "picks older when ordered descending",
+			revisions: []string{"asm-1-29", "asm-1-28"},
+			exclude:   "asm-1-29",
+			want:      "asm-1-28",
+		},
+		{
+			name:      "picks lowest among three",
+			revisions: []string{"asm-1-29", "asm-1-27", "asm-1-28"},
+			exclude:   "asm-1-29",
+			want:      "asm-1-27",
+		},
+		{
+			name:      "only excluded revision",
+			revisions: []string{"asm-1-29"},
+			exclude:   "asm-1-29",
+			want:      "",
+		},
+		{
+			name:      "empty revisions",
+			revisions: nil,
+			exclude:   "asm-1-29",
+			want:      "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := stableRevisionFrom(tt.revisions, tt.exclude)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestRunReconcile_SkipsWhenRevisionMismatch(t *testing.T) {
+	tc := newTestCluster("asm-1-29").
+		withRevisions("asm-1-28").
+		build(t)
+
+	// Call runReconcile directly with revisions that don't contain the target.
+	// This is a defensive path — Decide() would not normally produce this state.
+	ctx := testCtx(t)
+	logger := logr.FromContextOrDiscard(ctx)
+	err := runReconcile(ctx, logger, tc.kube, tc.opts, "asm-1-29", []string{"asm-1-28"})
+	require.NoError(t, err)
+
+	// Should not have created a ConfigMap since reconcile bailed early
+	_, cmErr := tc.fake.CoreV1().ConfigMaps("aks-istio-system").Get(
+		context.Background(), "istio-shared-configmap-asm-1-29", metav1.GetOptions{})
+	assert.True(t, apierrors.IsNotFound(cmErr), "reconcile with mismatched revision should skip ConfigMap creation")
+}
+
+func TestRunReconcile_NonFatalErrors(t *testing.T) {
+	tc := newTestCluster("asm-1-29").
+		withRevisions("asm-1-29").
+		withTag("prod-stable").
+		build(t)
+
+	// Make ConfigMap create fail
+	tc.fake.PrependReactor("create", "configmaps", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, fmt.Errorf("configmap create error")
+	})
+	// Make webhook get fail (for EnsureRevisionTag)
+	tc.fake.PrependReactor("get", "mutatingwebhookconfigurations", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, fmt.Errorf("webhook error")
+	})
+	// Make service list fail (for ensureIngress)
+	tc.fake.PrependReactor("list", "services", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, fmt.Errorf("service list error")
+	})
+
+	tc.opts.IngressIPName = "my-ip"
+	tc.opts.RegionRG = "my-rg"
+
+	ctx := testCtx(t)
+	logger := logr.FromContextOrDiscard(ctx)
+	err := runReconcile(ctx, logger, tc.kube, tc.opts, "asm-1-29", []string{"asm-1-29"})
+	require.NoError(t, err, "reconcile errors are non-fatal and should not fail the pipeline")
+}
+
+func TestStableRevisionFrom_AllSameAsExclude(t *testing.T) {
+	// When all candidates match the exclude string, stableRevisionFrom returns ""
+	got := stableRevisionFrom([]string{"asm-1-29", "asm-1-29"}, "asm-1-29")
+	assert.Equal(t, "", got, "should return empty when all revisions match exclude")
 }
 
 func TestEnsureIngress_PartialConfigErrors(t *testing.T) {

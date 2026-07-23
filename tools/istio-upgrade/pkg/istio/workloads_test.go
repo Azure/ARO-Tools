@@ -33,6 +33,54 @@ import (
 	"k8s.io/utils/ptr"
 )
 
+func TestMigrateWorkloads_TagError(t *testing.T) {
+	fakeClient := fake.NewSimpleClientset(
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "aks-istio-system"}},
+	)
+	fakeClient.PrependReactor("get", "mutatingwebhookconfigurations", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, fmt.Errorf("webhook API unavailable")
+	})
+
+	kubeClient := NewKubeClientFromInterface(fakeClient)
+	opts := UpgradeOptions{Tag: "prod-stable", RolloutTimeout: time.Second, RolloutPollInterval: time.Millisecond}
+	err := migrateWorkloads(context.Background(), kubeClient, opts, "asm-1-29")
+	assert.ErrorContains(t, err, "failed to flip revision tag")
+	assert.ErrorContains(t, err, "webhook API unavailable")
+}
+
+func TestMigrateWorkloads_RolloutError(t *testing.T) {
+	fakeClient := fake.NewSimpleClientset(
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "aks-istio-system"}},
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "app-ns", Labels: map[string]string{"istio.io/rev": "asm-1-29"}}},
+		&appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{Name: "web", Namespace: "app-ns"},
+			Spec:       appsv1.DeploymentSpec{Replicas: ptr.To[int32](1)},
+			Status:     appsv1.DeploymentStatus{Replicas: 1, UpdatedReplicas: 0, ReadyReplicas: 0, ObservedGeneration: 1},
+		},
+	)
+
+	kubeClient := NewKubeClientFromInterface(fakeClient)
+	opts := UpgradeOptions{RolloutTimeout: 200 * time.Millisecond, RolloutPollInterval: 50 * time.Millisecond}
+	err := migrateWorkloads(context.Background(), kubeClient, opts, "asm-1-29")
+	assert.ErrorContains(t, err, "rollout convergence failed")
+}
+
+func TestMigrateWorkloads_LabelError(t *testing.T) {
+	fakeClient := fake.NewSimpleClientset(
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "aks-istio-system"}},
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "app-ns", Labels: map[string]string{"istio.io/rev": "asm-1-28"}}},
+	)
+	fakeClient.PrependReactor("patch", "namespaces", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, fmt.Errorf("namespace patch forbidden")
+	})
+
+	kubeClient := NewKubeClientFromInterface(fakeClient)
+	opts := UpgradeOptions{RolloutTimeout: time.Second, RolloutPollInterval: time.Millisecond}
+	err := migrateWorkloads(context.Background(), kubeClient, opts, "asm-1-29")
+	assert.ErrorContains(t, err, "failed to update namespace labels")
+	assert.ErrorContains(t, err, "namespace patch forbidden")
+}
+
 func TestGetMeshNamespaces(t *testing.T) {
 	kubeClient := NewKubeClientFromInterface(fake.NewSimpleClientset(
 		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "app-ns", Labels: map[string]string{"istio.io/rev": "asm-1-28"}}},

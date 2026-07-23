@@ -16,6 +16,7 @@ package istio
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -28,6 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
+	k8stesting "k8s.io/client-go/testing"
 	"k8s.io/utils/ptr"
 )
 
@@ -375,4 +377,193 @@ func TestCheckOrphanedWorkloads_NoRetiringRevisions(t *testing.T) {
 	orphaned, err := CheckOrphanedWorkloads(context.Background(), kubeClient, "asm-1-29", []string{"asm-1-29"})
 	require.NoError(t, err)
 	assert.Empty(t, orphaned)
+}
+
+func TestNamespaceExists_NonNotFoundError(t *testing.T) {
+	client := fake.NewSimpleClientset()
+	client.PrependReactor("get", "namespaces", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, fmt.Errorf("API server unavailable")
+	})
+
+	kubeClient := NewKubeClientFromInterface(client)
+	_, err := namespaceExists(context.Background(), kubeClient, "aks-istio-system")
+	assert.ErrorContains(t, err, "API server unavailable")
+}
+
+func TestVerifyUpgrade_ConfigMapGetError(t *testing.T) {
+	client := fake.NewSimpleClientset(
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "aks-istio-system"}},
+	)
+	client.PrependReactor("get", "configmaps", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, fmt.Errorf("etcd timeout")
+	})
+
+	kubeClient := NewKubeClientFromInterface(client)
+	_, err := VerifyUpgrade(context.Background(), kubeClient, "asm-1-29", "")
+	assert.ErrorContains(t, err, "failed to get ConfigMap")
+	assert.ErrorContains(t, err, "etcd timeout")
+}
+
+func TestVerifyUpgrade_TagWebhookGetError(t *testing.T) {
+	client := fake.NewSimpleClientset(
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "aks-istio-system"}},
+		&corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{Name: "istio-shared-configmap-asm-1-29", Namespace: "aks-istio-system"},
+		},
+	)
+	client.PrependReactor("get", "mutatingwebhookconfigurations", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, fmt.Errorf("webhook API error")
+	})
+
+	kubeClient := NewKubeClientFromInterface(client)
+	_, err := VerifyUpgrade(context.Background(), kubeClient, "asm-1-29", "prod-stable")
+	assert.ErrorContains(t, err, "failed to get tag webhook")
+	assert.ErrorContains(t, err, "webhook API error")
+}
+
+func TestCheckOrphanedWorkloads_PodListError(t *testing.T) {
+	client := fake.NewSimpleClientset(
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "app-ns", Labels: map[string]string{"istio.io/rev": "asm-1-29"}}},
+	)
+	client.PrependReactor("list", "pods", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, fmt.Errorf("pod list denied")
+	})
+
+	kubeClient := NewKubeClientFromInterface(client)
+	_, err := CheckOrphanedWorkloads(context.Background(), kubeClient, "asm-1-29", []string{"asm-1-28", "asm-1-29"})
+	assert.ErrorContains(t, err, "pod list denied")
+}
+
+func TestHealthCheck_NamespaceCheckError(t *testing.T) {
+	client := fake.NewSimpleClientset()
+	client.PrependReactor("get", "namespaces", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, fmt.Errorf("API server down")
+	})
+
+	kubeClient := NewKubeClientFromInterface(client)
+	_, err := HealthCheck(context.Background(), kubeClient)
+	assert.ErrorContains(t, err, "API server down")
+}
+
+func TestHealthCheck_ControlPlaneCheckError(t *testing.T) {
+	client := fake.NewSimpleClientset(
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "aks-istio-system"}},
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "aks-istio-ingress"}},
+	)
+	client.PrependReactor("list", "deployments", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, fmt.Errorf("deployment list forbidden")
+	})
+
+	kubeClient := NewKubeClientFromInterface(client)
+	_, err := HealthCheck(context.Background(), kubeClient)
+	assert.ErrorContains(t, err, "control plane check")
+	assert.ErrorContains(t, err, "deployment list forbidden")
+}
+
+func TestHealthCheck_IngressCheckError(t *testing.T) {
+	client := fake.NewSimpleClientset(
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "aks-istio-system"}},
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "aks-istio-ingress"}},
+	)
+	client.PrependReactor("list", "services", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		if action.GetNamespace() == "aks-istio-ingress" {
+			return true, nil, fmt.Errorf("service list timeout")
+		}
+		return false, nil, nil
+	})
+
+	kubeClient := NewKubeClientFromInterface(client)
+	_, err := HealthCheck(context.Background(), kubeClient)
+	assert.ErrorContains(t, err, "ingress check")
+	assert.ErrorContains(t, err, "service list timeout")
+}
+
+func TestVerifyUpgrade_NamespaceListError(t *testing.T) {
+	client := fake.NewSimpleClientset(
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "aks-istio-system"}},
+		&corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{Name: "istio-shared-configmap-asm-1-29", Namespace: "aks-istio-system"},
+		},
+	)
+	client.PrependReactor("list", "namespaces", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, fmt.Errorf("namespace list error")
+	})
+
+	kubeClient := NewKubeClientFromInterface(client)
+	_, err := VerifyUpgrade(context.Background(), kubeClient, "asm-1-29", "")
+	assert.ErrorContains(t, err, "failed to list mesh namespaces")
+	assert.ErrorContains(t, err, "namespace list error")
+}
+
+func TestVerifyUpgrade_PodListError(t *testing.T) {
+	client := fake.NewSimpleClientset(
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "aks-istio-system"}},
+		&corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{Name: "istio-shared-configmap-asm-1-29", Namespace: "aks-istio-system"},
+		},
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "app-ns", Labels: map[string]string{"istio.io/rev": "asm-1-29"}}},
+	)
+	client.PrependReactor("list", "pods", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, fmt.Errorf("pod list forbidden")
+	})
+
+	kubeClient := NewKubeClientFromInterface(client)
+	_, err := VerifyUpgrade(context.Background(), kubeClient, "asm-1-29", "")
+	assert.ErrorContains(t, err, "failed to verify pods")
+	assert.ErrorContains(t, err, "pod list forbidden")
+}
+
+func TestVerifyUpgrade_NamespaceLabelMismatchWithoutTag(t *testing.T) {
+	client := fake.NewSimpleClientset(
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "aks-istio-system"}},
+		&corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{Name: "istio-shared-configmap-asm-1-29", Namespace: "aks-istio-system"},
+		},
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "app-ns", Labels: map[string]string{"istio.io/rev": "asm-1-28"}}},
+	)
+
+	kubeClient := NewKubeClientFromInterface(client)
+	result, err := VerifyUpgrade(context.Background(), kubeClient, "asm-1-29", "")
+	require.NoError(t, err)
+	assert.False(t, result.Passed)
+	assert.Len(t, result.Issues, 1)
+	assert.Contains(t, result.Issues[0], "app-ns has label asm-1-28")
+}
+
+func TestVerifyUpgrade_NamespaceLabelMismatchWithTag(t *testing.T) {
+	client := fake.NewSimpleClientset(
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "aks-istio-system"}},
+		&corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{Name: "istio-shared-configmap-asm-1-29", Namespace: "aks-istio-system"},
+		},
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "app-ns", Labels: map[string]string{"istio.io/rev": "asm-1-27"}}},
+		&admissionregistrationv1.MutatingWebhookConfiguration{
+			ObjectMeta: metav1.ObjectMeta{Name: "istio-revision-tag-prod-stable-aks-istio-system"},
+			Webhooks: []admissionregistrationv1.MutatingWebhook{{
+				Name: "rev.namespace.sidecar-injector.istio.io",
+				ClientConfig: admissionregistrationv1.WebhookClientConfig{
+					Service: &admissionregistrationv1.ServiceReference{Name: "istiod-asm-1-29", Namespace: "aks-istio-system"},
+				},
+			}},
+		},
+	)
+
+	kubeClient := NewKubeClientFromInterface(client)
+	result, err := VerifyUpgrade(context.Background(), kubeClient, "asm-1-29", "prod-stable")
+	require.NoError(t, err)
+	assert.False(t, result.Passed)
+	require.Len(t, result.Issues, 1)
+	assert.Contains(t, result.Issues[0], "asm-1-29 or prod-stable")
+}
+
+func TestCheckOrphanedWorkloads_NamespaceListError(t *testing.T) {
+	client := fake.NewSimpleClientset()
+	client.PrependReactor("list", "namespaces", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, fmt.Errorf("namespace list denied")
+	})
+
+	kubeClient := NewKubeClientFromInterface(client)
+	_, err := CheckOrphanedWorkloads(context.Background(), kubeClient, "asm-1-29", []string{"asm-1-28", "asm-1-29"})
+	assert.ErrorContains(t, err, "failed to list mesh namespaces")
+	assert.ErrorContains(t, err, "namespace list denied")
 }
