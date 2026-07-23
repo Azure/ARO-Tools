@@ -58,11 +58,19 @@ const (
 	scenarioUpgradeUnavailable
 )
 
+// classify is a pure function that maps cluster state to a scenario enum. No I/O,
+// no side effects. Called once per RunUpgrade invocation to determine what action
+// to take. The scenario enum decouples state classification from action selection,
+// keeping Decide() a simple switch.
 func classify(state UpgradeState, target string) scenario {
 	if state.ProvisioningState != "Succeeded" {
 		return scenarioNotReady
 	}
 
+	// ARM is provisioning a mesh change. If our target is already in the revision
+	// list, the canary CP is installed and we can resume post-install. If not, ARM
+	// is upgrading to a different revision — skip and let EV2 retry after it finishes.
+	// Returning an error here would block the pipeline on someone else's upgrade.
 	if state.IstioUpgradeInProgress {
 		if slices.Contains(state.MeshProfileRevisions, target) {
 			return scenarioMidUpgrade
@@ -87,10 +95,16 @@ func classify(state UpgradeState, target string) scenario {
 	if hasTarget && !hasOther {
 		return scenarioAlreadyAtTarget
 	}
+	// Two CPs installed, target is one of them. This is the same cluster state as
+	// the ARM-in-progress path above, just reached differently: ARM finished the
+	// canary provisioning but our post-install didn't complete. Same action —
+	// runCanaryPostInstall is idempotent.
 	if hasTarget && hasOther {
 		return scenarioMidUpgrade
 	}
 
+	// AKS supports at most 2 mesh revisions (one stable + one canary). 3+ indicates
+	// an AKS bug or data corruption. Automated cleanup could make it worse.
 	if len(state.MeshProfileRevisions) > 2 {
 		return scenarioTooManyRevisions
 	}
@@ -104,7 +118,9 @@ func classify(state UpgradeState, target string) scenario {
 		return scenarioUpgradeUnavailable
 	}
 
-	// Single revision with target available — normal upgrade path.
+	// At this point: target is newer than what's installed, available for upgrade,
+	// and not yet installed. The only remaining question is whether we start clean
+	// (1 revision) or need to clean up a stale canary first (2 revisions).
 	if len(state.MeshProfileRevisions) == 1 {
 		return scenarioUpgradeAvailable
 	}
@@ -173,6 +189,10 @@ func Decide(logger logr.Logger, state UpgradeState, target string) Action {
 	}
 }
 
+// compareRevisions compares AKS Istio revision strings segment-by-segment.
+// Format is asm-{major}-{minor}. Numeric segments are compared as integers,
+// not lexicographically — so asm-1-9 < asm-1-29 (9 < 29), which string
+// comparison would get wrong.
 func compareRevisions(a, b string) int {
 	aParts := strings.Split(a, "-")
 	bParts := strings.Split(b, "-")

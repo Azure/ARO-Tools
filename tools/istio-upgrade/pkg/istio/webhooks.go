@@ -32,6 +32,10 @@ func revisionTagWebhookName(tagName string) string {
 	return fmt.Sprintf("istio-revision-tag-%s-%s", tagName, istioSystemNamespace)
 }
 
+// EnsureRevisionTag creates or updates the tag webhook — equivalent to istioctl tag set.
+// The tag webhook is the indirection layer: namespaces label themselves with a tag (e.g.
+// prod-stable), the webhook routes injection to the right istiod. During upgrade, only
+// the webhook changes — namespace labels stay stable.
 func EnsureRevisionTag(ctx context.Context, kubeClient *KubeClient, tagName, newRevision string) error {
 	logger := logr.FromContextOrDiscard(ctx).WithName("revision-tag")
 	webhookName := revisionTagWebhookName(tagName)
