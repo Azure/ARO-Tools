@@ -398,7 +398,6 @@ func stableRevisionFrom(revisions []string, exclude string) string {
 // migration → health check → orphan guard → ARM complete (point of no return) →
 // cleanup old ConfigMap + final verification.
 func runCanaryPostInstall(ctx context.Context, logger logr.Logger, aksClient AKSClusterClient, kubeClient *KubeClient, opts UpgradeOptions, target string, previousRevisions []string) error {
-	// Step 1: ensure MISE ext-authz ConfigMap for the target revision
 	logger.Info("Step 1/9: Ensuring MISE ext-authz ConfigMap")
 	if err := CreateRevisionConfigMap(ctx, kubeClient, target); err != nil {
 		return fmt.Errorf("failed to ensure ConfigMap on resume: %w", err)
@@ -418,28 +417,27 @@ func runCanaryPostInstall(ctx context.Context, logger logr.Logger, aksClient AKS
 		}
 	}
 
-	// Step 2: verify both control planes are healthy, then flip the tag webhook
-	// to route injection requests to the new istiod. This is what makes new pods
-	// get the new sidecar — namespace labels stay unchanged.
+	// Verify both control planes are healthy, then flip the tag webhook to route
+	// injection requests to the new istiod. This is what makes new pods get the
+	// new sidecar — namespace labels stay unchanged.
 	logger.Info("Step 3/9: Verifying control plane health and flipping tag webhook")
 	if err := verifyControlPlaneAndTag(ctx, kubeClient, opts.Tag, target); err != nil {
 		return rollbackAndReturn(ctx, logger, kubeClient, opts, previousRevisions, target, err)
 	}
 
-	// Step 3: pin ingress gateway to static PIP
 	logger.Info("Step 4/9: Ensuring ingress gateway annotations")
 	if err := ensureIngress(ctx, kubeClient, opts); err != nil {
 		return rollbackAndReturn(ctx, logger, kubeClient, opts, previousRevisions, target, err)
 	}
 
-	// Step 4: rolling-restart all mesh workloads to pick up the new sidecar,
-	// then wait for rollout convergence in each namespace
+	// Rolling-restart all mesh workloads to pick up the new sidecar,
+	// then wait for rollout convergence in each namespace.
 	logger.Info("Step 5/9: Migrating workloads to target revision")
 	if err := migrateWorkloads(ctx, kubeClient, opts, target); err != nil {
 		return rollbackAndReturn(ctx, logger, kubeClient, opts, previousRevisions, target, err)
 	}
 
-	// Step 5: health check — CP readiness, ingress gateway, namespace coverage.
+	// Health check — CP readiness, ingress gateway, namespace coverage.
 	// Must pass before we remove the old control plane (irreversible).
 	logger.Info("Step 6/9: Running health check")
 	health, err := HealthCheck(ctx, kubeClient)
@@ -452,10 +450,10 @@ func runCanaryPostInstall(ctx context.Context, logger logr.Logger, aksClient AKS
 	}
 	logger.Info("Health check passed -- checking for orphaned workloads before completing canary")
 
-	// Step 6: orphan guard — verify no pods are still running old sidecars.
-	// Retries up to MaxOrphanRetries because pods can lag behind the rolling
-	// restart (e.g. slow scheduling). Must pass before ARM complete because
-	// removing the old CP orphans any pods still on old sidecars (mTLS certs expire).
+	// Orphan guard — verify no pods are still running old sidecars. Retries up to
+	// MaxOrphanRetries because pods can lag behind the rolling restart. Must pass
+	// before ARM complete because removing the old CP orphans any pods still on
+	// old sidecars (mTLS certs expire).
 	logger.Info("Step 7/9: Running orphan guard")
 	if err := retireOrphanedWorkloads(ctx, logger, kubeClient, target, previousRevisions, opts); err != nil {
 		return rollbackAndReturn(ctx, logger, kubeClient, opts, previousRevisions, target, err)
@@ -475,7 +473,6 @@ func runCanaryPostInstall(ctx context.Context, logger logr.Logger, aksClient AKS
 		return fmt.Errorf("failed to complete canary: %w", err)
 	}
 
-	// Step 9: clean up old revision's ConfigMap (best-effort)
 	logger.Info("Step 9/9: Cleaning up old ConfigMap and running final verification")
 	for _, oldRev := range previousRevisions {
 		if oldRev != target {
@@ -485,7 +482,7 @@ func runCanaryPostInstall(ctx context.Context, logger logr.Logger, aksClient AKS
 		}
 	}
 
-	// Step 10: final verification — confirms single revision, correct tag, all pods on target
+	// Final verification — confirms single revision, correct tag, all pods on target.
 	verification, err := VerifyUpgrade(ctx, kubeClient, target, opts.Tag)
 	if err != nil {
 		return fmt.Errorf("upgrade verification failed: %w", err)
