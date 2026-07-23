@@ -107,6 +107,242 @@ func baseOpts() UpgradeOptions {
 	return opts
 }
 
+type testCluster struct {
+	opts UpgradeOptions
+	aks  *fakeAKSClient
+	kube *KubeClient
+	fake *fake.Clientset
+}
+
+type testClusterBuilder struct {
+	target            string
+	provisioningState string
+	revisions         []string
+	availableUpgrades []string
+	upgradeInProgress bool
+	tag               string
+	stopAfter         StopAfter
+	maxOrphanRetries  int
+	objects           []runtime.Object
+	aksErrors         map[string]error
+}
+
+func newTestCluster(target string) *testClusterBuilder {
+	return &testClusterBuilder{
+		target:            target,
+		provisioningState: "Succeeded",
+		aksErrors:         make(map[string]error),
+	}
+}
+
+//nolint:unused // proof-of-concept builder, remaining methods will be used as more tests migrate
+func (b *testClusterBuilder) withProvisioningState(state string) *testClusterBuilder {
+	b.provisioningState = state
+	return b
+}
+
+func (b *testClusterBuilder) withRevisions(revs ...string) *testClusterBuilder {
+	b.revisions = revs
+	return b
+}
+
+func (b *testClusterBuilder) withAvailableUpgrades(upgrades ...string) *testClusterBuilder {
+	b.availableUpgrades = upgrades
+	return b
+}
+
+//nolint:unused // proof-of-concept builder, remaining methods will be used as more tests migrate
+func (b *testClusterBuilder) withUpgradeInProgress() *testClusterBuilder {
+	b.upgradeInProgress = true
+	return b
+}
+
+//nolint:unused // proof-of-concept builder, remaining methods will be used as more tests migrate
+func (b *testClusterBuilder) withTag(tag string) *testClusterBuilder {
+	b.tag = tag
+	return b
+}
+
+func (b *testClusterBuilder) withStopAfter(stop StopAfter) *testClusterBuilder {
+	b.stopAfter = stop
+	return b
+}
+
+//nolint:unused // proof-of-concept builder, remaining methods will be used as more tests migrate
+func (b *testClusterBuilder) withMaxOrphanRetries(n int) *testClusterBuilder {
+	b.maxOrphanRetries = n
+	return b
+}
+
+//nolint:unused // proof-of-concept builder, remaining methods will be used as more tests migrate
+func (b *testClusterBuilder) withNamespace(name, revLabel string) *testClusterBuilder {
+	b.objects = append(b.objects, &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Labels: map[string]string{"istio.io/rev": revLabel}},
+	})
+	return b
+}
+
+//nolint:unused // proof-of-concept builder, remaining methods will be used as more tests migrate
+func (b *testClusterBuilder) withDeployment(ns, name string, replicas int32) *testClusterBuilder {
+	b.objects = append(b.objects, &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns},
+		Spec:       appsv1.DeploymentSpec{Replicas: ptr.To(replicas)},
+		Status:     appsv1.DeploymentStatus{UpdatedReplicas: replicas, ReadyReplicas: replicas},
+	})
+	return b
+}
+
+//nolint:unused // proof-of-concept builder, remaining methods will be used as more tests migrate
+func (b *testClusterBuilder) withPodOnRevision(ns, name, revision string, owners ...metav1.OwnerReference) *testClusterBuilder {
+	b.objects = append(b.objects, &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name, Namespace: ns,
+			Annotations:     map[string]string{"sidecar.istio.io/status": fmt.Sprintf(`{"revision":"%s"}`, revision)},
+			OwnerReferences: owners,
+		},
+		Status: corev1.PodStatus{Phase: corev1.PodRunning},
+	})
+	return b
+}
+
+//nolint:unused // proof-of-concept builder, remaining methods will be used as more tests migrate
+func (b *testClusterBuilder) withReplicaSet(ns, name, deployName string) *testClusterBuilder {
+	b.objects = append(b.objects, &appsv1.ReplicaSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name, Namespace: ns,
+			OwnerReferences: []metav1.OwnerReference{{Name: deployName, Kind: "Deployment", APIVersion: "apps/v1", Controller: ptr.To(true)}},
+		},
+	})
+	return b
+}
+
+//nolint:unused // proof-of-concept builder, remaining methods will be used as more tests migrate
+func (b *testClusterBuilder) withRevisionWebhook(revision string) *testClusterBuilder {
+	b.objects = append(b.objects, &admissionregistrationv1.MutatingWebhookConfiguration{
+		ObjectMeta: metav1.ObjectMeta{Name: fmt.Sprintf("istio-sidecar-injector-%s-aks-istio-system", revision)},
+		Webhooks: []admissionregistrationv1.MutatingWebhook{
+			{
+				Name: "rev.namespace.sidecar-injector.istio.io",
+				ClientConfig: admissionregistrationv1.WebhookClientConfig{
+					CABundle: []byte(fmt.Sprintf("ca-bundle-%s", revision)),
+					Service:  &admissionregistrationv1.ServiceReference{Name: fmt.Sprintf("istiod-%s", revision), Namespace: "aks-istio-system"},
+				},
+			},
+		},
+	})
+	return b
+}
+
+//nolint:unused // proof-of-concept builder, remaining methods will be used as more tests migrate
+func (b *testClusterBuilder) withTagWebhook(tag, pointsAtRevision string) *testClusterBuilder {
+	b.objects = append(b.objects, &admissionregistrationv1.MutatingWebhookConfiguration{
+		ObjectMeta: metav1.ObjectMeta{Name: fmt.Sprintf("istio-revision-tag-%s-aks-istio-system", tag)},
+		Webhooks: []admissionregistrationv1.MutatingWebhook{
+			{
+				Name: "rev.namespace.sidecar-injector.istio.io",
+				ClientConfig: admissionregistrationv1.WebhookClientConfig{
+					CABundle: []byte(fmt.Sprintf("ca-bundle-%s", pointsAtRevision)),
+					Service:  &admissionregistrationv1.ServiceReference{Name: fmt.Sprintf("istiod-%s", pointsAtRevision), Namespace: "aks-istio-system"},
+				},
+			},
+		},
+	})
+	return b
+}
+
+func (b *testClusterBuilder) withHealthyGateway() *testClusterBuilder {
+	b.objects = append(b.objects,
+		&corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{Name: "aks-istio-ingressgateway-external", Namespace: "aks-istio-ingress"},
+			Spec:       corev1.ServiceSpec{Type: corev1.ServiceTypeLoadBalancer, Selector: map[string]string{"app": "gw"}},
+			Status:     corev1.ServiceStatus{LoadBalancer: corev1.LoadBalancerStatus{Ingress: []corev1.LoadBalancerIngress{{IP: "10.0.0.1"}}}},
+		},
+		&corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "gw-pod", Namespace: "aks-istio-ingress",
+				Labels:      map[string]string{"app": "gw"},
+				Annotations: map[string]string{"sidecar.istio.io/status": `{"revision":"gw"}`},
+			},
+			Status: corev1.PodStatus{
+				Phase:      corev1.PodRunning,
+				Conditions: []corev1.PodCondition{{Type: corev1.PodReady, Status: corev1.ConditionTrue}},
+			},
+		},
+	)
+	return b
+}
+
+func (b *testClusterBuilder) withAKSError(operation string, err error) *testClusterBuilder {
+	b.aksErrors[operation] = err
+	return b
+}
+
+func (b *testClusterBuilder) build(t *testing.T) *testCluster {
+	t.Helper()
+
+	// Always include system namespaces
+	objects := []runtime.Object{
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "aks-istio-system"}},
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "aks-istio-ingress"}},
+	}
+
+	// Add healthy istiod deployments for each revision
+	for _, rev := range b.revisions {
+		objects = append(objects, &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{Name: fmt.Sprintf("istiod-%s", rev), Namespace: "aks-istio-system"},
+			Spec:       appsv1.DeploymentSpec{Replicas: ptr.To[int32](2)},
+			Status:     appsv1.DeploymentStatus{AvailableReplicas: 2},
+		})
+	}
+
+	// Install scenario: no revisions installed but target needs istiod after ARM enable
+	if len(b.revisions) == 0 && b.target != "" {
+		objects = append(objects, &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{Name: fmt.Sprintf("istiod-%s", b.target), Namespace: "aks-istio-system"},
+			Spec:       appsv1.DeploymentSpec{Replicas: ptr.To[int32](2)},
+			Status:     appsv1.DeploymentStatus{AvailableReplicas: 2},
+		})
+	}
+
+	// Add user-specified objects
+	objects = append(objects, b.objects...)
+
+	fakeClient := fake.NewSimpleClientset(objects...)
+
+	opts := DefaultUpgradeOptions()
+	opts.ResourceGroup = "rg-test"
+	opts.ClusterName = "cluster-1"
+	opts.Versions = b.target
+	opts.Tag = b.tag
+	opts.StopAfter = b.stopAfter
+	if b.maxOrphanRetries > 0 {
+		opts.MaxOrphanRetries = b.maxOrphanRetries
+	}
+
+	aks := &fakeAKSClient{
+		clusterInfo: &ClusterInfo{
+			ProvisioningState: b.provisioningState,
+		},
+		meshProfile: &MeshProfile{Revisions: b.revisions},
+		upgradeInfo: &MeshUpgradeInfo{
+			AvailableUpgrades: b.availableUpgrades,
+			UpgradeInProgress: b.upgradeInProgress,
+		},
+		enableErr:     b.aksErrors["EnableMesh"],
+		canaryErr:     b.aksErrors["StartCanaryUpgrade"],
+		completeErr:   b.aksErrors["CompleteCanaryUpgrade"],
+		getStateErr:   b.aksErrors["GetClusterState"],
+		getUpgradeErr: b.aksErrors["GetMeshUpgradeTargets"],
+	}
+
+	return &testCluster{
+		opts: opts,
+		aks:  aks,
+		kube: NewKubeClientFromInterface(fakeClient),
+		fake: fakeClient,
+	}
+}
+
 func trackerAdd(t *testing.T, client *fake.Clientset, obj runtime.Object) {
 	t.Helper()
 	require.NoError(t, client.Tracker().Add(obj), "failed to add object to fake tracker")
@@ -155,19 +391,17 @@ func TestRunUpgrade_InvalidVersion(t *testing.T) {
 }
 
 func TestRunUpgrade_DryRun(t *testing.T) {
-	aks := &fakeAKSClient{
-		clusterInfo: &ClusterInfo{ProvisioningState: "Succeeded"},
-		meshProfile: &MeshProfile{Revisions: []string{"asm-1-28"}},
-		upgradeInfo: &MeshUpgradeInfo{AvailableUpgrades: []string{"asm-1-29"}},
-	}
-	opts := baseOpts()
-	opts.DryRun = true
+	tc := newTestCluster("asm-1-29").
+		withRevisions("asm-1-28").
+		withAvailableUpgrades("asm-1-29").
+		build(t)
+	tc.opts.DryRun = true
 
-	err := RunUpgrade(testCtx(t), opts, aks, NewKubeClientFromInterface(fake.NewSimpleClientset()))
+	err := RunUpgrade(testCtx(t), tc.opts, tc.aks, tc.kube)
 	require.NoError(t, err)
-	assert.NotContains(t, aks.calls, "EnableMesh", "should not call EnableMesh")
-	assert.NotContains(t, aks.calls, "StartCanaryUpgrade", "should not call StartCanaryUpgrade")
-	assert.NotContains(t, aks.calls, "CompleteCanaryUpgrade", "should not call CompleteCanaryUpgrade")
+	assert.NotContains(t, tc.aks.calls, "EnableMesh")
+	assert.NotContains(t, tc.aks.calls, "StartCanaryUpgrade")
+	assert.NotContains(t, tc.aks.calls, "CompleteCanaryUpgrade")
 }
 
 func TestRunUpgrade_AlreadyAtTarget(t *testing.T) {
@@ -215,22 +449,19 @@ func TestRunUpgrade_AlreadyAtTarget(t *testing.T) {
 }
 
 func TestRunUpgrade_Install(t *testing.T) {
-	aks := &fakeAKSClient{
-		clusterInfo: &ClusterInfo{ProvisioningState: "Succeeded"},
-		meshProfile: &MeshProfile{Revisions: nil},
-		upgradeInfo: &MeshUpgradeInfo{},
-	}
+	tc := newTestCluster("asm-1-29").
+		withHealthyGateway().
+		build(t)
 
-	kubeClient := healthyKubeClient()
-	err := RunUpgrade(testCtx(t), baseOpts(), aks, NewKubeClientFromInterface(kubeClient))
+	err := RunUpgrade(testCtx(t), tc.opts, tc.aks, tc.kube)
 	require.NoError(t, err)
-	assert.Contains(t, aks.calls, "EnableMesh", "should call EnableMesh")
-	assert.NotContains(t, aks.calls, "StartCanaryUpgrade", "should not call StartCanaryUpgrade")
-	assert.Equal(t, "rg-test", aks.enableArgs.ResourceGroup)
-	assert.Equal(t, "cluster-1", aks.enableArgs.ClusterName)
-	assert.Equal(t, "asm-1-29", aks.enableArgs.Revision)
+	assert.Contains(t, tc.aks.calls, "EnableMesh")
+	assert.NotContains(t, tc.aks.calls, "StartCanaryUpgrade")
+	assert.Equal(t, "rg-test", tc.aks.enableArgs.ResourceGroup)
+	assert.Equal(t, "cluster-1", tc.aks.enableArgs.ClusterName)
+	assert.Equal(t, "asm-1-29", tc.aks.enableArgs.Revision)
 
-	cm, err := kubeClient.CoreV1().ConfigMaps("aks-istio-system").Get(
+	cm, err := tc.fake.CoreV1().ConfigMaps("aks-istio-system").Get(
 		context.Background(), "istio-shared-configmap-asm-1-29", metav1.GetOptions{})
 	require.NoError(t, err, "install path should create ConfigMap")
 	assert.Equal(t, "asm-1-29", cm.Labels["istio.io/rev"])
@@ -425,14 +656,12 @@ func TestRunUpgrade_DirectRevisionUpdatesNamespaceBeforeRestart(t *testing.T) {
 }
 
 func TestRunUpgrade_EnableMeshError(t *testing.T) {
-	aks := &fakeAKSClient{
-		clusterInfo: &ClusterInfo{ProvisioningState: "Succeeded"},
-		meshProfile: &MeshProfile{Revisions: nil},
-		upgradeInfo: &MeshUpgradeInfo{},
-		enableErr:   fmt.Errorf("ARM 500"),
-	}
+	tc := newTestCluster("asm-1-29").
+		withAKSError("EnableMesh", fmt.Errorf("ARM 500")).
+		withHealthyGateway().
+		build(t)
 
-	err := RunUpgrade(testCtx(t), baseOpts(), aks, NewKubeClientFromInterface(healthyKubeClient()))
+	err := RunUpgrade(testCtx(t), tc.opts, tc.aks, tc.kube)
 	assert.ErrorContains(t, err, "ARM 500")
 }
 
@@ -639,20 +868,17 @@ func TestRunUpgrade_FreshClusterUpgradesToConfigTarget(t *testing.T) {
 }
 
 func TestRunUpgrade_StopAfterCanaryStart(t *testing.T) {
-	aks := &fakeAKSClient{
-		clusterInfo: &ClusterInfo{ProvisioningState: "Succeeded"},
-		meshProfile: &MeshProfile{Revisions: []string{"asm-1-28"}},
-		upgradeInfo: &MeshUpgradeInfo{AvailableUpgrades: []string{"asm-1-29"}},
-	}
-	kubeClient := healthyKubeClient()
+	tc := newTestCluster("asm-1-29").
+		withRevisions("asm-1-28").
+		withAvailableUpgrades("asm-1-29").
+		withStopAfter(StopAfterCanaryStart).
+		withHealthyGateway().
+		build(t)
 
-	opts := baseOpts()
-	opts.StopAfter = StopAfterCanaryStart
-
-	err := RunUpgrade(testCtx(t), opts, aks, NewKubeClientFromInterface(kubeClient))
+	err := RunUpgrade(testCtx(t), tc.opts, tc.aks, tc.kube)
 	require.NoError(t, err)
-	assert.Contains(t, aks.calls, "StartCanaryUpgrade", "should start canary before stopping")
-	assert.NotContains(t, aks.calls, "CompleteCanaryUpgrade", "should not complete canary when stopping after canary-start")
+	assert.Contains(t, tc.aks.calls, "StartCanaryUpgrade", "should start canary before stopping")
+	assert.NotContains(t, tc.aks.calls, "CompleteCanaryUpgrade", "should not complete canary when stopping after canary-start")
 }
 
 func TestRunUpgrade_StopAfterOrphanCheck(t *testing.T) {
