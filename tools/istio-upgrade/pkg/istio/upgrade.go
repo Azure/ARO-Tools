@@ -29,7 +29,6 @@ import (
 var (
 	ErrRetireRevisionWouldOrphanWorkloads = errors.New("retiring revision would orphan workloads: stale sidecar pods remain after restart retries")
 	ErrControlPlaneUnhealthy              = errors.New("control plane unhealthy: one or more istiod pods are not ready")
-	// TODO: add "ingress gateway unhealthy" to svc-pipeline.yaml errorContainsAny for EV2 automated retry
 	ErrIngressUnhealthy = errors.New("ingress gateway unhealthy")
 )
 
