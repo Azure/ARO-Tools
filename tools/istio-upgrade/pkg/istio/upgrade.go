@@ -216,27 +216,43 @@ func runReconcile(ctx context.Context, logger logr.Logger, kubeClient *KubeClien
 
 func runInitialInstall(ctx context.Context, logger logr.Logger, aksClient AKSClusterClient, kubeClient *KubeClient, opts UpgradeOptions, target string) error {
 	// Step 1: ARM enable — installs istiod and ingress gateway for the target revision
-	logger.Info("Step 1/4: Enabling mesh via ARM", "revision", target)
+	logger.Info("Step 1/5: Enabling mesh via ARM", "revision", target)
 	if err := aksClient.EnableMesh(ctx, opts.ResourceGroup, opts.ClusterName, target); err != nil {
 		return fmt.Errorf("failed to enable mesh: %w", err)
 	}
 
 	// Step 2: MISE ext-authz ConfigMap — must exist before any workloads start sending traffic
-	logger.Info("Step 2/4: Creating MISE ext-authz ConfigMap")
+	logger.Info("Step 2/5: Creating MISE ext-authz ConfigMap")
 	if err := CreateRevisionConfigMap(ctx, kubeClient, target); err != nil {
 		return fmt.Errorf("failed to create ConfigMap: %w", err)
 	}
 
 	// Step 3: verify CP is ready and flip the tag webhook to point at new istiod
-	logger.Info("Step 3/4: Verifying control plane and flipping tag webhook")
+	logger.Info("Step 3/5: Verifying control plane and flipping tag webhook")
 	if err := verifyControlPlaneAndTag(ctx, kubeClient, opts.Tag, target); err != nil {
 		return err
 	}
 
 	// Step 4: pin ingress gateway to the static PIP so external traffic routes correctly
-	logger.Info("Step 4/4: Ensuring ingress gateway annotations")
+	logger.Info("Step 4/5: Ensuring ingress gateway annotations")
 	if err := ensureIngress(ctx, kubeClient, opts); err != nil {
 		return err
+	}
+
+	// Step 5: verify CP readiness and ingress gateway health (external IP, healthy pods)
+	logger.Info("Step 5/5: Running post-install health check")
+	health, err := HealthCheck(ctx, kubeClient)
+	if err != nil {
+		return fmt.Errorf("failed to run post-install health check: %w", err)
+	}
+	if !health.Passed {
+		return healthCheckError("initial-install", health)
+	}
+
+	namespaces, nsErr := kubeClient.GetMeshNamespaces(ctx)
+	if nsErr == nil && len(namespaces) > 0 {
+		logger.Info("WARNING: mesh namespaces already exist during initial install -- pods will not have sidecars until next upgrade cycle",
+			"namespaces", len(namespaces))
 	}
 
 	logger.Info("Initial Istio install complete", "revision", target)
@@ -311,6 +327,14 @@ func runCleanupAndUpgrade(ctx context.Context, logger logr.Logger, aksClient AKS
 	}
 	if !health.Passed {
 		return healthCheckError("cleanup", health)
+	}
+
+	// Step 1f: orphan guard — verify no pods are still running stale sidecars before
+	// removing the stale CP. Uses warn-and-continue on exhaustion because there is no
+	// rollback target in the cleanup path.
+	logger.Info("Checking for orphaned workloads before removing stale revision", "target", oldRevision, "retiring", staleRevision)
+	if err := warnRetireOrphanedWorkloads(ctx, logger, kubeClient, oldRevision, []string{staleRevision}, opts); err != nil {
+		return fmt.Errorf("cleanup orphan guard failed: %w", err)
 	}
 
 	// Phase 2: Remove the stale revision via ARM and clean up its resources.
@@ -553,6 +577,40 @@ func retireOrphanedWorkloads(ctx context.Context, logger logr.Logger, kubeClient
 		}
 		if err := WaitForRolloutAllNamespaces(ctx, kubeClient, opts.RolloutTimeout, opts.RolloutPollInterval); err != nil {
 			return fmt.Errorf("orphan restart rollout failed: %w", err)
+		}
+	}
+}
+
+// warnRetireOrphanedWorkloads runs the same retry loop as retireOrphanedWorkloads but
+// logs a warning and continues on exhaustion instead of failing. Used in cleanup paths
+// where there is no rollback target — proceeding with a small number of orphans (which
+// retain valid mTLS certs until expiry) is better than blocking the entire upgrade.
+func warnRetireOrphanedWorkloads(ctx context.Context, logger logr.Logger, kubeClient *KubeClient, target string, retiringRevisions []string, opts UpgradeOptions) error {
+	for attempt := 1; ; attempt++ {
+		orphaned, err := CheckOrphanedWorkloads(ctx, kubeClient, target, retiringRevisions)
+		if err != nil {
+			return fmt.Errorf("cleanup orphan check failed: %w", err)
+		}
+		if len(orphaned) == 0 {
+			return nil
+		}
+		if attempt > opts.MaxOrphanRetries {
+			logger.Info("WARNING: orphaned workloads remain after retries -- proceeding with cleanup, pods may lose mTLS cert rotation",
+				"orphaned", len(orphaned),
+				"pods", orphaned,
+			)
+			return nil
+		}
+		logger.Info("Orphaned workloads found during cleanup -- restarting stale pods",
+			"attempt", attempt,
+			"orphaned", len(orphaned),
+			"pods", orphaned,
+		)
+		if _, err := ExecuteRestartAllNamespaces(ctx, kubeClient, target); err != nil {
+			return fmt.Errorf("cleanup orphan restart failed: %w", err)
+		}
+		if err := WaitForRolloutAllNamespaces(ctx, kubeClient, opts.RolloutTimeout, opts.RolloutPollInterval); err != nil {
+			return fmt.Errorf("cleanup orphan rollout failed: %w", err)
 		}
 	}
 }

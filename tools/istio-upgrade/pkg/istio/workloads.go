@@ -231,11 +231,11 @@ func ExecuteRestartAllNamespaces(ctx context.Context, kubeClient *KubeClient, ta
 	}
 	outcomes := make([]restartOutcome, len(namespaces))
 
-	g, ctx := errgroup.WithContext(ctx)
+	g, gCtx := errgroup.WithContext(ctx)
 	g.SetLimit(namespaceConcurrencyLimit)
 	for i, ns := range namespaces {
 		g.Go(func() error {
-			result, err := executeRestart(ctx, kubeClient, ns.Name, targetRevision)
+			result, err := executeRestart(gCtx, kubeClient, ns.Name, targetRevision)
 			outcomes[i] = restartOutcome{result: result, err: err}
 			// Always return nil so errgroup runs all namespaces; errors are collected and joined below.
 			return nil
@@ -252,6 +252,18 @@ func ExecuteRestartAllNamespaces(ctx context.Context, kubeClient *KubeClient, ta
 		if o.result != nil {
 			results = append(results, *o.result)
 		}
+	}
+	if len(errs) > 0 {
+		logger := logr.FromContextOrDiscard(ctx).WithName("restart-summary")
+		var succeeded, failed []string
+		for _, o := range outcomes {
+			if o.err != nil && o.result != nil {
+				failed = append(failed, o.result.Namespace)
+			} else if o.result != nil && len(o.result.Restarted) > 0 {
+				succeeded = append(succeeded, o.result.Namespace)
+			}
+		}
+		logger.Info("Restart completed with errors", "succeeded", succeeded, "failed", failed)
 	}
 	return results, errors.Join(errs...)
 }

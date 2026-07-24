@@ -412,6 +412,16 @@ func TestRunUpgrade_InstallWithTag(t *testing.T) {
 	assert.NotEmpty(t, tagWH.Webhooks[0].ClientConfig.CABundle)
 }
 
+func TestRunUpgrade_InstallHealthCheckFailsWithoutGateway(t *testing.T) {
+	tc := newTestCluster("asm-1-29").
+		build(t)
+
+	err := RunUpgrade(testCtx(t), tc.opts, tc.aks, tc.kube)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, ErrIngressUnhealthy, "install without gateway should fail with ErrIngressUnhealthy")
+	assert.Contains(t, tc.aks.calls, "EnableMesh", "EnableMesh should have been called before health check failed")
+}
+
 func TestRunUpgrade_ResumeWithTag(t *testing.T) {
 	tc := newTestCluster("asm-1-29").
 		withRevisions("asm-1-28", "asm-1-29").
@@ -787,6 +797,126 @@ func TestRunUpgrade_HealthCheckFailsRollsBackWorkloads(t *testing.T) {
 	err := RunUpgrade(testCtx(t), tc.opts, tc.aks, tc.kube)
 	assert.ErrorIs(t, err, ErrControlPlaneUnhealthy, "should return health check error")
 	assert.NotContains(t, tc.aks.calls, "CompleteCanaryUpgrade", "should not complete canary on health failure")
+}
+
+func TestRunUpgrade_CleanupOrphanWarnAndContinue(t *testing.T) {
+	podOwner := metav1.OwnerReference{Name: "web-rs", Kind: "ReplicaSet", APIVersion: "apps/v1", Controller: ptr.To(true)}
+
+	tc := newTestCluster("asm-1-30").
+		withRevisions("asm-1-28", "asm-1-29").
+		withAvailableUpgrades("asm-1-30").
+		withNamespace("app-ns", "asm-1-29").
+		withDeployment("app-ns", "web", 1).
+		withReplicaSet("app-ns", "web-rs", "web").
+		withPodOnRevision("app-ns", "web-rs-pod", "asm-1-29", podOwner).
+		withMaxOrphanRetries(1).
+		withHealthyGateway().
+		build(t)
+
+	// Add asm-1-30 istiod for Phase 3 canary
+	trackerAdd(t, tc.fake, &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{Name: "istiod-asm-1-30", Namespace: "aks-istio-system"},
+		Spec:       appsv1.DeploymentSpec{Replicas: ptr.To[int32](2)},
+		Status:     appsv1.DeploymentStatus{AvailableReplicas: 2},
+	})
+
+	// Pod stays on asm-1-29 through Phase 1 orphan retries (MaxOrphanRetries=1).
+	// warnRetireOrphanedWorkloads should warn and continue, not fail.
+	//
+	// After Phase 1, the pod needs to pick up the correct sidecar for Phase 2
+	// VerifyUpgrade and Phase 3 canary. Two reactors simulate this:
+	// 1. ConfigMap delete (Phase 2): updates pod before VerifyUpgrade
+	// 2. Deployment patch #3+ (Phase 3): updates pod to match namespace label
+	tc.fake.PrependReactor("delete", "configmaps", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		ns, _ := tc.fake.Tracker().Get(corev1.SchemeGroupVersion.WithResource("namespaces"), "", "app-ns")
+		if ns != nil {
+			rev := ns.(*corev1.Namespace).Labels["istio.io/rev"]
+			pod, _ := tc.fake.Tracker().Get(corev1.SchemeGroupVersion.WithResource("pods"), "app-ns", "web-rs-pod")
+			if pod != nil {
+				updated := pod.(*corev1.Pod).DeepCopy()
+				updated.Annotations["sidecar.istio.io/status"] = fmt.Sprintf(`{"revision":"%s"}`, rev)
+				_ = tc.fake.Tracker().Update(corev1.SchemeGroupVersion.WithResource("pods"), updated, "app-ns")
+			}
+		}
+		return false, nil, nil
+	})
+	patchCount := 0
+	tc.fake.PrependReactor("patch", "deployments", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		patchCount++
+		// Patches 1-2 are Phase 1 (initial restart + orphan retry). Skip to keep pod stale.
+		// Patch 3+ is Phase 3 canary migrateWorkloads — update pod to current namespace label.
+		if patchCount >= 3 {
+			ns, _ := tc.fake.Tracker().Get(corev1.SchemeGroupVersion.WithResource("namespaces"), "", "app-ns")
+			if ns != nil {
+				rev := ns.(*corev1.Namespace).Labels["istio.io/rev"]
+				pod, _ := tc.fake.Tracker().Get(corev1.SchemeGroupVersion.WithResource("pods"), "app-ns", "web-rs-pod")
+				if pod != nil {
+					updated := pod.(*corev1.Pod).DeepCopy()
+					updated.Annotations["sidecar.istio.io/status"] = fmt.Sprintf(`{"revision":"%s"}`, rev)
+					_ = tc.fake.Tracker().Update(corev1.SchemeGroupVersion.WithResource("pods"), updated, "app-ns")
+				}
+			}
+		}
+		return false, nil, nil
+	})
+
+	err := RunUpgrade(testCtx(t), tc.opts, tc.aks, tc.kube)
+	require.NoError(t, err, "cleanup should warn and continue on orphan exhaustion, not fail")
+
+	// Verify both CompleteCanaryUpgrade calls happened (Phase 2 cleanup + Phase 3 fresh canary)
+	require.GreaterOrEqual(t, len(tc.aks.allCompleteArgs), 2, "should have two CompleteCanaryUpgrade calls")
+	assert.Equal(t, "asm-1-28", tc.aks.allCompleteArgs[0].Revision, "Phase 2 should keep old stable")
+	assert.Equal(t, "asm-1-30", tc.aks.allCompleteArgs[1].Revision, "Phase 3 should finalize fresh canary")
+}
+
+func TestRunUpgrade_CleanupOrphanRetrySucceeds(t *testing.T) {
+	podOwner := metav1.OwnerReference{Name: "web-rs", Kind: "ReplicaSet", APIVersion: "apps/v1", Controller: ptr.To(true)}
+
+	tc := newTestCluster("asm-1-30").
+		withRevisions("asm-1-28", "asm-1-29").
+		withAvailableUpgrades("asm-1-30").
+		withNamespace("app-ns", "asm-1-29").
+		withDeployment("app-ns", "web", 1).
+		withReplicaSet("app-ns", "web-rs", "web").
+		withPodOnRevision("app-ns", "web-rs-pod", "asm-1-29", podOwner).
+		withMaxOrphanRetries(3).
+		withHealthyGateway().
+		build(t)
+
+	// Add asm-1-30 istiod for Phase 3 canary
+	trackerAdd(t, tc.fake, &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{Name: "istiod-asm-1-30", Namespace: "aks-istio-system"},
+		Spec:       appsv1.DeploymentSpec{Replicas: ptr.To[int32](2)},
+		Status:     appsv1.DeploymentStatus{AvailableReplicas: 2},
+	})
+
+	// Simulate pod picking up the correct sidecar on restart. On every deployment
+	// patch from the 2nd onward, update the pod to match the namespace label.
+	patchCount := 0
+	tc.fake.PrependReactor("patch", "deployments", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		patchCount++
+		if patchCount >= 2 {
+			ns, _ := tc.fake.Tracker().Get(corev1.SchemeGroupVersion.WithResource("namespaces"), "", "app-ns")
+			if ns != nil {
+				rev := ns.(*corev1.Namespace).Labels["istio.io/rev"]
+				pod, _ := tc.fake.Tracker().Get(corev1.SchemeGroupVersion.WithResource("pods"), "app-ns", "web-rs-pod")
+				if pod != nil {
+					updated := pod.(*corev1.Pod).DeepCopy()
+					updated.Annotations["sidecar.istio.io/status"] = fmt.Sprintf(`{"revision":"%s"}`, rev)
+					_ = tc.fake.Tracker().Update(corev1.SchemeGroupVersion.WithResource("pods"), updated, "app-ns")
+				}
+			}
+		}
+		return false, nil, nil
+	})
+
+	err := RunUpgrade(testCtx(t), tc.opts, tc.aks, tc.kube)
+	require.NoError(t, err)
+
+	// Verify cleanup + fresh canary both completed
+	require.GreaterOrEqual(t, len(tc.aks.allCompleteArgs), 2)
+	assert.Equal(t, "asm-1-28", tc.aks.allCompleteArgs[0].Revision)
+	assert.Equal(t, "asm-1-30", tc.aks.allCompleteArgs[1].Revision)
 }
 
 func TestRunUpgrade_CleanupAndUpgrade(t *testing.T) {
