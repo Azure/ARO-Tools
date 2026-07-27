@@ -29,7 +29,7 @@ import (
 var (
 	ErrRetireRevisionWouldOrphanWorkloads = errors.New("retiring revision would orphan workloads: stale sidecar pods remain after restart retries")
 	ErrControlPlaneUnhealthy              = errors.New("control plane unhealthy: one or more istiod pods are not ready")
-	ErrIngressUnhealthy = errors.New("ingress gateway unhealthy")
+	ErrIngressUnhealthy                   = errors.New("ingress gateway unhealthy")
 )
 
 func healthCheckError(phase string, health *CheckResult) error {
