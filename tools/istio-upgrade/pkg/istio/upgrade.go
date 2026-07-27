@@ -147,15 +147,20 @@ func RunUpgrade(ctx context.Context, opts UpgradeOptions, aksClient AKSClusterCl
 
 	switch action {
 	case ActionSkip:
-		// True no-op — cluster not ready, downgrade detected, target unavailable,
-		// or too many revisions. Decide() logged the reason. Safe for EV2 retry.
+		// True no-op — cluster not ready, target unavailable, or too many
+		// revisions. Decide() logged the reason. Safe for EV2 retry.
 		return nil
 
 	case ActionReconcile:
-		// Already at target revision. Reconcile resource drift — ensures
-		// ConfigMap, tag webhook, and ingress annotations are correct.
-		// Healing errors are logged but never fail the pipeline.
-		return runReconcile(ctx, logger, kubeClient, opts, target, meshProfile.Revisions)
+		// Reconcile resource drift — ensures ConfigMap, tag webhook, and
+		// ingress annotations are correct. When installed > target (AKS
+		// default moved ahead of config), reconcile against the installed
+		// revision so tags and configmaps match what's actually running.
+		reconcileTarget := target
+		if highest := slices.MaxFunc(meshProfile.Revisions, compareRevisions); highest != "" && compareRevisions(highest, target) > 0 {
+			reconcileTarget = highest
+		}
+		return runReconcile(ctx, logger, kubeClient, opts, reconcileTarget, meshProfile.Revisions)
 
 	case ActionInstall:
 		// No mesh installed. Enables mesh via ARM, creates the MISE ext-authz

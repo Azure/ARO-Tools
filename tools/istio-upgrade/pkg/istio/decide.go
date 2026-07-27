@@ -168,10 +168,10 @@ func Decide(logger logr.Logger, state UpgradeState, target string) Action {
 		return ActionCleanupAndUpgrade
 	case scenarioDowngrade:
 		highest := slices.MaxFunc(state.MeshProfileRevisions, compareRevisions)
-		logger.Info("Downgrade detected, skipping",
+		logger.Info("Downgrade detected -- reconciling installed revision instead of config target",
 			"installed", highest,
-			"target", target)
-		return ActionSkip
+			"configTarget", target)
+		return ActionReconcile
 	case scenarioUpgradeAvailable:
 		highest := slices.MaxFunc(state.MeshProfileRevisions, compareRevisions)
 		logger.Info("Upgrading to svc.istio.versions target",

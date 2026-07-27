@@ -80,7 +80,7 @@ func TestDecide(t *testing.T) {
 				ProvisioningState:    "Succeeded",
 			},
 			target:     "asm-1-28",
-			wantAction: ActionSkip,
+			wantAction: ActionReconcile,
 		},
 		{
 			name: "downgrade detected with multiple revisions",
@@ -90,7 +90,7 @@ func TestDecide(t *testing.T) {
 				ProvisioningState:    "Succeeded",
 			},
 			target:     "asm-1-29",
-			wantAction: ActionSkip,
+			wantAction: ActionReconcile,
 		},
 		{
 			name: "cluster in Failed state",
@@ -156,7 +156,7 @@ func TestDecide(t *testing.T) {
 			wantAction: ActionUpgrade,
 		},
 		{
-			name: "ARM default ahead of config - downgrade skip",
+			name: "ARM default ahead of config - reconcile installed",
 			state: UpgradeState{
 				ClusterName:            "svc-cluster-01",
 				MeshProfileRevisions:   []string{"asm-1-29"},
@@ -164,7 +164,7 @@ func TestDecide(t *testing.T) {
 				ProvisioningState:      "Succeeded",
 			},
 			target:     "asm-1-28",
-			wantAction: ActionSkip,
+			wantAction: ActionReconcile,
 		},
 		{
 			name: "upgrade already in progress but target not yet installed skips",
