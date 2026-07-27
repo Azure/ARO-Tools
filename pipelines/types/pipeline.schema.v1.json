@@ -706,6 +706,9 @@
             "gatePromotion": {
               "type": "string"
             },
+            "allowedSubscriptions": {
+              "type": "string"
+            },
             "commit": {
               "type": "string"
             },

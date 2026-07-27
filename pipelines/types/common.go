@@ -713,14 +713,15 @@ const StepActionProwJob = "ProwJob"
 type ProwJobStep struct {
 	StepMeta `json:",inline"`
 
-	TokenKeyvault string `json:"tokenKeyvault"`
-	TokenSecret   string `json:"tokenSecret"`
-	JobName       string `json:"jobName"`
-	GatePromotion string `json:"gatePromotion"`     // string-encoded boolean, passed to command as a flag
-	Commit        string `json:"commit,omitempty"`  // optional source commit SHA to pin the Prow job to
-	Repo          string `json:"repo,omitempty"`    // optional GitHub repo name override (default: ARO-HCP)
-	BaseRef       string `json:"baseRef,omitempty"` // optional Git base ref override (default: main)
-	DryRun        Value  `json:"dryRun,omitempty"`
+	TokenKeyvault        string `json:"tokenKeyvault"`
+	TokenSecret          string `json:"tokenSecret"`
+	JobName              string `json:"jobName"`
+	GatePromotion        string `json:"gatePromotion"`                  // string-encoded boolean, passed to command as a flag
+	AllowedSubscriptions string `json:"allowedSubscriptions,omitempty"` // optional slot-manager subscription allowlist override; see slot-manager docs
+	Commit               string `json:"commit,omitempty"`               // optional source commit SHA to pin the Prow job to
+	Repo                 string `json:"repo,omitempty"`                 // optional GitHub repo name override (default: ARO-HCP)
+	BaseRef              string `json:"baseRef,omitempty"`              // optional Git base ref override (default: main)
+	DryRun               Value  `json:"dryRun,omitempty"`
 
 	// IdentityFrom specifies the managed identity with which this deployment will run in Ev2.
 	IdentityFrom Input `json:"identityFrom,omitempty"`
