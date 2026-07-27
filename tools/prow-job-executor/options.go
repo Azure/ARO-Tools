@@ -72,6 +72,7 @@ func (o *RawExecuteOptions) BindFlags(cmd *cobra.Command) error {
 	cmd.Flags().StringVar(&o.Cloud, "cloud", o.Cloud, "Target Azure cloud for the job execution")
 	cmd.Flags().StringVar(&o.Environment, "environment", o.Environment, "Target environment for the job execution")
 	cmd.Flags().StringVar(&o.Region, "region", o.Region, "Target Azure region for the job execution")
+	cmd.Flags().StringVar(&o.AllowedSubscriptions, "allowed-subscriptions", o.AllowedSubscriptions, "Optional slot-manager subscription allowlist override for the job. When empty, the job's baseline ALLOWED_SUBSCRIPTIONS is used.")
 	cmd.Flags().StringVar(&o.ProwJobName, "job-name", o.ProwJobName, "Name of the specific ProwJob to execute")
 	cmd.Flags().StringToStringVar(&o.Labels, "label", o.Labels, "Kubernetes labels to apply to the job pod in k=v format (can be specified multiple times)")
 	cmd.Flags().StringToStringVar(&o.Annotations, "annotation", o.Annotations, "Kubernetes annotations to apply to the job pod in k=v format (can be specified multiple times)")
@@ -107,20 +108,21 @@ func (o *RawExecuteOptions) BindFlags(cmd *cobra.Command) error {
 type RawExecuteOptions struct {
 	*RawProwTokenOptions
 
-	Cloud             string
-	Environment       string
-	Region            string
-	ProwJobName       string
-	Labels            map[string]string
-	Annotations       map[string]string
-	EnvironmentVars   map[string]string
-	EV2RolloutVersion string
-	PollInterval      time.Duration
-	Timeout           time.Duration
-	GangwayURL        string
-	ProwURL           string
-	DryRun            bool
-	GatePromotion     bool
+	Cloud                string
+	Environment          string
+	Region               string
+	AllowedSubscriptions string
+	ProwJobName          string
+	Labels               map[string]string
+	Annotations          map[string]string
+	EnvironmentVars      map[string]string
+	EV2RolloutVersion    string
+	PollInterval         time.Duration
+	Timeout              time.Duration
+	GangwayURL           string
+	ProwURL              string
+	DryRun               bool
+	GatePromotion        bool
 
 	// Git ref options for postsubmit execution pinned to a specific commit.
 	// When BaseSha is set, the job is triggered as a postsubmit instead of a periodic.
@@ -146,20 +148,21 @@ type ValidatedExecuteOptions struct {
 
 // completedExecuteOptions is a private wrapper that enforces a call of Complete() before execution can be invoked.
 type completedExecuteOptions struct {
-	Cloud           string
-	Environment     string
-	Region          string
-	ProwJobName     string
-	Labels          map[string]string
-	Annotations     map[string]string
-	EnvironmentVars map[string]string
-	PollInterval    time.Duration
-	Timeout         time.Duration
-	ProwToken       string
-	GangwayURL      string
-	ProwURL         string
-	DryRun          bool
-	GatePromotion   bool
+	Cloud                string
+	Environment          string
+	Region               string
+	AllowedSubscriptions string
+	ProwJobName          string
+	Labels               map[string]string
+	Annotations          map[string]string
+	EnvironmentVars      map[string]string
+	PollInterval         time.Duration
+	Timeout              time.Duration
+	ProwToken            string
+	GangwayURL           string
+	ProwURL              string
+	DryRun               bool
+	GatePromotion        bool
 
 	// Git ref options for postsubmit execution
 	BaseSha string
@@ -277,24 +280,25 @@ func (o *ValidatedExecuteOptions) Complete(ctx context.Context) (*ExecuteOptions
 
 	return &ExecuteOptions{
 		completedExecuteOptions: &completedExecuteOptions{
-			Cloud:           o.Cloud,
-			Environment:     o.Environment,
-			Region:          o.Region,
-			ProwJobName:     o.ProwJobName,
-			Labels:          o.ParsedLabels,
-			Annotations:     o.ParsedAnnotations,
-			EnvironmentVars: o.ParsedEnvironmentVars,
-			PollInterval:    o.PollInterval,
-			Timeout:         o.Timeout,
-			ProwToken:       completed.ProwToken,
-			GangwayURL:      o.GangwayURL,
-			ProwURL:         o.ProwURL,
-			DryRun:          o.DryRun,
-			GatePromotion:   o.GatePromotion,
-			BaseSha:         o.BaseSha,
-			BaseRef:         o.BaseRef,
-			Org:             o.Org,
-			Repo:            o.Repo,
+			Cloud:                o.Cloud,
+			Environment:          o.Environment,
+			Region:               o.Region,
+			AllowedSubscriptions: o.AllowedSubscriptions,
+			ProwJobName:          o.ProwJobName,
+			Labels:               o.ParsedLabels,
+			Annotations:          o.ParsedAnnotations,
+			EnvironmentVars:      o.ParsedEnvironmentVars,
+			PollInterval:         o.PollInterval,
+			Timeout:              o.Timeout,
+			ProwToken:            completed.ProwToken,
+			GangwayURL:           o.GangwayURL,
+			ProwURL:              o.ProwURL,
+			DryRun:               o.DryRun,
+			GatePromotion:        o.GatePromotion,
+			BaseSha:              o.BaseSha,
+			BaseRef:              o.BaseRef,
+			Org:                  o.Org,
+			Repo:                 o.Repo,
 		},
 	}, nil
 }
@@ -315,6 +319,9 @@ func (o *ExecuteOptions) Execute(ctx context.Context) error {
 	envs := make(map[string]string)
 	maps.Copy(envs, o.EnvironmentVars)
 	envs["MULTISTAGE_PARAM_OVERRIDE_LOCATION"] = o.Region
+	if o.AllowedSubscriptions != "" {
+		envs["MULTISTAGE_PARAM_OVERRIDE_ALLOWED_SUBSCRIPTIONS"] = o.AllowedSubscriptions
+	}
 
 	request := &prowgangway.CreateJobExecutionRequest{
 		JobName:          o.ProwJobName,
