@@ -121,6 +121,7 @@ func syncOneScratchFolder(ctx context.Context, client scratchGrafanaClient, name
 
 	scratchUIDs := collectScratchFolderUIDs(folder.UID, allSearchFolders)
 
+	deletedDashboards := make(map[string]bool)
 	cutoff := now().Add(-maxAge)
 	for _, db := range allDashboards {
 		if !scratchUIDs[db.FolderUID] {
@@ -140,15 +141,18 @@ func syncOneScratchFolder(ctx context.Context, client scratchGrafanaClient, name
 
 		if dryRun {
 			logger.Info("DRY_RUN: Would delete expired scratch dashboard", "title", db.Title, "uid", db.UID, "created", props.Created)
+			deletedDashboards[db.UID] = true
 		} else {
 			logger.Info("Deleting expired scratch dashboard", "title", db.Title, "uid", db.UID, "created", props.Created)
 			if err := client.DeleteDashboardByUID(ctx, db.UID); err != nil {
 				logger.Error(err, "Failed to delete expired scratch dashboard, continuing", "title", db.Title, "uid", db.UID)
+			} else {
+				deletedDashboards[db.UID] = true
 			}
 		}
 	}
 
-	deleteEmptySubfolders(ctx, client, folder.UID, allDashboards, allSearchFolders, scratchUIDs, dryRun)
+	deleteEmptySubfolders(ctx, client, folder.UID, allDashboards, allSearchFolders, scratchUIDs, deletedDashboards, dryRun)
 
 	return nil
 }
@@ -156,7 +160,7 @@ func syncOneScratchFolder(ctx context.Context, client scratchGrafanaClient, name
 // deleteEmptySubfolders removes subfolders of the scratch folder that contain no
 // dashboards (after expiry deletion). Processes leaf-first so nested empty trees
 // are fully removed.
-func deleteEmptySubfolders(ctx context.Context, client scratchGrafanaClient, rootUID string, allDashboards []sdk.FoundBoard, allSearchFolders []sdk.FoundBoard, scratchUIDs map[string]bool, dryRun bool) {
+func deleteEmptySubfolders(ctx context.Context, client scratchGrafanaClient, rootUID string, allDashboards []sdk.FoundBoard, allSearchFolders []sdk.FoundBoard, scratchUIDs map[string]bool, deletedDashboards map[string]bool, dryRun bool) {
 	logger := logr.FromContextOrDiscard(ctx)
 
 	// Build parent→children map for subfolders only (exclude root).
@@ -168,14 +172,9 @@ func deleteEmptySubfolders(ctx context.Context, client scratchGrafanaClient, roo
 		children[f.FolderUID] = append(children[f.FolderUID], f)
 	}
 
-	// Count remaining dashboards per folder. We only care about folders in the
-	// scratch tree. A dashboard is "remaining" if it wasn't deleted above — since
-	// we don't mutate allDashboards, we re-check membership; deleted dashboards
-	// are gone from Grafana but still in our snapshot. That's fine: the worst
-	// case is we leave a folder for one more sync cycle.
 	dashCount := make(map[string]int)
 	for _, db := range allDashboards {
-		if scratchUIDs[db.FolderUID] {
+		if scratchUIDs[db.FolderUID] && !deletedDashboards[db.UID] {
 			dashCount[db.FolderUID]++
 		}
 	}

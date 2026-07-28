@@ -244,7 +244,11 @@ func TestSyncScratchFolders_DeletesExpiredDashboardsInSubfolders(t *testing.T) {
 	}
 
 	if len(client.deletedDashboardUIDs) != 2 {
-		t.Fatalf("expected 2 deletions, got %d: %v", len(client.deletedDashboardUIDs), client.deletedDashboardUIDs)
+		t.Fatalf("expected 2 dashboard deletions, got %d: %v", len(client.deletedDashboardUIDs), client.deletedDashboardUIDs)
+	}
+
+	if len(client.deletedFolderUIDs) != 1 || client.deletedFolderUIDs[0] != "sub-1" {
+		t.Fatalf("expected sub-1 folder to be deleted in the same sync pass, got %v", client.deletedFolderUIDs)
 	}
 }
 
