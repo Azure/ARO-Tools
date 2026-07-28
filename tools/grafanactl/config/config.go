@@ -17,6 +17,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"sigs.k8s.io/yaml"
 )
@@ -30,12 +31,30 @@ type ObservabilityConfig struct {
 type GrafanaDashboardsConfig struct {
 	AzureManagedFolders []string          `json:"azureManagedFolders"`
 	DashboardFolders    []DashboardFolder `json:"dashboardFolders"`
+	ScratchFolders      []ScratchFolder   `json:"scratchFolders,omitempty"`
 }
 
 // DashboardFolder represents a folder containing dashboards to sync
 type DashboardFolder struct {
 	Name string `json:"name"`
 	Path string `json:"path"`
+}
+
+// ScratchFolder represents a user-writable folder where dashboards are auto-deleted after MaxAge.
+type ScratchFolder struct {
+	Name      string `json:"name"`
+	MaxAgeRaw string `json:"maxAge"`
+}
+
+func (f ScratchFolder) MaxAge() (time.Duration, error) {
+	d, err := time.ParseDuration(f.MaxAgeRaw)
+	if err != nil {
+		return 0, fmt.Errorf("invalid maxAge %q for scratch folder %q: %w", f.MaxAgeRaw, f.Name, err)
+	}
+	if d <= 0 {
+		return 0, fmt.Errorf("maxAge for scratch folder %q must be positive, got %s", f.Name, d)
+	}
+	return d, nil
 }
 
 // LoadFromFile reads and parses the observability config from a file

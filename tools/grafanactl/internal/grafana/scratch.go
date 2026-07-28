@@ -1,0 +1,239 @@
+// Copyright 2025 Microsoft Corporation
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package grafana
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/go-logr/logr"
+	"github.com/grafana-tools/sdk"
+
+	"github.com/Azure/ARO-Tools/tools/grafanactl/config"
+)
+
+type scratchGrafanaClient interface {
+	ListFolders(ctx context.Context) ([]sdk.Folder, error)
+	CreateFolder(ctx context.Context, title string) (sdk.Folder, error)
+	UpdateFolderPermissions(ctx context.Context, folderUID string, permissions ...sdk.FolderPermission) error
+	ListDashboards(ctx context.Context) ([]sdk.FoundBoard, error)
+	GetDashboardByUID(ctx context.Context, uid string) (sdk.Board, sdk.BoardProperties, error)
+	DeleteDashboardByUID(ctx context.Context, uid string) error
+	SearchFolders(ctx context.Context) ([]sdk.FoundBoard, error)
+	DeleteFolderByUID(ctx context.Context, uid string) error
+}
+
+var scratchFolderPermissions = []sdk.FolderPermission{
+	{Role: "Viewer", Permission: sdk.PermissionEdit},
+	{Role: "Editor", Permission: sdk.PermissionEdit},
+	{Role: "Admin", Permission: sdk.PermissionAdmin},
+}
+
+func (s *DashboardSyncer) syncScratchFolders(ctx context.Context) error {
+	if len(s.config.GrafanaDashboards.ScratchFolders) == 0 {
+		return nil
+	}
+	return syncScratchFolders(ctx, s.client, s.config.GrafanaDashboards.ScratchFolders, s.dryRun, s.now)
+}
+
+func syncScratchFolders(ctx context.Context, client scratchGrafanaClient, folders []config.ScratchFolder, dryRun bool, now func() time.Time) error {
+	logger := logr.FromContextOrDiscard(ctx)
+
+	existingFolders, err := client.ListFolders(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to list folders for scratch sync: %w", err)
+	}
+
+	allDashboards, err := client.ListDashboards(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to list dashboards for scratch sync: %w", err)
+	}
+
+	allSearchFolders, err := client.SearchFolders(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to search folders for scratch sync: %w", err)
+	}
+
+	for _, sf := range folders {
+		maxAge, err := sf.MaxAge()
+		if err != nil {
+			return err
+		}
+
+		if err := syncOneScratchFolder(ctx, client, sf.Name, maxAge, existingFolders, allDashboards, allSearchFolders, dryRun, now); err != nil {
+			return fmt.Errorf("failed to sync scratch folder %q: %w", sf.Name, err)
+		}
+		logger.Info("Synced scratch folder", "name", sf.Name, "maxAge", maxAge)
+	}
+
+	return nil
+}
+
+// collectScratchFolderUIDs returns a set of UIDs that belong to the scratch folder tree:
+// the root folder itself plus all nested subfolders (recursively).
+func collectScratchFolderUIDs(rootUID string, allSearchFolders []sdk.FoundBoard) map[string]bool {
+	uids := map[string]bool{rootUID: true}
+	changed := true
+	for changed {
+		changed = false
+		for _, f := range allSearchFolders {
+			if f.Type != "dash-folder" {
+				continue
+			}
+			if uids[f.FolderUID] && !uids[f.UID] {
+				uids[f.UID] = true
+				changed = true
+			}
+		}
+	}
+	return uids
+}
+
+func syncOneScratchFolder(ctx context.Context, client scratchGrafanaClient, name string, maxAge time.Duration, existingFolders []sdk.Folder, allDashboards []sdk.FoundBoard, allSearchFolders []sdk.FoundBoard, dryRun bool, now func() time.Time) error {
+	logger := logr.FromContextOrDiscard(ctx)
+
+	folder, err := findOrCreateFolder(ctx, client, name, existingFolders, dryRun)
+	if err != nil {
+		return err
+	}
+
+	if dryRun {
+		logger.Info("DRY_RUN: Would set permissions on scratch folder", "name", name)
+	} else {
+		if err := client.UpdateFolderPermissions(ctx, folder.UID, scratchFolderPermissions...); err != nil {
+			return fmt.Errorf("failed to set permissions on folder %q: %w", name, err)
+		}
+		logger.Info("Set permissions on scratch folder", "name", name)
+	}
+
+	scratchUIDs := collectScratchFolderUIDs(folder.UID, allSearchFolders)
+
+	cutoff := now().Add(-maxAge)
+	for _, db := range allDashboards {
+		if !scratchUIDs[db.FolderUID] {
+			continue
+		}
+
+		_, props, err := client.GetDashboardByUID(ctx, db.UID)
+		if err != nil {
+			logger.Error(err, "Failed to get metadata for scratch dashboard, skipping", "title", db.Title, "uid", db.UID)
+			continue
+		}
+
+		if !props.Created.Before(cutoff) {
+			logger.V(1).Info("Scratch dashboard not expired", "title", db.Title, "uid", db.UID, "created", props.Created, "cutoff", cutoff)
+			continue
+		}
+
+		if dryRun {
+			logger.Info("DRY_RUN: Would delete expired scratch dashboard", "title", db.Title, "uid", db.UID, "created", props.Created)
+		} else {
+			logger.Info("Deleting expired scratch dashboard", "title", db.Title, "uid", db.UID, "created", props.Created)
+			if err := client.DeleteDashboardByUID(ctx, db.UID); err != nil {
+				logger.Error(err, "Failed to delete expired scratch dashboard, continuing", "title", db.Title, "uid", db.UID)
+			}
+		}
+	}
+
+	deleteEmptySubfolders(ctx, client, folder.UID, allDashboards, allSearchFolders, scratchUIDs, dryRun)
+
+	return nil
+}
+
+// deleteEmptySubfolders removes subfolders of the scratch folder that contain no
+// dashboards (after expiry deletion). Processes leaf-first so nested empty trees
+// are fully removed.
+func deleteEmptySubfolders(ctx context.Context, client scratchGrafanaClient, rootUID string, allDashboards []sdk.FoundBoard, allSearchFolders []sdk.FoundBoard, scratchUIDs map[string]bool, dryRun bool) {
+	logger := logr.FromContextOrDiscard(ctx)
+
+	// Build parent→children map for subfolders only (exclude root).
+	children := make(map[string][]sdk.FoundBoard)
+	for _, f := range allSearchFolders {
+		if f.Type != "dash-folder" || !scratchUIDs[f.UID] || f.UID == rootUID {
+			continue
+		}
+		children[f.FolderUID] = append(children[f.FolderUID], f)
+	}
+
+	// Count remaining dashboards per folder. We only care about folders in the
+	// scratch tree. A dashboard is "remaining" if it wasn't deleted above — since
+	// we don't mutate allDashboards, we re-check membership; deleted dashboards
+	// are gone from Grafana but still in our snapshot. That's fine: the worst
+	// case is we leave a folder for one more sync cycle.
+	dashCount := make(map[string]int)
+	for _, db := range allDashboards {
+		if scratchUIDs[db.FolderUID] {
+			dashCount[db.FolderUID]++
+		}
+	}
+
+	// Recursively delete leaf-first, starting from direct children of root.
+	for _, child := range children[rootUID] {
+		deleteEmptyRecursive(ctx, client, child.UID, children, dashCount, dryRun, logger)
+	}
+}
+
+// deleteEmptyRecursive walks the subfolder tree depth-first and deletes folders
+// that are empty (no dashboards and no remaining children after recursion).
+// Returns true if the folder at uid was deleted (or would be in dry-run).
+func deleteEmptyRecursive(ctx context.Context, client scratchGrafanaClient, uid string, children map[string][]sdk.FoundBoard, dashCount map[string]int, dryRun bool, logger logr.Logger) bool {
+	hasChildren := false
+	for _, child := range children[uid] {
+		if !deleteEmptyRecursive(ctx, client, child.UID, children, dashCount, dryRun, logger) {
+			hasChildren = true
+		}
+	}
+
+	if hasChildren || dashCount[uid] > 0 {
+		return false
+	}
+
+	if dryRun {
+		logger.Info("DRY_RUN: Would delete empty scratch subfolder", "uid", uid)
+		return true
+	}
+
+	logger.Info("Deleting empty scratch subfolder", "uid", uid)
+	if err := client.DeleteFolderByUID(ctx, uid); err != nil {
+		logger.Error(err, "Failed to delete empty scratch subfolder, continuing", "uid", uid)
+		return false
+	}
+	return true
+}
+
+func findOrCreateFolder(ctx context.Context, client scratchGrafanaClient, name string, existingFolders []sdk.Folder, dryRun bool) (sdk.Folder, error) {
+	logger := logr.FromContextOrDiscard(ctx)
+
+	for _, f := range existingFolders {
+		if f.Title == name {
+			logger.V(1).Info("Scratch folder already exists", "name", name, "uid", f.UID)
+			return f, nil
+		}
+	}
+
+	if dryRun {
+		logger.Info("DRY_RUN: Would create scratch folder", "name", name)
+		return sdk.Folder{Title: name, UID: "dry-run-" + name}, nil
+	}
+
+	folder, err := client.CreateFolder(ctx, name)
+	if err != nil {
+		return sdk.Folder{}, fmt.Errorf("failed to create scratch folder %q: %w", name, err)
+	}
+
+	logger.Info("Created scratch folder", "name", name, "uid", folder.UID)
+	return folder, nil
+}

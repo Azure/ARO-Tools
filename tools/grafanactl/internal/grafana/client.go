@@ -173,3 +173,40 @@ func (c *Client) DeleteDashboardByUID(ctx context.Context, uid string) error {
 
 	return nil
 }
+
+// GetFolderPermissions returns the permission list for a folder.
+func (c *Client) GetFolderPermissions(ctx context.Context, folderUID string) ([]sdk.FolderPermission, error) {
+	perms, err := c.grafanaClient.GetFolderPermissions(ctx, folderUID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get permissions for folder %q: %w", folderUID, err)
+	}
+	return perms, nil
+}
+
+// UpdateFolderPermissions replaces the full permission list for a folder.
+func (c *Client) UpdateFolderPermissions(ctx context.Context, folderUID string, permissions ...sdk.FolderPermission) error {
+	_, err := c.grafanaClient.UpdateFolderPermissions(ctx, folderUID, permissions...)
+	if err != nil {
+		return fmt.Errorf("failed to update permissions for folder %q: %w", folderUID, err)
+	}
+	return nil
+}
+
+// SearchFolders returns all folders visible in the Grafana instance via the search API.
+// Unlike ListFolders, search results include FolderUID which identifies parent folders.
+func (c *Client) SearchFolders(ctx context.Context) ([]sdk.FoundBoard, error) {
+	results, err := c.grafanaClient.Search(ctx, sdk.SearchType(sdk.SearchTypeFolder))
+	if err != nil {
+		return nil, fmt.Errorf("failed to search folders: %w", err)
+	}
+	return results, nil
+}
+
+// DeleteFolderByUID removes a folder by its UID.
+func (c *Client) DeleteFolderByUID(ctx context.Context, uid string) error {
+	_, err := c.grafanaClient.DeleteFolderByUID(ctx, uid)
+	if err != nil {
+		return fmt.Errorf("failed to delete folder %q: %w", uid, err)
+	}
+	return nil
+}
