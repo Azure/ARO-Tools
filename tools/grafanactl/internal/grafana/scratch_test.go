@@ -123,7 +123,7 @@ func TestSyncScratchFolders_CreatesFolder(t *testing.T) {
 	folders := []config.ScratchFolder{{Name: "Scratchpad", MaxAgeRaw: "168h"}}
 	now := time.Date(2025, 7, 28, 12, 0, 0, 0, time.UTC)
 
-	err := syncScratchFolders(context.Background(), client, folders, false, func() time.Time { return now })
+	err := syncScratchFolders(context.Background(), client, folders, false, now)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -139,7 +139,7 @@ func TestSyncScratchFolders_ReuseExistingFolder(t *testing.T) {
 	folders := []config.ScratchFolder{{Name: "Scratchpad", MaxAgeRaw: "168h"}}
 	now := time.Date(2025, 7, 28, 12, 0, 0, 0, time.UTC)
 
-	err := syncScratchFolders(context.Background(), client, folders, false, func() time.Time { return now })
+	err := syncScratchFolders(context.Background(), client, folders, false, now)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -162,7 +162,7 @@ func TestSyncScratchFolders_SetsPermissions(t *testing.T) {
 	folders := []config.ScratchFolder{{Name: "Scratchpad", MaxAgeRaw: "168h"}}
 	now := time.Date(2025, 7, 28, 12, 0, 0, 0, time.UTC)
 
-	err := syncScratchFolders(context.Background(), client, folders, false, func() time.Time { return now })
+	err := syncScratchFolders(context.Background(), client, folders, false, now)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -208,7 +208,7 @@ func TestSyncScratchFolders_DeletesExpiredDashboards(t *testing.T) {
 	}
 
 	folders := []config.ScratchFolder{{Name: "Scratchpad", MaxAgeRaw: "168h"}}
-	err := syncScratchFolders(context.Background(), client, folders, false, func() time.Time { return now })
+	err := syncScratchFolders(context.Background(), client, folders, false, now)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -238,7 +238,7 @@ func TestSyncScratchFolders_DeletesExpiredDashboardsInSubfolders(t *testing.T) {
 	client.dashboardsByUID["sub-dash"] = sdk.BoardProperties{Created: now.Add(-8 * 24 * time.Hour)}
 
 	folders := []config.ScratchFolder{{Name: "Scratchpad", MaxAgeRaw: "168h"}}
-	err := syncScratchFolders(context.Background(), client, folders, false, func() time.Time { return now })
+	err := syncScratchFolders(context.Background(), client, folders, false, now)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -265,7 +265,7 @@ func TestSyncScratchFolders_DeletesEmptySubfolders(t *testing.T) {
 	client.dashboards = nil
 
 	folders := []config.ScratchFolder{{Name: "Scratchpad", MaxAgeRaw: "168h"}}
-	err := syncScratchFolders(context.Background(), client, folders, false, func() time.Time { return now })
+	err := syncScratchFolders(context.Background(), client, folders, false, now)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -288,7 +288,7 @@ func TestSyncScratchFolders_DeletesNestedEmptySubfoldersLeafFirst(t *testing.T) 
 	client.dashboards = nil
 
 	folders := []config.ScratchFolder{{Name: "Scratchpad", MaxAgeRaw: "168h"}}
-	err := syncScratchFolders(context.Background(), client, folders, false, func() time.Time { return now })
+	err := syncScratchFolders(context.Background(), client, folders, false, now)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -322,7 +322,7 @@ func TestSyncScratchFolders_KeepsNonEmptySubfolders(t *testing.T) {
 	}
 
 	folders := []config.ScratchFolder{{Name: "Scratchpad", MaxAgeRaw: "168h"}}
-	err := syncScratchFolders(context.Background(), client, folders, false, func() time.Time { return now })
+	err := syncScratchFolders(context.Background(), client, folders, false, now)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -343,7 +343,7 @@ func TestSyncScratchFolders_DoesNotDeleteRootScratchFolder(t *testing.T) {
 	client.dashboards = nil
 
 	folders := []config.ScratchFolder{{Name: "Scratchpad", MaxAgeRaw: "168h"}}
-	err := syncScratchFolders(context.Background(), client, folders, false, func() time.Time { return now })
+	err := syncScratchFolders(context.Background(), client, folders, false, now)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -377,7 +377,7 @@ func TestSyncScratchFolders_ExpiryBoundary(t *testing.T) {
 	}
 
 	folders := []config.ScratchFolder{{Name: "Scratchpad", MaxAgeRaw: "168h"}}
-	err := syncScratchFolders(context.Background(), client, folders, false, func() time.Time { return now })
+	err := syncScratchFolders(context.Background(), client, folders, false, now)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -406,7 +406,7 @@ func TestSyncScratchFolders_DryRun(t *testing.T) {
 	}
 
 	folders := []config.ScratchFolder{{Name: "Scratchpad", MaxAgeRaw: "168h"}}
-	err := syncScratchFolders(context.Background(), client, folders, true, func() time.Time { return now })
+	err := syncScratchFolders(context.Background(), client, folders, true, now)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -435,7 +435,7 @@ func TestSyncScratchFolders_IgnoresDashboardsInOtherFolders(t *testing.T) {
 	}
 
 	folders := []config.ScratchFolder{{Name: "Scratchpad", MaxAgeRaw: "168h"}}
-	err := syncScratchFolders(context.Background(), client, folders, false, func() time.Time { return now })
+	err := syncScratchFolders(context.Background(), client, folders, false, now)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -459,7 +459,7 @@ func TestSyncScratchFolders_DashboardDeleteErrorIsNonFatal(t *testing.T) {
 	client.deleteDashboardErr = fmt.Errorf("delete failed")
 
 	folders := []config.ScratchFolder{{Name: "Scratchpad", MaxAgeRaw: "168h"}}
-	err := syncScratchFolders(context.Background(), client, folders, false, func() time.Time { return now })
+	err := syncScratchFolders(context.Background(), client, folders, false, now)
 	if err != nil {
 		t.Fatalf("expected no error (non-fatal), got %v", err)
 	}
@@ -476,7 +476,7 @@ func TestSyncScratchFolders_MetadataErrorIsNonFatal(t *testing.T) {
 	folders := []config.ScratchFolder{{Name: "Scratchpad", MaxAgeRaw: "168h"}}
 	now := time.Date(2025, 7, 28, 12, 0, 0, 0, time.UTC)
 
-	err := syncScratchFolders(context.Background(), client, folders, false, func() time.Time { return now })
+	err := syncScratchFolders(context.Background(), client, folders, false, now)
 	if err != nil {
 		t.Fatalf("expected no error (non-fatal), got %v", err)
 	}
@@ -495,7 +495,7 @@ func TestSyncScratchFolders_FolderDeleteErrorIsNonFatal(t *testing.T) {
 	client.deleteFolderErr = fmt.Errorf("folder delete failed")
 
 	folders := []config.ScratchFolder{{Name: "Scratchpad", MaxAgeRaw: "168h"}}
-	err := syncScratchFolders(context.Background(), client, folders, false, func() time.Time { return now })
+	err := syncScratchFolders(context.Background(), client, folders, false, now)
 	if err != nil {
 		t.Fatalf("expected no error (non-fatal), got %v", err)
 	}
@@ -508,7 +508,7 @@ func TestSyncScratchFolders_PermissionErrorIsFatal(t *testing.T) {
 	now := time.Date(2025, 7, 28, 12, 0, 0, 0, time.UTC)
 
 	folders := []config.ScratchFolder{{Name: "Scratchpad", MaxAgeRaw: "168h"}}
-	err := syncScratchFolders(context.Background(), client, folders, false, func() time.Time { return now })
+	err := syncScratchFolders(context.Background(), client, folders, false, now)
 	if err == nil {
 		t.Fatal("expected error on permission update failure, got nil")
 	}
@@ -519,7 +519,7 @@ func TestSyncScratchFolders_ErrorOnInvalidMaxAge(t *testing.T) {
 	now := time.Date(2025, 7, 28, 12, 0, 0, 0, time.UTC)
 
 	folders := []config.ScratchFolder{{Name: "Scratchpad", MaxAgeRaw: "not-a-duration"}}
-	err := syncScratchFolders(context.Background(), client, folders, false, func() time.Time { return now })
+	err := syncScratchFolders(context.Background(), client, folders, false, now)
 	if err == nil {
 		t.Fatal("expected error for invalid maxAge, got nil")
 	}
@@ -531,7 +531,7 @@ func TestSyncScratchFolders_CreateFolderErrorIsFatal(t *testing.T) {
 	now := time.Date(2025, 7, 28, 12, 0, 0, 0, time.UTC)
 
 	folders := []config.ScratchFolder{{Name: "Scratchpad", MaxAgeRaw: "168h"}}
-	err := syncScratchFolders(context.Background(), client, folders, false, func() time.Time { return now })
+	err := syncScratchFolders(context.Background(), client, folders, false, now)
 	if err == nil {
 		t.Fatal("expected error on folder creation failure, got nil")
 	}
@@ -541,7 +541,7 @@ func TestSyncScratchFolders_NoScratchFolders(t *testing.T) {
 	client := newMockScratchClient()
 	now := time.Date(2025, 7, 28, 12, 0, 0, 0, time.UTC)
 
-	err := syncScratchFolders(context.Background(), client, nil, false, func() time.Time { return now })
+	err := syncScratchFolders(context.Background(), client, nil, false, now)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

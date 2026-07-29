@@ -22,6 +22,8 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/grafana-tools/sdk"
 
+	"k8s.io/apimachinery/pkg/util/sets"
+
 	"github.com/Azure/ARO-Tools/tools/grafanactl/config"
 )
 
@@ -46,10 +48,10 @@ func (s *DashboardSyncer) syncScratchFolders(ctx context.Context) error {
 	if len(s.config.GrafanaDashboards.ScratchFolders) == 0 {
 		return nil
 	}
-	return syncScratchFolders(ctx, s.client, s.config.GrafanaDashboards.ScratchFolders, s.dryRun, s.now)
+	return syncScratchFolders(ctx, s.client, s.config.GrafanaDashboards.ScratchFolders, s.dryRun, s.now())
 }
 
-func syncScratchFolders(ctx context.Context, client scratchGrafanaClient, folders []config.ScratchFolder, dryRun bool, now func() time.Time) error {
+func syncScratchFolders(ctx context.Context, client scratchGrafanaClient, folders []config.ScratchFolder, dryRun bool, now time.Time) error {
 	logger := logr.FromContextOrDiscard(ctx)
 
 	existingFolders, err := client.ListFolders(ctx)
@@ -102,7 +104,7 @@ func collectScratchFolderUIDs(rootUID string, allSearchFolders []sdk.FoundBoard)
 	return uids
 }
 
-func syncOneScratchFolder(ctx context.Context, client scratchGrafanaClient, name string, maxAge time.Duration, existingFolders []sdk.Folder, allDashboards []sdk.FoundBoard, allSearchFolders []sdk.FoundBoard, dryRun bool, now func() time.Time) error {
+func syncOneScratchFolder(ctx context.Context, client scratchGrafanaClient, name string, maxAge time.Duration, existingFolders []sdk.Folder, allDashboards []sdk.FoundBoard, allSearchFolders []sdk.FoundBoard, dryRun bool, now time.Time) error {
 	logger := logr.FromContextOrDiscard(ctx)
 
 	folder, err := findOrCreateFolder(ctx, client, name, existingFolders, dryRun)
@@ -121,8 +123,8 @@ func syncOneScratchFolder(ctx context.Context, client scratchGrafanaClient, name
 
 	scratchUIDs := collectScratchFolderUIDs(folder.UID, allSearchFolders)
 
-	deletedDashboards := make(map[string]bool)
-	cutoff := now().Add(-maxAge)
+	deletedDashboards := sets.New[string]()
+	cutoff := now.Add(-maxAge)
 	for _, db := range allDashboards {
 		if !scratchUIDs[db.FolderUID] {
 			continue
@@ -141,13 +143,13 @@ func syncOneScratchFolder(ctx context.Context, client scratchGrafanaClient, name
 
 		if dryRun {
 			logger.Info("DRY_RUN: Would delete expired scratch dashboard", "title", db.Title, "uid", db.UID, "created", props.Created)
-			deletedDashboards[db.UID] = true
+			deletedDashboards.Insert(db.UID)
 		} else {
 			logger.Info("Deleting expired scratch dashboard", "title", db.Title, "uid", db.UID, "created", props.Created)
 			if err := client.DeleteDashboardByUID(ctx, db.UID); err != nil {
 				logger.Error(err, "Failed to delete expired scratch dashboard, continuing", "title", db.Title, "uid", db.UID)
 			} else {
-				deletedDashboards[db.UID] = true
+				deletedDashboards.Insert(db.UID)
 			}
 		}
 	}
@@ -160,9 +162,7 @@ func syncOneScratchFolder(ctx context.Context, client scratchGrafanaClient, name
 // deleteEmptySubfolders removes subfolders of the scratch folder that contain no
 // dashboards (after expiry deletion). Processes leaf-first so nested empty trees
 // are fully removed.
-func deleteEmptySubfolders(ctx context.Context, client scratchGrafanaClient, rootUID string, allDashboards []sdk.FoundBoard, allSearchFolders []sdk.FoundBoard, scratchUIDs map[string]bool, deletedDashboards map[string]bool, dryRun bool) {
-	logger := logr.FromContextOrDiscard(ctx)
-
+func deleteEmptySubfolders(ctx context.Context, client scratchGrafanaClient, rootUID string, allDashboards []sdk.FoundBoard, allSearchFolders []sdk.FoundBoard, scratchUIDs map[string]bool, deletedDashboards sets.Set[string], dryRun bool) {
 	// Build parent→children map for subfolders only (exclude root).
 	children := make(map[string][]sdk.FoundBoard)
 	for _, f := range allSearchFolders {
@@ -174,24 +174,26 @@ func deleteEmptySubfolders(ctx context.Context, client scratchGrafanaClient, roo
 
 	dashCount := make(map[string]int)
 	for _, db := range allDashboards {
-		if scratchUIDs[db.FolderUID] && !deletedDashboards[db.UID] {
+		if scratchUIDs[db.FolderUID] && !deletedDashboards.Has(db.UID) {
 			dashCount[db.FolderUID]++
 		}
 	}
 
 	// Recursively delete leaf-first, starting from direct children of root.
 	for _, child := range children[rootUID] {
-		deleteEmptyRecursive(ctx, client, child.UID, children, dashCount, dryRun, logger)
+		deleteEmptyRecursive(ctx, client, child.UID, children, dashCount, dryRun)
 	}
 }
 
 // deleteEmptyRecursive walks the subfolder tree depth-first and deletes folders
 // that are empty (no dashboards and no remaining children after recursion).
 // Returns true if the folder at uid was deleted (or would be in dry-run).
-func deleteEmptyRecursive(ctx context.Context, client scratchGrafanaClient, uid string, children map[string][]sdk.FoundBoard, dashCount map[string]int, dryRun bool, logger logr.Logger) bool {
+func deleteEmptyRecursive(ctx context.Context, client scratchGrafanaClient, uid string, children map[string][]sdk.FoundBoard, dashCount map[string]int, dryRun bool) bool {
+	logger := logr.FromContextOrDiscard(ctx).WithValues("uid", uid)
+
 	hasChildren := false
 	for _, child := range children[uid] {
-		if !deleteEmptyRecursive(ctx, client, child.UID, children, dashCount, dryRun, logger) {
+		if !deleteEmptyRecursive(ctx, client, child.UID, children, dashCount, dryRun) {
 			hasChildren = true
 		}
 	}
@@ -201,13 +203,13 @@ func deleteEmptyRecursive(ctx context.Context, client scratchGrafanaClient, uid 
 	}
 
 	if dryRun {
-		logger.Info("DRY_RUN: Would delete empty scratch subfolder", "uid", uid)
+		logger.Info("DRY_RUN: Would delete empty scratch subfolder")
 		return true
 	}
 
-	logger.Info("Deleting empty scratch subfolder", "uid", uid)
+	logger.Info("Deleting empty scratch subfolder")
 	if err := client.DeleteFolderByUID(ctx, uid); err != nil {
-		logger.Error(err, "Failed to delete empty scratch subfolder, continuing", "uid", uid)
+		logger.Error(err, "Failed to delete empty scratch subfolder, continuing")
 		return false
 	}
 	return true
