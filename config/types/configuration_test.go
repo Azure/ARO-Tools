@@ -1,9 +1,75 @@
 package types
 
 import (
+	"bytes"
+	"encoding/json"
 	"path/filepath"
 	"testing"
+	"text/template"
+
+	"sigs.k8s.io/yaml"
 )
+
+func TestConfiguration_UnmarshalJSON_NestedAndArrays(t *testing.T) {
+	input := `{
+		"nested": {"count": 5000000},
+		"items": [3000000, 1.5, "text"]
+	}`
+
+	var cfg Configuration
+	if err := json.Unmarshal([]byte(input), &cfg); err != nil {
+		t.Fatalf("UnmarshalJSON failed: %v", err)
+	}
+
+	nested, ok := cfg["nested"].(map[string]any)
+	if !ok {
+		t.Fatalf("nested is %T, want map[string]any", cfg["nested"])
+	}
+	if v := nested["count"]; v != int64(5000000) {
+		t.Errorf("nested.count = %v (%T), want int64(5000000)", v, v)
+	}
+
+	items, ok := cfg["items"].([]any)
+	if !ok {
+		t.Fatalf("items is %T, want []any", cfg["items"])
+	}
+	if items[0] != int64(3000000) {
+		t.Errorf("items[0] = %v (%T), want int64(3000000)", items[0], items[0])
+	}
+	if items[1] != float64(1.5) {
+		t.Errorf("items[1] = %v (%T), want float64(1.5)", items[1], items[1])
+	}
+	if items[2] != "text" {
+		t.Errorf("items[2] = %v (%T), want \"text\"", items[2], items[2])
+	}
+}
+
+func TestConfiguration_UnmarshalJSON_Null(t *testing.T) {
+	var cfg Configuration
+	if err := json.Unmarshal([]byte("null"), &cfg); err != nil {
+		t.Fatalf("UnmarshalJSON failed: %v", err)
+	}
+	if cfg != nil {
+		t.Fatalf("cfg = %#v, want nil", cfg)
+	}
+}
+
+func TestConfiguration_TemplateRendering_NoScientificNotation(t *testing.T) {
+	input := `largeInt: 2000000`
+	var cfg Configuration
+	if err := yaml.Unmarshal([]byte(input), &cfg); err != nil {
+		t.Fatalf("yaml.Unmarshal failed: %v", err)
+	}
+
+	tmpl := template.Must(template.New("t").Parse("{{ .largeInt }}"))
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, map[string]any(cfg)); err != nil {
+		t.Fatalf("template.Execute failed: %v", err)
+	}
+	if got := buf.String(); got != "2000000" {
+		t.Errorf("template rendered %q, want %q", got, "2000000")
+	}
+}
 
 func TestResolveSchemaPath(t *testing.T) {
 	tests := []struct {
