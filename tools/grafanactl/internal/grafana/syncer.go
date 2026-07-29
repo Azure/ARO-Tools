@@ -21,6 +21,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/grafana-tools/sdk"
@@ -34,6 +35,7 @@ type DashboardSyncer struct {
 	config    *config.ObservabilityConfig
 	configDir string
 	dryRun    bool
+	now       func() time.Time
 }
 
 // ValidationIssue represents a validation error or warning for a dashboard.
@@ -65,6 +67,7 @@ func NewDashboardSyncer(client *Client, cfg *config.ObservabilityConfig, configF
 		config:    cfg,
 		configDir: filepath.Dir(configFilePath),
 		dryRun:    dryRun,
+		now:       time.Now,
 	}
 }
 
@@ -95,6 +98,10 @@ func (s *DashboardSyncer) Sync(ctx context.Context) error {
 	// Delete stale dashboards
 	if err := s.deleteStale(ctx, existingFolders, existingDashboards, dashboardsVisited); err != nil {
 		return fmt.Errorf("failed to delete stale dashboards: %w", err)
+	}
+
+	if err := s.syncScratchFolders(ctx); err != nil {
+		return fmt.Errorf("failed to sync scratch folders: %w", err)
 	}
 
 	// Report validation issues
