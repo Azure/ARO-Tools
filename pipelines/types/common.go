@@ -682,6 +682,7 @@ type PublishGenevaAutomationStep struct {
 	KustoClientSecretName      Value  `json:"kustoClientSecretName,omitempty"`
 	GenevaAutomationSecretName Value  `json:"genevaAutomationSecretName,omitempty"`
 	IcmServiceId               Value  `json:"icmServiceId,omitempty"`
+	IcmTeamId                  *Value `json:"icmTeamId,omitempty"`
 	WorkflowPath               string `json:"workflowPath,omitempty"`
 
 	GenevaAutomationArtifact AdoArtifactDownloadPipelineReference `json:"genevaAutomationArtifact,omitempty"`
@@ -697,6 +698,9 @@ func (s *PublishGenevaAutomationStep) RequiredInputs() []StepDependency {
 		if val.Input != nil {
 			deps = append(deps, val.Input.StepDependency)
 		}
+	}
+	if s.IcmTeamId != nil && s.IcmTeamId.Input != nil {
+		deps = append(deps, s.IcmTeamId.Input.StepDependency)
 	}
 
 	slices.SortFunc(deps, SortDependencies)
