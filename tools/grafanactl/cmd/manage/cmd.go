@@ -86,6 +86,7 @@ func (o *CompletedReconcileOptions) Run(ctx context.Context) error {
 	logger.Info("reconcile command executed", "dry-run", o.DryRun)
 
 	zoneRedundancy := armdashboard.ZoneRedundancy(o.ZoneRedundancy)
+	publicNetworkAccess := armdashboard.PublicNetworkAccess(o.PublicNetworkAccess)
 
 	tags := map[string]*string{}
 	if o.CrossTenantSecurityGroup != "" {
@@ -133,7 +134,8 @@ func (o *CompletedReconcileOptions) Run(ctx context.Context) error {
 		},
 		Tags: tags,
 		Properties: &armdashboard.ManagedGrafanaProperties{
-			ZoneRedundancy: &zoneRedundancy,
+			PublicNetworkAccess: &publicNetworkAccess,
+			ZoneRedundancy:      &zoneRedundancy,
 			GrafanaConfigurations: &armdashboard.GrafanaConfigurations{
 				Users: &armdashboard.Users{
 					ViewersCanEdit: to.Ptr(true),
@@ -153,6 +155,7 @@ func (o *CompletedReconcileOptions) Run(ctx context.Context) error {
 			"location", o.Location,
 			"major-version", o.MajorVersion,
 			"zone-redundancy", o.ZoneRedundancy,
+			"public-network-access", o.PublicNetworkAccess,
 			"integrations", workspaceIDs.Len(),
 		)
 		return nil

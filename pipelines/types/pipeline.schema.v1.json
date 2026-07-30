@@ -796,6 +796,9 @@
             "zoneRedundancy": {
               "$ref": "#/definitions/value"
             },
+            "publicNetworkAccess": {
+              "$ref": "#/definitions/value"
+            },
             "crossTenantSecurityGroup": {
               "$ref": "#/definitions/value"
             },
