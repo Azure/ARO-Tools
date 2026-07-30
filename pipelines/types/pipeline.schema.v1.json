@@ -665,6 +665,9 @@
             "icmServiceId": {
               "$ref": "#/definitions/value"
             },
+            "icmTeamId": {
+              "$ref": "#/definitions/value"
+            },
             "workflowPath": {
               "type": "string"
             },
