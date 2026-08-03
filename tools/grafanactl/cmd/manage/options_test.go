@@ -29,8 +29,8 @@ func TestDefaultReconcileOptions(t *testing.T) {
 	if opts.ZoneRedundancy != "Disabled" {
 		t.Fatalf("expected default ZoneRedundancy 'Disabled', got %q", opts.ZoneRedundancy)
 	}
-	if opts.PublicNetworkAccess != "Disabled" {
-		t.Fatalf("expected default PublicNetworkAccess 'Disabled', got %q", opts.PublicNetworkAccess)
+	if opts.PublicNetworkAccess != "Enabled" {
+		t.Fatalf("expected default PublicNetworkAccess 'Enabled', got %q", opts.PublicNetworkAccess)
 	}
 }
 

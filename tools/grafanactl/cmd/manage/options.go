@@ -60,7 +60,7 @@ func DefaultReconcileOptions() *RawReconcileOptions {
 		BaseOptions:         base.DefaultBaseOptions(),
 		SKU:                 "Standard",
 		ZoneRedundancy:      "Disabled",
-		PublicNetworkAccess: "Disabled",
+		PublicNetworkAccess: "Enabled",
 	}
 }
 
