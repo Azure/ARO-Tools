@@ -525,14 +525,14 @@ func (c *graphBuilder) wireInterServiceEdges(child *topology.Service, allLeaves 
 	return nil
 }
 
-// findChildRoots returns identifiers of root nodes (no parents) for the child service.
-// Our topology allows each service to depend on one and only one parent, so len(node.Parents) == 0
-// safely identifies root nodes, and this is the only time any actor will add parents to these roots.
+// findChildRoots returns identifiers of root nodes for the child service.
+// A node is a root of its service when it has no intra-service parents.
+// Parents added by inter-service wiring (from other ServiceGroups) do not disqualify it.
 // When both parent and child are stamped, only matching-stamp and unstamped-RG roots are returned.
 func (c *graphBuilder) findChildRoots(child *topology.Service, parentStamp Stamp) sets.Set[Identifier] {
 	roots := sets.New[Identifier]()
 	for _, node := range c.Nodes {
-		if node.ServiceGroup != child.ServiceGroup || len(node.Parents) != 0 {
+		if node.ServiceGroup != child.ServiceGroup || c.hasIntraServiceParent(node) {
 			continue
 		}
 		// Skip child roots whose stamp doesn't match. Unstamped parents or
@@ -543,6 +543,15 @@ func (c *graphBuilder) findChildRoots(child *topology.Service, parentStamp Stamp
 		roots.Insert(node.Identifier)
 	}
 	return roots
+}
+
+func (c *graphBuilder) hasIntraServiceParent(node Node) bool {
+	for _, parent := range node.Parents {
+		if parent.ServiceGroup == node.ServiceGroup {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *Graph) lookup(node Identifier) (*topology.Service, *types.ResourceGroupMeta, types.Step, error) {

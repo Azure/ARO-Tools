@@ -419,43 +419,41 @@ func TestStampedChildWithMixedRGs(t *testing.T) {
 		},
 	}
 
-	// Build the graph 50 times to defeat Go map iteration non-determinism.
-	// The bug depends on which stamp is wired first in wireInterServiceEdges —
-	// a single build may happen to pick the "right" order and pass.
-	for i := 0; i < 50; i++ {
-		entrypoint := &topo.Entrypoints[0]
-		result, err := ForStampedEntrypoints(topo, []*topology.Entrypoint{entrypoint}, stampPipelines)
-		require.NoError(t, err)
+	entrypoint := &topo.Entrypoints[0]
+	result, err := ForStampedEntrypoints(topo, []*topology.Entrypoint{entrypoint}, stampPipelines)
+	require.NoError(t, err)
 
-		var outputNode Node
-		for _, node := range nodesForSG(result, "SG.ACM") {
-			if node.Step == "output" {
-				outputNode = node
-				break
+	var outputNode Node
+	var foundOutput bool
+	for _, node := range nodesForSG(result, "SG.ACM") {
+		if node.Step == "output" {
+			outputNode = node
+			foundOutput = true
+			break
+		}
+	}
+	require.True(t, foundOutput, "ACM output node must exist in graph")
+	require.False(t, outputNode.Stamp.IsSet(), "output is in unstamped RG")
+
+	var mgmtParentStamps []string
+	for _, parent := range outputNode.Parents {
+		if parent.ServiceGroup == "SG.Mgmt" {
+			mgmtParentStamps = append(mgmtParentStamps, parent.Stamp.String())
+		}
+	}
+	slices.Sort(mgmtParentStamps)
+	require.Equal(t, []string{"1", "2"}, mgmtParentStamps,
+		"unstamped ACM root must depend on both stamps of parent service")
+
+	for _, node := range nodesForSG(result, "SG.Mgmt") {
+		var acmChildren []Identifier
+		for _, child := range node.Children {
+			if child.ServiceGroup == "SG.ACM" {
+				acmChildren = append(acmChildren, child)
 			}
 		}
-		require.False(t, outputNode.Stamp.IsSet(), "output is in unstamped RG")
-
-		var mgmtParentStamps []string
-		for _, parent := range outputNode.Parents {
-			if parent.ServiceGroup == "SG.Mgmt" {
-				mgmtParentStamps = append(mgmtParentStamps, parent.Stamp.String())
-			}
-		}
-		slices.Sort(mgmtParentStamps)
-		require.Equalf(t, []string{"1", "2"}, mgmtParentStamps,
-			"iteration %d: unstamped ACM root must depend on both stamps of parent service", i)
-
-		for _, node := range nodesForSG(result, "SG.Mgmt") {
-			var acmChildren []Identifier
-			for _, child := range node.Children {
-				if child.ServiceGroup == "SG.ACM" {
-					acmChildren = append(acmChildren, child)
-				}
-			}
-			require.NotEmptyf(t, acmChildren,
-				"iteration %d: stamp %s mgmt leaf must have ACM children", i, node.Stamp)
-		}
+		require.NotEmptyf(t, acmChildren,
+			"stamp %s mgmt leaf must have ACM children", node.Stamp)
 	}
 }
 

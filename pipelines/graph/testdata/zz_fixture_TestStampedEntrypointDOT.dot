@@ -27,9 +27,11 @@ digraph regexp {
  "Management.Infra_mgmt-rg_configure_2" [label="Management.Infra/mgmt-rg-2/configure (stamp=2)" style=filled fillcolor="#FFD9B3"];
  "Management.Infra_mgmt-rg_configure_2" -> "Maestro.Agent_maestro-rg_deploy_2";
  "Management.Infra_mgmt-rg_configure_2" -> "Fleet.Registration_svc-rg-stamped_register_2";
+ "Management.Infra_mgmt-rg_configure_2" -> "ACM_acm-global_output";
  "Management.Infra_mgmt-rg_deploy_2" [label="Management.Infra/mgmt-rg-2/deploy (stamp=2)" style=filled fillcolor="#FFD9B3"];
  "Management.Infra_mgmt-rg_deploy_2" -> "Maestro.Agent_maestro-rg_deploy_2";
  "Management.Infra_mgmt-rg_deploy_2" -> "Fleet.Registration_svc-rg-stamped_register_2";
+ "Management.Infra_mgmt-rg_deploy_2" -> "ACM_acm-global_output";
  "Management.Infra_mgmt-rg_infra_2" [label="Management.Infra/mgmt-rg-2/infra (stamp=2)" style=filled fillcolor="#FFD9B3"];
  "Management.Infra_mgmt-rg_infra_2" -> "Management.Infra_mgmt-rg_configure_2";
  "Management.Infra_mgmt-rg_infra_2" -> "Management.Infra_mgmt-rg_deploy_2";
