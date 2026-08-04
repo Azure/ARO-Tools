@@ -15,9 +15,11 @@
 package grafana
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -43,6 +45,11 @@ type ValidationIssue struct {
 	Folder  string
 	Title   string
 	Message string
+}
+
+type dashboardDocument struct {
+	raw   json.RawMessage
+	board sdk.Board
 }
 
 // fetchExistingState fetches existing folders and dashboards from Grafana.
@@ -135,7 +142,7 @@ func (s *DashboardSyncer) syncFolder(ctx context.Context, folder config.Dashboar
 	for _, dashboard := range dashboards {
 		errors, warnings, err := s.syncDashboard(ctx, dashboard, grafanaFolder, folder.Path, existingDashboards, dashboardsVisited)
 		if err != nil {
-			logger.Error(err, "Failed to sync dashboard", "title", dashboard.Title)
+			logger.Error(err, "Failed to sync dashboard", "title", dashboard.board.Title)
 		}
 		validationErrors = append(validationErrors, errors...)
 		validationWarnings = append(validationWarnings, warnings...)
@@ -169,7 +176,7 @@ func (s *DashboardSyncer) getOrCreateFolder(ctx context.Context, name string, ex
 	return folder, nil
 }
 
-func (s *DashboardSyncer) readDashboardsFromPath(ctx context.Context, path string) ([]sdk.Board, error) {
+func (s *DashboardSyncer) readDashboardsFromPath(ctx context.Context, path string) ([]dashboardDocument, error) {
 	logger := logr.FromContextOrDiscard(ctx)
 	fullPath := filepath.Join(s.configDir, path)
 	logger.V(1).Info("Reading dashboards", "path", fullPath)
@@ -179,7 +186,7 @@ func (s *DashboardSyncer) readDashboardsFromPath(ctx context.Context, path strin
 		return nil, fmt.Errorf("failed to read directory: %w", err)
 	}
 
-	var dashboards []sdk.Board
+	var dashboards []dashboardDocument
 	for _, entry := range entries {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
 			continue
@@ -198,53 +205,65 @@ func (s *DashboardSyncer) readDashboardsFromPath(ctx context.Context, path strin
 	return dashboards, nil
 }
 
-func readDashboardFile(path string) (sdk.Board, error) {
+func readDashboardFile(path string) (dashboardDocument, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return sdk.Board{}, fmt.Errorf("failed to read file %q: %w", path, err)
+		return dashboardDocument{}, fmt.Errorf("failed to read file %q: %w", path, err)
 	}
 
 	// Try parsing as wrapped format {"dashboard": {...}}
 	var wrapped struct {
-		Dashboard sdk.Board `json:"dashboard"`
+		Dashboard json.RawMessage `json:"dashboard"`
 	}
-	if err := json.Unmarshal(data, &wrapped); err == nil && wrapped.Dashboard.Title != "" {
-		return wrapped.Dashboard, nil
+	if err := json.Unmarshal(data, &wrapped); err == nil && len(wrapped.Dashboard) > 0 {
+		dashboard, err := parseDashboard(wrapped.Dashboard)
+		if err != nil {
+			return dashboardDocument{}, fmt.Errorf("failed to parse wrapped dashboard JSON: %w", err)
+		}
+		if dashboard.board.Title != "" {
+			return dashboard, nil
+		}
 	}
 
-	// Try parsing as raw dashboard
-	var board sdk.Board
-	if err := json.Unmarshal(data, &board); err != nil {
-		return sdk.Board{}, fmt.Errorf("failed to parse dashboard JSON: %w", err)
-	}
-
-	return board, nil
+	return parseDashboard(data)
 }
 
-func (s *DashboardSyncer) syncDashboard(ctx context.Context, localDashboard sdk.Board, folder sdk.Folder, folderPath string, existingDashboards []sdk.FoundBoard, dashboardsVisited map[string]bool) ([]ValidationIssue, []ValidationIssue, error) {
+func parseDashboard(data []byte) (dashboardDocument, error) {
+	var board sdk.Board
+	if err := json.Unmarshal(data, &board); err != nil {
+		return dashboardDocument{}, fmt.Errorf("failed to parse dashboard JSON: %w", err)
+	}
+
+	return dashboardDocument{
+		raw:   append(json.RawMessage(nil), data...),
+		board: board,
+	}, nil
+}
+
+func (s *DashboardSyncer) syncDashboard(ctx context.Context, localDashboard dashboardDocument, folder sdk.Folder, folderPath string, existingDashboards []sdk.FoundBoard, dashboardsVisited map[string]bool) ([]ValidationIssue, []ValidationIssue, error) {
 	logger := logr.FromContextOrDiscard(ctx)
 
-	errors, warnings := validateDashboard(localDashboard, folderPath)
+	errors, warnings := validateDashboard(localDashboard.board, folderPath)
 
 	if len(errors) > 0 {
-		logger.Info("Skipping dashboard due to validation errors", "title", localDashboard.Title)
+		logger.Info("Skipping dashboard due to validation errors", "title", localDashboard.board.Title)
 		return errors, warnings, nil
 	}
 
 	// Mark dashboard UID as visited
-	dashboardsVisited[localDashboard.UID] = true
+	dashboardsVisited[localDashboard.board.UID] = true
 
 	// Check if dashboard already exists in Grafana
-	existingBoard := findExistingDashboard(localDashboard.UID, existingDashboards)
+	existingBoard := findExistingDashboard(localDashboard.board.UID, existingDashboards)
 
 	// If dashboard exists in the correct folder, check if it matches
 	if existingBoard != nil && existingBoard.FolderUID == folder.UID {
-		remoteDashboard, _, err := s.client.GetDashboardByUID(ctx, localDashboard.UID)
+		remoteDashboard, _, err := s.client.GetRawDashboardByUID(ctx, localDashboard.board.UID)
 		if err != nil {
-			return errors, warnings, fmt.Errorf("failed to fetch remote dashboard %q: %w", localDashboard.Title, err)
+			return errors, warnings, fmt.Errorf("failed to fetch remote dashboard %q: %w", localDashboard.board.Title, err)
 		}
-		if areDashboardsEqual(remoteDashboard, localDashboard) {
-			logger.V(1).Info("Dashboard matches, no update needed", "title", localDashboard.Title)
+		if areDashboardsEqual(remoteDashboard, localDashboard.raw) {
+			logger.V(1).Info("Dashboard matches, no update needed", "title", localDashboard.board.Title)
 			return errors, warnings, nil
 		}
 	}
@@ -254,17 +273,19 @@ func (s *DashboardSyncer) syncDashboard(ctx context.Context, localDashboard sdk.
 	if existingBoard != nil {
 		action = "Updating"
 	}
-	logger.Info(action+" dashboard", "title", localDashboard.Title, "folder", folder.Title)
+	logger.Info(action+" dashboard", "title", localDashboard.board.Title, "folder", folder.Title)
 
 	if s.dryRun {
-		logger.Info("DRY_RUN: Would "+strings.ToLower(action)+" dashboard", "title", localDashboard.Title, "folder", folder.Title)
+		logger.Info("DRY_RUN: Would "+strings.ToLower(action)+" dashboard", "title", localDashboard.board.Title, "folder", folder.Title)
 		return errors, warnings, nil
 	}
 
-	// Clear ID and Version so Grafana uses UID for lookup (values in JSON files may be stale)
-	localDashboard.ID = 0
-	localDashboard.Version = 0
-	return errors, warnings, s.client.SetDashboard(ctx, localDashboard, folder.ID, true)
+	dashboardToUpload, err := normalizeDashboard(localDashboard.raw)
+	if err != nil {
+		return errors, warnings, fmt.Errorf("failed to prepare dashboard %q for upload: %w", localDashboard.board.Title, err)
+	}
+
+	return errors, warnings, s.client.SetRawDashboard(ctx, dashboardToUpload, folder.ID, true)
 }
 
 func findExistingDashboard(uid string, existingDashboards []sdk.FoundBoard) *sdk.FoundBoard {
@@ -276,25 +297,41 @@ func findExistingDashboard(uid string, existingDashboards []sdk.FoundBoard) *sdk
 	return nil
 }
 
-func areDashboardsEqual(remote, local sdk.Board) bool {
-	// Clear fields that change on save
-	remote.ID = 0
-	local.ID = 0
-	remote.Version = 0
-	local.Version = 0
-
-	// Compare JSON representations to avoid type mismatches
-	// (e.g., string "1" vs float64 1 in interface{} fields)
-	remoteJSON, err := json.Marshal(remote)
+func areDashboardsEqual(remote, local []byte) bool {
+	remoteJSON, err := normalizeDashboard(remote)
 	if err != nil {
 		return false
 	}
-	localJSON, err := json.Marshal(local)
+	localJSON, err := normalizeDashboard(local)
 	if err != nil {
 		return false
 	}
 
-	return string(remoteJSON) == string(localJSON)
+	return bytes.Equal(remoteJSON, localJSON)
+}
+
+func normalizeDashboard(raw []byte) ([]byte, error) {
+	var dashboard map[string]interface{}
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.UseNumber()
+	if err := decoder.Decode(&dashboard); err != nil {
+		return nil, err
+	}
+	if dashboard == nil {
+		return nil, fmt.Errorf("dashboard is not a JSON object")
+	}
+	var trailing interface{}
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		if err == nil {
+			return nil, fmt.Errorf("dashboard contains multiple JSON values")
+		}
+		return nil, fmt.Errorf("dashboard contains trailing data: %w", err)
+	}
+
+	dashboard["id"] = json.Number("0")
+	dashboard["version"] = json.Number("0")
+
+	return json.Marshal(dashboard)
 }
 
 // validateDashboard validates a dashboard and returns validation errors and warnings.

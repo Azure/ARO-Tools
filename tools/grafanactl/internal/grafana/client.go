@@ -149,14 +149,27 @@ func (c *Client) GetDashboardByUID(ctx context.Context, uid string) (sdk.Board, 
 	return board, props, nil
 }
 
-// SetDashboard creates or updates a dashboard.
-func (c *Client) SetDashboard(ctx context.Context, board sdk.Board, folderID int, overwrite bool) error {
-	params := sdk.SetDashboardParams{
-		FolderID:  folderID,
-		Overwrite: overwrite,
+// GetRawDashboardByUID retrieves a dashboard by its UID without discarding fields unknown to the SDK.
+func (c *Client) GetRawDashboardByUID(ctx context.Context, uid string) ([]byte, sdk.BoardProperties, error) {
+	board, props, err := c.grafanaClient.GetRawDashboardByUID(ctx, uid)
+	if err != nil {
+		return nil, sdk.BoardProperties{}, fmt.Errorf("failed to get dashboard %q: %w", uid, err)
 	}
 
-	_, err := c.grafanaClient.SetDashboard(ctx, board, params)
+	return board, props, nil
+}
+
+// SetRawDashboard creates or updates a dashboard without discarding fields unknown to the SDK.
+func (c *Client) SetRawDashboard(ctx context.Context, dashboard []byte, folderID int, overwrite bool) error {
+	request := sdk.RawBoardRequest{
+		Dashboard: dashboard,
+		Parameters: sdk.SetDashboardParams{
+			FolderID:  folderID,
+			Overwrite: overwrite,
+		},
+	}
+
+	_, err := c.grafanaClient.SetRawDashboardWithParam(ctx, request)
 	if err != nil {
 		return fmt.Errorf("failed to set dashboard: %w", err)
 	}
