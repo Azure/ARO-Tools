@@ -22,6 +22,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/go-logr/logr"
 )
 
 // ev2RetryMarker is the exact log line prefix that the ARO-HCP E2E test binary
@@ -89,7 +91,11 @@ func fetchLogContainsEV2RetryMarker(ctx context.Context, rawLogURL string) (bool
 	if err != nil {
 		return false, fmt.Errorf("failed to fetch build log %q: %w", rawLogURL, err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			logr.FromContextOrDiscard(ctx).Error(err, "failed to close body")
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return false, fmt.Errorf("failed to fetch build log %q: unexpected status %d", rawLogURL, resp.StatusCode)
