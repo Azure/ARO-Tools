@@ -23,7 +23,19 @@ import (
 	"github.com/Azure/ARO-Tools/tools/cmdutils"
 	"github.com/Azure/ARO-Tools/tools/grafanactl/cmd/base"
 	"github.com/Azure/ARO-Tools/tools/grafanactl/internal/azure"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/dashboard/armdashboard/v2"
 )
+
+type kustoDiscoveryClient interface {
+	DiscoverKustoClusters(context.Context, string, string) ([]azure.KustoCluster, error)
+}
+
+type integrationFabricsClient interface {
+	List(context.Context, string, string) ([]armdashboard.IntegrationFabric, error)
+	Create(context.Context, string, string, string, armdashboard.IntegrationFabric) (*armdashboard.IntegrationFabric, error)
+	Update(context.Context, string, string, string, armdashboard.IntegrationFabricUpdateParameters) (*armdashboard.IntegrationFabric, error)
+	Delete(context.Context, string, string, string) error
+}
 
 // RawReconcileOptions represents the initial, unvalidated configuration for reconcile operations.
 type RawReconcileOptions struct {
@@ -34,6 +46,11 @@ type RawReconcileOptions struct {
 	ZoneRedundancy           string
 	PublicNetworkAccess      string
 	CrossTenantSecurityGroup string
+	ADXIntegrationsEnabled   bool
+	ADXEnvironment           string
+	ADXGeographies           string
+	ADXScenario              string
+	ADXTargetResourceID      string
 }
 
 type validatedReconcileOptions struct {
@@ -52,6 +69,8 @@ type CompletedReconcileOptions struct {
 	*validatedReconcileOptions
 	ManagedGrafanaClient         *azure.ManagedGrafanaClient
 	ResourceGraphDiscoveryClient *azure.ResourceGraphDiscoveryClient
+	KustoDiscoveryClient         kustoDiscoveryClient
+	IntegrationFabricsClient     integrationFabricsClient
 }
 
 // DefaultReconcileOptions returns a new RawReconcileOptions with default values
@@ -77,6 +96,11 @@ func BindReconcileOptions(opts *RawReconcileOptions, cmd *cobra.Command) error {
 	flags.StringVar(&opts.ZoneRedundancy, "zone-redundancy", opts.ZoneRedundancy, "Zone redundancy mode: Enabled or Disabled")
 	flags.StringVar(&opts.PublicNetworkAccess, "public-network-access", opts.PublicNetworkAccess, "Public network access mode: Enabled or Disabled")
 	flags.StringVar(&opts.CrossTenantSecurityGroup, "cross-tenant-security-group", opts.CrossTenantSecurityGroup, "Cross-tenant security group (format: GroupObjectId;TenantId)")
+	flags.BoolVar(&opts.ADXIntegrationsEnabled, "adx-integrations-enabled", opts.ADXIntegrationsEnabled, "Reconcile ADX Kusto integration fabric child resources")
+	flags.StringVar(&opts.ADXEnvironment, "adx-integrations-environment", opts.ADXEnvironment, "Required aroHCPEnvironment tag value when ADX integrations are enabled")
+	flags.StringVar(&opts.ADXGeographies, "adx-integrations-geographies", opts.ADXGeographies, "Required comma-separated complete aroHCPGeoShortId set when ADX integrations are enabled")
+	flags.StringVar(&opts.ADXScenario, "adx-integrations-scenario", opts.ADXScenario, "Optional ADX integration fabric scenario supplied by the RP contract")
+	flags.StringVar(&opts.ADXTargetResourceID, "adx-integrations-target-resource-id", opts.ADXTargetResourceID, "Optional ADX integration fabric target resource ID supplied by the RP contract")
 
 	return nil
 }
@@ -102,6 +126,18 @@ func (o *RawReconcileOptions) Validate(ctx context.Context) (*ValidatedReconcile
 
 	if o.PublicNetworkAccess != "Enabled" && o.PublicNetworkAccess != "Disabled" {
 		return nil, fmt.Errorf("--public-network-access must be 'Enabled' or 'Disabled', got: %s", o.PublicNetworkAccess)
+	}
+
+	if o.ADXIntegrationsEnabled {
+		if o.ADXEnvironment == "" {
+			return nil, fmt.Errorf("--adx-integrations-environment is required when ADX integrations are enabled")
+		}
+		if err := azure.ValidateKustoEnvironment(o.ADXEnvironment); err != nil {
+			return nil, fmt.Errorf("invalid --adx-integrations-environment: %w", err)
+		}
+		if len(parseGeographyAllowlist(o.ADXGeographies)) == 0 {
+			return nil, fmt.Errorf("--adx-integrations-geographies is required when ADX integrations are enabled")
+		}
 	}
 
 	return &ValidatedReconcileOptions{
@@ -131,9 +167,20 @@ func (o *ValidatedReconcileOptions) Complete(ctx context.Context) (*CompletedRec
 		return nil, fmt.Errorf("failed to create Resource Graph discovery client: %w", err)
 	}
 
-	return &CompletedReconcileOptions{
+	completed := &CompletedReconcileOptions{
 		validatedReconcileOptions:    o.validatedReconcileOptions,
 		ManagedGrafanaClient:         managedGrafanaClient,
 		ResourceGraphDiscoveryClient: resourceGraphClient,
-	}, nil
+	}
+
+	if o.ADXIntegrationsEnabled {
+		integrationFabricsClient, err := azure.NewIntegrationFabricsClient(o.SubscriptionID, cred, clientOpts)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create integration fabrics client: %w", err)
+		}
+		completed.KustoDiscoveryClient = resourceGraphClient
+		completed.IntegrationFabricsClient = integrationFabricsClient
+	}
+
+	return completed, nil
 }

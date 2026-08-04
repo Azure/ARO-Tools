@@ -781,6 +781,9 @@
             "crossTenantSecurityGroup": {
               "$ref": "#/definitions/value"
             },
+            "adx": {
+              "$ref": "#/definitions/grafanaADXIntegrations"
+            },
             "timeout": {
               "$ref": "#/definitions/durationString"
             },
@@ -794,6 +797,30 @@
             "identityFrom"
           ]
         }
+      ]
+    },
+    "grafanaADXIntegrations": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "$ref": "#/definitions/value"
+        },
+        "environment": {
+          "$ref": "#/definitions/value"
+        },
+        "geographies": {
+          "$ref": "#/definitions/value"
+        },
+        "scenario": {
+          "$ref": "#/definitions/value"
+        },
+        "targetResourceId": {
+          "$ref": "#/definitions/value"
+        }
+      },
+      "required": [
+        "enabled"
       ]
     },
     "grafanaDatasourcesStep": {
