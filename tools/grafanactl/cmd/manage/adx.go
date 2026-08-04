@@ -205,9 +205,9 @@ func planADXReconciliation(desired []desiredADXIntegration, existing []armdashbo
 }
 
 func isOwnedIntegrationFabric(fabric armdashboard.IntegrationFabric) bool {
-	if tagEquals(fabric.Tags, adxPurposeTagKey, adxPurposeTagValue) &&
-		tagEquals(fabric.Tags, adxManagedByTagKey, adxManagedByTagValue) {
-		return true
+	if hasTag(fabric.Tags, adxPurposeTagKey) || hasTag(fabric.Tags, adxManagedByTagKey) {
+		return tagEquals(fabric.Tags, adxPurposeTagKey, adxPurposeTagValue) &&
+			tagEquals(fabric.Tags, adxManagedByTagKey, adxManagedByTagValue)
 	}
 	if fabric.Name == nil ||
 		fabric.Properties == nil ||
@@ -216,6 +216,15 @@ func isOwnedIntegrationFabric(fabric armdashboard.IntegrationFabric) bool {
 		return false
 	}
 	return *fabric.Name == integrationFabricName(*fabric.Properties.DataSourceResourceID)
+}
+
+func hasTag(tags map[string]*string, key string) bool {
+	for tagKey := range tags {
+		if strings.EqualFold(tagKey, key) {
+			return true
+		}
+	}
+	return false
 }
 
 func tagEquals(tags map[string]*string, key, value string) bool {

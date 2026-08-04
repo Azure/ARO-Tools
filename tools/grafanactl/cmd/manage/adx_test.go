@@ -186,6 +186,22 @@ func TestIntegrationFabricOwnershipFallback(t *testing.T) {
 	}
 	assert.True(t, isOwnedIntegrationFabric(fabric))
 
+	fabric.Tags = map[string]*string{"unrelated": to.Ptr("value")}
+	assert.True(t, isOwnedIntegrationFabric(fabric))
+
+	fabric.Tags = map[string]*string{
+		adxPurposeTagKey:   to.Ptr(adxPurposeTagValue),
+		adxManagedByTagKey: to.Ptr(adxManagedByTagValue),
+	}
+	assert.True(t, isOwnedIntegrationFabric(fabric))
+
+	fabric.Tags[adxManagedByTagKey] = to.Ptr("someone-else")
+	assert.False(t, isOwnedIntegrationFabric(fabric))
+
+	delete(fabric.Tags, adxManagedByTagKey)
+	assert.False(t, isOwnedIntegrationFabric(fabric))
+
+	fabric.Tags = nil
 	fabric.Name = to.Ptr(strings.ToUpper(integrationFabricName(resourceID)))
 	assert.False(t, isOwnedIntegrationFabric(fabric))
 }
