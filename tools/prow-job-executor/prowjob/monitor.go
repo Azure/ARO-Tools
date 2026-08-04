@@ -16,6 +16,7 @@ package prowjob
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -25,6 +26,21 @@ import (
 	prowgangway "sigs.k8s.io/prow/pkg/gangway"
 )
 
+// JobFailedError indicates a Prow job completed in the "failure" state - as
+// opposed to "error" or "aborted", which usually indicate an infra problem or
+// a cancellation rather than a test failure - or timed out. Only jobs that
+// failed this way are candidates for the EV2 auto-retry, since that's the
+// class of failure the allow-retry test label and EV2_RETRY_ALLOWED marker
+// are about (see AROSLSRE-1721).
+type JobFailedError struct {
+	ProwExecutionID string
+	JobURL          string
+}
+
+func (e *JobFailedError) Error() string {
+	return fmt.Sprintf("job %s failed - check the Prow UI for detailed logs: %s", e.ProwExecutionID, e.JobURL)
+}
+
 // Monitor handles job execution and monitoring
 type Monitor struct {
 	client        *Client
@@ -32,16 +48,27 @@ type Monitor struct {
 	timeout       time.Duration
 	dryRun        bool
 	gatePromotion bool
+	allowEV2Retry bool
+
+	// checkRetryMarker fetches the build log at a job's status URL and reports
+	// whether it carries the EV2_RETRY_ALLOWED marker. Defaults to
+	// buildLogContainsEV2RetryMarker; overridable in tests.
+	checkRetryMarker func(ctx context.Context, jobURL string) (bool, error)
 }
 
 // NewMonitor creates a new job monitor with the specified polling interval and timeout.
-func NewMonitor(client *Client, pollInterval, timeout time.Duration, dryRun, gatePromotion bool) *Monitor {
+// allowEV2Retry opts into automatically resubmitting the job exactly once when it
+// fails and its build log carries the EV2_RETRY_ALLOWED marker (see AROSLSRE-1721);
+// it has no effect unless gatePromotion is also true.
+func NewMonitor(client *Client, pollInterval, timeout time.Duration, dryRun, gatePromotion, allowEV2Retry bool) *Monitor {
 	return &Monitor{
-		client:        client,
-		pollInterval:  pollInterval,
-		timeout:       timeout,
-		dryRun:        dryRun,
-		gatePromotion: gatePromotion,
+		client:           client,
+		pollInterval:     pollInterval,
+		timeout:          timeout,
+		dryRun:           dryRun,
+		gatePromotion:    gatePromotion,
+		allowEV2Retry:    allowEV2Retry,
+		checkRetryMarker: buildLogContainsEV2RetryMarker,
 	}
 }
 
@@ -75,7 +102,7 @@ func (m *Monitor) WaitForCompletion(ctx context.Context, logger logr.Logger, pro
 				return nil
 			case string(prowjobs.FailureState):
 				if m.gatePromotion {
-					return fmt.Errorf("job %s failed - check the Prow UI for detailed logs: %s", prowExecutionID, job.Status.URL)
+					return &JobFailedError{ProwExecutionID: prowExecutionID, JobURL: job.Status.URL}
 				} else {
 					logger.Error(err, "Unexpected job state, but gating is not requested.")
 					return nil
@@ -109,8 +136,41 @@ func (m *Monitor) WaitForCompletion(ctx context.Context, logger logr.Logger, pro
 	}
 }
 
-// ExecuteAndWait submits a job and waits for completion
+// ExecuteAndWait submits a job and waits for completion. If the job fails
+// (JobFailedError) and this Monitor has allowEV2Retry set, it fetches the
+// failed job's build log and, if it carries the EV2_RETRY_ALLOWED marker
+// (only known-issue tests failed, see AROSLSRE-1721), resubmits the job
+// exactly once instead of failing the gating step outright.
 func (m *Monitor) ExecuteAndWait(ctx context.Context, logger logr.Logger, request *prowgangway.CreateJobExecutionRequest) error {
+	err := m.executeAndWaitOnce(ctx, logger, request)
+	if err == nil || !m.allowEV2Retry {
+		return err
+	}
+
+	var failedErr *JobFailedError
+	if !errors.As(err, &failedErr) {
+		return err
+	}
+
+	retry, checkErr := m.checkRetryMarker(ctx, failedErr.JobURL)
+	if checkErr != nil {
+		logger.Error(checkErr, "Failed to inspect build log for the EV2 retry marker, not retrying", "prowExecutionID", failedErr.ProwExecutionID)
+		return err
+	}
+	if !retry {
+		return err
+	}
+
+	logger.Info("EV2_RETRY_ALLOWED marker found in build log, retrying the job once", "prowExecutionID", failedErr.ProwExecutionID, "jobURL", failedErr.JobURL)
+
+	// Disable further auto-retries on the retried attempt so we never retry more than once.
+	retryMonitor := *m
+	retryMonitor.allowEV2Retry = false
+	return retryMonitor.executeAndWaitOnce(ctx, logger, request)
+}
+
+// executeAndWaitOnce submits a job once and waits for it to complete, without any retry logic.
+func (m *Monitor) executeAndWaitOnce(ctx context.Context, logger logr.Logger, request *prowgangway.CreateJobExecutionRequest) error {
 	// Submit job
 	logger.Info("Submitting Prow job", "jobName", request.JobName)
 	if m.dryRun {

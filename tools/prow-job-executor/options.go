@@ -84,6 +84,7 @@ func (o *RawExecuteOptions) BindFlags(cmd *cobra.Command) error {
 	cmd.Flags().StringVar(&o.ProwURL, "prow-url", o.ProwURL, "Prow API URL for job status monitoring")
 	cmd.Flags().BoolVar(&o.DryRun, "dry-run", o.DryRun, "Print which job would be started, but do not start one.")
 	cmd.Flags().BoolVar(&o.GatePromotion, "gate-promotion", o.GatePromotion, "Exit with an error code if the job fails.")
+	cmd.Flags().BoolVar(&o.AllowEV2Retry, "allow-ev2-retry", o.AllowEV2Retry, "When gate-promotion is set and the job fails, resubmit it once if its build log carries the EV2_RETRY_ALLOWED marker (AROSLSRE-1721).")
 	cmd.Flags().StringVar(&o.BaseSha, "base-sha", o.BaseSha, "Git commit SHA to test against. When set, the job is triggered as a postsubmit with this specific commit instead of HEAD.")
 	cmd.Flags().StringVar(&o.BaseRef, "base-ref", o.BaseRef, "Git base ref (branch) for the postsubmit job (requires --base-sha)")
 	cmd.Flags().StringVar(&o.Org, "org", o.Org, "GitHub org for the postsubmit job (requires --base-sha)")
@@ -123,6 +124,7 @@ type RawExecuteOptions struct {
 	ProwURL              string
 	DryRun               bool
 	GatePromotion        bool
+	AllowEV2Retry        bool
 
 	// Git ref options for postsubmit execution pinned to a specific commit.
 	// When BaseSha is set, the job is triggered as a postsubmit instead of a periodic.
@@ -163,6 +165,7 @@ type completedExecuteOptions struct {
 	ProwURL              string
 	DryRun               bool
 	GatePromotion        bool
+	AllowEV2Retry        bool
 
 	// Git ref options for postsubmit execution
 	BaseSha string
@@ -295,6 +298,7 @@ func (o *ValidatedExecuteOptions) Complete(ctx context.Context) (*ExecuteOptions
 			ProwURL:              o.ProwURL,
 			DryRun:               o.DryRun,
 			GatePromotion:        o.GatePromotion,
+			AllowEV2Retry:        o.AllowEV2Retry,
 			BaseSha:              o.BaseSha,
 			BaseRef:              o.BaseRef,
 			Org:                  o.Org,
@@ -313,7 +317,7 @@ func (o *ExecuteOptions) Execute(ctx context.Context) error {
 	client := prowjob.NewClient(o.ProwToken, o.GangwayURL, o.ProwURL)
 
 	// Create job monitor
-	monitor := prowjob.NewMonitor(client, o.PollInterval, o.Timeout, o.DryRun, o.GatePromotion)
+	monitor := prowjob.NewMonitor(client, o.PollInterval, o.Timeout, o.DryRun, o.GatePromotion, o.AllowEV2Retry)
 
 	// Prepare environment variables, including the region
 	envs := make(map[string]string)
@@ -516,7 +520,7 @@ func (o *ValidatedMonitorOptions) Complete(ctx context.Context) (*MonitorOptions
 func (o *MonitorOptions) Monitor(ctx context.Context, logger logr.Logger) error {
 	// Create Prow client and monitor
 	client := prowjob.NewClient(o.ProwToken, o.GangwayURL, o.ProwURL)
-	monitor := prowjob.NewMonitor(client, o.PollInterval, o.Timeout, false, false)
+	monitor := prowjob.NewMonitor(client, o.PollInterval, o.Timeout, false, false, false)
 
 	// Monitor existing job using shared polling logic
 	logger.Info("Starting to monitor existing job", "jobExecutionID", o.JobExecutionID)
