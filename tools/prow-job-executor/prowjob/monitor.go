@@ -142,6 +142,13 @@ func (m *Monitor) WaitForCompletion(ctx context.Context, logger logr.Logger, pro
 // (only known-issue tests failed, see AROSLSRE-1721), resubmits the job
 // exactly once instead of failing the gating step outright.
 func (m *Monitor) ExecuteAndWait(ctx context.Context, logger logr.Logger, request *prowgangway.CreateJobExecutionRequest) error {
+	// Bound the whole step, retry included, by the caller's timeout. Each
+	// attempt applies m.timeout again inside WaitForCompletion, which can only
+	// tighten this, so a retry gets whatever the first attempt left rather than
+	// a second full timeout on top.
+	ctx, cancel := context.WithTimeout(ctx, m.timeout)
+	defer cancel()
+
 	err := m.executeAndWaitOnce(ctx, logger, request)
 	if err == nil || !m.allowEV2Retry {
 		return err

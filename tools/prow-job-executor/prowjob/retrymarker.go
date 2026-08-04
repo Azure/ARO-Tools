@@ -15,6 +15,7 @@
 package prowjob
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -32,8 +33,9 @@ import (
 // was labeled allow-retry.
 const ev2RetryMarker = "EV2_RETRY_ALLOWED:"
 
-// maxBuildLogBytes caps how much of the build log we read looking for the
-// retry marker, so a huge or slow log can't stall or blow up memory.
+// maxBuildLogBytes is how much of the tail of the build log we ask for. The
+// marker is printed from an AfterAll, so it lands at the end of the log, and a
+// full E2E log is far bigger than this.
 const maxBuildLogBytes = 4 << 20 // 4 MiB
 
 // buildLogFetchTimeout bounds a single build-log fetch, independent of the
@@ -86,6 +88,10 @@ func fetchLogContainsEV2RetryMarker(ctx context.Context, rawLogURL string) (bool
 	if err != nil {
 		return false, fmt.Errorf("failed to create build log request: %w", err)
 	}
+	// aro-hcp-tests prints the marker from an AfterAll, so it is at the end of
+	// the log. Ask for the tail, otherwise a long E2E log pushes the marker out
+	// of anything we read from the front.
+	req.Header.Set("Range", fmt.Sprintf("bytes=-%d", maxBuildLogBytes))
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -97,14 +103,48 @@ func fetchLogContainsEV2RetryMarker(ctx context.Context, rawLogURL string) (bool
 		}
 	}()
 
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusPartialContent {
 		return false, fmt.Errorf("failed to fetch build log %q: unexpected status %d", rawLogURL, resp.StatusCode)
 	}
 
-	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBuildLogBytes))
+	// 206 means we got just the tail. 200 means the server ignored the Range
+	// header and is sending the whole log, so scan it as a stream rather than
+	// buffering it. Either way the fetch timeout bounds how long this runs.
+	found, err := streamContainsMarker(resp.Body)
 	if err != nil {
 		return false, fmt.Errorf("failed to read build log %q: %w", rawLogURL, err)
 	}
+	return found, nil
+}
 
-	return strings.Contains(string(body), ev2RetryMarker), nil
+// streamContainsMarker reports whether r contains ev2RetryMarker, reading in
+// fixed size chunks and carrying the last len(marker)-1 bytes over so a marker
+// straddling a chunk boundary is still found. Memory stays constant regardless
+// of how big the log is.
+func streamContainsMarker(r io.Reader) (bool, error) {
+	const chunkSize = 64 << 10
+	marker := []byte(ev2RetryMarker)
+	overlap := len(marker) - 1
+	buf := make([]byte, overlap+chunkSize)
+	filled := 0
+
+	for {
+		n, err := r.Read(buf[filled:])
+		if n > 0 {
+			filled += n
+			if bytes.Contains(buf[:filled], marker) {
+				return true, nil
+			}
+			if filled > overlap {
+				copy(buf, buf[filled-overlap:filled])
+				filled = overlap
+			}
+		}
+		if err == io.EOF {
+			return false, nil
+		}
+		if err != nil {
+			return false, err
+		}
+	}
 }
