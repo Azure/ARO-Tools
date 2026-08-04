@@ -353,6 +353,110 @@ func TestStampedMixedSiblings(t *testing.T) {
 	}
 }
 
+// TestStampedChildWithMixedRGs tests that when a stamped parent wires to a stamped child
+// whose pipeline has both unstamped and stamped resource groups, the unstamped child roots
+// are wired to ALL parent stamps — not just the first one processed.
+//
+// This reproduces the ACM bug: Management.Infra (stamped) → ACM (stamped, mixed RGs).
+// ACM has unstamped roots (global/output, kusto/lookup) and stamped steps (deploy-mce)
+// that depend on those unstamped roots. Before the fix, map iteration order determined
+// which stamp's leaves got wired to the unstamped roots — the other stamp's leaves
+// were silently dropped.
+//
+//	SG.Regional (unstamped) → SG.Mgmt (stamped, stamped RG only) → SG.ACM (stamped, mixed RGs)
+func TestStampedChildWithMixedRGs(t *testing.T) {
+	deploy := &types.ShellStep{StepMeta: types.StepMeta{Name: "deploy"}}
+
+	topo := makeTopology(topology.Service{
+		ServiceGroup: "SG.Regional", Purpose: "regional", PipelinePath: "regional.yaml",
+		Children: []topology.Service{
+			{ServiceGroup: "SG.Mgmt", Purpose: "mgmt", Stamped: ptr(true), PipelinePath: "mgmt.yaml",
+				Children: []topology.Service{
+					{ServiceGroup: "SG.ACM", Purpose: "acm", PipelinePath: "acm.yaml"},
+				},
+			},
+		},
+	})
+
+	regionalPipeline := makePipeline("SG.Regional", "regional-rg", false, deploy)
+
+	// ACM pipeline: unstamped "global" RG (root) + stamped "mgmt" RG (depends on global)
+	acmPipeline := &types.Pipeline{
+		ServiceGroup: "SG.ACM",
+		ResourceGroups: []*types.ResourceGroup{
+			{
+				ResourceGroupMeta: &types.ResourceGroupMeta{
+					Name: "global", ResourceGroup: "global-rg", Subscription: "sub-global",
+				},
+				Steps: types.Steps{
+					&types.ShellStep{StepMeta: types.StepMeta{Name: "output"}},
+				},
+			},
+			{
+				ResourceGroupMeta: &types.ResourceGroupMeta{
+					Name: "mgmt", ResourceGroup: "mgmt-rg", Subscription: "sub-mgmt", Stamped: true,
+				},
+				Steps: types.Steps{
+					&types.ShellStep{StepMeta: types.StepMeta{
+						Name:      "deploy-mce",
+						DependsOn: []types.StepDependency{{ResourceGroup: "global", Step: "output"}},
+					}},
+				},
+			},
+		},
+	}
+
+	stampPipelines := map[Stamp]map[string]*types.Pipeline{
+		mustStamp("1"): {
+			"SG.Regional": regionalPipeline,
+			"SG.Mgmt":     makePipelineWithRGMeta("SG.Mgmt", &types.ResourceGroupMeta{Name: "mgmt-rg", ResourceGroup: "mgmt-rg-1", Subscription: "sub-1", Stamped: true}, deploy),
+			"SG.ACM":      acmPipeline,
+		},
+		mustStamp("2"): {
+			"SG.Regional": regionalPipeline,
+			"SG.Mgmt":     makePipelineWithRGMeta("SG.Mgmt", &types.ResourceGroupMeta{Name: "mgmt-rg", ResourceGroup: "mgmt-rg-2", Subscription: "sub-2", Stamped: true}, deploy),
+			"SG.ACM":      acmPipeline,
+		},
+	}
+
+	entrypoint := &topo.Entrypoints[0]
+	result, err := ForStampedEntrypoints(topo, []*topology.Entrypoint{entrypoint}, stampPipelines)
+	require.NoError(t, err)
+
+	var outputNode Node
+	var foundOutput bool
+	for _, node := range nodesForSG(result, "SG.ACM") {
+		if node.Step == "output" {
+			outputNode = node
+			foundOutput = true
+			break
+		}
+	}
+	require.True(t, foundOutput, "ACM output node must exist in graph")
+	require.False(t, outputNode.Stamp.IsSet(), "output is in unstamped RG")
+
+	var mgmtParentStamps []string
+	for _, parent := range outputNode.Parents {
+		if parent.ServiceGroup == "SG.Mgmt" {
+			mgmtParentStamps = append(mgmtParentStamps, parent.Stamp.String())
+		}
+	}
+	slices.Sort(mgmtParentStamps)
+	require.Equal(t, []string{"1", "2"}, mgmtParentStamps,
+		"unstamped ACM root must depend on both stamps of parent service")
+
+	for _, node := range nodesForSG(result, "SG.Mgmt") {
+		var acmChildren []Identifier
+		for _, child := range node.Children {
+			if child.ServiceGroup == "SG.ACM" {
+				acmChildren = append(acmChildren, child)
+			}
+		}
+		require.NotEmptyf(t, acmChildren,
+			"stamp %s mgmt leaf must have ACM children", node.Stamp)
+	}
+}
+
 // TestStampedNestedChildren tests stamped graph construction with:
 //
 //	SG.Regional (unstamped) → SG.Mgmt (stamped) → SG.MgmtDB (stamped) + SG.MgmtNet (stamped)
@@ -799,7 +903,8 @@ func TestForPipelineStampedService(t *testing.T) {
 //	       ├─ svc-rg (unstamped, shared with Service.Infra, step: lookup)
 //	       ├─ mgmt-rg (stamped, steps: infra → deploy, infra → configure, deploy depends on svc-rg/lookup)
 //	       ├─ Maestro.Agent (stamped, step: deploy, external dep on Service.Infra)
-//	       └─ Fleet.Registration (stamped, RG "svc-rg-stamped" targets same Azure RG as svc-rg, step: register)
+//	       ├─ Fleet.Registration (stamped, RG "svc-rg-stamped" targets same Azure RG as svc-rg, step: register)
+//	       └─ ACM (stamped, mixed RGs: unstamped global/output → stamped mgmt/deploy-mce)
 //
 // Covers:
 //   - unstamped → unstamped topology: Region → Service.Infra
@@ -810,6 +915,8 @@ func TestForPipelineStampedService(t *testing.T) {
 //   - fan-in stamped → unstamped: Management.Infra stamped leaves (deploy + configure) → unstamped child roots
 //   - external dep stamped → unstamped: Maestro.Agent → Service.Infra
 //   - stamped RG targeting same Azure RG: Fleet.Registration "svc" RG → same physical svc-rg, per-stamp colored
+//   - stamped child with mixed RGs: ACM has unstamped root (global/output) + stamped steps (deploy-mce);
+//     both stamp leaves of Management.Infra must wire to the single unstamped ACM root
 func TestStampedEntrypointDOT(t *testing.T) {
 	deploy := &types.ShellStep{StepMeta: types.StepMeta{Name: "deploy"}}
 
@@ -833,6 +940,11 @@ func TestStampedEntrypointDOT(t *testing.T) {
 
 	fleetRegister := &types.ShellStep{StepMeta: types.StepMeta{Name: "register"}}
 
+	acmDeployMCE := &types.ShellStep{StepMeta: types.StepMeta{
+		Name:      "deploy-mce",
+		DependsOn: []types.StepDependency{{ResourceGroup: "acm-global", Step: "output"}},
+	}}
+
 	topo := makeTopology(topology.Service{
 		ServiceGroup: "Microsoft.Azure.ARO.HCP.Region", Purpose: "region", PipelinePath: "region.yaml",
 		Children: []topology.Service{
@@ -841,6 +953,7 @@ func TestStampedEntrypointDOT(t *testing.T) {
 				Children: []topology.Service{
 					{ServiceGroup: "Microsoft.Azure.ARO.HCP.Maestro.Agent", Purpose: "maestro agent", PipelinePath: "maestro-agent.yaml"},
 					{ServiceGroup: "Microsoft.Azure.ARO.HCP.Fleet.Registration", Purpose: "fleet registration", PipelinePath: "fleet-reg.yaml"},
+					{ServiceGroup: "Microsoft.Azure.ARO.HCP.ACM", Purpose: "acm", PipelinePath: "acm.yaml"},
 				},
 			},
 		},
@@ -848,6 +961,26 @@ func TestStampedEntrypointDOT(t *testing.T) {
 
 	regionPipeline := makePipeline("Microsoft.Azure.ARO.HCP.Region", "region-rg", false, deploy)
 	svcPipeline := makePipeline("Microsoft.Azure.ARO.HCP.Service.Infra", "svc-rg", false, deploy)
+
+	acmPipeline := &types.Pipeline{
+		ServiceGroup: "Microsoft.Azure.ARO.HCP.ACM",
+		ResourceGroups: []*types.ResourceGroup{
+			{
+				ResourceGroupMeta: &types.ResourceGroupMeta{
+					Name: "acm-global", ResourceGroup: "acm-global-rg", Subscription: "sub-acm-global",
+				},
+				Steps: types.Steps{
+					&types.ShellStep{StepMeta: types.StepMeta{Name: "output"}},
+				},
+			},
+			{
+				ResourceGroupMeta: &types.ResourceGroupMeta{
+					Name: "acm-mgmt", ResourceGroup: "acm-mgmt-rg", Subscription: "sub-acm-mgmt", Stamped: true,
+				},
+				Steps: types.Steps{acmDeployMCE},
+			},
+		},
+	}
 
 	mgmtPipeline := func(rgName, sub string) *types.Pipeline {
 		return &types.Pipeline{
@@ -876,6 +1009,7 @@ func TestStampedEntrypointDOT(t *testing.T) {
 			"Microsoft.Azure.ARO.HCP.Management.Infra":   mgmtPipeline("mgmt-rg-1", "sub-1"),
 			"Microsoft.Azure.ARO.HCP.Maestro.Agent":      makePipeline("Microsoft.Azure.ARO.HCP.Maestro.Agent", "maestro-rg", true, maestroDeploy),
 			"Microsoft.Azure.ARO.HCP.Fleet.Registration": makePipelineWithRGMeta("Microsoft.Azure.ARO.HCP.Fleet.Registration", &types.ResourceGroupMeta{Name: "svc-rg-stamped", ResourceGroup: "svc-rg", Subscription: "sub-svc-rg", Stamped: true}, fleetRegister),
+			"Microsoft.Azure.ARO.HCP.ACM":                acmPipeline,
 		},
 		mustStamp("2"): {
 			"Microsoft.Azure.ARO.HCP.Region":             regionPipeline,
@@ -883,6 +1017,7 @@ func TestStampedEntrypointDOT(t *testing.T) {
 			"Microsoft.Azure.ARO.HCP.Management.Infra":   mgmtPipeline("mgmt-rg-2", "sub-2"),
 			"Microsoft.Azure.ARO.HCP.Maestro.Agent":      makePipeline("Microsoft.Azure.ARO.HCP.Maestro.Agent", "maestro-rg", true, maestroDeploy),
 			"Microsoft.Azure.ARO.HCP.Fleet.Registration": makePipelineWithRGMeta("Microsoft.Azure.ARO.HCP.Fleet.Registration", &types.ResourceGroupMeta{Name: "svc-rg-stamped", ResourceGroup: "svc-rg", Subscription: "sub-svc-rg", Stamped: true}, fleetRegister),
+			"Microsoft.Azure.ARO.HCP.ACM":                acmPipeline,
 		},
 	}
 

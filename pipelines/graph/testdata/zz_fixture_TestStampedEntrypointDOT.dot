@@ -16,18 +16,22 @@ digraph regexp {
  "Management.Infra_mgmt-rg_configure_1" [label="Management.Infra/mgmt-rg-1/configure (stamp=1)" style=filled fillcolor="#B3D9FF"];
  "Management.Infra_mgmt-rg_configure_1" -> "Maestro.Agent_maestro-rg_deploy_1";
  "Management.Infra_mgmt-rg_configure_1" -> "Fleet.Registration_svc-rg-stamped_register_1";
+ "Management.Infra_mgmt-rg_configure_1" -> "ACM_acm-global_output";
  "Management.Infra_mgmt-rg_deploy_1" [label="Management.Infra/mgmt-rg-1/deploy (stamp=1)" style=filled fillcolor="#B3D9FF"];
  "Management.Infra_mgmt-rg_deploy_1" -> "Maestro.Agent_maestro-rg_deploy_1";
  "Management.Infra_mgmt-rg_deploy_1" -> "Fleet.Registration_svc-rg-stamped_register_1";
+ "Management.Infra_mgmt-rg_deploy_1" -> "ACM_acm-global_output";
  "Management.Infra_mgmt-rg_infra_1" [label="Management.Infra/mgmt-rg-1/infra (stamp=1)" style=filled fillcolor="#B3D9FF"];
  "Management.Infra_mgmt-rg_infra_1" -> "Management.Infra_mgmt-rg_configure_1";
  "Management.Infra_mgmt-rg_infra_1" -> "Management.Infra_mgmt-rg_deploy_1";
  "Management.Infra_mgmt-rg_configure_2" [label="Management.Infra/mgmt-rg-2/configure (stamp=2)" style=filled fillcolor="#FFD9B3"];
  "Management.Infra_mgmt-rg_configure_2" -> "Maestro.Agent_maestro-rg_deploy_2";
  "Management.Infra_mgmt-rg_configure_2" -> "Fleet.Registration_svc-rg-stamped_register_2";
+ "Management.Infra_mgmt-rg_configure_2" -> "ACM_acm-global_output";
  "Management.Infra_mgmt-rg_deploy_2" [label="Management.Infra/mgmt-rg-2/deploy (stamp=2)" style=filled fillcolor="#FFD9B3"];
  "Management.Infra_mgmt-rg_deploy_2" -> "Maestro.Agent_maestro-rg_deploy_2";
  "Management.Infra_mgmt-rg_deploy_2" -> "Fleet.Registration_svc-rg-stamped_register_2";
+ "Management.Infra_mgmt-rg_deploy_2" -> "ACM_acm-global_output";
  "Management.Infra_mgmt-rg_infra_2" [label="Management.Infra/mgmt-rg-2/infra (stamp=2)" style=filled fillcolor="#FFD9B3"];
  "Management.Infra_mgmt-rg_infra_2" -> "Management.Infra_mgmt-rg_configure_2";
  "Management.Infra_mgmt-rg_infra_2" -> "Management.Infra_mgmt-rg_deploy_2";
@@ -35,4 +39,9 @@ digraph regexp {
  "Maestro.Agent_maestro-rg_deploy_2" [label="Maestro.Agent/maestro-rg/deploy (stamp=2)" style=filled fillcolor="#FFD9B3"];
  "Fleet.Registration_svc-rg-stamped_register_1" [label="Fleet.Registration/svc-rg/register (stamp=1)" style=filled fillcolor="#B3D9FF"];
  "Fleet.Registration_svc-rg-stamped_register_2" [label="Fleet.Registration/svc-rg/register (stamp=2)" style=filled fillcolor="#FFD9B3"];
+ "ACM_acm-global_output" [label="ACM/acm-global-rg/output"];
+ "ACM_acm-global_output" -> "ACM_acm-mgmt_deploy-mce_1";
+ "ACM_acm-global_output" -> "ACM_acm-mgmt_deploy-mce_2";
+ "ACM_acm-mgmt_deploy-mce_1" [label="ACM/acm-mgmt-rg/deploy-mce (stamp=1)" style=filled fillcolor="#B3D9FF"];
+ "ACM_acm-mgmt_deploy-mce_2" [label="ACM/acm-mgmt-rg/deploy-mce (stamp=2)" style=filled fillcolor="#FFD9B3"];
 }
