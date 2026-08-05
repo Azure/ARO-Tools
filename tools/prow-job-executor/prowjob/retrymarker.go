@@ -15,8 +15,8 @@
 package prowjob
 
 import (
-	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -27,29 +27,40 @@ import (
 	"github.com/go-logr/logr"
 )
 
-// ev2RetryMarker is the exact log line prefix that the ARO-HCP E2E test binary
-// (aro-hcp-tests, see AROSLSRE-1721) prints when a run's failures are narrow
-// enough to safely auto-retry: at most 2 tests failed, and every one of them
-// was labeled allow-retry.
-const ev2RetryMarker = "EV2_RETRY_ALLOWED:"
+// ev2RetryMetadataKey is the finished.json metadata key that the ARO-HCP E2E
+// test binary (aro-hcp-tests, see AROSLSRE-1721) sets to true when a run's
+// failures are narrow enough to safely auto-retry: at most 2 tests failed,
+// and every one of them was labeled allow-retry. aro-hcp-tests writes this
+// key into $ARTIFACT_DIR/metadata.json, which Prow's sidecar merges into the
+// job's finished.json under the top-level "metadata" object - the standard
+// Prow custom-metadata mechanism, so no log scraping is involved.
+const ev2RetryMetadataKey = "ev2-retry-allowed"
 
-// maxBuildLogBytes is how much of the tail of the build log we ask for. The
-// marker is printed from an AfterAll, so it lands at the end of the log, and a
-// full E2E log is far bigger than this.
-const maxBuildLogBytes = 4 << 20 // 4 MiB
+// maxFinishedJSONBytes bounds how much of finished.json we'll read. The file
+// is a small, flat JSON document; anything near this size indicates something
+// unexpected and we'd rather fail closed than buffer an unbounded response.
+const maxFinishedJSONBytes = 1 << 20 // 1 MiB
 
-// buildLogFetchTimeout bounds a single build-log fetch, independent of the
-// overall job-monitoring timeout.
-const buildLogFetchTimeout = 30 * time.Second
+// finishedJSONFetchTimeout bounds a single finished.json fetch, independent of
+// the overall job-monitoring timeout.
+const finishedJSONFetchTimeout = 30 * time.Second
 
-// buildLogURLFromViewURL converts a Prow Deck "view" URL (the one reported in
-// ProwJob.Status.URL, e.g.
+// finishedJSON is the subset of Prow's finished.json (produced by the sidecar
+// utility, see sigs.k8s.io/prow/pkg/sidecar and the testgrid metadata.Finished
+// type) that we need: the free-form metadata object merged in from each
+// step's $ARTIFACT_DIR/metadata.json.
+type finishedJSON struct {
+	Metadata map[string]interface{} `json:"metadata"`
+}
+
+// finishedJSONURLFromViewURL converts a Prow Deck "view" URL (the one
+// reported in ProwJob.Status.URL, e.g.
 // https://prow.ci.openshift.org/view/gs/origin-ci-test/logs/<job>/<build>)
-// into the plain-text build log's public GCS URL, e.g.
-// https://storage.googleapis.com/origin-ci-test/logs/<job>/<build>/build-log.txt.
-func buildLogURLFromViewURL(viewURL string) (string, error) {
+// into finished.json's public GCS URL, e.g.
+// https://storage.googleapis.com/origin-ci-test/logs/<job>/<build>/finished.json.
+func finishedJSONURLFromViewURL(viewURL string) (string, error) {
 	if viewURL == "" {
-		return "", fmt.Errorf("job has no status URL, cannot locate its build log")
+		return "", fmt.Errorf("job has no status URL, cannot locate its finished.json")
 	}
 
 	u, err := url.Parse(viewURL)
@@ -63,39 +74,35 @@ func buildLogURLFromViewURL(viewURL string) (string, error) {
 	}
 
 	gcsPath := strings.Trim(strings.TrimPrefix(u.Path, viewPrefix), "/")
-	return fmt.Sprintf("https://storage.googleapis.com/%s/build-log.txt", gcsPath), nil
+	return fmt.Sprintf("https://storage.googleapis.com/%s/finished.json", gcsPath), nil
 }
 
-// buildLogContainsEV2RetryMarker fetches the build log for the job reported
-// at viewURL and reports whether it contains the EV2_RETRY_ALLOWED marker.
-func buildLogContainsEV2RetryMarker(ctx context.Context, viewURL string) (bool, error) {
-	rawLogURL, err := buildLogURLFromViewURL(viewURL)
+// jobAllowsEV2Retry fetches finished.json for the job reported at viewURL and
+// reports whether its metadata carries ev2RetryMetadataKey=true.
+func jobAllowsEV2Retry(ctx context.Context, viewURL string) (bool, error) {
+	rawURL, err := finishedJSONURLFromViewURL(viewURL)
 	if err != nil {
 		return false, err
 	}
-	return fetchLogContainsEV2RetryMarker(ctx, rawLogURL)
+	return fetchFinishedJSONAllowsRetry(ctx, rawURL)
 }
 
-// fetchLogContainsEV2RetryMarker downloads rawLogURL and reports whether it
-// contains the EV2_RETRY_ALLOWED marker. Split out from
-// buildLogContainsEV2RetryMarker so the HTTP fetch/scan logic can be tested
-// against a local httptest server, independent of GCS URL construction.
-func fetchLogContainsEV2RetryMarker(ctx context.Context, rawLogURL string) (bool, error) {
-	ctx, cancel := context.WithTimeout(ctx, buildLogFetchTimeout)
+// fetchFinishedJSONAllowsRetry downloads rawURL as a finished.json document
+// and reports whether its metadata carries ev2RetryMetadataKey=true. Split out
+// from jobAllowsEV2Retry so the HTTP fetch/parse logic can be tested against a
+// local httptest server, independent of GCS URL construction.
+func fetchFinishedJSONAllowsRetry(ctx context.Context, rawURL string) (bool, error) {
+	ctx, cancel := context.WithTimeout(ctx, finishedJSONFetchTimeout)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawLogURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if err != nil {
-		return false, fmt.Errorf("failed to create build log request: %w", err)
+		return false, fmt.Errorf("failed to create finished.json request: %w", err)
 	}
-	// aro-hcp-tests prints the marker from an AfterAll, so it is at the end of
-	// the log. Ask for the tail, otherwise a long E2E log pushes the marker out
-	// of anything we read from the front.
-	req.Header.Set("Range", fmt.Sprintf("bytes=-%d", maxBuildLogBytes))
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return false, fmt.Errorf("failed to fetch build log %q: %w", rawLogURL, err)
+		return false, fmt.Errorf("failed to fetch finished.json %q: %w", rawURL, err)
 	}
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
@@ -103,48 +110,20 @@ func fetchLogContainsEV2RetryMarker(ctx context.Context, rawLogURL string) (bool
 		}
 	}()
 
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusPartialContent {
-		return false, fmt.Errorf("failed to fetch build log %q: unexpected status %d", rawLogURL, resp.StatusCode)
+	if resp.StatusCode != http.StatusOK {
+		return false, fmt.Errorf("failed to fetch finished.json %q: unexpected status %d", rawURL, resp.StatusCode)
 	}
 
-	// 206 means we got just the tail. 200 means the server ignored the Range
-	// header and is sending the whole log, so scan it as a stream rather than
-	// buffering it. Either way the fetch timeout bounds how long this runs.
-	found, err := streamContainsMarker(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxFinishedJSONBytes))
 	if err != nil {
-		return false, fmt.Errorf("failed to read build log %q: %w", rawLogURL, err)
+		return false, fmt.Errorf("failed to read finished.json %q: %w", rawURL, err)
 	}
-	return found, nil
-}
 
-// streamContainsMarker reports whether r contains ev2RetryMarker, reading in
-// fixed size chunks and carrying the last len(marker)-1 bytes over so a marker
-// straddling a chunk boundary is still found. Memory stays constant regardless
-// of how big the log is.
-func streamContainsMarker(r io.Reader) (bool, error) {
-	const chunkSize = 64 << 10
-	marker := []byte(ev2RetryMarker)
-	overlap := len(marker) - 1
-	buf := make([]byte, overlap+chunkSize)
-	filled := 0
-
-	for {
-		n, err := r.Read(buf[filled:])
-		if n > 0 {
-			filled += n
-			if bytes.Contains(buf[:filled], marker) {
-				return true, nil
-			}
-			if filled > overlap {
-				copy(buf, buf[filled-overlap:filled])
-				filled = overlap
-			}
-		}
-		if err == io.EOF {
-			return false, nil
-		}
-		if err != nil {
-			return false, err
-		}
+	var finished finishedJSON
+	if err := json.Unmarshal(body, &finished); err != nil {
+		return false, fmt.Errorf("failed to decode finished.json %q: %w", rawURL, err)
 	}
+
+	allow, _ := finished.Metadata[ev2RetryMetadataKey].(bool)
+	return allow, nil
 }

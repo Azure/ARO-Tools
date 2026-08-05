@@ -19,10 +19,9 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 )
 
-func TestBuildLogURLFromViewURL(t *testing.T) {
+func TestFinishedJSONURLFromViewURL(t *testing.T) {
 	tests := []struct {
 		name    string
 		viewURL string
@@ -32,157 +31,135 @@ func TestBuildLogURLFromViewURL(t *testing.T) {
 		{
 			name:    "typical prow deck view URL",
 			viewURL: "https://prow.ci.openshift.org/view/gs/origin-ci-test/logs/branch-ci-Azure-ARO-HCP-main-e2e-stage-e2e-parallel/12345",
-			want:    "https://storage.googleapis.com/origin-ci-test/logs/branch-ci-Azure-ARO-HCP-main-e2e-stage-e2e-parallel/12345/build-log.txt",
+			want:    "https://storage.googleapis.com/origin-ci-test/logs/branch-ci-Azure-ARO-HCP-main-e2e-stage-e2e-parallel/12345/finished.json",
 		},
 		{
 			name:    "trailing slash is trimmed",
 			viewURL: "https://prow.ci.openshift.org/view/gs/origin-ci-test/logs/some-job/1/",
-			want:    "https://storage.googleapis.com/origin-ci-test/logs/some-job/1/build-log.txt",
+			want:    "https://storage.googleapis.com/origin-ci-test/logs/some-job/1/finished.json",
 		},
 		{
-			name:    "empty URL",
+			name:    "empty URL is an error",
 			viewURL: "",
 			wantErr: true,
 		},
 		{
-			name:    "missing /view/gs/ prefix",
-			viewURL: "https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/some-job",
+			name:    "missing /view/gs/ prefix is an error",
+			viewURL: "https://prow.ci.openshift.org/something-else/origin-ci-test/logs/some-job/1",
 			wantErr: true,
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := buildLogURLFromViewURL(tt.viewURL)
-			if tt.wantErr {
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := finishedJSONURLFromViewURL(tc.viewURL)
+			if tc.wantErr {
 				if err == nil {
-					t.Fatalf("expected an error, got url %q", got)
+					t.Fatalf("expected error, got URL %q", got)
 				}
 				return
 			}
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			if got != tt.want {
-				t.Fatalf("got %q, want %q", got, tt.want)
+			if got != tc.want {
+				t.Fatalf("got %q, want %q", got, tc.want)
 			}
 		})
 	}
 }
 
-func TestFetchLogContainsEV2RetryMarker(t *testing.T) {
+func TestFetchFinishedJSONAllowsRetry(t *testing.T) {
 	tests := []struct {
 		name       string
-		body       string
 		statusCode int
+		body       string
 		want       bool
 		wantErr    bool
 	}{
 		{
-			name:       "marker present",
-			body:       "some test output\nEV2_RETRY_ALLOWED: 1 known-issue test(s) failed (max 2 allowed), all labeled \"allow-retry\": [\"foo\"]\nmore output",
+			name:       "metadata key true",
 			statusCode: http.StatusOK,
+			body:       `{"timestamp":1,"passed":false,"result":"FAILURE","metadata":{"ev2-retry-allowed":true,"pod":"abc"}}`,
 			want:       true,
 		},
 		{
-			name:       "marker absent",
-			body:       "some test output\nsome other failure\nmore output",
+			name:       "metadata key absent",
 			statusCode: http.StatusOK,
+			body:       `{"timestamp":1,"passed":false,"result":"FAILURE","metadata":{"pod":"abc"}}`,
 			want:       false,
 		},
 		{
-			name:       "non-200 status",
-			body:       "not found",
+			name:       "metadata key false",
+			statusCode: http.StatusOK,
+			body:       `{"timestamp":1,"passed":false,"result":"FAILURE","metadata":{"ev2-retry-allowed":false}}`,
+			want:       false,
+		},
+		{
+			name:       "no metadata object at all",
+			statusCode: http.StatusOK,
+			body:       `{"timestamp":1,"passed":false,"result":"FAILURE"}`,
+			want:       false,
+		},
+		{
+			name:       "metadata key wrong type is treated as absent",
+			statusCode: http.StatusOK,
+			body:       `{"timestamp":1,"passed":false,"result":"FAILURE","metadata":{"ev2-retry-allowed":"true"}}`,
+			want:       false,
+		},
+		{
+			name:       "non-200 status is an error",
 			statusCode: http.StatusNotFound,
+			body:       "not found",
+			wantErr:    true,
+		},
+		{
+			name:       "invalid JSON is an error",
+			statusCode: http.StatusOK,
+			body:       `{not json`,
 			wantErr:    true,
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				w.WriteHeader(tt.statusCode)
-				_, _ = w.Write([]byte(tt.body))
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(tc.statusCode)
+				_, _ = w.Write([]byte(tc.body))
 			}))
-			defer server.Close()
+			defer srv.Close()
 
-			got, err := fetchLogContainsEV2RetryMarker(testContext(), server.URL)
-			if tt.wantErr {
+			got, err := fetchFinishedJSONAllowsRetry(testContext(), srv.URL)
+			if tc.wantErr {
 				if err == nil {
-					t.Fatalf("expected an error, got %v", got)
+					t.Fatalf("expected error, got %v", got)
 				}
 				return
 			}
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			if got != tt.want {
-				t.Fatalf("got %v, want %v", got, tt.want)
+			if got != tc.want {
+				t.Fatalf("got %v, want %v", got, tc.want)
 			}
 		})
 	}
 }
 
-func TestFetchLogContainsEV2RetryMarkerFindsMarkerAtEndOfLargeLog(t *testing.T) {
-	// The marker is printed from an AfterAll, so on a real E2E run it sits at
-	// the very end of a log far larger than maxBuildLogBytes. Reading from the
-	// front would miss it, which would silently disable the whole retry path.
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log := strings.Repeat("x", maxBuildLogBytes+1024) + "\n" + ev2RetryMarker + " 1 known-issue test(s) failed\n"
-		// http.ServeContent honours the Range header the same way GCS does.
-		http.ServeContent(w, r, "build-log.txt", time.Time{}, strings.NewReader(log))
-	}))
-	defer server.Close()
+func TestFetchFinishedJSONAllowsRetryRejectsOversizedBody(t *testing.T) {
+	// A finished.json far larger than any real one should still be read (up to
+	// the cap) without hanging or OOMing, and simply fail to parse as JSON
+	// once truncated - proving the size cap is actually enforced.
+	huge := `{"metadata":{"padding":"` + strings.Repeat("x", maxFinishedJSONBytes+1024) + `","ev2-retry-allowed":true}}`
 
-	got, err := fetchLogContainsEV2RetryMarker(testContext(), server.URL)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !got {
-		t.Fatal("expected the marker at the end of a large log to be found, it was not")
-	}
-}
-
-func TestFetchLogContainsEV2RetryMarkerScansWholeLogWhenRangeIgnored(t *testing.T) {
-	// GCS honours Range, but if a server ignores it and returns the whole log
-	// with 200 we still have to find a marker sitting past maxBuildLogBytes.
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(strings.Repeat("x", maxBuildLogBytes+1024)))
-		_, _ = w.Write([]byte("\n" + ev2RetryMarker + " 1 known-issue test(s) failed\n"))
+		_, _ = w.Write([]byte(huge))
 	}))
-	defer server.Close()
+	defer srv.Close()
 
-	got, err := fetchLogContainsEV2RetryMarker(testContext(), server.URL)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !got {
-		t.Fatal("expected the marker to be found when the server ignores Range, it was not")
-	}
-}
-
-func TestStreamContainsMarkerAcrossChunkBoundary(t *testing.T) {
-	// Split the marker so it straddles the internal chunk boundary, which is
-	// what the carried-over overlap exists to handle.
-	const chunkSize = 64 << 10
-	for _, split := range []int{1, len(ev2RetryMarker) / 2, len(ev2RetryMarker) - 1} {
-		padding := chunkSize - split
-		body := strings.Repeat("x", padding) + ev2RetryMarker + "rest"
-		got, err := streamContainsMarker(strings.NewReader(body))
-		if err != nil {
-			t.Fatalf("split %d: unexpected error: %v", split, err)
-		}
-		if !got {
-			t.Fatalf("split %d: expected the marker straddling a chunk boundary to be found", split)
-		}
-	}
-
-	got, err := streamContainsMarker(strings.NewReader(strings.Repeat("x", 3*chunkSize)))
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if got {
-		t.Fatal("expected no marker in a log that does not contain one")
+	_, err := fetchFinishedJSONAllowsRetry(testContext(), srv.URL)
+	if err == nil {
+		t.Fatal("expected an error from truncated/invalid JSON, got nil")
 	}
 }

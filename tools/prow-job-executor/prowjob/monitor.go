@@ -30,8 +30,8 @@ import (
 // opposed to "error" or "aborted", which usually indicate an infra problem or
 // a cancellation rather than a test failure - or timed out. Only jobs that
 // failed this way are candidates for the EV2 auto-retry, since that's the
-// class of failure the allow-retry test label and EV2_RETRY_ALLOWED marker
-// are about (see AROSLSRE-1721).
+// class of failure the allow-retry test label and finished.json retry
+// metadata are about (see AROSLSRE-1721).
 type JobFailedError struct {
 	ProwExecutionID string
 	JobURL          string
@@ -50,15 +50,15 @@ type Monitor struct {
 	gatePromotion bool
 	allowEV2Retry bool
 
-	// checkRetryMarker fetches the build log at a job's status URL and reports
-	// whether it carries the EV2_RETRY_ALLOWED marker. Defaults to
-	// buildLogContainsEV2RetryMarker; overridable in tests.
+	// checkRetryMarker fetches finished.json for a job's status URL and reports
+	// whether its metadata marks the run as safe to auto-retry. Defaults to
+	// jobAllowsEV2Retry; overridable in tests.
 	checkRetryMarker func(ctx context.Context, jobURL string) (bool, error)
 }
 
 // NewMonitor creates a new job monitor with the specified polling interval and timeout.
 // allowEV2Retry opts into automatically resubmitting the job exactly once when it
-// fails and its build log carries the EV2_RETRY_ALLOWED marker (see AROSLSRE-1721);
+// fails and its finished.json metadata marks it as safe to retry (see AROSLSRE-1721);
 // it has no effect unless gatePromotion is also true.
 func NewMonitor(client *Client, pollInterval, timeout time.Duration, dryRun, gatePromotion, allowEV2Retry bool) *Monitor {
 	return &Monitor{
@@ -68,7 +68,7 @@ func NewMonitor(client *Client, pollInterval, timeout time.Duration, dryRun, gat
 		dryRun:           dryRun,
 		gatePromotion:    gatePromotion,
 		allowEV2Retry:    allowEV2Retry,
-		checkRetryMarker: buildLogContainsEV2RetryMarker,
+		checkRetryMarker: jobAllowsEV2Retry,
 	}
 }
 
@@ -138,7 +138,7 @@ func (m *Monitor) WaitForCompletion(ctx context.Context, logger logr.Logger, pro
 
 // ExecuteAndWait submits a job and waits for completion. If the job fails
 // (JobFailedError) and this Monitor has allowEV2Retry set, it fetches the
-// failed job's build log and, if it carries the EV2_RETRY_ALLOWED marker
+// failed job's finished.json and, if its metadata marks it as safe to retry
 // (only known-issue tests failed, see AROSLSRE-1721), resubmits the job
 // exactly once instead of failing the gating step outright.
 func (m *Monitor) ExecuteAndWait(ctx context.Context, logger logr.Logger, request *prowgangway.CreateJobExecutionRequest) error {
@@ -161,14 +161,14 @@ func (m *Monitor) ExecuteAndWait(ctx context.Context, logger logr.Logger, reques
 
 	retry, checkErr := m.checkRetryMarker(ctx, failedErr.JobURL)
 	if checkErr != nil {
-		logger.Error(checkErr, "Failed to inspect build log for the EV2 retry marker, not retrying", "prowExecutionID", failedErr.ProwExecutionID)
+		logger.Error(checkErr, "Failed to inspect finished.json for the EV2 retry signal, not retrying", "prowExecutionID", failedErr.ProwExecutionID)
 		return err
 	}
 	if !retry {
 		return err
 	}
 
-	logger.Info("EV2_RETRY_ALLOWED marker found in build log, retrying the job once", "prowExecutionID", failedErr.ProwExecutionID, "jobURL", failedErr.JobURL)
+	logger.Info("finished.json marks the run as safe to retry, retrying the job once", "prowExecutionID", failedErr.ProwExecutionID, "jobURL", failedErr.JobURL)
 
 	// Disable further auto-retries on the retried attempt so we never retry more than once.
 	retryMonitor := *m
