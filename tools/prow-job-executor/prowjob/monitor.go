@@ -43,32 +43,37 @@ func (e *JobFailedError) Error() string {
 
 // Monitor handles job execution and monitoring
 type Monitor struct {
-	client        *Client
-	pollInterval  time.Duration
-	timeout       time.Duration
-	dryRun        bool
-	gatePromotion bool
-	allowEV2Retry bool
+	client               *Client
+	pollInterval         time.Duration
+	timeout              time.Duration
+	dryRun               bool
+	gatePromotion        bool
+	allowEV2Retry        bool
+	maxAutoRetryFailures int
 
 	// checkRetryMarker fetches finished.json for a job's status URL and reports
 	// whether its metadata marks the run as safe to auto-retry. Defaults to
 	// jobAllowsEV2Retry; overridable in tests.
-	checkRetryMarker func(ctx context.Context, jobURL string) (bool, error)
+	checkRetryMarker func(ctx context.Context, jobURL string, maxAutoRetryFailures int) (bool, error)
 }
 
 // NewMonitor creates a new job monitor with the specified polling interval and timeout.
-// allowEV2Retry opts into automatically resubmitting the job exactly once when it
-// fails and its finished.json metadata marks it as safe to retry (see AROSLSRE-1721);
-// it has no effect unless gatePromotion is also true.
-func NewMonitor(client *Client, pollInterval, timeout time.Duration, dryRun, gatePromotion, allowEV2Retry bool) *Monitor {
+// allowEV2Retry opts into automatically resubmitting the job exactly once when it fails
+// and its finished.json metadata marks it as safe to retry (see AROSLSRE-1721); it has no
+// effect unless gatePromotion is also true. maxAutoRetryFailures caps how many failed
+// tests a run may have (all labeled allow-retry) and still qualify; pass
+// DefaultMaxEV2AutoRetryFailures unless a caller wants to tune it without an ARO-HCP
+// rebuild.
+func NewMonitor(client *Client, pollInterval, timeout time.Duration, dryRun, gatePromotion, allowEV2Retry bool, maxAutoRetryFailures int) *Monitor {
 	return &Monitor{
-		client:           client,
-		pollInterval:     pollInterval,
-		timeout:          timeout,
-		dryRun:           dryRun,
-		gatePromotion:    gatePromotion,
-		allowEV2Retry:    allowEV2Retry,
-		checkRetryMarker: jobAllowsEV2Retry,
+		client:               client,
+		pollInterval:         pollInterval,
+		timeout:              timeout,
+		dryRun:               dryRun,
+		gatePromotion:        gatePromotion,
+		allowEV2Retry:        allowEV2Retry,
+		maxAutoRetryFailures: maxAutoRetryFailures,
+		checkRetryMarker:     jobAllowsEV2Retry,
 	}
 }
 
@@ -159,7 +164,7 @@ func (m *Monitor) ExecuteAndWait(ctx context.Context, logger logr.Logger, reques
 		return err
 	}
 
-	retry, checkErr := m.checkRetryMarker(ctx, failedErr.JobURL)
+	retry, checkErr := m.checkRetryMarker(ctx, failedErr.JobURL, m.maxAutoRetryFailures)
 	if checkErr != nil {
 		logger.Error(checkErr, "Failed to inspect finished.json for the EV2 retry signal, not retrying", "prowExecutionID", failedErr.ProwExecutionID)
 		return err

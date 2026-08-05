@@ -71,8 +71,8 @@ func TestExecuteAndWaitRetriesOnceWhenMarkerFound(t *testing.T) {
 	client, submitCount := newTestServers(t, []string{"failure", "success"})
 
 	var markerChecks int32
-	m := NewMonitor(client, time.Millisecond, time.Second, false, true, true)
-	m.checkRetryMarker = func(ctx context.Context, jobURL string) (bool, error) {
+	m := NewMonitor(client, time.Millisecond, time.Second, false, true, true, DefaultMaxEV2AutoRetryFailures)
+	m.checkRetryMarker = func(ctx context.Context, jobURL string, maxAutoRetryFailures int) (bool, error) {
 		atomic.AddInt32(&markerChecks, 1)
 		if !strings.Contains(jobURL, "job-1") {
 			t.Fatalf("expected marker check against the first (failed) job, got %q", jobURL)
@@ -95,8 +95,8 @@ func TestExecuteAndWaitRetriesOnceWhenMarkerFound(t *testing.T) {
 func TestExecuteAndWaitDoesNotRetryWhenMarkerAbsent(t *testing.T) {
 	client, submitCount := newTestServers(t, []string{"failure", "success"})
 
-	m := NewMonitor(client, time.Millisecond, time.Second, false, true, true)
-	m.checkRetryMarker = func(ctx context.Context, jobURL string) (bool, error) {
+	m := NewMonitor(client, time.Millisecond, time.Second, false, true, true, DefaultMaxEV2AutoRetryFailures)
+	m.checkRetryMarker = func(ctx context.Context, jobURL string, maxAutoRetryFailures int) (bool, error) {
 		return false, nil
 	}
 
@@ -113,8 +113,8 @@ func TestExecuteAndWaitDoesNotRetryTwice(t *testing.T) {
 	client, submitCount := newTestServers(t, []string{"failure", "failure"})
 
 	var markerChecks int32
-	m := NewMonitor(client, time.Millisecond, time.Second, false, true, true)
-	m.checkRetryMarker = func(ctx context.Context, jobURL string) (bool, error) {
+	m := NewMonitor(client, time.Millisecond, time.Second, false, true, true, DefaultMaxEV2AutoRetryFailures)
+	m.checkRetryMarker = func(ctx context.Context, jobURL string, maxAutoRetryFailures int) (bool, error) {
 		atomic.AddInt32(&markerChecks, 1)
 		return true, nil
 	}
@@ -134,8 +134,8 @@ func TestExecuteAndWaitDoesNotRetryTwice(t *testing.T) {
 func TestExecuteAndWaitSkipsRetryWhenNotAllowed(t *testing.T) {
 	client, submitCount := newTestServers(t, []string{"failure"})
 
-	m := NewMonitor(client, time.Millisecond, time.Second, false, true, false)
-	m.checkRetryMarker = func(ctx context.Context, jobURL string) (bool, error) {
+	m := NewMonitor(client, time.Millisecond, time.Second, false, true, false, DefaultMaxEV2AutoRetryFailures)
+	m.checkRetryMarker = func(ctx context.Context, jobURL string, maxAutoRetryFailures int) (bool, error) {
 		t.Fatal("checkRetryMarker should not be called when allowEV2Retry is false")
 		return false, nil
 	}

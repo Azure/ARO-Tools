@@ -78,21 +78,39 @@ func TestFetchFinishedJSONAllowsRetry(t *testing.T) {
 		wantErr    bool
 	}{
 		{
-			name:       "metadata key true",
+			name:       "single allow-retry failure qualifies",
 			statusCode: http.StatusOK,
-			body:       `{"timestamp":1,"passed":false,"result":"FAILURE","metadata":{"ev2-retry-allowed":true,"pod":"abc"}}`,
+			body:       `{"timestamp":1,"passed":false,"result":"FAILURE","metadata":{"ev2-failed-tests":["spec A"],"ev2-allow-retry-tests":["spec A"],"pod":"abc"}}`,
 			want:       true,
 		},
 		{
-			name:       "metadata key absent",
+			name:       "failures at the cap still qualify",
 			statusCode: http.StatusOK,
-			body:       `{"timestamp":1,"passed":false,"result":"FAILURE","metadata":{"pod":"abc"}}`,
+			body:       `{"timestamp":1,"passed":false,"result":"FAILURE","metadata":{"ev2-failed-tests":["spec A","spec B"],"ev2-allow-retry-tests":["spec A","spec B"]}}`,
+			want:       true,
+		},
+		{
+			name:       "one failure over the cap disqualifies",
+			statusCode: http.StatusOK,
+			body:       `{"timestamp":1,"passed":false,"result":"FAILURE","metadata":{"ev2-failed-tests":["spec A","spec B","spec C"],"ev2-allow-retry-tests":["spec A","spec B","spec C"]}}`,
 			want:       false,
 		},
 		{
-			name:       "metadata key false",
+			name:       "an unlabeled failure disqualifies the whole run",
 			statusCode: http.StatusOK,
-			body:       `{"timestamp":1,"passed":false,"result":"FAILURE","metadata":{"ev2-retry-allowed":false}}`,
+			body:       `{"timestamp":1,"passed":false,"result":"FAILURE","metadata":{"ev2-failed-tests":["spec A","spec B"],"ev2-allow-retry-tests":["spec A"]}}`,
+			want:       false,
+		},
+		{
+			name:       "metadata keys absent means no failures reported",
+			statusCode: http.StatusOK,
+			body:       `{"timestamp":1,"passed":true,"result":"SUCCESS","metadata":{"pod":"abc"}}`,
+			want:       false,
+		},
+		{
+			name:       "empty failed-tests list is a clean run",
+			statusCode: http.StatusOK,
+			body:       `{"timestamp":1,"passed":true,"result":"SUCCESS","metadata":{"ev2-failed-tests":[],"ev2-allow-retry-tests":[]}}`,
 			want:       false,
 		},
 		{
@@ -104,7 +122,7 @@ func TestFetchFinishedJSONAllowsRetry(t *testing.T) {
 		{
 			name:       "metadata key wrong type is treated as absent",
 			statusCode: http.StatusOK,
-			body:       `{"timestamp":1,"passed":false,"result":"FAILURE","metadata":{"ev2-retry-allowed":"true"}}`,
+			body:       `{"timestamp":1,"passed":false,"result":"FAILURE","metadata":{"ev2-failed-tests":"spec A"}}`,
 			want:       false,
 		},
 		{
@@ -129,7 +147,7 @@ func TestFetchFinishedJSONAllowsRetry(t *testing.T) {
 			}))
 			defer srv.Close()
 
-			got, err := fetchFinishedJSONAllowsRetry(testContext(), srv.URL)
+			got, err := fetchFinishedJSONAllowsRetry(testContext(), srv.URL, DefaultMaxEV2AutoRetryFailures)
 			if tc.wantErr {
 				if err == nil {
 					t.Fatalf("expected error, got %v", got)
@@ -150,7 +168,7 @@ func TestFetchFinishedJSONAllowsRetryRejectsOversizedBody(t *testing.T) {
 	// A finished.json far larger than any real one should still be read (up to
 	// the cap) without hanging or OOMing, and simply fail to parse as JSON
 	// once truncated - proving the size cap is actually enforced.
-	huge := `{"metadata":{"padding":"` + strings.Repeat("x", maxFinishedJSONBytes+1024) + `","ev2-retry-allowed":true}}`
+	huge := `{"metadata":{"padding":"` + strings.Repeat("x", maxFinishedJSONBytes+1024) + `","ev2-failed-tests":["spec A"]}}`
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -158,8 +176,72 @@ func TestFetchFinishedJSONAllowsRetryRejectsOversizedBody(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	_, err := fetchFinishedJSONAllowsRetry(testContext(), srv.URL)
+	_, err := fetchFinishedJSONAllowsRetry(testContext(), srv.URL, DefaultMaxEV2AutoRetryFailures)
 	if err == nil {
 		t.Fatal("expected an error from truncated/invalid JSON, got nil")
+	}
+}
+
+func TestEV2RetryEligible(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		failed     []string
+		allowRetry []string
+		maxFailure int
+		want       bool
+	}{
+		{
+			name:       "clean run does not qualify",
+			maxFailure: 2,
+			want:       false,
+		},
+		{
+			name:       "single labeled failure qualifies",
+			failed:     []string{"spec A"},
+			allowRetry: []string{"spec A"},
+			maxFailure: 2,
+			want:       true,
+		},
+		{
+			name:       "failures at the cap still qualify",
+			failed:     []string{"spec A", "spec B"},
+			allowRetry: []string{"spec A", "spec B"},
+			maxFailure: 2,
+			want:       true,
+		},
+		{
+			name:       "one failure over the cap disqualifies",
+			failed:     []string{"spec A", "spec B", "spec C"},
+			allowRetry: []string{"spec A", "spec B", "spec C"},
+			maxFailure: 2,
+			want:       false,
+		},
+		{
+			name:       "an unlabeled failure disqualifies the whole run",
+			failed:     []string{"spec A", "spec B"},
+			allowRetry: []string{"spec A"},
+			maxFailure: 2,
+			want:       false,
+		},
+		{
+			name:       "a lone unlabeled failure disqualifies",
+			failed:     []string{"spec A"},
+			allowRetry: nil,
+			maxFailure: 2,
+			want:       false,
+		},
+		{
+			name:       "a lower configured cap tightens eligibility",
+			failed:     []string{"spec A", "spec B"},
+			allowRetry: []string{"spec A", "spec B"},
+			maxFailure: 1,
+			want:       false,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := ev2RetryEligible(tc.failed, tc.allowRetry, tc.maxFailure); got != tc.want {
+				t.Fatalf("ev2RetryEligible(%v, %v, %d) = %v, want %v", tc.failed, tc.allowRetry, tc.maxFailure, got, tc.want)
+			}
+		})
 	}
 }

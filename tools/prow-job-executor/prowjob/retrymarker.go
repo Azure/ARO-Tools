@@ -27,14 +27,31 @@ import (
 	"github.com/go-logr/logr"
 )
 
-// ev2RetryMetadataKey is the finished.json metadata key that the ARO-HCP E2E
-// test binary (aro-hcp-tests, see AROSLSRE-1721) sets to true when a run's
-// failures are narrow enough to safely auto-retry: at most 2 tests failed,
-// and every one of them was labeled allow-retry. aro-hcp-tests writes this
-// key into $ARTIFACT_DIR/metadata.json, which Prow's sidecar merges into the
-// job's finished.json under the top-level "metadata" object - the standard
-// Prow custom-metadata mechanism, so no log scraping is involved.
-const ev2RetryMetadataKey = "ev2-retry-allowed"
+// ev2FailedTestsKey and ev2AllowRetryTestsKey are the finished.json metadata keys that the
+// ARO-HCP E2E test binary (aro-hcp-tests, see AROSLSRE-1721) always writes once a run
+// finishes: the full list of failed spec names, and the subset of those that were labeled
+// allow-retry (a known, tracked issue with a fix already committed to). aro-hcp-tests
+// writes both keys into $ARTIFACT_DIR/metadata.json, which Prow's sidecar merges into the
+// job's finished.json under the top-level "metadata" object - the standard Prow
+// custom-metadata mechanism, so no log scraping is involved.
+//
+// aro-hcp-tests only reports these raw facts, even when nothing failed (both lists empty);
+// it is prow-job-executor's job (ev2RetryEligible below) to decide whether the shape of a
+// failure is narrow enough to safely auto-retry. Keeping the policy here, rather than baked
+// into an ARO-HCP release, means the retry threshold can be tuned without an ARO-HCP
+// rebuild, and an absent key unambiguously means "this step never ran" rather than
+// "the run failed but wasn't retry-eligible".
+const (
+	ev2FailedTestsKey     = "ev2-failed-tests"
+	ev2AllowRetryTestsKey = "ev2-allow-retry-tests"
+)
+
+// DefaultMaxEV2AutoRetryFailures caps how many failed tests a run may have and still
+// qualify for an automatic EV2 gating retry. If more tests than this fail, or any failure
+// isn't labeled allow-retry, we stay silent and let the gate fail normally for a human to
+// triage. Overridable via Monitor's maxAutoRetryFailures field (see the
+// --max-ev2-auto-retry-failures flag).
+const DefaultMaxEV2AutoRetryFailures = 2
 
 // maxFinishedJSONBytes bounds how much of finished.json we'll read. The file
 // is a small, flat JSON document; anything near this size indicates something
@@ -77,21 +94,22 @@ func finishedJSONURLFromViewURL(viewURL string) (string, error) {
 	return fmt.Sprintf("https://storage.googleapis.com/%s/finished.json", gcsPath), nil
 }
 
-// jobAllowsEV2Retry fetches finished.json for the job reported at viewURL and
-// reports whether its metadata carries ev2RetryMetadataKey=true.
-func jobAllowsEV2Retry(ctx context.Context, viewURL string) (bool, error) {
+// jobAllowsEV2Retry fetches finished.json for the job reported at viewURL and reports
+// whether its ev2FailedTestsKey/ev2AllowRetryTestsKey metadata qualifies for an automatic
+// EV2 gating retry, per ev2RetryEligible.
+func jobAllowsEV2Retry(ctx context.Context, viewURL string, maxAutoRetryFailures int) (bool, error) {
 	rawURL, err := finishedJSONURLFromViewURL(viewURL)
 	if err != nil {
 		return false, err
 	}
-	return fetchFinishedJSONAllowsRetry(ctx, rawURL)
+	return fetchFinishedJSONAllowsRetry(ctx, rawURL, maxAutoRetryFailures)
 }
 
-// fetchFinishedJSONAllowsRetry downloads rawURL as a finished.json document
-// and reports whether its metadata carries ev2RetryMetadataKey=true. Split out
-// from jobAllowsEV2Retry so the HTTP fetch/parse logic can be tested against a
-// local httptest server, independent of GCS URL construction.
-func fetchFinishedJSONAllowsRetry(ctx context.Context, rawURL string) (bool, error) {
+// fetchFinishedJSONAllowsRetry downloads rawURL as a finished.json document and reports
+// whether its metadata qualifies for an automatic EV2 gating retry. Split out from
+// jobAllowsEV2Retry so the HTTP fetch/parse logic can be tested against a local httptest
+// server, independent of GCS URL construction.
+func fetchFinishedJSONAllowsRetry(ctx context.Context, rawURL string, maxAutoRetryFailures int) (bool, error) {
 	ctx, cancel := context.WithTimeout(ctx, finishedJSONFetchTimeout)
 	defer cancel()
 
@@ -124,6 +142,50 @@ func fetchFinishedJSONAllowsRetry(ctx context.Context, rawURL string) (bool, err
 		return false, fmt.Errorf("failed to decode finished.json %q: %w", rawURL, err)
 	}
 
-	allow, _ := finished.Metadata[ev2RetryMetadataKey].(bool)
-	return allow, nil
+	failed := stringSliceFromMetadata(finished.Metadata, ev2FailedTestsKey)
+	allowRetry := stringSliceFromMetadata(finished.Metadata, ev2AllowRetryTestsKey)
+	return ev2RetryEligible(failed, allowRetry, maxAutoRetryFailures), nil
+}
+
+// stringSliceFromMetadata extracts a []string out of finished.json's loosely-typed
+// metadata map for the given key, tolerating a missing or malformed key by returning nil -
+// callers treat a missing list the same as an empty one.
+func stringSliceFromMetadata(metadata map[string]interface{}, key string) []string {
+	raw, ok := metadata[key].([]interface{})
+	if !ok {
+		return nil
+	}
+	out := make([]string, 0, len(raw))
+	for _, v := range raw {
+		if s, ok := v.(string); ok {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// ev2RetryEligible decides whether a finished run qualifies for an automatic EV2 gating
+// retry, given the raw facts aro-hcp-tests reported: every test name that failed, and the
+// subset of those that were labeled allow-retry (a known, tracked issue). This is the
+// whole eligibility policy, kept separate from the HTTP fetch/parse logic above so it can
+// be tested directly.
+//
+// A run qualifies only when it failed at all, no more than maxAutoRetryFailures tests
+// failed, and every failure was labeled allow-retry. Any other shape - too many failures,
+// or even a single failure not carrying the label - disqualifies the whole run, so the
+// gate fails normally and a human triages it.
+func ev2RetryEligible(failed, allowRetry []string, maxAutoRetryFailures int) bool {
+	if len(failed) == 0 || len(failed) > maxAutoRetryFailures {
+		return false
+	}
+	allowRetrySet := make(map[string]bool, len(allowRetry))
+	for _, name := range allowRetry {
+		allowRetrySet[name] = true
+	}
+	for _, name := range failed {
+		if !allowRetrySet[name] {
+			return false
+		}
+	}
+	return true
 }
