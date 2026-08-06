@@ -25,6 +25,19 @@ engine: copilot
 
 network: defaults
 
+# Set up the Go toolchain on the runner using the version declared in the project
+# (go.work), so the `make tidy` / `test-compile` ritual matches the workspace. No
+# hardcoded version: go-version-file keeps this in lockstep with the repo.
+steps:
+  - name: Checkout
+    uses: actions/checkout@v5
+    with:
+      persist-credentials: false
+  - name: Set up Go from go.work
+    uses: actions/setup-go@v5
+    with:
+      go-version-file: go.work
+
 # The built-in GitHub MCP dependabot toolset reads the open alerts directly with
 # the GITHUB_TOKEN (thanks to the vulnerability-alerts:read permission above). No
 # App installation token, no app secrets, no per-install approval needed.
@@ -60,7 +73,10 @@ safe-outputs:
 # Agentic Dependabot remediation for ARO-Tools (go.work-aware, PR-first)
 
 You are remediating open Dependabot alerts for the `Azure/ARO-Tools` repository.
-This is a Go multi-module `go.work` workspace (13 modules, `go 1.25.5`). Native
+This is a Go multi-module `go.work` workspace. Read the module list from `go.work`
+and the Go toolchain version from the `go`/`toolchain` directives in `go.work` (or the
+modules' `go.mod`); do not assume a fixed version or module count, use whatever the
+project declares. Native
 Dependabot cannot handle it, because a per-manifest bump skips the workspace sync
 and never re-tidies the other modules. Your job is to run that ritual correctly
 and open one clean, dependency-only pull request per group.
