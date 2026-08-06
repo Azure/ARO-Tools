@@ -16,6 +16,7 @@ package prowjob
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -67,33 +68,40 @@ func newTestServers(t *testing.T, states []string) (client *Client, submitCount 
 	return c, &submits
 }
 
-func TestExecuteAndWaitRetriesOnceWhenMarkerFound(t *testing.T) {
-	client, submitCount := newTestServers(t, []string{"failure", "success"})
+func TestExecuteAndWaitFailsWithMarkerWhenEligible(t *testing.T) {
+	client, submitCount := newTestServers(t, []string{"failure"})
 
 	var markerChecks int32
 	m := NewMonitor(client, time.Millisecond, time.Second, false, true, true, DefaultMaxEV2AutoRetryFailures)
 	m.checkRetryMarker = func(ctx context.Context, jobURL string, maxAutoRetryFailures int) (bool, error) {
 		atomic.AddInt32(&markerChecks, 1)
 		if !strings.Contains(jobURL, "job-1") {
-			t.Fatalf("expected marker check against the first (failed) job, got %q", jobURL)
+			t.Fatalf("expected marker check against the failed job, got %q", jobURL)
 		}
 		return true, nil
 	}
 
 	err := m.ExecuteAndWait(testContext(), logr.Discard(), &prowgangway.CreateJobExecutionRequest{})
-	if err != nil {
-		t.Fatalf("expected the retried job to succeed, got error: %v", err)
+	if err == nil {
+		t.Fatal("expected an error even when the failure is retry-eligible - prow-job-executor never resubmits the job itself")
 	}
-	if got := atomic.LoadInt32(submitCount); got != 2 {
-		t.Fatalf("expected 2 submissions (original + 1 retry), got %d", got)
+	var retryable *EV2RetryableError
+	if !errors.As(err, &retryable) {
+		t.Fatalf("expected an EV2RetryableError so EV2's automatedRetry can match on it, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), EV2RetryableMarker) {
+		t.Fatalf("expected the error text to contain %q, got %q", EV2RetryableMarker, err.Error())
+	}
+	if got := atomic.LoadInt32(submitCount); got != 1 {
+		t.Fatalf("expected exactly 1 submission (prow-job-executor must not resubmit), got %d", got)
 	}
 	if got := atomic.LoadInt32(&markerChecks); got != 1 {
 		t.Fatalf("expected exactly 1 marker check, got %d", got)
 	}
 }
 
-func TestExecuteAndWaitDoesNotRetryWhenMarkerAbsent(t *testing.T) {
-	client, submitCount := newTestServers(t, []string{"failure", "success"})
+func TestExecuteAndWaitFailsPlainWhenMarkerAbsent(t *testing.T) {
+	client, submitCount := newTestServers(t, []string{"failure"})
 
 	m := NewMonitor(client, time.Millisecond, time.Second, false, true, true, DefaultMaxEV2AutoRetryFailures)
 	m.checkRetryMarker = func(ctx context.Context, jobURL string, maxAutoRetryFailures int) (bool, error) {
@@ -104,34 +112,16 @@ func TestExecuteAndWaitDoesNotRetryWhenMarkerAbsent(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected the job failure to propagate when no marker is found, got nil")
 	}
+	var retryable *EV2RetryableError
+	if errors.As(err, &retryable) {
+		t.Fatalf("expected a plain error (not EV2-retryable) when the failure is not eligible, got: %v", err)
+	}
 	if got := atomic.LoadInt32(submitCount); got != 1 {
-		t.Fatalf("expected exactly 1 submission (no retry), got %d", got)
+		t.Fatalf("expected exactly 1 submission, got %d", got)
 	}
 }
 
-func TestExecuteAndWaitDoesNotRetryTwice(t *testing.T) {
-	client, submitCount := newTestServers(t, []string{"failure", "failure"})
-
-	var markerChecks int32
-	m := NewMonitor(client, time.Millisecond, time.Second, false, true, true, DefaultMaxEV2AutoRetryFailures)
-	m.checkRetryMarker = func(ctx context.Context, jobURL string, maxAutoRetryFailures int) (bool, error) {
-		atomic.AddInt32(&markerChecks, 1)
-		return true, nil
-	}
-
-	err := m.ExecuteAndWait(testContext(), logr.Discard(), &prowgangway.CreateJobExecutionRequest{})
-	if err == nil {
-		t.Fatal("expected an error since the retried job also failed")
-	}
-	if got := atomic.LoadInt32(submitCount); got != 2 {
-		t.Fatalf("expected exactly 2 submissions (original + the single retry, no further retry), got %d", got)
-	}
-	if got := atomic.LoadInt32(&markerChecks); got != 1 {
-		t.Fatalf("expected exactly 1 marker check (the retried attempt has allowEV2Retry disabled), got %d", got)
-	}
-}
-
-func TestExecuteAndWaitSkipsRetryWhenNotAllowed(t *testing.T) {
+func TestExecuteAndWaitSkipsMarkerCheckWhenNotAllowed(t *testing.T) {
 	client, submitCount := newTestServers(t, []string{"failure"})
 
 	m := NewMonitor(client, time.Millisecond, time.Second, false, true, false, DefaultMaxEV2AutoRetryFailures)

@@ -85,7 +85,7 @@ func (o *RawExecuteOptions) BindFlags(cmd *cobra.Command) error {
 	cmd.Flags().StringVar(&o.ProwURL, "prow-url", o.ProwURL, "Prow API URL for job status monitoring")
 	cmd.Flags().BoolVar(&o.DryRun, "dry-run", o.DryRun, "Print which job would be started, but do not start one.")
 	cmd.Flags().BoolVar(&o.GatePromotion, "gate-promotion", o.GatePromotion, "Exit with an error code if the job fails.")
-	cmd.Flags().BoolVar(&o.AllowEV2Retry, "allow-ev2-retry", o.AllowEV2Retry, "When gate-promotion is set and the job fails, resubmit it once if its finished.json metadata marks the failure as narrow enough to safely retry (AROSLSRE-1721).")
+	cmd.Flags().BoolVar(&o.AllowEV2Retry, "allow-ev2-retry", o.AllowEV2Retry, "When gate-promotion is set and the job fails, fail with a distinct, matchable error if its finished.json metadata marks the failure as narrow enough to safely retry, so the gating step's EV2 automatedRetry re-runs the whole step (AROSLSRE-1721). Does not resubmit the job itself.")
 	cmd.Flags().IntVar(&o.MaxEV2AutoRetryFailures, "max-ev2-auto-retry-failures", o.MaxEV2AutoRetryFailures, "Maximum number of failed tests (all labeled allow-retry) a job may have and still qualify for an automatic EV2 gating retry. Has no effect unless allow-ev2-retry is set.")
 	cmd.Flags().StringVar(&o.BaseSha, "base-sha", o.BaseSha, "Git commit SHA to test against. When set, the job is triggered as a postsubmit with this specific commit instead of HEAD.")
 	cmd.Flags().StringVar(&o.BaseRef, "base-ref", o.BaseRef, "Git base ref (branch) for the postsubmit job (requires --base-sha)")
