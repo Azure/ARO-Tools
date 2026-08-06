@@ -7,7 +7,7 @@
 # security data, so the agent itself cannot read Dependabot alerts through the GitHub
 # MCP `dependabot` toolset (the response comes back empty and taints the agent's
 # integrity label). We therefore fetch the alerts and the open PR list in ordinary
-# Actions steps with an aro-hcp-robot App token (which has vulnerability_alerts:read)
+# Actions steps with an aro-hcp-robot App token (which has vulnerability-alerts: read)
 # and hand the agent two JSON files in the workspace. The agent is org-billed via
 # copilot-requests. A GitHub App is also used for the write side: PR creation goes
 # through the safe-outputs job with an App installation token, never a PAT.
