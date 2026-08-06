@@ -56,6 +56,9 @@ type Entrypoint struct {
 	// Identifier is the root of the sub-tree selected by this entrypoint.
 	Identifier string `json:"identifier"`
 
+	// SafeFly opts this sub-tree into generated SafeFly request submission.
+	SafeFly bool `json:"safeFly,omitempty"`
+
 	// Metadata is an extension point to store useful information for the sub-tree.
 	Metadata map[string]string `json:"metadata,omitempty"`
 }
