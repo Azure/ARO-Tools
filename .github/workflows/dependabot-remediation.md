@@ -137,15 +137,23 @@ The open Dependabot alerts have already been fetched for you into `dependabot-al
 
 Every entry in the file is already an `open` alert. If the file is empty (`[]`), there is nothing to do: open no PRs and finish.
 
-## 1b. Skip vulnerabilities that already have an open PR
+## 1b. Reconcile against already-open pull requests
 
-The currently open pull requests have been fetched into `open-pull-requests.json` in the repository root (a JSON array of `{number, title, head, draft}`). Read that file. A vulnerability is already covered if an open PR bumps the same package (match on the package name, the `fix(deps): ` title, or a referenced GHSA/CVE in the PR title). Drop every alert that is already covered by an open PR and do not reopen or duplicate it. Only carry forward alerts that have no open PR. If, after this filter, no alerts remain, do nothing and open no PRs.
+The currently open pull requests have been fetched into `open-pull-requests.json` in the repository root (a JSON array of `{number, title, head, draft}`). Read that file. A vulnerability is already covered if an open PR bumps the same package (match on the package name, the `fix(deps): ` title, or a referenced GHSA/CVE in the PR title).
+
+For each alert that already has an open PR, do not just drop it, decide first whether that PR is healthy or needs attention (use the GitHub tools to read its checks and review threads):
+
+- **Healthy** (checks green, up to date with the default branch, no change-requests): the package is covered, drop the alert and move on. Do not open a duplicate.
+- **Needs attention** (a required check is failing, the branch is behind or conflicts with the default branch, or a review left an actionable change-request such as a coordinated sibling module left behind): pick it up instead of skipping. Check out its `head` branch, apply the missing fix, run the workspace ritual again (section 3), and push to that **same** `head` branch so the existing PR updates rather than a second PR being opened. Only act on comments that mean the fix is incomplete or wrong (see section 5b); leave scope-expanding suggestions alone.
+
+If, after this reconcile, no alerts need a new PR and none of the open ones needed an update, do nothing.
 
 ## 2. Group the alerts
 
 Produce **one pull request per vulnerability group**. Group by remediation family, not by individual alert:
 
 - Group alerts for the **same package** together (all modules at once).
+- **Keep coordinated module families in lockstep.** Some dependencies ship as a set of sibling modules released together under one version, for example OpenTelemetry (`go.opentelemetry.io/otel/...`), AWS SDK v2 (`github.com/aws/aws-sdk-go-v2/...`), Kubernetes (`k8s.io/...`), and gRPC/genproto (`google.golang.org/grpc`, `google.golang.org/genproto`). When an alert hits one member, bump **every** sibling already present in the workspace to the **same** release version, not just the alerted module. Leaving a sibling behind (for example `otel` core at v1.43.0 but `otel/exporters/stdout/stdoutmetric` at v1.40.0) draws reviewer flags and can cause API or type mismatches. Find the siblings with `grep -rho '<family-prefix>[^[:space:]]*' --include=go.mod . | sort -u`, `go get` each to the target version, then run the tidy ritual.
 - Group a **cascade family** together: if bumping one module forces a coordinated bump across many workspace modules after `go work sync` (for example a `golang.org/x/*`, `k8s.io/*`, or `google.golang.org/grpc` bump that ripples through the workspace), that is a single group and a single PR.
 - **Never mix ecosystems** in one PR. If any npm alerts show up, they are always separate PRs from Go fixes.
 
@@ -157,7 +165,7 @@ Work on a fresh branch per group, off the default branch. For each group:
 
 1. Raise the dependency to the first patched version in the relevant module's `go.mod` (use `go get <module>@<version>` in each affected module directory).
 2. Run the workspace ritual so the whole `go.work` stays consistent: `make tidy` (this runs `go mod tidy` in every module and then `go work sync` via the `work-sync` target). A single bump usually cascades: `make tidy` will update `go.sum` (and sometimes `go.mod`) in **several** modules, not just the one you bumped. That cascade is the whole point, keep every one of those changes.
-3. Match the repository CI gate exactly. The `verify` workflow runs `make tidy` and then fails if `git status --short` is not empty. So after tidying, run `make tidy` again followed by `git status --short`; if anything is still modified, stage it and repeat until a second `make tidy` produces no further changes (a clean fixpoint). Only then is the branch CI-clean.
+3. Match the repository CI gate exactly. The `verify` workflow runs `make tidy` and then fails if `git status --short` is not empty. So after tidying, run `make tidy` again followed by `git status --short`; if anything is still modified, stage it and repeat until a second `make tidy` produces no further changes (a clean fixpoint). Only then is the branch CI-clean. A go.sum that carries a hash line for a module with **no matching `require`** in that module's `go.mod` (or a **missing** `.../go.mod` hash line) means tidy did not fully run there: run `go mod tidy` inside that module and re-run the ritual until it is a no-op.
 4. Validate the change builds and lints: `make test-compile` and `make lint`. Both must pass. If `make lint-fix` is needed for trivial formatting, that is acceptable, but keep the diff dependency-only (see below).
 
 ## 4. Keep each PR dependency-only
@@ -173,6 +181,13 @@ For each group, open one pull request via the create-pull-request safe output. T
 - Be dependency-only as described above.
 
 Follow the repository conventions: plain, human wording, no em-dashes. Do not add `Co-authored-by: Copilot` trailers. Do not create tracking issues. PRs only.
+
+## 5b. Handling review comments
+
+When you update an already-open PR (section 1b) or a reviewer comments on one of your PRs, sort each comment into act vs decline:
+
+- **Act** on comments that mean the fix is incomplete or wrong, then re-run the ritual and the checks and push to the same branch: a coordinated sibling module left behind (section 2 lockstep), a go.sum/go.mod inconsistency (an incomplete tidy), or a wrong / too-low target version.
+- **Decline** scope-expanding suggestions that go beyond clearing the vulnerability, because acting on them would break the dependency-only rule: consolidating transitive major versions that legitimately coexist (for example a graph pulling both `yaml.v2` and `yaml.v3`), refactors, or style changes. These stay out of the PR; the PR is intentionally dependency-only.
 
 ## 6. If you cannot fix a group
 
