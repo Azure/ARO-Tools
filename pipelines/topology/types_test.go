@@ -554,6 +554,30 @@ func TestLoad_PropagateStamped(t *testing.T) {
 	}
 }
 
+func TestLoad_EntrypointSafeFly(t *testing.T) {
+	path := writeTempTopology(t, `entrypoints:
+- identifier: opted-in
+  safeFly: true
+- identifier: default
+services:
+- serviceGroup: opted-in
+- serviceGroup: default`)
+
+	got, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	expected := []Entrypoint{
+		{Identifier: "opted-in", SafeFly: true},
+		{Identifier: "default"},
+	}
+
+	if diff := cmp.Diff(expected, got.Entrypoints); diff != "" {
+		t.Errorf("mismatch (-want +got):\n%s", diff)
+	}
+}
+
 func TestLoadCombined_TopologyDirMapping(t *testing.T) {
 	teamAPath := filepath.Join("testdata", "team-a", "topology.yaml")
 	teamBPath := filepath.Join("testdata", "team-b", "topology.yaml")

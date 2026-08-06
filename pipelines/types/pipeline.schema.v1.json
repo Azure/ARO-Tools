@@ -468,27 +468,6 @@
         }
       ]
     },
-    "safeFlyStep": {
-      "unevaluatedProperties": false,
-      "allOf": [
-        {
-          "$ref": "#/definitions/stepMeta"
-        },
-        {
-          "properties": {
-            "action": {
-              "const": "SafeFly"
-            },
-            "shellIdentity": {
-              "$ref": "#/definitions/value"
-            }
-          },
-          "required": [
-            "shellIdentity"
-          ]
-        }
-      ]
-    },
     "shellValidationStep": {
       "unevaluatedProperties": false,
       "allOf": [
@@ -1831,22 +1810,6 @@
                     "type": "object",
                     "properties": {
                       "action": {
-                        "const": "SafeFly"
-                      }
-                    },
-                    "required": [
-                      "action"
-                    ]
-                  },
-                  "then": {
-                    "$ref": "#/definitions/safeFlyStep"
-                  }
-                },
-                {
-                  "if": {
-                    "type": "object",
-                    "properties": {
-                      "action": {
                         "const": "Helm"
                       }
                     },
@@ -2214,6 +2177,18 @@
                   }
                 }
               ],
+              "not": {
+                "description": "SafeFly steps are generated from an entrypoint opt-in, not authored.",
+                "type": "object",
+                "properties": {
+                  "action": {
+                    "const": "SafeFly"
+                  }
+                },
+                "required": [
+                  "action"
+                ]
+              },
               "required": [
                 "name",
                 "action"

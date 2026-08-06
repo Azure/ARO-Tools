@@ -338,7 +338,7 @@ func TestValidatePipelineSchema(t *testing.T) {
 			},
 		},
 		{
-			name: "valid safefly",
+			name: "safefly is not authorable",
 			pipeline: map[string]interface{}{
 				"serviceGroup": "test",
 				"rolloutName":  "test",
@@ -354,26 +354,6 @@ func TestValidatePipelineSchema(t *testing.T) {
 								"shellIdentity": map[string]interface{}{
 									"configRef": "safeFlyMsiId",
 								},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "invalid safefly missing shell identity",
-			pipeline: map[string]interface{}{
-				"serviceGroup": "test",
-				"rolloutName":  "test",
-				"resourceGroups": []interface{}{
-					map[string]interface{}{
-						"name":          "rg",
-						"resourceGroup": "rg",
-						"subscription":  "sub",
-						"steps": []interface{}{
-							map[string]interface{}{
-								"name":   "step",
-								"action": "SafeFly",
 							},
 						},
 					},
