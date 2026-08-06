@@ -18,8 +18,7 @@ on:
 permissions:
   contents: read
   pull-requests: read
-  security-events: read      # required by the dependabot toolset
-  vulnerability-alerts: read # lets GITHUB_TOKEN read Dependabot alerts, no App
+  vulnerability-alerts: read # Dependabot alert read scope for the App-minted MCP token
   copilot-requests: write    # org-billed engine inference via GITHUB_TOKEN, no PAT
 
 engine: copilot
@@ -39,12 +38,17 @@ steps:
     with:
       go-version-file: go.work
 
-# The built-in GitHub MCP dependabot toolset reads the open alerts directly with
-# the GITHUB_TOKEN (thanks to the vulnerability-alerts:read permission above). No
-# App installation token, no app secrets, no per-install approval needed.
+# The Copilot engine's built-in MCP token is secrecy-restricted from private-scoped
+# security data, so it cannot read Dependabot alerts even with vulnerability-alerts:read
+# on the GITHUB_TOKEN. We mint an aro-hcp-robot GitHub App token for the GitHub MCP
+# server instead; gh-aw scopes it to the agent job's permissions above (contents:read,
+# pull-requests:read, vulnerability-alerts:read), all of which the App installation grants.
 tools:
   github:
     toolsets: [dependabot, pull_requests]
+    github-app:
+      client-id: ${{ secrets.DEPENDABOT_APP_CLIENT_ID }}
+      private-key: ${{ secrets.DEPENDABOT_APP_PRIVATE_KEY }}
 
 # PR creation is scoped here, not by the frontmatter permissions above. These writes are
 # NOT performed with the org-billed GITHUB_TOKEN; they use a GitHub App installation token
