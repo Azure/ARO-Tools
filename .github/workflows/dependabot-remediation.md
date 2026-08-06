@@ -68,6 +68,7 @@ safe-outputs:
   create-pull-request:
     max: 6                              # one PR per vulnerability group
     draft: true                         # open as draft, human marks ready
+    fallback-as-issue: false            # no issues: write on the App token, fail instead of opening an issue
     title-prefix: "fix(deps): "
     labels: [dependencies, security, agentic-dependabot]
 
