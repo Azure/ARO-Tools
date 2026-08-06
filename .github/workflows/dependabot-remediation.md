@@ -106,6 +106,16 @@ safe-outputs:
     fallback-as-issue: false            # no issues: write on the App token, fail instead of opening an issue
     title-prefix: "fix(deps): "
     labels: [dependencies, security, agentic-dependabot]
+    # gh-aw guards package manifests (go.mod/go.sum) as supply-chain-sensitive by
+    # default and refuses to push them. Managing those files IS this bot's whole job,
+    # so exclude them from the protected set. Everything else (.github/, README,
+    # AGENTS.md, security config) keeps the default request_review guard, which also
+    # enforces that a dependency PR only ever touches go.mod/go.sum.
+    protected-files:
+      policy: request_review
+      exclude:
+        - go.mod
+        - go.sum
 
 ---
 
