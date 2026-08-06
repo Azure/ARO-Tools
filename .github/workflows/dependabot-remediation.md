@@ -117,6 +117,14 @@ safe-outputs:
       exclude:
         - go.mod
         - go.sum
+  # Let the workflow tidy up after itself. When it re-does a vulnerability that
+  # already had an incomplete open PR (see section 1b), gh-aw's create-pull-request
+  # always mints a NEW branch, so it cannot update the old PR in place. Instead the
+  # agent opens the corrected PR and closes the stale one via this safe output.
+  # required-labels scopes it to only ever close this bot's own PRs, never a human's.
+  close-pull-request:
+    max: 6                              # may supersede several incomplete PRs in one run
+    required-labels: [agentic-dependabot]
 
 ---
 
@@ -144,7 +152,7 @@ The currently open pull requests have been fetched into `open-pull-requests.json
 For each alert that already has an open PR, do not just drop it, decide first whether that PR is healthy or needs attention (use the GitHub tools to read its checks and review threads):
 
 - **Healthy** (checks green, up to date with the default branch, no change-requests): the package is covered, drop the alert and move on. Do not open a duplicate.
-- **Needs attention** (a required check is failing, the branch is behind or conflicts with the default branch, or a review left an actionable change-request such as a coordinated sibling module left behind): pick it up instead of skipping. Check out its `head` branch, apply the missing fix, run the workspace ritual again (section 3), and push to that **same** `head` branch so the existing PR updates rather than a second PR being opened. Only act on comments that mean the fix is incomplete or wrong (see section 5b); leave scope-expanding suggestions alone.
+- **Needs attention** (a required check is failing, the branch is behind or conflicts with the default branch, or a review left an actionable change-request such as a coordinated sibling module left behind): redo the fix. Because the create-pull-request output always opens a fresh branch, you cannot update the old PR in place, so open a corrected replacement PR **and close the stale one yourself** via the close-pull-request output, with a one-line comment pointing at the replacement (for example "Superseded by the updated PR, which adds the missing sibling bump."). Do not leave both open for a human to reconcile. Only act on comments that mean the fix is incomplete or wrong (see section 5b); leave scope-expanding suggestions alone.
 
 If, after this reconcile, no alerts need a new PR and none of the open ones needed an update, do nothing.
 
