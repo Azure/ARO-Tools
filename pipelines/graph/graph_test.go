@@ -1,15 +1,12 @@
 package graph
 
 import (
-	"bytes"
 	"embed"
 	"fmt"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/goccy/go-graphviz"
 
 	"sigs.k8s.io/yaml"
 
@@ -54,26 +51,6 @@ func compareGraph(t *testing.T, g *Graph) {
 	if err != nil {
 		t.Fatalf("Failed to generate svg: %v; %s", err, string(out))
 	}
-
-	if false {
-		// unfortunately, the Go bindings for the `graphviz` library fail on 1.24: https://github.com/goccy/go-graphviz/issues/112
-		g, err := graphviz.New(t.Context())
-		if err != nil {
-			t.Fatalf("failed to create visualizer: %v", err)
-		}
-
-		graph, err := graphviz.ParseBytes(encoded)
-		if err != nil {
-			t.Fatalf("failed to decode graph: %v", err)
-		}
-
-		var image bytes.Buffer
-		if err := g.Render(t.Context(), graph, graphviz.SVG, &image); err != nil {
-			t.Fatalf("failed to: %v", err)
-		}
-		testutil.CompareWithFixture(t, image.Bytes(), testutil.WithExtension(".svg"))
-	}
-
 }
 
 func TestForEntrypoint(t *testing.T) {
