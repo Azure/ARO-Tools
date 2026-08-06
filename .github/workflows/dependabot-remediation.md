@@ -57,6 +57,7 @@ steps:
     uses: actions/setup-go@v5
     with:
       go-version-file: go.work
+      check-latest: true          # match the repo CI (verify uses check-latest), so the agent's `make tidy` output is identical and the PR passes the go-modules check
   - name: Mint App token to read alerts and PRs
     id: read-token
     uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
@@ -102,7 +103,7 @@ safe-outputs:
     private-key: ${{ secrets.DEPENDABOT_APP_PRIVATE_KEY }}
   create-pull-request:
     max: 6                              # one PR per vulnerability group
-    draft: true                         # open as draft, human marks ready
+    draft: false                        # open ready-for-review so CI runs and it can merge like the image bumper PRs
     fallback-as-issue: false            # no issues: write on the App token, fail instead of opening an issue
     title-prefix: "fix(deps): "
     labels: [dependencies, security, agentic-dependabot]
@@ -155,12 +156,13 @@ Aim for at most 6 groups. If there are more, prioritise by severity (critical > 
 Work on a fresh branch per group, off the default branch. For each group:
 
 1. Raise the dependency to the first patched version in the relevant module's `go.mod` (use `go get <module>@<version>` in each affected module directory).
-2. Run the workspace ritual so the whole `go.work` stays consistent: `make tidy` (this runs `go mod tidy` in every module and then `go work sync` via the `work-sync` target). The tree must end tidy-clean.
-3. Validate the change builds and lints: `make test-compile` and `make lint`. Both must pass. If `make lint-fix` is needed for trivial formatting, that is acceptable, but keep the diff dependency-only (see below).
+2. Run the workspace ritual so the whole `go.work` stays consistent: `make tidy` (this runs `go mod tidy` in every module and then `go work sync` via the `work-sync` target). A single bump usually cascades: `make tidy` will update `go.sum` (and sometimes `go.mod`) in **several** modules, not just the one you bumped. That cascade is the whole point, keep every one of those changes.
+3. Match the repository CI gate exactly. The `verify` workflow runs `make tidy` and then fails if `git status --short` is not empty. So after tidying, run `make tidy` again followed by `git status --short`; if anything is still modified, stage it and repeat until a second `make tidy` produces no further changes (a clean fixpoint). Only then is the branch CI-clean.
+4. Validate the change builds and lints: `make test-compile` and `make lint`. Both must pass. If `make lint-fix` is needed for trivial formatting, that is acceptable, but keep the diff dependency-only (see below).
 
 ## 4. Keep each PR dependency-only
 
-Every PR must contain **only** dependency-management changes: `go.mod`, `go.sum`, `go.work`, `go.work.sum`. No source edits, no unrelated churn. Never include the `dependabot-alerts.json` or `open-pull-requests.json` scratch files. If the ritual pulls in changes unrelated to the group, revert those files back to the default branch before opening the PR.
+Every PR must contain **only** dependency-management changes: `go.mod`, `go.sum`, `go.work`, `go.work.sum`. This includes the full cascade across every module that `make tidy` touched, not just the module you bumped. Do **not** revert a `go.mod`/`go.sum`/`go.work.sum` change that `make tidy` produced thinking it is "unrelated churn"; those cross-module updates are the workspace sync and CI will fail without them. Only revert actual source-code edits (`.go` files, generated code) or the `dependabot-alerts.json` / `open-pull-requests.json` scratch files, which must never be committed. If in doubt, the rule is simple: running `make tidy` on the final branch must produce no diff.
 
 ## 5. Open the pull requests
 
