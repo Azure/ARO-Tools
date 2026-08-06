@@ -67,6 +67,8 @@ steps:
       permission-contents: read
       permission-pull-requests: read
       permission-vulnerability-alerts: read
+      permission-checks: read              # read agentic PRs' check-runs for the CI rollup in the pre-fetch
+      permission-statuses: read            # read agentic PRs' commit statuses (Prow-style) for the CI rollup
   - name: Pre-fetch open Dependabot alerts and open PRs
     env:
       GH_TOKEN: ${{ steps.read-token.outputs.token }}
@@ -96,8 +98,12 @@ steps:
           # Roll check-runs plus commit statuses into one signal. Only trust the
           # combined commit-status state when total_count > 0: repos that run only
           # check-runs (e.g. ARO-Tools 'verify') return an empty status set that
-          # defaults to "pending", which would otherwise mask a passing PR.
-          ci=$(printf '%s' "$checks" | jq -r --arg ss "$ss" --arg sc "$sc" 'if any(.[]; . == "failure" or . == "timed_out" or . == "cancelled" or . == "action_required") or ($sc != "0" and $ss == "failure") then "failing" elif any(.[]; . == null) or ($sc != "0" and $ss == "pending") then "pending" else "passing" end')
+          # defaults to "pending", which would otherwise mask a passing PR. Err on
+          # the safe side: only report "passing" when we actually saw a non-failing
+          # check-run or a successful commit status. If both signals are empty (no
+          # CI yet, or an API read failed) fall through to "pending", never
+          # "passing", so a red PR is never mistaken for healthy.
+          ci=$(printf '%s' "$checks" | jq -r --arg ss "$ss" --arg sc "$sc" 'if any(.[]; . == "failure" or . == "timed_out" or . == "cancelled" or . == "action_required") or ($sc != "0" and $ss == "failure") then "failing" elif any(.[]; . == null) or ($sc != "0" and $ss == "pending") then "pending" elif (length > 0) or ($sc != "0" and $ss == "success") then "passing" else "pending" end')
         else
           ms="n/a"; ci="n/a"
         fi
