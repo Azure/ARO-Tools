@@ -73,13 +73,37 @@ steps:
     run: |
       set -euo pipefail
       # Keep the scratch files out of git so they never end up in a remediation PR.
-      printf '%s\n' dependabot-alerts.json open-pull-requests.json >> .git/info/exclude
+      printf '%s\n' dependabot-alerts.json open-pull-requests.json open-pull-requests.base.json >> .git/info/exclude
       gh api --paginate "/repos/${{ github.repository }}/dependabot/alerts?state=open&per_page=100" \
         --jq '.[] | {number, ecosystem: .dependency.package.ecosystem, package: .dependency.package.name, manifest: .dependency.manifest_path, ghsa: .security_advisory.ghsa_id, cve: .security_advisory.cve_id, severity: .security_advisory.severity, vulnerable_range: .security_vulnerability.vulnerable_version_range, first_patched: .security_vulnerability.first_patched_version.identifier}' \
         | jq -s '.' > dependabot-alerts.json
+      # Open PRs, enriched so the agent can reconcile against them (section 1b):
+      # the list endpoint carries labels + author + head sha but NOT mergeable_state
+      # or CI, so for our own agentic PRs we fetch each one's mergeable_state and roll
+      # up its check-runs + commit statuses into a single pass/fail/pending signal.
       gh api --paginate "/repos/${{ github.repository }}/pulls?state=open&per_page=100" \
-        --jq '.[] | {number, title, head: .head.ref, draft: .draft}' \
-        | jq -s '.' > open-pull-requests.json
+        --jq '.[] | {number, title, head: .head.ref, sha: .head.sha, draft: .draft, author: .user.login, labels: [.labels[].name]}' \
+        | jq -s '.' > open-pull-requests.base.json
+      jq -c '.[]' open-pull-requests.base.json | while read -r pr; do
+        n=$(printf '%s' "$pr" | jq -r .number)
+        sha=$(printf '%s' "$pr" | jq -r .sha)
+        if printf '%s' "$pr" | jq -e '.labels | index("agentic-dependabot")' >/dev/null; then
+          ms=$(gh api "/repos/${{ github.repository }}/pulls/$n" --jq '.mergeable_state' 2>/dev/null || echo unknown)
+          checks=$(gh api "/repos/${{ github.repository }}/commits/$sha/check-runs" --jq '[.check_runs[].conclusion]' 2>/dev/null || echo '[]')
+          st=$(gh api "/repos/${{ github.repository }}/commits/$sha/status" --jq '{state, total_count}' 2>/dev/null || echo '{"state":"unknown","total_count":0}')
+          ss=$(printf '%s' "$st" | jq -r .state)
+          sc=$(printf '%s' "$st" | jq -r .total_count)
+          # Roll check-runs plus commit statuses into one signal. Only trust the
+          # combined commit-status state when total_count > 0: repos that run only
+          # check-runs (e.g. ARO-Tools 'verify') return an empty status set that
+          # defaults to "pending", which would otherwise mask a passing PR.
+          ci=$(printf '%s' "$checks" | jq -r --arg ss "$ss" --arg sc "$sc" 'if any(.[]; . == "failure" or . == "timed_out" or . == "cancelled" or . == "action_required") or ($sc != "0" and $ss == "failure") then "failing" elif any(.[]; . == null) or ($sc != "0" and $ss == "pending") then "pending" else "passing" end')
+        else
+          ms="n/a"; ci="n/a"
+        fi
+        printf '%s' "$pr" | jq --arg ms "$ms" --arg ci "$ci" '. + {mergeable_state: $ms, ci: $ci}'
+      done | jq -s '.' > open-pull-requests.json
+      rm -f open-pull-requests.base.json
       echo "Fetched $(jq length dependabot-alerts.json) open alerts and $(jq length open-pull-requests.json) open PRs"
 
 # PR creation is scoped here, not by the frontmatter permissions above. These writes are
@@ -147,14 +171,19 @@ Every entry in the file is already an `open` alert. If the file is empty (`[]`),
 
 ## 1b. Reconcile against already-open pull requests
 
-The currently open pull requests have been fetched into `open-pull-requests.json` in the repository root (a JSON array of `{number, title, head, draft}`). Read that file. A vulnerability is already covered if an open PR bumps the same package (match on the package name, the `fix(deps): ` title, or a referenced GHSA/CVE in the PR title).
+The currently open pull requests have been fetched into `open-pull-requests.json` in the repository root. Read that file. Each entry has `number`, `title`, `head` (branch), `draft`, `author`, `labels`, and, for this bot's own PRs, `mergeable_state` and `ci`. A vulnerability is already covered if an open PR bumps the same package (match on the package name, the `fix(deps): ` title, or a referenced GHSA/CVE in the PR title).
 
-For each alert that already has an open PR, do not just drop it, decide first whether that PR is healthy or needs attention (use the GitHub tools to read its checks and review threads):
+First classify each open PR by who owns it, because that decides what you may do with it:
 
-- **Healthy** (checks green, up to date with the default branch, no change-requests): the package is covered, drop the alert and move on. Do not open a duplicate.
-- **Needs attention** (a required check is failing, the branch is behind or conflicts with the default branch, or a review left an actionable change-request such as a coordinated sibling module left behind): redo the fix. Because the create-pull-request output always opens a fresh branch, you cannot update the old PR in place, so open a corrected replacement PR **and close the stale one yourself** via the close-pull-request output, with a one-line comment pointing at the replacement (for example "Superseded by the updated PR, which adds the missing sibling bump."). Do not leave both open for a human to reconcile. Only act on comments that mean the fix is incomplete or wrong (see section 5b); leave scope-expanding suggestions alone.
+- **Your own PRs** are the ones whose `labels` include `agentic-dependabot`. Only these carry `mergeable_state` and `ci`, and only these may ever be closed with the close-pull-request output.
+- **Native Dependabot PRs** (author `dependabot[bot]`, no `agentic-dependabot` label) and **human PRs** are not yours. Never target them with the close-pull-request output (it is label-guarded and will fail the run). If one of your PRs supersedes a native Dependabot PR for the same package, just reference it with `Closes #NNN` in your PR body so it closes on merge, and otherwise leave it alone.
 
-If, after this reconcile, no alerts need a new PR and none of the open ones needed an update, do nothing.
+For each alert that already has one of **your own** open PRs, decide whether that PR is healthy or needs attention using its `mergeable_state` and `ci` fields:
+
+- **Healthy** (`ci` is `passing`, `mergeable_state` is `clean`, `unstable`, or `blocked`, no actionable change-request): the package is covered, drop the alert and move on. Do not open a duplicate. Note `blocked` here just means the PR is waiting for the required human review before it can merge, which is the normal resting state for these PRs, not a problem to fix.
+- **Needs attention** (`ci` is `failing`, `mergeable_state` is `dirty` (conflicts with the default branch) or `behind` (out of date with the default branch), or a review left an actionable change-request such as a coordinated sibling module left behind): redo the fix off the latest default branch. Because the create-pull-request output always opens a fresh branch, you cannot update the old PR in place, so open a corrected replacement PR **and close the stale one yourself** via the close-pull-request output (it is your own PR, so the label guard passes), with a one-line comment pointing at the replacement (for example "Superseded by the updated PR, which adds the missing sibling bump."). Do not leave both open for a human to reconcile. Only act on comments that mean the fix is incomplete or wrong (see section 5b); leave scope-expanding suggestions alone.
+
+If, after this reconcile, no alerts need a new PR and none of your open PRs needed an update, do nothing.
 
 ## 2. Group the alerts
 
