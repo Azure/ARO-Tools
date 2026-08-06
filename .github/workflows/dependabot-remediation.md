@@ -3,10 +3,11 @@
 # Reads open Dependabot alerts, groups them by package/cascade family, runs the
 # `make tidy` workspace ritual, and opens one dependency-only PR per group.
 #
-# No PAT and no GitHub App: the built-in `dependabot` toolset reads alerts with
-# the org-billed GITHUB_TOKEN once the workflow declares vulnerability-alerts:read
-# + security-events:read. The Copilot agent is org-billed via copilot-requests.
-# PR writes go through the safe-outputs job (see the note on the org policy below).
+# No PAT: alerts are read with the org-billed GITHUB_TOKEN once the workflow declares
+# vulnerability-alerts:read + security-events:read (built-in `dependabot` toolset), and
+# the Copilot agent is org-billed via copilot-requests. A GitHub App is used only for
+# the write side: PR creation goes through the safe-outputs job with an App installation
+# token (see the note on the org policy below), never a PAT.
 
 on:
   workflow_dispatch:            # manual run
@@ -45,7 +46,9 @@ tools:
   github:
     toolsets: [dependabot, pull_requests]
 
-# Writes are org-billed and scoped here, not in the frontmatter permissions above.
+# PR creation is scoped here, not by the frontmatter permissions above. These writes are
+# NOT performed with the org-billed GITHUB_TOKEN; they use a GitHub App installation token
+# minted for the safe-outputs job (see below).
 #
 # PR creation uses Option B: the Azure org enforces "Allow GitHub Actions to create
 # and approve pull requests" = OFF (org-level, the repo checkbox is greyed out and
@@ -54,7 +57,7 @@ tools:
 # `github-app:` below. App-authored PRs are not subject to the org policy, so no org
 # change is needed. Requires two repo secrets for the aro-hcp-robot App (which has
 # contents:write + pull_requests:write):
-#   DEPENDABOT_APP_CLIENT_ID  = Iv23lioqETVAZNQE9L0P   (App CLIENT ID, not App ID 2853172)
+#   DEPENDABOT_APP_CLIENT_ID   = the App's OAuth client ID (not the numeric App ID)
 #   DEPENDABOT_APP_PRIVATE_KEY = the App private-key PEM
 # gh-aw passes client-id to actions/create-github-app-token (app-id is deprecated).
 # No PAT.
