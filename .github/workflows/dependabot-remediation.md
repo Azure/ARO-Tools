@@ -21,6 +21,8 @@ on:
 # happens in the safe-outputs job with its own scoped App token.
 permissions:
   contents: read
+  checks: read               # read agentic PRs' check-runs for the CI rollup (default GITHUB_TOKEN, not the App)
+  statuses: read             # read agentic PRs' commit statuses for the CI rollup (default GITHUB_TOKEN, not the App)
   copilot-requests: write    # org-billed engine inference via GITHUB_TOKEN, no PAT
 
 engine: copilot
@@ -67,11 +69,13 @@ steps:
       permission-contents: read
       permission-pull-requests: read
       permission-vulnerability-alerts: read
-      permission-checks: read              # read agentic PRs' check-runs for the CI rollup in the pre-fetch
-      permission-statuses: read            # read agentic PRs' commit statuses (Prow-style) for the CI rollup
   - name: Pre-fetch open Dependabot alerts and open PRs
     env:
       GH_TOKEN: ${{ steps.read-token.outputs.token }}
+      # The aro-hcp-robot App is not granted checks/statuses, and those are not
+      # sensitive, so the CI reads use the job's default GITHUB_TOKEN (which the
+      # top-level permissions block grants checks:read + statuses:read) instead.
+      CI_TOKEN: ${{ github.token }}
     run: |
       set -euo pipefail
       # Keep the scratch files out of git so they never end up in a remediation PR.
@@ -91,8 +95,8 @@ steps:
         sha=$(printf '%s' "$pr" | jq -r .sha)
         if printf '%s' "$pr" | jq -e '.labels | index("agentic-dependabot")' >/dev/null; then
           ms=$(gh api "/repos/${{ github.repository }}/pulls/$n" --jq '.mergeable_state' 2>/dev/null || echo unknown)
-          checks=$(gh api "/repos/${{ github.repository }}/commits/$sha/check-runs" --jq '[.check_runs[].conclusion]' 2>/dev/null || echo '[]')
-          st=$(gh api "/repos/${{ github.repository }}/commits/$sha/status" --jq '{state, total_count}' 2>/dev/null || echo '{"state":"unknown","total_count":0}')
+          checks=$(GH_TOKEN="$CI_TOKEN" gh api "/repos/${{ github.repository }}/commits/$sha/check-runs" --jq '[.check_runs[].conclusion]' 2>/dev/null || echo '[]')
+          st=$(GH_TOKEN="$CI_TOKEN" gh api "/repos/${{ github.repository }}/commits/$sha/status" --jq '{state, total_count}' 2>/dev/null || echo '{"state":"unknown","total_count":0}')
           ss=$(printf '%s' "$st" | jq -r .state)
           sc=$(printf '%s' "$st" | jq -r .total_count)
           # Roll check-runs plus commit statuses into one signal. Only trust the
