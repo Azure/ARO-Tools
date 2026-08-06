@@ -132,6 +132,12 @@ steps:
 # fallback-as-issue:false keeps the minted token down to contents:write + pull_requests:write
 # (no issues:write), matching what the App installation grants. No PAT.
 safe-outputs:
+  # gh-aw auto-enables a no-op report with report-as-issue: true, which posts a
+  # comment to a rolling "[aw] No-Op Runs" issue on every run that finds nothing to
+  # do. That is pure noise on a shared public repo, so turn the issue reporting off.
+  # Failure and report-incomplete notifications stay on: a failed run is real signal.
+  noop:
+    report-as-issue: false
   github-app:
     client-id: ${{ secrets.DEPENDABOT_APP_CLIENT_ID }}
     private-key: ${{ secrets.DEPENDABOT_APP_PRIVATE_KEY }}
