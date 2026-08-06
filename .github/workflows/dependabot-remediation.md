@@ -10,7 +10,7 @@
 
 on:
   workflow_dispatch:            # manual run
-  schedule: weekly on monday    # fuzzy weekly sweep
+  schedule: daily               # fuzzy daily sweep (scattered)
 
 # Read-only for the agent. All write operations (opening PRs) are performed by
 # the safe-outputs job with its own scoped, minimal permissions.
@@ -77,6 +77,15 @@ repository (`Azure/ARO-Tools`). For each open alert capture:
 - the module(s) where the dependency appears
 
 Only consider alerts whose state is `open`. Ignore `dismissed` and `fixed` alerts.
+
+## 1b. Skip vulnerabilities that already have an open PR
+
+Before grouping, list the currently open pull requests in this repository (use the
+`pull_requests` toolset). A vulnerability is already covered if an open PR bumps the
+same package (match on the package name, the `fix(deps): ` title, or a referenced
+GHSA/CVE in the PR title or body). Drop every alert that is already covered by an
+open PR and do not reopen or duplicate it. Only carry forward alerts that have no
+open PR. If, after this filter, no alerts remain, do nothing and open no PRs.
 
 ## 2. Group the alerts
 
