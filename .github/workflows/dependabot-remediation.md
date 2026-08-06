@@ -166,7 +166,7 @@ Every PR must contain **only** dependency-management changes: `go.mod`, `go.sum`
 
 ## 5. Open the pull requests
 
-For each group, open one **draft** pull request via the create-pull-request safe output. The PR must:
+For each group, open one pull request via the create-pull-request safe output. The PR must:
 
 - Title: `<package-or-family> to <version> (<severity>)` (the `fix(deps): ` prefix is added automatically, so give the rest).
 - Body: list the alerts fixed (GHSA/CVE, package, from -> to version), the modules touched, and confirm the workspace is tidy-clean and `make test-compile` + `make lint` pass. State that it is dependency-only.
