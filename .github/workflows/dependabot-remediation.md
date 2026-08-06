@@ -3,32 +3,38 @@
 # Reads open Dependabot alerts, groups them by package/cascade family, runs the
 # `make tidy` workspace ritual, and opens one dependency-only PR per group.
 #
-# No PAT: alerts are read with the org-billed GITHUB_TOKEN once the workflow declares
-# vulnerability-alerts:read + security-events:read (built-in `dependabot` toolset), and
-# the Copilot agent is org-billed via copilot-requests. A GitHub App is used only for
-# the write side: PR creation goes through the safe-outputs job with an App installation
-# token (see the note on the org policy below), never a PAT.
+# The Copilot engine runs under a secrecy/DIFC sandbox that filters private-scoped
+# security data, so the agent itself cannot read Dependabot alerts through the GitHub
+# MCP `dependabot` toolset (the response comes back empty and taints the agent's
+# integrity label). We therefore fetch the alerts and the open PR list in ordinary
+# Actions steps with an aro-hcp-robot App token (which has vulnerability_alerts:read)
+# and hand the agent two JSON files in the workspace. The agent is org-billed via
+# copilot-requests. A GitHub App is also used for the write side: PR creation goes
+# through the safe-outputs job with an App installation token, never a PAT.
 
 on:
   workflow_dispatch:            # manual run
   schedule: daily               # fuzzy daily sweep (scattered)
 
-# Read-only for the agent. All write operations (opening PRs) are performed by
-# the safe-outputs job with its own scoped, minimal permissions.
+# The agent only needs to check out the repo and reach the org-billed engine. The
+# alert/PR reads happen in the steps below with a scoped App token, and PR creation
+# happens in the safe-outputs job with its own scoped App token.
 permissions:
   contents: read
-  pull-requests: read
-  security-events: read      # required by the dependabot toolset
-  vulnerability-alerts: read # lets GITHUB_TOKEN read Dependabot alerts, no App
   copilot-requests: write    # org-billed engine inference via GITHUB_TOKEN, no PAT
 
 engine: copilot
 
 network: defaults
 
-# Set up the Go toolchain on the runner using the version declared in the project
-# (go.work), so the `make tidy` / `test-compile` ritual matches the workspace. No
-# hardcoded version: go-version-file keeps this in lockstep with the repo.
+# Runner setup before the agent starts:
+#  - check out the repo (persist-credentials:false is required by gh-aw strict mode),
+#  - install the Go toolchain at the version declared in the project (go.work), so the
+#    `make tidy` / `test-compile` ritual matches the workspace (no hardcoded version),
+#  - mint a short-lived aro-hcp-robot App token and pre-fetch the open Dependabot alerts
+#    and open PRs into workspace JSON files. These steps run on the runner, outside the
+#    Copilot secrecy sandbox, so they can read the private-scoped alert data the agent
+#    cannot. The files are excluded from git so they never leak into a remediation PR.
 steps:
   - name: Checkout
     uses: actions/checkout@v5
@@ -38,13 +44,29 @@ steps:
     uses: actions/setup-go@v5
     with:
       go-version-file: go.work
-
-# The built-in GitHub MCP dependabot toolset reads the open alerts directly with
-# the GITHUB_TOKEN (thanks to the vulnerability-alerts:read permission above). No
-# App installation token, no app secrets, no per-install approval needed.
-tools:
-  github:
-    toolsets: [dependabot, pull_requests]
+  - name: Mint App token to read alerts and PRs
+    id: read-token
+    uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+    with:
+      client-id: ${{ secrets.DEPENDABOT_APP_CLIENT_ID }}
+      private-key: ${{ secrets.DEPENDABOT_APP_PRIVATE_KEY }}
+      permission-contents: read
+      permission-pull-requests: read
+      permission-vulnerability-alerts: read
+  - name: Pre-fetch open Dependabot alerts and open PRs
+    env:
+      GH_TOKEN: ${{ steps.read-token.outputs.token }}
+    run: |
+      set -euo pipefail
+      # Keep the scratch files out of git so they never end up in a remediation PR.
+      printf '%s\n' dependabot-alerts.json open-pull-requests.json >> .git/info/exclude
+      gh api --paginate "/repos/${{ github.repository }}/dependabot/alerts?state=open&per_page=100" \
+        --jq '.[] | {number, ecosystem: .dependency.package.ecosystem, package: .dependency.package.name, manifest: .dependency.manifest_path, ghsa: .security_advisory.ghsa_id, cve: .security_advisory.cve_id, severity: .security_advisory.severity, vulnerable_range: .security_vulnerability.vulnerable_version_range, first_patched: .security_vulnerability.first_patched_version.identifier}' \
+        | jq -s '.' > dependabot-alerts.json
+      gh api --paginate "/repos/${{ github.repository }}/pulls?state=open&per_page=100" \
+        --jq '.[] | {number, title, head: .head.ref, draft: .draft}' \
+        | jq -s '.' > open-pull-requests.json
+      echo "Fetched $(jq length dependabot-alerts.json) open alerts and $(jq length open-pull-requests.json) open PRs"
 
 # PR creation is scoped here, not by the frontmatter permissions above. These writes are
 # NOT performed with the org-billed GITHUB_TOKEN; they use a GitHub App installation token
@@ -59,8 +81,8 @@ tools:
 # contents:write + pull_requests:write):
 #   DEPENDABOT_APP_CLIENT_ID   = the App's OAuth client ID (not the numeric App ID)
 #   DEPENDABOT_APP_PRIVATE_KEY = the App private-key PEM
-# gh-aw passes client-id to actions/create-github-app-token (app-id is deprecated).
-# No PAT.
+# fallback-as-issue:false keeps the minted token down to contents:write + pull_requests:write
+# (no issues:write), matching what the App installation grants. No PAT.
 safe-outputs:
   github-app:
     client-id: ${{ secrets.DEPENDABOT_APP_CLIENT_ID }}
@@ -74,25 +96,26 @@ safe-outputs:
 
 ---
 
-# Agentic Dependabot remediation for ARO-Tools (go.work-aware, PR-first)
+# Agentic Dependabot remediation for ARO-Tools
 
 You are remediating open Dependabot alerts for the `Azure/ARO-Tools` repository. This is a Go multi-module `go.work` workspace. Read the module list from `go.work` and the Go toolchain version from the `go`/`toolchain` directives in `go.work` (or the modules' `go.mod`); do not assume a fixed version or module count, use whatever the project declares. Native Dependabot cannot handle it, because a per-manifest bump skips the workspace sync and never re-tidies the other modules. Your job is to run that ritual correctly and open one clean, dependency-only pull request per group.
 
 ## 1. Read the alerts
 
-Use the GitHub `dependabot` toolset to list the open Dependabot alerts for this repository (`Azure/ARO-Tools`). For each open alert capture:
+The open Dependabot alerts have already been fetched for you into `dependabot-alerts.json` in the repository root (the Copilot secrecy sandbox blocks the agent from reading the Dependabot API directly, so a prior workflow step fetched them with an App token). Read that file. It is a JSON array; each entry has:
 
-- the ecosystem (package ecosystem, expect mostly `go`)
-- the package name
-- the vulnerable range and the first patched version
-- severity and the GHSA/CVE identifier
-- the module(s) where the dependency appears
+- `ecosystem` (package ecosystem, expect mostly `go`)
+- `package` (the module path)
+- `vulnerable_range` and `first_patched` (the first patched version)
+- `severity` and the `ghsa` / `cve` identifiers
+- `manifest` (the manifest path where the dependency appears)
+- `number` (the alert number)
 
-Only consider alerts whose state is `open`. Ignore `dismissed` and `fixed` alerts.
+Every entry in the file is already an `open` alert. If the file is empty (`[]`), there is nothing to do: open no PRs and finish.
 
 ## 1b. Skip vulnerabilities that already have an open PR
 
-Before grouping, list the currently open pull requests in this repository (use the `pull_requests` toolset). A vulnerability is already covered if an open PR bumps the same package (match on the package name, the `fix(deps): ` title, or a referenced GHSA/CVE in the PR title or body). Drop every alert that is already covered by an open PR and do not reopen or duplicate it. Only carry forward alerts that have no open PR. If, after this filter, no alerts remain, do nothing and open no PRs.
+The currently open pull requests have been fetched into `open-pull-requests.json` in the repository root (a JSON array of `{number, title, head, draft}`). Read that file. A vulnerability is already covered if an open PR bumps the same package (match on the package name, the `fix(deps): ` title, or a referenced GHSA/CVE in the PR title). Drop every alert that is already covered by an open PR and do not reopen or duplicate it. Only carry forward alerts that have no open PR. If, after this filter, no alerts remain, do nothing and open no PRs.
 
 ## 2. Group the alerts
 
@@ -114,7 +137,7 @@ Work on a fresh branch per group, off the default branch. For each group:
 
 ## 4. Keep each PR dependency-only
 
-Every PR must contain **only** dependency-management changes: `go.mod`, `go.sum`, `go.work`, `go.work.sum`. No source edits, no unrelated churn. If the ritual pulls in changes unrelated to the group, revert those files back to the default branch before opening the PR.
+Every PR must contain **only** dependency-management changes: `go.mod`, `go.sum`, `go.work`, `go.work.sum`. No source edits, no unrelated churn. Never include the `dependabot-alerts.json` or `open-pull-requests.json` scratch files. If the ritual pulls in changes unrelated to the group, revert those files back to the default branch before opening the PR.
 
 ## 5. Open the pull requests
 
