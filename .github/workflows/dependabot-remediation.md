@@ -25,7 +25,20 @@ permissions:
 
 engine: copilot
 
-network: defaults
+# Give the agent up to 30 minutes: it runs the go.work tidy ritual (module
+# download + `go mod tidy` + compile) across 13 workspace modules, which does not
+# fit in the default 20-minute agent budget once real downloads are involved.
+timeout-minutes: 30
+
+# The agent runs behind the AWF egress firewall. `defaults` covers base infra but
+# NOT the Go module proxy, so `go mod tidy` / `go get` cannot download the bumped
+# versions and the tidy ritual fails. The `go` ecosystem preset allowlists
+# proxy.golang.org, sum.golang.org and go.dev. GitHub domains (for the workspace's
+# own internal modules) are always allowed by default.
+network:
+  allowed:
+    - defaults
+    - go
 
 # Runner setup before the agent starts:
 #  - check out the repo (persist-credentials:false is required by gh-aw strict mode),
