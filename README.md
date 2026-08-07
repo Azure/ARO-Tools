@@ -10,6 +10,23 @@ As the maintainer of this project, please make a few updates:
 - Understanding the security reporting process in SECURITY.MD
 - Remove this section from the README
 
+## Merge automation (Prow / Tide)
+
+This repository is onboarded onto [OpenShift CI (Prow)](https://docs.ci.openshift.org/). Configuration lives in
+[openshift/release](https://github.com/openshift/release) under
+`core-services/prow/02_config/Azure/ARO-Tools/`.
+
+Merges are handled by Prow's Tide component, not by pressing the GitHub merge button. A PR merges once it has both labels:
+
+- `lgtm` — added when a reviewer comments `/lgtm`.
+- `approved` — added when an [OWNERS](./OWNERS) approver comments `/approve`.
+
+Approvers and reviewers are defined in [`OWNERS`](./OWNERS). Use `/hold` to block a merge and `/hold cancel` to release
+it. Comment `/retest` to re-run failed checks.
+
+Note: only merge commits are allowed on `main` (squash and rebase merges are disabled), matching
+[Azure/ARO-HCP](https://github.com/Azure/ARO-HCP)'s repo settings.
+
 ## Contributing
 
 This project welcomes contributions and suggestions.  Most contributions require you to agree to a
