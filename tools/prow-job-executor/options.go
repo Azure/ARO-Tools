@@ -268,6 +268,10 @@ func (o *RawExecuteOptions) Validate(ctx context.Context) (*ValidatedExecuteOpti
 		return nil, fmt.Errorf("timeout must be greater than 0")
 	}
 
+	if o.AllowEV2Retry && !o.GatePromotion {
+		return nil, fmt.Errorf("gate-promotion must be set when allow-ev2-retry is set")
+	}
+
 	if o.AllowEV2Retry && o.MaxEV2AutoRetryFailures <= 0 {
 		return nil, fmt.Errorf("max-ev2-auto-retry-failures must be greater than 0 when allow-ev2-retry is set")
 	}
