@@ -66,6 +66,7 @@ func DefaultExecuteOptions() *RawExecuteOptions {
 		Org:                     defaultOrg,
 		Repo:                    defaultRepo,
 		MaxEV2AutoRetryFailures: prowjob.DefaultMaxEV2AutoRetryFailures,
+		AbortOnCancel:           true,
 	}
 }
 
@@ -87,6 +88,7 @@ func (o *RawExecuteOptions) BindFlags(cmd *cobra.Command) error {
 	cmd.Flags().BoolVar(&o.GatePromotion, "gate-promotion", o.GatePromotion, "Exit with an error code if the job fails.")
 	cmd.Flags().BoolVar(&o.AllowEV2Retry, "allow-ev2-retry", o.AllowEV2Retry, "When gate-promotion is set and the job fails, fail with a distinct, matchable error if its finished.json metadata marks the failure as narrow enough to safely retry, so the gating step's EV2 automatedRetry re-runs the whole step. Does not resubmit the job itself.")
 	cmd.Flags().IntVar(&o.MaxEV2AutoRetryFailures, "max-ev2-auto-retry-failures", o.MaxEV2AutoRetryFailures, "Maximum number of failed tests (all labeled allow-retry) a job may have and still qualify for an automatic EV2 gating retry. Has no effect unless allow-ev2-retry is set.")
+	cmd.Flags().BoolVar(&o.AbortOnCancel, "abort-on-cancel", o.AbortOnCancel, "Abort the running Prow job if the executor is cancelled (e.g. the rollout is cancelled and the process receives SIGTERM).")
 	cmd.Flags().StringVar(&o.BaseSha, "base-sha", o.BaseSha, "Git commit SHA to test against. When set, the job is triggered as a postsubmit with this specific commit instead of HEAD.")
 	cmd.Flags().StringVar(&o.BaseRef, "base-ref", o.BaseRef, "Git base ref (branch) for the postsubmit job (requires --base-sha)")
 	cmd.Flags().StringVar(&o.Org, "org", o.Org, "GitHub org for the postsubmit job (requires --base-sha)")
@@ -128,6 +130,7 @@ type RawExecuteOptions struct {
 	GatePromotion           bool
 	AllowEV2Retry           bool
 	MaxEV2AutoRetryFailures int
+	AbortOnCancel           bool
 
 	// Git ref options for postsubmit execution pinned to a specific commit.
 	// When BaseSha is set, the job is triggered as a postsubmit instead of a periodic.
@@ -170,6 +173,7 @@ type completedExecuteOptions struct {
 	GatePromotion           bool
 	AllowEV2Retry           bool
 	MaxEV2AutoRetryFailures int
+	AbortOnCancel           bool
 
 	// Git ref options for postsubmit execution
 	BaseSha string
@@ -276,6 +280,14 @@ func (o *RawExecuteOptions) Validate(ctx context.Context) (*ValidatedExecuteOpti
 		return nil, fmt.Errorf("max-ev2-auto-retry-failures must be greater than 0 when allow-ev2-retry is set")
 	}
 
+	if err := validateHTTPURL("gangway-url", o.GangwayURL); err != nil {
+		return nil, err
+	}
+
+	if err := validateHTTPURL("prow-url", o.ProwURL); err != nil {
+		return nil, err
+	}
+
 	return &ValidatedExecuteOptions{
 		validatedExecuteOptions: &validatedExecuteOptions{
 			RawExecuteOptions:         o,
@@ -312,6 +324,7 @@ func (o *ValidatedExecuteOptions) Complete(ctx context.Context) (*ExecuteOptions
 			GatePromotion:           o.GatePromotion,
 			AllowEV2Retry:           o.AllowEV2Retry,
 			MaxEV2AutoRetryFailures: o.MaxEV2AutoRetryFailures,
+			AbortOnCancel:           o.AbortOnCancel,
 			BaseSha:                 o.BaseSha,
 			BaseRef:                 o.BaseRef,
 			Org:                     o.Org,
@@ -330,7 +343,7 @@ func (o *ExecuteOptions) Execute(ctx context.Context) error {
 	client := prowjob.NewClient(o.ProwToken, o.GangwayURL, o.ProwURL)
 
 	// Create job monitor
-	monitor := prowjob.NewMonitor(client, o.PollInterval, o.Timeout, o.DryRun, o.GatePromotion, o.AllowEV2Retry, o.MaxEV2AutoRetryFailures)
+	monitor := prowjob.NewMonitor(client, o.PollInterval, o.Timeout, o.DryRun, o.GatePromotion, o.AllowEV2Retry, o.AbortOnCancel, o.MaxEV2AutoRetryFailures)
 
 	// Prepare environment variables, including the region
 	envs := make(map[string]string)
@@ -414,6 +427,7 @@ func DefaultMonitorOptions() *RawMonitorOptions {
 		Timeout:             4 * time.Hour,
 		GangwayURL:          defaultGangwayURL,
 		ProwURL:             defaultProwURL,
+		AbortOnCancel:       true,
 	}
 }
 
@@ -423,6 +437,7 @@ func (o *RawMonitorOptions) BindFlags(cmd *cobra.Command) error {
 	cmd.Flags().DurationVar(&o.Timeout, "timeout", o.Timeout, "Maximum wait time for job completion")
 	cmd.Flags().StringVar(&o.GangwayURL, "gangway-url", o.GangwayURL, "Gangway API URL for job execution")
 	cmd.Flags().StringVar(&o.ProwURL, "prow-url", o.ProwURL, "PROW API URL for job status monitoring")
+	cmd.Flags().BoolVar(&o.AbortOnCancel, "abort-on-cancel", o.AbortOnCancel, "Abort the running Prow job if the monitor is cancelled (e.g. the rollout is cancelled and the process receives SIGTERM).")
 
 	// Mark required flags
 	for _, flag := range []string{
@@ -445,6 +460,7 @@ type RawMonitorOptions struct {
 	Timeout        time.Duration
 	GangwayURL     string
 	ProwURL        string
+	AbortOnCancel  bool
 }
 
 // validatedMonitorOptions is a private wrapper that enforces a call of Validate() before Complete() can be invoked.
@@ -466,6 +482,7 @@ type completedMonitorOptions struct {
 	ProwToken      string
 	GangwayURL     string
 	ProwURL        string
+	AbortOnCancel  bool
 }
 
 type MonitorOptions struct {
@@ -504,6 +521,14 @@ func (o *RawMonitorOptions) Validate(ctx context.Context) (*ValidatedMonitorOpti
 		return nil, fmt.Errorf("timeout must be greater than 0")
 	}
 
+	if err := validateHTTPURL("gangway-url", o.GangwayURL); err != nil {
+		return nil, err
+	}
+
+	if err := validateHTTPURL("prow-url", o.ProwURL); err != nil {
+		return nil, err
+	}
+
 	return &ValidatedMonitorOptions{
 		validatedMonitorOptions: &validatedMonitorOptions{
 			RawMonitorOptions:         o,
@@ -526,6 +551,7 @@ func (o *ValidatedMonitorOptions) Complete(ctx context.Context) (*MonitorOptions
 			ProwToken:      completed.ProwToken,
 			GangwayURL:     o.GangwayURL,
 			ProwURL:        o.ProwURL,
+			AbortOnCancel:  o.AbortOnCancel,
 		},
 	}, nil
 }
@@ -533,7 +559,7 @@ func (o *ValidatedMonitorOptions) Complete(ctx context.Context) (*MonitorOptions
 func (o *MonitorOptions) Monitor(ctx context.Context, logger logr.Logger) error {
 	// Create Prow client and monitor
 	client := prowjob.NewClient(o.ProwToken, o.GangwayURL, o.ProwURL)
-	monitor := prowjob.NewMonitor(client, o.PollInterval, o.Timeout, false, false, false, prowjob.DefaultMaxEV2AutoRetryFailures)
+	monitor := prowjob.NewMonitor(client, o.PollInterval, o.Timeout, false, false, false, o.AbortOnCancel, prowjob.DefaultMaxEV2AutoRetryFailures)
 
 	// Monitor existing job using shared polling logic
 	logger.Info("Starting to monitor existing job", "jobExecutionID", o.JobExecutionID)

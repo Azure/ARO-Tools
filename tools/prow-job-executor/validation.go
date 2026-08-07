@@ -16,6 +16,7 @@ package prowjobexecutor
 
 import (
 	"fmt"
+	"net/url"
 	"regexp"
 	"strings"
 
@@ -74,6 +75,23 @@ func validateAnnotationsMap(annotations map[string]string) error {
 func validateUUID(id string) error {
 	if _, err := uuid.Parse(id); err != nil {
 		return fmt.Errorf("execution ID must be a valid UUID format: %w", err)
+	}
+	return nil
+}
+
+// validateHTTPURL validates that rawURL is an absolute http(s) URL. Client code
+// (e.g. deriveBulkURL) relies on this having already been checked, so it can
+// treat a parse failure as unreachable rather than falling back silently.
+func validateHTTPURL(name, rawURL string) error {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return fmt.Errorf("%s %q is not a valid URL: %w", name, rawURL, err)
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return fmt.Errorf("%s %q must be an absolute http(s) URL", name, rawURL)
+	}
+	if u.Host == "" {
+		return fmt.Errorf("%s %q must include a host", name, rawURL)
 	}
 	return nil
 }
