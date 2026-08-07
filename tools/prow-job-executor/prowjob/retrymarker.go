@@ -135,9 +135,15 @@ func fetchFinishedJSONAllowsRetry(ctx context.Context, rawURL string, maxAutoRet
 		return false, fmt.Errorf("failed to fetch finished.json %q: unexpected status %d", rawURL, resp.StatusCode)
 	}
 
-	body, err := io.ReadAll(io.LimitReader(resp.Body, maxFinishedJSONBytes))
+	// Read one byte past the cap so we can distinguish "fits within the cap" from
+	// "was truncated" - io.LimitReader alone would silently accept an oversized body as
+	// long as valid JSON appears before the limit, which defeats the fail-closed intent.
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxFinishedJSONBytes+1))
 	if err != nil {
 		return false, fmt.Errorf("failed to read finished.json %q: %w", rawURL, err)
+	}
+	if len(body) > maxFinishedJSONBytes {
+		return false, fmt.Errorf("finished.json %q exceeds %d byte limit", rawURL, maxFinishedJSONBytes)
 	}
 
 	var finished finishedJSON
@@ -145,26 +151,40 @@ func fetchFinishedJSONAllowsRetry(ctx context.Context, rawURL string, maxAutoRet
 		return false, fmt.Errorf("failed to decode finished.json %q: %w", rawURL, err)
 	}
 
-	failed := stringSliceFromMetadata(finished.Metadata, ev2FailedTestsKey)
-	allowRetry := stringSliceFromMetadata(finished.Metadata, ev2AllowRetryTestsKey)
+	failed, ok := stringSliceFromMetadata(finished.Metadata, ev2FailedTestsKey)
+	if !ok {
+		return false, fmt.Errorf("finished.json %q metadata key %q is present but not a list of strings", rawURL, ev2FailedTestsKey)
+	}
+	allowRetry, ok := stringSliceFromMetadata(finished.Metadata, ev2AllowRetryTestsKey)
+	if !ok {
+		return false, fmt.Errorf("finished.json %q metadata key %q is present but not a list of strings", rawURL, ev2AllowRetryTestsKey)
+	}
 	return ev2RetryEligible(failed, allowRetry, maxAutoRetryFailures), nil
 }
 
 // stringSliceFromMetadata extracts a []string out of finished.json's loosely-typed
-// metadata map for the given key, tolerating a missing or malformed key by returning nil -
-// callers treat a missing list the same as an empty one.
-func stringSliceFromMetadata(metadata map[string]interface{}, key string) []string {
-	raw, ok := metadata[key].([]interface{})
+// metadata map for the given key. A missing key returns (nil, true) - callers treat an
+// absent list the same as an empty one. A key that's present but not a list of strings
+// returns (nil, false) so the caller can fail closed instead of silently dropping the
+// non-string elements and understating the failure count.
+func stringSliceFromMetadata(metadata map[string]interface{}, key string) ([]string, bool) {
+	rawVal, present := metadata[key]
+	if !present {
+		return nil, true
+	}
+	raw, ok := rawVal.([]interface{})
 	if !ok {
-		return nil
+		return nil, false
 	}
 	out := make([]string, 0, len(raw))
 	for _, v := range raw {
-		if s, ok := v.(string); ok {
-			out = append(out, s)
+		s, ok := v.(string)
+		if !ok {
+			return nil, false
 		}
+		out = append(out, s)
 	}
-	return out
+	return out, true
 }
 
 // ev2RetryEligible decides whether a finished run qualifies for an automatic EV2 gating

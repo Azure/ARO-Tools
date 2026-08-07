@@ -142,14 +142,14 @@ func (m *Monitor) WaitForCompletion(ctx context.Context, logger logr.Logger, pro
 				if m.gatePromotion {
 					return fmt.Errorf("job %s encountered an error - check Prow status page and job logs for details: %s", prowExecutionID, job.Status.URL)
 				} else {
-					logger.Error(err, "Unexpected job state, but gating is not requested.")
+					logger.Info("Unexpected job state, but gating is not requested.")
 					return nil
 				}
 			case string(prowjobs.AbortedState):
 				if m.gatePromotion {
 					return fmt.Errorf("job %s was aborted - this may be due to timeout or manual cancellation", prowExecutionID)
 				} else {
-					logger.Error(err, "Unexpected job state, but gating is not requested.")
+					logger.Info("Unexpected job state, but gating is not requested.")
 					return nil
 				}
 			}
@@ -175,8 +175,9 @@ func (m *Monitor) WaitForCompletion(ctx context.Context, logger logr.Logger, pro
 // EV2RetryableMarker via automatedRetry.errorContainsAny and re-runs the whole step from
 // scratch - prow-job-executor only decides eligibility, EV2 owns the actual retry.
 func (m *Monitor) ExecuteAndWait(ctx context.Context, logger logr.Logger, request *prowgangway.CreateJobExecutionRequest) error {
-	ctx, cancel := context.WithTimeout(ctx, m.timeout)
-	defer cancel()
+	// WaitForCompletion applies m.timeout itself; don't apply it again here too, since a
+	// child context can't outlive its parent - doing so would start the whole monitoring
+	// window early, before the job is even submitted.
 
 	// Submit job
 	logger.Info("Submitting Prow job", "jobName", request.JobName)

@@ -125,10 +125,16 @@ func TestFetchFinishedJSONAllowsRetry(t *testing.T) {
 			want:       false,
 		},
 		{
-			name:       "metadata key wrong type is treated as absent",
+			name:       "metadata key wrong type fails closed",
 			statusCode: http.StatusOK,
 			body:       `{"timestamp":1,"passed":false,"result":"FAILURE","metadata":{"ev2-failed-tests":"spec A"}}`,
-			want:       false,
+			wantErr:    true,
+		},
+		{
+			name:       "metadata list with a non-string element fails closed",
+			statusCode: http.StatusOK,
+			body:       `{"timestamp":1,"passed":false,"result":"FAILURE","metadata":{"ev2-failed-tests":["spec A", 1]}}`,
+			wantErr:    true,
 		},
 		{
 			name:       "non-200 status is an error",
