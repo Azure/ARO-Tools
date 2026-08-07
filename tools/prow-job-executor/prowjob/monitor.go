@@ -16,7 +16,6 @@ package prowjob
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -103,8 +102,31 @@ func NewMonitor(client *Client, pollInterval, timeout time.Duration, dryRun, gat
 	}
 }
 
-// WaitForCompletion polls job status until completion
+// JobOutcome carries the result of waiting for a Prow job, with retry eligibility as an
+// explicit field rather than something callers have to infer by type-asserting Err. Only a
+// job that completed in the "failure" state (as opposed to "error"/"aborted", which usually
+// indicate an infra problem or a cancellation) is ever Retryable; ExecuteAndWait uses this
+// field directly instead of errors.As-ing for *JobFailedError.
+type JobOutcome struct {
+	// Err is nil on success, otherwise the reason WaitForCompletion stopped waiting.
+	Err error
+	// Retryable is true only when Err is non-nil and came from the job finishing in the
+	// "failure" state - the class of failure the EV2 auto-retry (AROSLSRE-1721) applies to.
+	Retryable bool
+	// JobURL is the Prow status page URL, populated whenever the job's status was
+	// successfully observed at least once (even on failure/error/timeout).
+	JobURL string
+}
+
+// WaitForCompletion polls job status until completion.
 func (m *Monitor) WaitForCompletion(ctx context.Context, logger logr.Logger, prowExecutionID string) error {
+	return m.waitForCompletion(ctx, logger, prowExecutionID).Err
+}
+
+// waitForCompletion is the shared polling implementation. It returns a JobOutcome so callers
+// that need to distinguish a retry-eligible job failure (ExecuteAndWait) can check
+// outcome.Retryable directly, without control flow via typed-error inspection.
+func (m *Monitor) waitForCompletion(ctx context.Context, logger logr.Logger, prowExecutionID string) JobOutcome {
 	ctx, cancel := context.WithTimeout(ctx, m.timeout)
 	defer cancel()
 
@@ -130,27 +152,37 @@ func (m *Monitor) WaitForCompletion(ctx context.Context, logger logr.Logger, pro
 			switch status {
 			case string(prowjobs.SuccessState):
 				logger.Info("Job completed successfully")
-				return nil
+				return JobOutcome{}
 			case string(prowjobs.FailureState):
 				if m.gatePromotion {
-					return &JobFailedError{ProwExecutionID: prowExecutionID, JobURL: job.Status.URL}
+					return JobOutcome{
+						Err:       &JobFailedError{ProwExecutionID: prowExecutionID, JobURL: job.Status.URL},
+						Retryable: true,
+						JobURL:    job.Status.URL,
+					}
 				} else {
 					logger.Info("Unexpected job state, but gating is not requested.")
-					return nil
+					return JobOutcome{}
 				}
 			case string(prowjobs.ErrorState):
 				if m.gatePromotion {
-					return fmt.Errorf("job %s encountered an error - check Prow status page and job logs for details: %s", prowExecutionID, job.Status.URL)
+					return JobOutcome{
+						Err:    fmt.Errorf("job %s encountered an error - check Prow status page and job logs for details: %s", prowExecutionID, job.Status.URL),
+						JobURL: job.Status.URL,
+					}
 				} else {
 					logger.Info("Unexpected job state, but gating is not requested.")
-					return nil
+					return JobOutcome{}
 				}
 			case string(prowjobs.AbortedState):
 				if m.gatePromotion {
-					return fmt.Errorf("job %s was aborted - this may be due to timeout or manual cancellation", prowExecutionID)
+					return JobOutcome{
+						Err:    fmt.Errorf("job %s was aborted - this may be due to timeout or manual cancellation", prowExecutionID),
+						JobURL: job.Status.URL,
+					}
 				} else {
 					logger.Info("Unexpected job state, but gating is not requested.")
-					return nil
+					return JobOutcome{}
 				}
 			}
 		}
@@ -158,9 +190,12 @@ func (m *Monitor) WaitForCompletion(ctx context.Context, logger logr.Logger, pro
 		select {
 		case <-ctx.Done():
 			if job != nil {
-				return fmt.Errorf("job monitoring timed out after %v - job %s may still be running, check Prow UI: %s", m.timeout, prowExecutionID, job.Status.URL)
+				return JobOutcome{
+					Err:    fmt.Errorf("job monitoring timed out after %v - job %s may still be running, check Prow UI: %s", m.timeout, prowExecutionID, job.Status.URL),
+					JobURL: job.Status.URL,
+				}
 			}
-			return fmt.Errorf("job monitoring timed out after %v - job %s may still be running (unable to retrieve job status)", m.timeout, prowExecutionID)
+			return JobOutcome{Err: fmt.Errorf("job monitoring timed out after %v - job %s may still be running (unable to retrieve job status)", m.timeout, prowExecutionID)}
 		case <-ticker.C:
 			// Continue to next iteration
 		}
@@ -168,12 +203,13 @@ func (m *Monitor) WaitForCompletion(ctx context.Context, logger logr.Logger, pro
 }
 
 // ExecuteAndWait submits a job once and waits for completion. It never resubmits the job
-// itself. If the job fails (JobFailedError) and this Monitor has allowEV2Retry set, it
-// fetches the failed job's finished.json and, if its metadata marks it as safe to retry
-// (only known-issue tests failed, see AROSLSRE-1721), returns an EV2RetryableError instead
-// of the plain JobFailedError. The EV2 gating step's pipeline.yaml matches
-// EV2RetryableMarker via automatedRetry.errorContainsAny and re-runs the whole step from
-// scratch - prow-job-executor only decides eligibility, EV2 owns the actual retry.
+// itself. If the job's JobOutcome comes back Retryable (see JobOutcome) and this Monitor has
+// allowEV2Retry set, it fetches the failed job's finished.json and, if its metadata marks it
+// as safe to retry (only known-issue tests failed, see AROSLSRE-1721), returns an
+// EV2RetryableError instead of the plain job-failure error. The EV2 gating step's
+// pipeline.yaml matches EV2RetryableMarker via automatedRetry.errorContainsAny and re-runs
+// the whole step from scratch - prow-job-executor only decides eligibility, EV2 owns the
+// actual retry.
 func (m *Monitor) ExecuteAndWait(ctx context.Context, logger logr.Logger, request *prowgangway.CreateJobExecutionRequest) error {
 	// WaitForCompletion applies m.timeout itself; don't apply it again here too, since a
 	// child context can't outlive its parent - doing so would start the whole monitoring
@@ -192,25 +228,20 @@ func (m *Monitor) ExecuteAndWait(ctx context.Context, logger logr.Logger, reques
 
 	logger.Info("Job submitted successfully", "prowExecutionID", prowExecutionID, "jobName", request.JobName)
 
-	err = m.WaitForCompletion(ctx, logger, prowExecutionID)
-	if err == nil || !m.allowEV2Retry {
-		return err
+	outcome := m.waitForCompletion(ctx, logger, prowExecutionID)
+	if outcome.Err == nil || !m.allowEV2Retry || !outcome.Retryable {
+		return outcome.Err
 	}
 
-	var failedErr *JobFailedError
-	if !errors.As(err, &failedErr) {
-		return err
-	}
-
-	retry, checkErr := m.checkRetryMarker(ctx, failedErr.JobURL, m.maxAutoRetryFailures)
+	retry, checkErr := m.checkRetryMarker(ctx, outcome.JobURL, m.maxAutoRetryFailures)
 	if checkErr != nil {
-		logger.Error(checkErr, "Failed to inspect finished.json for the EV2 retry signal, failing normally", "prowExecutionID", failedErr.ProwExecutionID)
-		return err
+		logger.Error(checkErr, "Failed to inspect finished.json for the EV2 retry signal, failing normally", "prowExecutionID", prowExecutionID)
+		return outcome.Err
 	}
 	if !retry {
-		return err
+		return outcome.Err
 	}
 
-	logger.Info("finished.json marks the run as safe to retry, failing with the EV2-retryable marker so the gating step's automatedRetry re-runs it", "prowExecutionID", failedErr.ProwExecutionID, "jobURL", failedErr.JobURL)
-	return &EV2RetryableError{Cause: err}
+	logger.Info("finished.json marks the run as safe to retry, failing with the EV2-retryable marker so the gating step's automatedRetry re-runs it", "prowExecutionID", prowExecutionID, "jobURL", outcome.JobURL)
+	return &EV2RetryableError{Cause: outcome.Err}
 }
