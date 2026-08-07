@@ -176,9 +176,10 @@ func TestFetchFinishedJSONAllowsRetry(t *testing.T) {
 }
 
 func TestFetchFinishedJSONAllowsRetryRejectsOversizedBody(t *testing.T) {
-	// A finished.json far larger than any real one should still be read (up to
-	// the cap) without hanging or OOMing, and simply fail to parse as JSON
-	// once truncated - proving the size cap is actually enforced.
+	// A finished.json far larger than the size cap should be rejected outright:
+	// fetchFinishedJSONAllowsRetry explicitly errors once the cap is exceeded,
+	// before ever attempting to JSON-decode the body - proving the cap is
+	// enforced as a hard limit, not just an incidental truncation.
 	huge := `{"metadata":{"padding":"` + strings.Repeat("x", maxFinishedJSONBytes+1024) + `","ev2-failed-tests":["spec A"]}}`
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -189,7 +190,7 @@ func TestFetchFinishedJSONAllowsRetryRejectsOversizedBody(t *testing.T) {
 
 	_, err := fetchFinishedJSONAllowsRetry(testContext(), srv.URL, DefaultMaxEV2AutoRetryFailures)
 	if err == nil {
-		t.Fatal("expected an error from truncated/invalid JSON, got nil")
+		t.Fatal("expected an error from the oversized body, got nil")
 	}
 }
 

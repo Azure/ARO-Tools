@@ -113,8 +113,10 @@ type JobOutcome struct {
 	// Retryable is true only when Err is non-nil and came from the job finishing in the
 	// "failure" state - the class of failure the EV2 auto-retry (AROSLSRE-1721) applies to.
 	Retryable bool
-	// JobURL is the Prow status page URL, populated whenever the job's status was
-	// successfully observed at least once (even on failure/error/timeout).
+	// JobURL is the Prow status page URL. It's only populated when Err is non-nil and
+	// gating was requested (FailureState/ErrorState/AbortedState with m.gatePromotion set,
+	// or a timeout after a status was observed) - it's empty on success and on the
+	// non-gating "unexpected status" paths, since there's no failure to report there.
 	JobURL string
 }
 
