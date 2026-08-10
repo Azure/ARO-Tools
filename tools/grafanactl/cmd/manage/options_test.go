@@ -36,32 +36,32 @@ func TestDefaultReconcileOptions(t *testing.T) {
 
 func TestValidatePublicNetworkAccess(t *testing.T) {
 	for _, tc := range []struct {
-		name               string
+		name                string
 		publicNetworkAccess string
-		wantErrSub         string
+		wantErrSub          string
 	}{
 		{
-			name:               "Enabled is valid",
+			name:                "Enabled is valid",
 			publicNetworkAccess: "Enabled",
 		},
 		{
-			name:               "Disabled is valid",
+			name:                "Disabled is valid",
 			publicNetworkAccess: "Disabled",
 		},
 		{
-			name:               "empty string is rejected",
+			name:                "empty string is rejected",
 			publicNetworkAccess: "",
-			wantErrSub:         "--public-network-access must be",
+			wantErrSub:          "--public-network-access must be",
 		},
 		{
-			name:               "invalid value is rejected",
+			name:                "invalid value is rejected",
 			publicNetworkAccess: "Invalid",
-			wantErrSub:         "--public-network-access must be",
+			wantErrSub:          "--public-network-access must be",
 		},
 		{
-			name:               "lowercase is rejected",
+			name:                "lowercase is rejected",
 			publicNetworkAccess: "enabled",
-			wantErrSub:         "--public-network-access must be",
+			wantErrSub:          "--public-network-access must be",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
