@@ -32,6 +32,7 @@ type RawReconcileOptions struct {
 	SKU                      string
 	MajorVersion             string
 	ZoneRedundancy           string
+	PublicNetworkAccess      string
 	CrossTenantSecurityGroup string
 }
 
@@ -56,9 +57,10 @@ type CompletedReconcileOptions struct {
 // DefaultReconcileOptions returns a new RawReconcileOptions with default values
 func DefaultReconcileOptions() *RawReconcileOptions {
 	return &RawReconcileOptions{
-		BaseOptions:    base.DefaultBaseOptions(),
-		SKU:            "Standard",
-		ZoneRedundancy: "Disabled",
+		BaseOptions:         base.DefaultBaseOptions(),
+		SKU:                 "Standard",
+		ZoneRedundancy:      "Disabled",
+		PublicNetworkAccess: "Enabled",
 	}
 }
 
@@ -73,6 +75,7 @@ func BindReconcileOptions(opts *RawReconcileOptions, cmd *cobra.Command) error {
 	flags.StringVar(&opts.SKU, "sku", opts.SKU, "Grafana SKU name (e.g. Standard)")
 	flags.StringVar(&opts.MajorVersion, "major-version", opts.MajorVersion, "Grafana major version (e.g. 11)")
 	flags.StringVar(&opts.ZoneRedundancy, "zone-redundancy", opts.ZoneRedundancy, "Zone redundancy mode: Enabled or Disabled")
+	flags.StringVar(&opts.PublicNetworkAccess, "public-network-access", opts.PublicNetworkAccess, "Public network access mode: Enabled or Disabled")
 	flags.StringVar(&opts.CrossTenantSecurityGroup, "cross-tenant-security-group", opts.CrossTenantSecurityGroup, "Cross-tenant security group (format: GroupObjectId;TenantId)")
 
 	return nil
@@ -95,6 +98,10 @@ func (o *RawReconcileOptions) Validate(ctx context.Context) (*ValidatedReconcile
 
 	if o.ZoneRedundancy != "Enabled" && o.ZoneRedundancy != "Disabled" {
 		return nil, fmt.Errorf("--zone-redundancy must be 'Enabled' or 'Disabled', got: %s", o.ZoneRedundancy)
+	}
+
+	if o.PublicNetworkAccess != "Enabled" && o.PublicNetworkAccess != "Disabled" {
+		return nil, fmt.Errorf("--public-network-access must be 'Enabled' or 'Disabled', got: %s", o.PublicNetworkAccess)
 	}
 
 	return &ValidatedReconcileOptions{

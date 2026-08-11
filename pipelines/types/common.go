@@ -810,6 +810,7 @@ type GrafanaManageStep struct {
 	SKU                      Value  `json:"sku,omitempty"`
 	MajorVersion             Value  `json:"majorVersion,omitempty"`
 	ZoneRedundancy           Value  `json:"zoneRedundancy,omitempty"`
+	PublicNetworkAccess      Value  `json:"publicNetworkAccess,omitempty"`
 	CrossTenantSecurityGroup Value  `json:"crossTenantSecurityGroup,omitempty"`
 	Timeout                  string `json:"timeout,omitempty"`
 
@@ -823,7 +824,7 @@ func (s *GrafanaManageStep) Description() string {
 
 func (s *GrafanaManageStep) RequiredInputs() []StepDependency {
 	var deps []StepDependency
-	for _, val := range []Value{s.GrafanaName, s.Location, s.SKU, s.MajorVersion, s.ZoneRedundancy, s.CrossTenantSecurityGroup} {
+	for _, val := range []Value{s.GrafanaName, s.Location, s.SKU, s.MajorVersion, s.ZoneRedundancy, s.PublicNetworkAccess, s.CrossTenantSecurityGroup} {
 		if val.Input != nil {
 			deps = append(deps, val.Input.StepDependency)
 		}
