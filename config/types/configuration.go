@@ -1,6 +1,8 @@
 package types
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -24,6 +26,55 @@ type MissingKeyError struct {
 
 func (e MissingKeyError) Error() string {
 	return fmt.Sprintf("configuration%s: key %s not found", e.Path, e.Key)
+}
+
+// UnmarshalJSON overrides the default JSON unmarshaling to preserve integer
+// precision. Without it, all numbers become float64 and values >= 1e6 render
+// as scientific notation in Go templates (e.g. "2e+06").
+func (c *Configuration) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.UseNumber()
+	var raw map[string]any
+	if err := dec.Decode(&raw); err != nil {
+		return err
+	}
+	if raw == nil {
+		*c = nil
+		return nil
+	}
+	converted, ok := convertJSONNumbers(raw).(map[string]any)
+	if !ok {
+		return fmt.Errorf("failed to unmarshal configuration: expected map[string]any, got %T", converted)
+	}
+	*c = Configuration(converted)
+	return nil
+}
+
+// convertJSONNumbers recursively walks a decoded JSON value and converts
+// json.Number to int64 (whole numbers) or float64 (fractional).
+func convertJSONNumbers(v any) any {
+	switch val := v.(type) {
+	case map[string]any:
+		for k, inner := range val {
+			val[k] = convertJSONNumbers(inner)
+		}
+		return val
+	case []any:
+		for i, inner := range val {
+			val[i] = convertJSONNumbers(inner)
+		}
+		return val
+	case json.Number:
+		if i, err := val.Int64(); err == nil {
+			return i
+		}
+		if f, err := val.Float64(); err == nil {
+			return f
+		}
+		return val.String()
+	default:
+		return val
+	}
 }
 
 func (v Configuration) GetByPath(path string) (any, error) {
