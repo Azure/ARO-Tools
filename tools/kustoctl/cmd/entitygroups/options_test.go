@@ -166,6 +166,39 @@ func TestValidate_DatabaseNameRejection(t *testing.T) {
 	}
 }
 
+func TestValidate_EnvironmentValidation(t *testing.T) {
+	tests := []struct {
+		name    string
+		env     string
+		wantErr bool
+	}{
+		{"empty is allowed (legacy cross-env)", "", false},
+		{"int", "int", false},
+		{"stg", "stg", false},
+		{"prod", "prod", false},
+		{"with hyphen and underscore", "us-gov_1", false},
+		{"with quote", "int'", true},
+		{"with space", "in t", true},
+		{"with semicolon", "int;drop", true},
+		{"with bracket", "tags['x']", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			opts := &RawSyncOptions{
+				EntityGroups: []string{"EG:ServiceLogs"},
+				Environment:  tt.env,
+			}
+			_, err := opts.Validate(context.Background())
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
 func TestNormalizeEndpoint(t *testing.T) {
 	tests := []struct {
 		name    string

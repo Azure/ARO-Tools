@@ -39,6 +39,7 @@ import (
 var (
 	egNamePattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_]*$`)
 	dbNamePattern = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
+	envPattern    = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
 )
 
 // entityGroup is a parsed entity group definition.
@@ -53,6 +54,12 @@ type RawSyncOptions struct {
 	Timeout      time.Duration
 	ARMEndpoint  string
 	AADAuthority string
+	// Environment optionally scopes cluster discovery to a single ARO-HCP
+	// environment (for example int, stg or prod). When set, only clusters whose
+	// aroHCPEnvironment tag matches are included, so each environment gets its
+	// own isolated entity group. When empty, all clusters carrying the
+	// aroHCPPurpose tag are included (legacy cross-environment behavior).
+	Environment string
 }
 
 type validatedSyncOptions struct {
@@ -87,6 +94,7 @@ func BindSyncOptions(opts *RawSyncOptions, cmd *cobra.Command) error {
 	flags.DurationVar(&opts.Timeout, "timeout", opts.Timeout, "Timeout for the entire sync operation")
 	flags.StringVar(&opts.ARMEndpoint, "arm-endpoint", "", "Azure Resource Manager endpoint for the target cloud (defaults to public cloud)")
 	flags.StringVar(&opts.AADAuthority, "aad-authority", "", "Microsoft Entra ID authority for the target cloud (defaults to public cloud)")
+	flags.StringVar(&opts.Environment, "environment", opts.Environment, "ARO-HCP environment (for example int, stg or prod) used to scope cluster discovery; when set, only clusters tagged aroHCPEnvironment=<value> are included so each environment gets an isolated entity group")
 
 	_ = cmd.MarkFlagRequired("entity-group")
 	return nil
@@ -164,6 +172,10 @@ func (o *RawSyncOptions) Validate(_ context.Context) (*ValidatedSyncOptions, err
 		return nil, err
 	}
 
+	if o.Environment != "" && !envPattern.MatchString(o.Environment) {
+		return nil, fmt.Errorf("invalid --environment %q; must match [A-Za-z0-9_-]+", o.Environment)
+	}
+
 	if len(o.EntityGroups) == 0 {
 		return nil, fmt.Errorf("at least one --entity-group is required")
 	}
@@ -215,13 +227,17 @@ func (o *ValidatedSyncOptions) Complete(ctx context.Context) (*CompletedSyncOpti
 		return nil, fmt.Errorf("failed to create Resource Graph discovery client: %w", err)
 	}
 
-	clusters, err := discoveryClient.DiscoverKustoClusters(ctx)
+	clusters, err := discoveryClient.DiscoverKustoClusters(ctx, o.Environment)
 	if err != nil {
 		return nil, fmt.Errorf("failed to discover Kusto clusters: %w", err)
 	}
 
 	if len(clusters) == 0 {
-		return nil, fmt.Errorf("no Kusto clusters found with aroHCPPurpose tag; verify the identity has Reader access and clusters are tagged")
+		scope := ""
+		if o.Environment != "" {
+			scope = fmt.Sprintf(" and aroHCPEnvironment=%q", o.Environment)
+		}
+		return nil, fmt.Errorf("no Kusto clusters found with aroHCPPurpose tag%s; verify the identity has Reader access and clusters are tagged", scope)
 	}
 
 	return &CompletedSyncOptions{

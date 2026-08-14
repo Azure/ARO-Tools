@@ -49,11 +49,29 @@ func NewResourceGraphKustoDiscoveryClient(cred azcore.TokenCredential, clientOpt
 	}, nil
 }
 
-// DiscoverKustoClusters returns all Kusto clusters that have the aroHCPPurpose
+// kustoDiscoveryQuery builds the Azure Resource Graph query used to discover
+// Kusto clusters. Every candidate must carry the aroHCPPurpose tag. When
+// environment is non-empty, discovery is further scoped to clusters whose
+// aroHCPEnvironment tag matches (case-insensitively), so each ARO-HCP
+// environment (int, stg, prod) gets an isolated entity group instead of a
+// single cross-environment group. Callers must ensure environment contains only
+// KQL-identifier-safe characters (see envPattern in the entitygroups package).
+func kustoDiscoveryQuery(environment string) string {
+	query := "resources | where type =~ 'microsoft.kusto/clusters' | where isnotempty(tags['aroHCPPurpose']) and properties.provisioningState == 'Succeeded'"
+	if environment != "" {
+		query += fmt.Sprintf(" | where tags['aroHCPEnvironment'] =~ '%s'", environment)
+	}
+	query += " | project name, location, uri=tostring(properties.uri), id"
+	return query
+}
+
+// DiscoverKustoClusters returns the Kusto clusters that have the aroHCPPurpose
 // tag set. This uses Azure Resource Graph to query across all accessible
-// subscriptions, following the same discovery pattern as grafanactl.
-func (c *ResourceGraphKustoDiscoveryClient) DiscoverKustoClusters(ctx context.Context) ([]KustoCluster, error) {
-	query := "resources | where type =~ 'microsoft.kusto/clusters' | where isnotempty(tags['aroHCPPurpose']) and properties.provisioningState == 'Succeeded' | project name, location, uri=tostring(properties.uri), id"
+// subscriptions, following the same discovery pattern as grafanactl. When
+// environment is non-empty, results are scoped to clusters whose
+// aroHCPEnvironment tag matches, isolating discovery per ARO-HCP environment.
+func (c *ResourceGraphKustoDiscoveryClient) DiscoverKustoClusters(ctx context.Context, environment string) ([]KustoCluster, error) {
+	query := kustoDiscoveryQuery(environment)
 	format := armresourcegraph.ResultFormatObjectArray
 
 	var clusters []KustoCluster
