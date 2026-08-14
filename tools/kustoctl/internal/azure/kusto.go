@@ -30,6 +30,11 @@ type KustoCluster struct {
 	Location string
 	URI      string
 	ID       string
+	// Environment is the value of the cluster's aroHCPEnvironment tag, used to
+	// scope entity-group membership to a single ARO-HCP environment. It may be
+	// empty when the cluster has not yet been tagged (for example during an
+	// in-progress tag rollout or while Resource Graph indexing lags behind ARM).
+	Environment string
 }
 
 // ResourceGraphKustoDiscoveryClient discovers Kusto clusters using Azure Resource Graph.
@@ -50,28 +55,26 @@ func NewResourceGraphKustoDiscoveryClient(cred azcore.TokenCredential, clientOpt
 }
 
 // kustoDiscoveryQuery builds the Azure Resource Graph query used to discover
-// Kusto clusters. Every candidate must carry the aroHCPPurpose tag. When
-// environment is non-empty, discovery is further scoped to clusters whose
-// aroHCPEnvironment tag matches (case-insensitively), so each ARO-HCP
-// environment (int, stg, prod) gets an isolated entity group instead of a
-// single cross-environment group. Callers must ensure environment contains only
-// KQL-identifier-safe characters (see envPattern in the entitygroups package).
-func kustoDiscoveryQuery(environment string) string {
-	query := "resources | where type =~ 'microsoft.kusto/clusters' | where isnotempty(tags['aroHCPPurpose']) and properties.provisioningState == 'Succeeded'"
-	if environment != "" {
-		query += fmt.Sprintf(" | where tags['aroHCPEnvironment'] =~ '%s'", environment)
-	}
-	query += " | project name, location, uri=tostring(properties.uri), id"
-	return query
+// Kusto clusters. Every candidate must carry the aroHCPPurpose tag and be in a
+// Succeeded provisioning state. The cluster's aroHCPEnvironment tag is projected
+// so the caller can scope entity-group membership per ARO-HCP environment (int,
+// stg, prod) and detect clusters that are not yet tagged. Environment scoping is
+// performed client-side after discovery (see selectClustersForEnvironment in the
+// entitygroups package), so no user-controlled value is ever interpolated into
+// the KQL query.
+func kustoDiscoveryQuery() string {
+	return "resources | where type =~ 'microsoft.kusto/clusters' | where isnotempty(tags['aroHCPPurpose']) and properties.provisioningState == 'Succeeded' | project name, location, uri=tostring(properties.uri), id, environment=tostring(tags['aroHCPEnvironment'])"
 }
 
-// DiscoverKustoClusters returns the Kusto clusters that have the aroHCPPurpose
-// tag set. This uses Azure Resource Graph to query across all accessible
-// subscriptions, following the same discovery pattern as grafanactl. When
-// environment is non-empty, results are scoped to clusters whose
-// aroHCPEnvironment tag matches, isolating discovery per ARO-HCP environment.
-func (c *ResourceGraphKustoDiscoveryClient) DiscoverKustoClusters(ctx context.Context, environment string) ([]KustoCluster, error) {
-	query := kustoDiscoveryQuery(environment)
+// DiscoverKustoClusters returns every Kusto cluster that carries the
+// aroHCPPurpose tag, using Azure Resource Graph to query across all accessible
+// subscriptions (the same discovery pattern as grafanactl). Each returned
+// cluster includes its aroHCPEnvironment tag value, which may be empty. Callers
+// scope the result to a single environment via selectClustersForEnvironment,
+// which fails closed when a discovered cluster is missing a valid
+// aroHCPEnvironment tag so membership is never rebuilt from a partial set.
+func (c *ResourceGraphKustoDiscoveryClient) DiscoverKustoClusters(ctx context.Context) ([]KustoCluster, error) {
+	query := kustoDiscoveryQuery()
 	format := armresourcegraph.ResultFormatObjectArray
 
 	var clusters []KustoCluster
@@ -112,6 +115,9 @@ func (c *ResourceGraphKustoDiscoveryClient) DiscoverKustoClusters(ctx context.Co
 			}
 			if v, ok := m["id"].(string); ok {
 				cluster.ID = v
+			}
+			if v, ok := m["environment"].(string); ok {
+				cluster.Environment = v
 			}
 
 			if cluster.Name == "" || cluster.Location == "" || cluster.URI == "" {

@@ -19,35 +19,26 @@ import (
 	"testing"
 )
 
-func TestKustoDiscoveryQuery_NoEnvironment(t *testing.T) {
-	query := kustoDiscoveryQuery("")
+func TestKustoDiscoveryQuery(t *testing.T) {
+	query := kustoDiscoveryQuery()
 
-	if strings.Contains(query, "aroHCPEnvironment") {
-		t.Fatalf("expected no environment filter when environment is empty, got: %s", query)
-	}
 	if !strings.Contains(query, "isnotempty(tags['aroHCPPurpose'])") {
 		t.Fatalf("expected aroHCPPurpose filter, got: %s", query)
 	}
 	if !strings.Contains(query, "properties.provisioningState == 'Succeeded'") {
 		t.Fatalf("expected provisioningState filter, got: %s", query)
 	}
-	if !strings.HasSuffix(query, "project name, location, uri=tostring(properties.uri), id") {
-		t.Fatalf("expected projection to remain last, got: %s", query)
+	// The aroHCPEnvironment tag is projected so the caller can scope membership
+	// client-side; it must never be interpolated into a where clause, so there
+	// is no KQL-injection surface from the environment value.
+	if !strings.Contains(query, "environment=tostring(tags['aroHCPEnvironment'])") {
+		t.Fatalf("expected aroHCPEnvironment to be projected, got: %s", query)
 	}
-}
-
-func TestKustoDiscoveryQuery_WithEnvironment(t *testing.T) {
-	query := kustoDiscoveryQuery("stg")
-
-	if !strings.Contains(query, "tags['aroHCPEnvironment'] =~ 'stg'") {
-		t.Fatalf("expected case-insensitive aroHCPEnvironment filter for stg, got: %s", query)
-	}
-	// The aroHCPPurpose filter must remain so discovery stays scoped to log clusters.
-	if !strings.Contains(query, "isnotempty(tags['aroHCPPurpose'])") {
-		t.Fatalf("expected aroHCPPurpose filter to remain, got: %s", query)
+	if strings.Contains(query, "tags['aroHCPEnvironment'] =~") {
+		t.Fatalf("expected no interpolated aroHCPEnvironment filter in the query, got: %s", query)
 	}
 	// The projection must remain the final clause for the row parser to work.
-	if !strings.HasSuffix(query, "project name, location, uri=tostring(properties.uri), id") {
+	if !strings.HasSuffix(query, "environment=tostring(tags['aroHCPEnvironment'])") {
 		t.Fatalf("expected projection to remain last, got: %s", query)
 	}
 }

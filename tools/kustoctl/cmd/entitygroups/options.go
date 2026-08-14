@@ -227,9 +227,14 @@ func (o *ValidatedSyncOptions) Complete(ctx context.Context) (*CompletedSyncOpti
 		return nil, fmt.Errorf("failed to create Resource Graph discovery client: %w", err)
 	}
 
-	clusters, err := discoveryClient.DiscoverKustoClusters(ctx, o.Environment)
+	allClusters, err := discoveryClient.DiscoverKustoClusters(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to discover Kusto clusters: %w", err)
+	}
+
+	clusters, err := selectClustersForEnvironment(allClusters, o.Environment)
+	if err != nil {
+		return nil, err
 	}
 
 	if len(clusters) == 0 {
@@ -245,6 +250,44 @@ func (o *ValidatedSyncOptions) Complete(ctx context.Context) (*CompletedSyncOpti
 		cred:                 cred,
 		clusters:             clusters,
 	}, nil
+}
+
+// selectClustersForEnvironment scopes discovered clusters to a single ARO-HCP
+// environment. When environment is empty, all clusters are returned unchanged
+// (legacy cross-environment behavior). When environment is set, it fails closed
+// if any discovered cluster is missing a valid aroHCPEnvironment tag, then
+// returns only the clusters whose tag matches case-insensitively.
+//
+// Failing closed on a missing or invalid tag is deliberate. Discovery finds
+// clusters by the aroHCPPurpose tag across every environment, and a cluster's
+// aroHCPEnvironment tag may still be propagating (an in-progress rollout) or not
+// yet indexed by Resource Graph. Rebuilding entity-group membership from a
+// partial set would silently drop the not-yet-visible clusters and leave stale
+// cross-environment groups behind, so the sync refuses to run until the whole
+// fleet is consistently tagged.
+func selectClustersForEnvironment(clusters []kustoazure.KustoCluster, environment string) ([]kustoazure.KustoCluster, error) {
+	if environment == "" {
+		return clusters, nil
+	}
+
+	var untagged []string
+	for _, c := range clusters {
+		if c.Environment == "" || !envPattern.MatchString(c.Environment) {
+			untagged = append(untagged, c.Name)
+		}
+	}
+	if len(untagged) > 0 {
+		sort.Strings(untagged)
+		return nil, fmt.Errorf("refusing to sync environment %q: %d discovered cluster(s) are missing a valid aroHCPEnvironment tag (%s); this indicates an incomplete tag rollout or Resource Graph indexing lag, so syncing now could rebuild entity groups from a partial cluster set; retry once every aroHCPPurpose cluster is tagged and indexed", environment, len(untagged), strings.Join(untagged, ", "))
+	}
+
+	var selected []kustoazure.KustoCluster
+	for _, c := range clusters {
+		if strings.EqualFold(c.Environment, environment) {
+			selected = append(selected, c)
+		}
+	}
+	return selected, nil
 }
 
 // Run executes the full chain: validate, complete, execute.

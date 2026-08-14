@@ -199,6 +199,47 @@ func TestValidate_EnvironmentValidation(t *testing.T) {
 	}
 }
 
+func TestSelectClustersForEnvironment(t *testing.T) {
+	int1 := kustoazure.KustoCluster{Name: "hcp-int-a", Location: "eastus", URI: "https://hcp-int-a.eastus.kusto.windows.net", Environment: "int"}
+	int2 := kustoazure.KustoCluster{Name: "hcp-int-b", Location: "westus", URI: "https://hcp-int-b.westus.kusto.windows.net", Environment: "INT"}
+	stg1 := kustoazure.KustoCluster{Name: "hcp-stg-a", Location: "eastus", URI: "https://hcp-stg-a.eastus.kusto.windows.net", Environment: "stg"}
+
+	t.Run("empty environment returns all unchanged", func(t *testing.T) {
+		untagged := kustoazure.KustoCluster{Name: "hcp-untagged", Location: "eastus", URI: "https://hcp-untagged.eastus.kusto.windows.net"}
+		all := []kustoazure.KustoCluster{int1, stg1, untagged}
+		got, err := selectClustersForEnvironment(all, "")
+		assert.NoError(t, err)
+		assert.Equal(t, all, got)
+	})
+
+	t.Run("filters case-insensitively to the target environment", func(t *testing.T) {
+		got, err := selectClustersForEnvironment([]kustoazure.KustoCluster{int1, int2, stg1}, "int")
+		assert.NoError(t, err)
+		assert.Equal(t, []kustoazure.KustoCluster{int1, int2}, got)
+	})
+
+	t.Run("fails closed when a cluster is missing the aroHCPEnvironment tag", func(t *testing.T) {
+		untagged := kustoazure.KustoCluster{Name: "hcp-new", Location: "eastus", URI: "https://hcp-new.eastus.kusto.windows.net"}
+		_, err := selectClustersForEnvironment([]kustoazure.KustoCluster{int1, untagged}, "int")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "hcp-new")
+		assert.Contains(t, err.Error(), "aroHCPEnvironment")
+	})
+
+	t.Run("fails closed when a cluster has an invalid tag value", func(t *testing.T) {
+		bad := kustoazure.KustoCluster{Name: "hcp-bad", Location: "eastus", URI: "https://hcp-bad.eastus.kusto.windows.net", Environment: "int prod"}
+		_, err := selectClustersForEnvironment([]kustoazure.KustoCluster{int1, bad}, "int")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "hcp-bad")
+	})
+
+	t.Run("returns empty when fully tagged but none match the target", func(t *testing.T) {
+		got, err := selectClustersForEnvironment([]kustoazure.KustoCluster{stg1}, "int")
+		assert.NoError(t, err)
+		assert.Empty(t, got)
+	})
+}
+
 func TestNormalizeEndpoint(t *testing.T) {
 	tests := []struct {
 		name    string
