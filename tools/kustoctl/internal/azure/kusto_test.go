@@ -34,8 +34,12 @@ func TestKustoDiscoveryQuery(t *testing.T) {
 	if !strings.Contains(query, "environment=tostring(tags['aroHCPEnvironment'])") {
 		t.Fatalf("expected aroHCPEnvironment to be projected, got: %s", query)
 	}
-	if strings.Contains(query, "tags['aroHCPEnvironment'] =~") {
-		t.Fatalf("expected no interpolated aroHCPEnvironment filter in the query, got: %s", query)
+	// aroHCPEnvironment must appear exactly once, in the projection above. A
+	// second occurrence would mean it is referenced in a where/filter clause
+	// (regardless of the operator, e.g. ==, =~, in~, has), which is the
+	// KQL-injection surface this test guards against.
+	if got := strings.Count(query, "aroHCPEnvironment"); got != 1 {
+		t.Fatalf("expected aroHCPEnvironment to appear exactly once (in the projection), got %d occurrences in: %s", got, query)
 	}
 	// The projection must remain the final clause for the row parser to work.
 	if !strings.HasSuffix(query, "environment=tostring(tags['aroHCPEnvironment'])") {
