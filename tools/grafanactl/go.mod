@@ -12,6 +12,7 @@ require (
 	github.com/grafana-tools/sdk v0.0.0-20220919052116-6562121319fc
 	github.com/hashicorp/go-retryablehttp v0.7.8
 	github.com/spf13/cobra v1.10.2
+	github.com/stretchr/testify v1.11.1
 	k8s.io/apimachinery v0.35.3
 	k8s.io/utils v0.0.0-20260319190234-28399d86e0b5
 	sigs.k8s.io/yaml v1.6.0
@@ -23,6 +24,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources v1.2.0 // indirect
 	github.com/AzureAD/microsoft-authentication-library-for-go v1.7.2 // indirect
 	github.com/chromedp/cdproto v0.0.0-20230802225258-3cf4e6d46a89 // indirect
+	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/fatih/color v1.18.0 // indirect
 	github.com/gobwas/ws v1.2.1 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
@@ -35,6 +37,7 @@ require (
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
 	github.com/pkg/errors v0.9.1 // indirect
+	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/rainycape/unidecode v0.0.0-20150907023854-cb7f23ec59be // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
@@ -42,4 +45,5 @@ require (
 	golang.org/x/net v0.55.0 // indirect
 	golang.org/x/sys v0.45.0 // indirect
 	golang.org/x/text v0.37.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
