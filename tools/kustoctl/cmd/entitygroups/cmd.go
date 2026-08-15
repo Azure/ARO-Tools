@@ -29,7 +29,7 @@ func NewEntityGroupsCommand() (*cobra.Command, error) {
 	syncCmd := &cobra.Command{
 		Use:   "sync",
 		Short: "Discover Kusto clusters and sync entity groups on all of them",
-		Long: `Discovers all Kusto clusters with the aroHCPPurpose tag via Azure Resource Graph,
+		Long: `Discovers all Kusto clusters with the configured discovery tag (aroHCPPurpose by default) via Azure Resource Graph,
 builds cross-cluster entity group KQL, and executes it on every discovered cluster.
 This enables federated queries across all regional Kusto clusters.
 

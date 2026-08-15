@@ -60,12 +60,23 @@ type RawSyncOptions struct {
 	// own isolated entity group. When empty, all clusters carrying the
 	// aroHCPPurpose tag are included (legacy cross-environment behavior).
 	Environment string
+	// TagKey and TagValue select which resource tag marks a Kusto cluster as a
+	// sync target. TagValue is optional; when empty, presence of the key is
+	// sufficient. ScopeTagKey is the tag used for per-environment scoping (its
+	// value is matched against Environment). They default to the ARO-HCP tags but
+	// can be overridden so other products (for example ARO Classic) can reuse this
+	// tool, matching the TagKey/TagValue discovery convention already used by
+	// grafanactl and hcpctl.
+	TagKey      string
+	TagValue    string
+	ScopeTagKey string
 }
 
 type validatedSyncOptions struct {
 	*RawSyncOptions
-	cloudConfig  cloud.Configuration
-	entityGroups []entityGroup
+	cloudConfig     cloud.Configuration
+	entityGroups    []entityGroup
+	discoveryConfig kustoazure.KustoDiscoveryConfig
 }
 
 // ValidatedSyncOptions represents configuration that has passed validation.
@@ -83,7 +94,9 @@ type CompletedSyncOptions struct {
 // DefaultSyncOptions returns a new RawSyncOptions with default values.
 func DefaultSyncOptions() *RawSyncOptions {
 	return &RawSyncOptions{
-		Timeout: 5 * time.Minute,
+		Timeout:     5 * time.Minute,
+		TagKey:      "aroHCPPurpose",
+		ScopeTagKey: "aroHCPEnvironment",
 	}
 }
 
@@ -95,6 +108,9 @@ func BindSyncOptions(opts *RawSyncOptions, cmd *cobra.Command) error {
 	flags.StringVar(&opts.ARMEndpoint, "arm-endpoint", "", "Azure Resource Manager endpoint for the target cloud (defaults to public cloud)")
 	flags.StringVar(&opts.AADAuthority, "aad-authority", "", "Microsoft Entra ID authority for the target cloud (defaults to public cloud)")
 	flags.StringVar(&opts.Environment, "environment", opts.Environment, "ARO-HCP environment (for example int, stg or prod) used to scope cluster discovery; when set, only clusters tagged aroHCPEnvironment=<value> are included so each environment gets an isolated entity group")
+	flags.StringVar(&opts.TagKey, "tag-key", opts.TagKey, "resource tag key that marks a Kusto cluster as a sync target (default aroHCPPurpose)")
+	flags.StringVar(&opts.TagValue, "tag-value", opts.TagValue, "optional required value for the selection tag; when empty, presence of the key is sufficient")
+	flags.StringVar(&opts.ScopeTagKey, "scope-tag-key", opts.ScopeTagKey, "resource tag key projected for per-environment scoping (default aroHCPEnvironment)")
 
 	_ = cmd.MarkFlagRequired("entity-group")
 	return nil
@@ -176,6 +192,15 @@ func (o *RawSyncOptions) Validate(_ context.Context) (*ValidatedSyncOptions, err
 		return nil, fmt.Errorf("invalid --environment %q; must match [A-Za-z0-9_-]+", o.Environment)
 	}
 
+	discoveryConfig := kustoazure.KustoDiscoveryConfig{
+		TagKey:      o.TagKey,
+		TagValue:    o.TagValue,
+		ScopeTagKey: o.ScopeTagKey,
+	}.WithDefaults()
+	if err := discoveryConfig.Validate(); err != nil {
+		return nil, err
+	}
+
 	if len(o.EntityGroups) == 0 {
 		return nil, fmt.Errorf("at least one --entity-group is required")
 	}
@@ -204,9 +229,10 @@ func (o *RawSyncOptions) Validate(_ context.Context) (*ValidatedSyncOptions, err
 
 	return &ValidatedSyncOptions{
 		validatedSyncOptions: &validatedSyncOptions{
-			RawSyncOptions: o,
-			cloudConfig:    cloudConfig,
-			entityGroups:   groups,
+			RawSyncOptions:  o,
+			cloudConfig:     cloudConfig,
+			entityGroups:    groups,
+			discoveryConfig: discoveryConfig,
 		},
 	}, nil
 }
@@ -222,7 +248,7 @@ func (o *ValidatedSyncOptions) Complete(ctx context.Context) (*CompletedSyncOpti
 		ClientOptions: azcore.ClientOptions{Cloud: o.cloudConfig},
 	}
 
-	discoveryClient, err := kustoazure.NewResourceGraphKustoDiscoveryClient(cred, clientOpts)
+	discoveryClient, err := kustoazure.NewResourceGraphKustoDiscoveryClient(cred, clientOpts, o.discoveryConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Resource Graph discovery client: %w", err)
 	}
@@ -232,7 +258,7 @@ func (o *ValidatedSyncOptions) Complete(ctx context.Context) (*CompletedSyncOpti
 		return nil, fmt.Errorf("failed to discover Kusto clusters: %w", err)
 	}
 
-	clusters, err := selectClustersForEnvironment(allClusters, o.Environment)
+	clusters, err := selectClustersForEnvironment(allClusters, o.Environment, o.discoveryConfig.ScopeTagKey)
 	if err != nil {
 		return nil, err
 	}
@@ -240,9 +266,9 @@ func (o *ValidatedSyncOptions) Complete(ctx context.Context) (*CompletedSyncOpti
 	if len(clusters) == 0 {
 		scope := ""
 		if o.Environment != "" {
-			scope = fmt.Sprintf(" and aroHCPEnvironment=%q", o.Environment)
+			scope = fmt.Sprintf(" and %s=%q", o.discoveryConfig.ScopeTagKey, o.Environment)
 		}
-		return nil, fmt.Errorf("no Kusto clusters found with aroHCPPurpose tag%s; verify the identity has Reader access and clusters are tagged", scope)
+		return nil, fmt.Errorf("no Kusto clusters found with %s tag%s; verify the identity has Reader access and clusters are tagged", o.discoveryConfig.TagKey, scope)
 	}
 
 	return &CompletedSyncOptions{
@@ -265,7 +291,7 @@ func (o *ValidatedSyncOptions) Complete(ctx context.Context) (*CompletedSyncOpti
 // partial set would silently drop the not-yet-visible clusters and leave stale
 // cross-environment groups behind, so the sync refuses to run until the whole
 // fleet is consistently tagged.
-func selectClustersForEnvironment(clusters []kustoazure.KustoCluster, environment string) ([]kustoazure.KustoCluster, error) {
+func selectClustersForEnvironment(clusters []kustoazure.KustoCluster, environment, scopeTagKey string) ([]kustoazure.KustoCluster, error) {
 	if environment == "" {
 		return clusters, nil
 	}
@@ -278,7 +304,7 @@ func selectClustersForEnvironment(clusters []kustoazure.KustoCluster, environmen
 	}
 	if len(untagged) > 0 {
 		sort.Strings(untagged)
-		return nil, fmt.Errorf("refusing to sync environment %q: %d discovered cluster(s) are missing a valid aroHCPEnvironment tag (%s); this indicates an incomplete tag rollout or Resource Graph indexing lag, so syncing now could rebuild entity groups from a partial cluster set; retry once every aroHCPPurpose cluster is tagged and indexed", environment, len(untagged), strings.Join(untagged, ", "))
+		return nil, fmt.Errorf("refusing to sync environment %q: %d discovered cluster(s) are missing a valid %s tag (%s); this indicates an incomplete tag rollout or Resource Graph indexing lag, so syncing now could rebuild entity groups from a partial cluster set; retry once every discovered cluster is tagged and indexed", environment, len(untagged), scopeTagKey, strings.Join(untagged, ", "))
 	}
 
 	var selected []kustoazure.KustoCluster

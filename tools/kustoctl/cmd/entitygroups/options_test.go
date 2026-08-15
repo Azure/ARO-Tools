@@ -207,20 +207,20 @@ func TestSelectClustersForEnvironment(t *testing.T) {
 	t.Run("empty environment returns all unchanged", func(t *testing.T) {
 		untagged := kustoazure.KustoCluster{Name: "hcp-untagged", Location: "eastus", URI: "https://hcp-untagged.eastus.kusto.windows.net"}
 		all := []kustoazure.KustoCluster{int1, stg1, untagged}
-		got, err := selectClustersForEnvironment(all, "")
+		got, err := selectClustersForEnvironment(all, "", "aroHCPEnvironment")
 		assert.NoError(t, err)
 		assert.Equal(t, all, got)
 	})
 
 	t.Run("filters case-insensitively to the target environment", func(t *testing.T) {
-		got, err := selectClustersForEnvironment([]kustoazure.KustoCluster{int1, int2, stg1}, "int")
+		got, err := selectClustersForEnvironment([]kustoazure.KustoCluster{int1, int2, stg1}, "int", "aroHCPEnvironment")
 		assert.NoError(t, err)
 		assert.Equal(t, []kustoazure.KustoCluster{int1, int2}, got)
 	})
 
 	t.Run("fails closed when a cluster is missing the aroHCPEnvironment tag", func(t *testing.T) {
 		untagged := kustoazure.KustoCluster{Name: "hcp-new", Location: "eastus", URI: "https://hcp-new.eastus.kusto.windows.net"}
-		_, err := selectClustersForEnvironment([]kustoazure.KustoCluster{int1, untagged}, "int")
+		_, err := selectClustersForEnvironment([]kustoazure.KustoCluster{int1, untagged}, "int", "aroHCPEnvironment")
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "hcp-new")
 		assert.Contains(t, err.Error(), "aroHCPEnvironment")
@@ -228,13 +228,13 @@ func TestSelectClustersForEnvironment(t *testing.T) {
 
 	t.Run("fails closed when a cluster has an invalid tag value", func(t *testing.T) {
 		bad := kustoazure.KustoCluster{Name: "hcp-bad", Location: "eastus", URI: "https://hcp-bad.eastus.kusto.windows.net", Environment: "int prod"}
-		_, err := selectClustersForEnvironment([]kustoazure.KustoCluster{int1, bad}, "int")
+		_, err := selectClustersForEnvironment([]kustoazure.KustoCluster{int1, bad}, "int", "aroHCPEnvironment")
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "hcp-bad")
 	})
 
 	t.Run("returns empty when fully tagged but none match the target", func(t *testing.T) {
-		got, err := selectClustersForEnvironment([]kustoazure.KustoCluster{stg1}, "int")
+		got, err := selectClustersForEnvironment([]kustoazure.KustoCluster{stg1}, "int", "aroHCPEnvironment")
 		assert.NoError(t, err)
 		assert.Empty(t, got)
 	})

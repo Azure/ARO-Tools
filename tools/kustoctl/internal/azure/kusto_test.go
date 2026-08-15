@@ -20,7 +20,10 @@ import (
 )
 
 func TestKustoDiscoveryQuery(t *testing.T) {
-	query := kustoDiscoveryQuery()
+	query, err := kustoDiscoveryQuery(KustoDiscoveryConfig{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	if !strings.Contains(query, "isnotempty(tags['aroHCPPurpose'])") {
 		t.Fatalf("expected aroHCPPurpose filter, got: %s", query)
@@ -44,5 +47,53 @@ func TestKustoDiscoveryQuery(t *testing.T) {
 	// The projection must remain the final clause for the row parser to work.
 	if !strings.HasSuffix(query, "environment=tostring(tags['aroHCPEnvironment'])") {
 		t.Fatalf("expected projection to remain last, got: %s", query)
+	}
+}
+
+func TestKustoDiscoveryQueryCustomTags(t *testing.T) {
+	query, err := kustoDiscoveryQuery(KustoDiscoveryConfig{
+		TagKey:      "classicPurpose",
+		TagValue:    "logs",
+		ScopeTagKey: "classicEnv",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// A non-empty purpose value produces an equality filter rather than a
+	// presence check, so other products can target a specific tag value.
+	if !strings.Contains(query, "tags['classicPurpose'] =~ 'logs'") {
+		t.Fatalf("expected purpose value match, got: %s", query)
+	}
+	// The custom scope tag is projected, and (as with the default) must appear
+	// exactly once so there is no where-clause interpolation of a scope value.
+	if !strings.HasSuffix(query, "environment=tostring(tags['classicEnv'])") {
+		t.Fatalf("expected custom scope tag projected last, got: %s", query)
+	}
+	if got := strings.Count(query, "classicEnv"); got != 1 {
+		t.Fatalf("expected scope tag to appear exactly once, got %d in: %s", got, query)
+	}
+	// The ARO-HCP defaults must not leak in when custom tags are configured.
+	if strings.Contains(query, "aroHCPEnvironment") || strings.Contains(query, "aroHCPPurpose") {
+		t.Fatalf("did not expect default tags, got: %s", query)
+	}
+}
+
+func TestKustoDiscoveryQueryRejectsInjection(t *testing.T) {
+	cases := []struct {
+		name string
+		cfg  KustoDiscoveryConfig
+	}{
+		{"tag key with quote", KustoDiscoveryConfig{TagKey: "x'] or '1'=='1"}},
+		{"scope key with bracket", KustoDiscoveryConfig{ScopeTagKey: "aroHCPEnvironment'])] //"}},
+		{"tag value with quote", KustoDiscoveryConfig{TagValue: "logs' or '1'=='1"}},
+		{"tag key with space", KustoDiscoveryConfig{TagKey: "aro HCP"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, err := kustoDiscoveryQuery(tc.cfg); err == nil {
+				t.Fatalf("expected error for %s", tc.name)
+			}
+		})
 	}
 }
