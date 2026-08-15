@@ -198,7 +198,7 @@ func (o *RawSyncOptions) Validate(_ context.Context) (*ValidatedSyncOptions, err
 		ScopeTagKey: o.ScopeTagKey,
 	}.WithDefaults()
 	if err := discoveryConfig.Validate(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("invalid discovery tag configuration (--tag-key, --tag-value, --scope-tag-key): %w", err)
 	}
 
 	if len(o.EntityGroups) == 0 {
@@ -268,7 +268,11 @@ func (o *ValidatedSyncOptions) Complete(ctx context.Context) (*CompletedSyncOpti
 		if o.Environment != "" {
 			scope = fmt.Sprintf(" and %s=%q", o.discoveryConfig.ScopeTagKey, o.Environment)
 		}
-		return nil, fmt.Errorf("no Kusto clusters found with %s tag%s; verify the identity has Reader access and clusters are tagged", o.discoveryConfig.TagKey, scope)
+		selector := fmt.Sprintf("%s tag", o.discoveryConfig.TagKey)
+		if o.discoveryConfig.TagValue != "" {
+			selector = fmt.Sprintf("%s=%q tag", o.discoveryConfig.TagKey, o.discoveryConfig.TagValue)
+		}
+		return nil, fmt.Errorf("no Kusto clusters found with %s%s; verify the identity has Reader access and clusters are tagged", selector, scope)
 	}
 
 	return &CompletedSyncOptions{
