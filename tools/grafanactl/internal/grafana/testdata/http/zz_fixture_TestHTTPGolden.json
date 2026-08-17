@@ -5,8 +5,7 @@
     "path": "/api/datasources",
     "authorization": "Bearer test-token",
     "accept": "application/json",
-    "contentType": "application/json",
-    "userAgent": "autograf",
+    "userAgent": "Go-http-client/1.1",
     "responseStatus": 200,
     "responseBody": [
       {
@@ -73,8 +72,7 @@
     "path": "/api/datasources/name/Prometheus",
     "authorization": "Bearer test-token",
     "accept": "application/json",
-    "contentType": "application/json",
-    "userAgent": "autograf",
+    "userAgent": "Go-http-client/1.1",
     "responseStatus": 200,
     "responseBody": {
       "message": "Data source deleted"
@@ -86,8 +84,7 @@
     "path": "/api/folders",
     "authorization": "Bearer test-token",
     "accept": "application/json",
-    "contentType": "application/json",
-    "userAgent": "autograf",
+    "userAgent": "Go-http-client/1.1",
     "responseStatus": 200,
     "responseBody": [
       {
@@ -111,11 +108,10 @@
     "name": "ListDashboards",
     "method": "GET",
     "path": "/api/search",
-    "query": "starred=false\u0026type=dash-db",
+    "query": "type=dash-db",
     "authorization": "Bearer test-token",
     "accept": "application/json",
-    "contentType": "application/json",
-    "userAgent": "autograf",
+    "userAgent": "Go-http-client/1.1",
     "responseStatus": 200,
     "responseBody": [
       {
@@ -192,8 +188,7 @@
     "query": "type=dash-folder",
     "authorization": "Bearer test-token",
     "accept": "application/json",
-    "contentType": "application/json",
-    "userAgent": "autograf",
+    "userAgent": "Go-http-client/1.1",
     "responseStatus": 200,
     "responseBody": [
       {
@@ -247,22 +242,9 @@
     "authorization": "Bearer test-token",
     "accept": "application/json",
     "contentType": "application/json",
-    "userAgent": "autograf",
+    "userAgent": "Go-http-client/1.1",
     "requestBody": {
-      "id": 0,
-      "uid": "",
-      "title": "Scratchpad",
-      "url": "",
-      "hasAcl": false,
-      "canSave": false,
-      "canEdit": false,
-      "canAdmin": false,
-      "createdBy": "",
-      "created": "",
-      "updatedBy": "",
-      "updated": "",
-      "version": 0,
-      "overwrite": false
+      "title": "Scratchpad"
     },
     "responseStatus": 200,
     "responseBody": {
@@ -277,8 +259,7 @@
     "path": "/api/dashboards/uid/test-dashboard",
     "authorization": "Bearer test-token",
     "accept": "application/json",
-    "contentType": "application/json",
-    "userAgent": "autograf",
+    "userAgent": "Go-http-client/1.1",
     "responseStatus": 200,
     "responseBody": {
       "meta": {
@@ -1657,29 +1638,13 @@
     "authorization": "Bearer test-token",
     "accept": "application/json",
     "contentType": "application/json",
-    "userAgent": "autograf",
+    "userAgent": "Go-http-client/1.1",
     "requestBody": {
       "dashboard": {
-        "id": 0,
-        "panels": [
-          {
-            "id": 1,
-            "pluginSpecificField": {
-              "preserve": true
-            },
-            "title": "Status",
-            "transformations": [
-              {
-                "id": "renameByRegex",
-                "options": {
-                  "regex": "^Value$",
-                  "renamePattern": "Time in Progress (Minutes)"
-                }
-              }
-            ],
-            "type": "table"
-          }
-        ],
+        "id": null,
+        "uid": "test-dashboard",
+        "title": "Test Dashboard",
+        "version": 7,
         "templating": {
           "list": [
             {
@@ -1690,12 +1655,28 @@
             }
           ]
         },
-        "title": "Test Dashboard",
-        "uid": "test-dashboard",
-        "version": 7
+        "panels": [
+          {
+            "id": 1,
+            "title": "Status",
+            "type": "table",
+            "transformations": [
+              {
+                "id": "renameByRegex",
+                "options": {
+                  "regex": "^Value$",
+                  "renamePattern": "Time in Progress (Minutes)"
+                }
+              }
+            ],
+            "pluginSpecificField": {
+              "preserve": true
+            }
+          }
+        ]
       },
-      "FolderID": 12,
-      "Overwrite": true
+      "folderUid": "folder-uid",
+      "overwrite": true
     },
     "responseStatus": 200,
     "responseBody": {
@@ -1713,8 +1694,7 @@
     "path": "/api/dashboards/uid/test-dashboard",
     "authorization": "Bearer test-token",
     "accept": "application/json",
-    "contentType": "application/json",
-    "userAgent": "autograf",
+    "userAgent": "Go-http-client/1.1",
     "responseStatus": 200,
     "responseBody": {
       "title": "Test Dashboard",
@@ -1728,8 +1708,7 @@
     "path": "/api/folders/folder-uid/permissions",
     "authorization": "Bearer test-token",
     "accept": "application/json",
-    "contentType": "application/json",
-    "userAgent": "autograf",
+    "userAgent": "Go-http-client/1.1",
     "responseStatus": 200,
     "responseBody": [
       {
@@ -1812,38 +1791,20 @@
     "authorization": "Bearer test-token",
     "accept": "application/json",
     "contentType": "application/json",
-    "userAgent": "autograf",
+    "userAgent": "Go-http-client/1.1",
     "requestBody": {
       "items": [
         {
-          "id": 0,
-          "folderId": 0,
-          "created": "",
-          "updated": "",
-          "role": "Viewer",
           "permission": 2,
-          "permissionName": "",
-          "isFolder": false
+          "role": "Viewer"
         },
         {
-          "id": 0,
-          "folderId": 0,
-          "created": "",
-          "updated": "",
-          "role": "Editor",
           "permission": 2,
-          "permissionName": "",
-          "isFolder": false
+          "role": "Editor"
         },
         {
-          "id": 0,
-          "folderId": 0,
-          "created": "",
-          "updated": "",
-          "role": "Admin",
           "permission": 4,
-          "permissionName": "",
-          "isFolder": false
+          "role": "Admin"
         }
       ]
     },
@@ -1858,8 +1819,7 @@
     "path": "/api/folders/folder-uid",
     "authorization": "Bearer test-token",
     "accept": "application/json",
-    "contentType": "application/json",
-    "userAgent": "autograf",
+    "userAgent": "Go-http-client/1.1",
     "responseStatus": 200,
     "responseBody": {
       "id": 1,
