@@ -881,6 +881,12 @@ type KustoEntityGroupsStep struct {
 	// EntityGroups is a list of entity group definitions in "name:database" format.
 	EntityGroups []string `json:"entityGroups"`
 
+	// Environment optionally scopes Kusto cluster discovery to a single ARO-HCP
+	// environment (for example int, stg or prod) so each environment gets its own
+	// isolated entity group. When empty, discovery spans every cluster carrying
+	// the aroHCPPurpose tag (legacy cross-environment behavior).
+	Environment string `json:"environment,omitempty"`
+
 	Timeout string `json:"timeout,omitempty"`
 
 	// IdentityFrom specifies the managed identity with which this deployment will run in Ev2.

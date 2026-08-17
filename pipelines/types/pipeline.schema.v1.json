@@ -1664,6 +1664,10 @@
               },
               "minItems": 1
             },
+            "environment": {
+              "type": "string",
+              "description": "Optional ARO-HCP environment (for example int, stg or prod) used to scope Kusto cluster discovery so each environment gets an isolated entity group."
+            },
             "timeout": {
               "$ref": "#/definitions/durationString"
             },
