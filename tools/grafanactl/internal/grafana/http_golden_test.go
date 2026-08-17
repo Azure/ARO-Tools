@@ -25,7 +25,6 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/grafana-tools/sdk"
 	"github.com/stretchr/testify/require"
 
 	"github.com/Azure/ARO-Tools/testutil"
@@ -37,7 +36,8 @@ const httpGoldenFixture = "zz_fixture_TestHTTPGolden.json"
 
 // goldenExchange is one Grafana round-trip stored for replay. The long-lived
 // test serves ResponseBody and asserts the current client still makes the same
-// request (method/path/query/headers/body).
+// request (method/path/query/headers/body). Live Grafana is only used to seed
+// those response bodies (see TestSeedHTTPGolden).
 type goldenExchange struct {
 	Name           string          `json:"name"`
 	Method         string          `json:"method"`
@@ -103,7 +103,7 @@ func TestHTTPGolden(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := newGoldenTestClient(t, server.URL, "test-token")
+	client := newTestClientWithToken(t, server.URL, "test-token")
 	for _, o := range ops {
 		mu.Lock()
 		current = o.name
@@ -180,7 +180,7 @@ func httpGoldenOps(t *testing.T) []httpGoldenOp {
 		{
 			name: "SetRawDashboard",
 			call: func(t *testing.T, c *Client) {
-				require.NoError(t, c.SetRawDashboard(ctx, []byte(dashboardJSON), 12, true))
+				require.NoError(t, c.SetRawDashboard(ctx, []byte(dashboardJSON), "folder-uid", true))
 			},
 		},
 		{
@@ -200,9 +200,9 @@ func httpGoldenOps(t *testing.T) []httpGoldenOp {
 			name: "UpdateFolderPermissions",
 			call: func(t *testing.T, c *Client) {
 				require.NoError(t, c.UpdateFolderPermissions(ctx, "folder-uid",
-					sdk.FolderPermission{Role: "Viewer", Permission: sdk.PermissionEdit},
-					sdk.FolderPermission{Role: "Editor", Permission: sdk.PermissionEdit},
-					sdk.FolderPermission{Role: "Admin", Permission: sdk.PermissionAdmin},
+					FolderPermission{Role: "Viewer", Permission: PermissionEdit},
+					FolderPermission{Role: "Editor", Permission: PermissionEdit},
+					FolderPermission{Role: "Admin", Permission: PermissionAdmin},
 				))
 			},
 		},
@@ -215,17 +215,10 @@ func httpGoldenOps(t *testing.T) []httpGoldenOp {
 	}
 }
 
-func newGoldenTestClient(t *testing.T, serverURL, token string) *Client {
-	t.Helper()
-	sdkClient, err := sdk.NewClient(serverURL, token, http.DefaultClient)
-	require.NoError(t, err)
-	return &Client{grafanaClient: sdkClient}
-}
-
 func loadGolden(t *testing.T, path string) []goldenExchange {
 	t.Helper()
 	raw, err := os.ReadFile(path)
-	require.NoError(t, err, "missing %s; run UPDATE=1 after seeding response bodies", path)
+	require.NoError(t, err, "missing %s; seed with GRAFANACTL_LIVE=1 GRAFANACTL_LIVE_UPDATE=1 or UPDATE=1", path)
 	var out []goldenExchange
 	require.NoError(t, json.Unmarshal(raw, &out), path)
 	return out

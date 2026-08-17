@@ -161,10 +161,30 @@ The config file (e.g., `observability.yaml`) defines:
 
 ## HTTP golden (CI)
 
-`TestHTTPGolden` uses `testutil.CompareWithFixture` against `internal/grafana/testdata/http/zz_fixture_TestHTTPGolden.json`. CI serves the recorded Grafana responses and asserts the current client still makes the same calls. No live Grafana in CI. A client change shows up as a golden diff.
+`TestHTTPGolden` uses `testutil.CompareWithFixture` against `internal/grafana/testdata/http/zz_fixture_TestHTTPGolden.json`. CI serves the recorded Grafana responses and asserts the current client still makes the same calls. No live Grafana in CI. A client change shows up as a golden diff — this PR's query change is `type=dash-db` without the old SDK's `starred=false`.
 
 ```bash
 # rewrite the golden after an intentional client change
 UPDATE=1 go test ./internal/grafana -run TestHTTPGolden -count=1
+```
+
+## Seeding the golden from live Grafana
+
+`arohcp-dev` (resource group `global`) is how we seed the original response bodies. Read-only lists + one dashboard GET, with Grafana `limit=3` so the fixture stays small. Writes stay canned in the golden (we do not mutate the shared instance).
+
+```bash
+az account set --subscription "ARO Hosted Control Planes (EA Subscription 1)"
+cd tools/grafanactl
+GRAFANACTL_LIVE=1 GRAFANACTL_LIVE_UPDATE=1 go test ./internal/grafana -run TestSeedHTTPGolden -count=1 -v
+```
+
+To dump HTTP from any command (including INT):
+
+```bash
+GRAFANACTL_HTTP_DUMP_DIR=/tmp/grafana-http \
+  go run . list datasources \
+    --subscription "$SUBSCRIPTION" \
+    --resource-group global \
+    --grafana-name arohcp-dev
 ```
 

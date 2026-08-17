@@ -52,7 +52,7 @@ func ValidateAllDashboards(ctx context.Context, cfg *config.ObservabilityConfig,
 				continue
 			}
 
-			errors, warnings := validateDashboard(dashboard.board, folder.Path)
+			errors, warnings := validateDashboard(dashboard.meta, folder.Path)
 			allErrors = append(allErrors, errors...)
 			allWarnings = append(allWarnings, warnings...)
 		}
