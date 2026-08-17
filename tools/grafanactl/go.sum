@@ -1,3 +1,5 @@
+github.com/Azure/ARO-Tools/testutil v0.0.0-20260227032723-11f678744bf9 h1:pCeM3MglVEdm59gqaJBYVmOUHMS4qQmGne6HQexvvzI=
+github.com/Azure/ARO-Tools/testutil v0.0.0-20260227032723-11f678744bf9/go.mod h1:6V1kLTbkz3TLTspxt7fAI8Xy4EdBdsvLR5mk0gkry7k=
 github.com/Azure/ARO-Tools/tools/cmdutils v0.0.0-20260227032723-11f678744bf9 h1:Tsyb3xmWPTJplBF5g47rvp2tKjn1rX1KTLbTxykBcOY=
 github.com/Azure/ARO-Tools/tools/cmdutils v0.0.0-20260227032723-11f678744bf9/go.mod h1:bBo5YOjQf47SHTl5ohULLUin2PAEt6s5D5GQZQRgO5w=
 github.com/Azure/azure-sdk-for-go/sdk/azcore v1.21.1 h1:jHb/wfvRikGdxMXYV3QG/SzUOPYN9KEUUuC0Yd0/vC0=

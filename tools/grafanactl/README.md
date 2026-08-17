@@ -159,3 +159,12 @@ The config file (e.g., `observability.yaml`) defines:
 - Use `--verbosity` flag to increase logging detail for troubleshooting
 - Always use `--dry-run` first to preview changes before applying them
 
+## HTTP golden (CI)
+
+`TestHTTPGolden` uses `testutil.CompareWithFixture` against `internal/grafana/testdata/http/zz_fixture_TestHTTPGolden.json`. CI serves the recorded Grafana responses and asserts the current client still makes the same calls. No live Grafana in CI. A client change shows up as a golden diff.
+
+```bash
+# rewrite the golden after an intentional client change
+UPDATE=1 go test ./internal/grafana -run TestHTTPGolden -count=1
+```
+
