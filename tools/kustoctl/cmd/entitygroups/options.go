@@ -108,10 +108,10 @@ func BindSyncOptions(opts *RawSyncOptions, cmd *cobra.Command) error {
 	flags.DurationVar(&opts.Timeout, "timeout", opts.Timeout, "Timeout for the entire sync operation")
 	flags.StringVar(&opts.ARMEndpoint, "arm-endpoint", "", "Azure Resource Manager endpoint for the target cloud (defaults to public cloud)")
 	flags.StringVar(&opts.AADAuthority, "aad-authority", "", "Microsoft Entra ID authority for the target cloud (defaults to public cloud)")
-	flags.StringVar(&opts.Environment, "environment", opts.Environment, "ARO-HCP environment (for example int, stg or prod) used to scope cluster discovery; when set, only clusters whose scope tag (--scope-tag-key, default aroHCPEnvironment) equals <value> are included so each environment gets an isolated entity group")
+	flags.StringVar(&opts.Environment, "env-tag-value", opts.Environment, "value that scopes cluster discovery to a single ARO-HCP environment (for example int, stg or prod); when set, only clusters whose env tag (--env-tag-key, default aroHCPEnvironment) equals this value are included so each environment gets an isolated entity group")
 	flags.StringVar(&opts.TagKey, "tag-key", opts.TagKey, "resource tag key that marks a Kusto cluster as a sync target (default aroHCPPurpose)")
 	flags.StringVar(&opts.TagValue, "tag-value", opts.TagValue, "optional required value for the selection tag; when empty, presence of the key is sufficient")
-	flags.StringVar(&opts.ScopeTagKey, "scope-tag-key", opts.ScopeTagKey, "resource tag key projected for per-environment scoping (default aroHCPEnvironment)")
+	flags.StringVar(&opts.ScopeTagKey, "env-tag-key", opts.ScopeTagKey, "resource tag key whose value identifies a cluster's environment, matched against --env-tag-value (default aroHCPEnvironment)")
 
 	_ = cmd.MarkFlagRequired("entity-group")
 	return nil
@@ -190,7 +190,7 @@ func (o *RawSyncOptions) Validate(_ context.Context) (*ValidatedSyncOptions, err
 	}
 
 	if o.Environment != "" && !envPattern.MatchString(o.Environment) {
-		return nil, fmt.Errorf("invalid --environment %q; must match [A-Za-z0-9_-]+", o.Environment)
+		return nil, fmt.Errorf("invalid --env-tag-value %q; must match [A-Za-z0-9_-]+", o.Environment)
 	}
 
 	discoveryConfig := kustoazure.KustoDiscoveryConfig{
@@ -199,7 +199,7 @@ func (o *RawSyncOptions) Validate(_ context.Context) (*ValidatedSyncOptions, err
 		ScopeTagKey: o.ScopeTagKey,
 	}.WithDefaults()
 	if err := discoveryConfig.Validate(); err != nil {
-		return nil, fmt.Errorf("invalid discovery tag configuration (--tag-key, --tag-value, --scope-tag-key): %w", err)
+		return nil, fmt.Errorf("invalid discovery tag configuration (--tag-key, --tag-value, --env-tag-key): %w", err)
 	}
 
 	if len(o.EntityGroups) == 0 {
