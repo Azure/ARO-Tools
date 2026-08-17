@@ -56,9 +56,10 @@ type RawSyncOptions struct {
 	AADAuthority string
 	// Environment optionally scopes cluster discovery to a single ARO-HCP
 	// environment (for example int, stg or prod). When set, only clusters whose
-	// aroHCPEnvironment tag matches are included, so each environment gets its
-	// own isolated entity group. When empty, all clusters carrying the
-	// aroHCPPurpose tag are included (legacy cross-environment behavior).
+	// scope tag (ScopeTagKey, by default aroHCPEnvironment) matches are included,
+	// so each environment gets its own isolated entity group. When empty, all
+	// clusters carrying the selection tag (TagKey, by default aroHCPPurpose) are
+	// included (legacy cross-environment behavior).
 	Environment string
 	// TagKey and TagValue select which resource tag marks a Kusto cluster as a
 	// sync target. TagValue is optional; when empty, presence of the key is
@@ -107,7 +108,7 @@ func BindSyncOptions(opts *RawSyncOptions, cmd *cobra.Command) error {
 	flags.DurationVar(&opts.Timeout, "timeout", opts.Timeout, "Timeout for the entire sync operation")
 	flags.StringVar(&opts.ARMEndpoint, "arm-endpoint", "", "Azure Resource Manager endpoint for the target cloud (defaults to public cloud)")
 	flags.StringVar(&opts.AADAuthority, "aad-authority", "", "Microsoft Entra ID authority for the target cloud (defaults to public cloud)")
-	flags.StringVar(&opts.Environment, "environment", opts.Environment, "ARO-HCP environment (for example int, stg or prod) used to scope cluster discovery; when set, only clusters tagged aroHCPEnvironment=<value> are included so each environment gets an isolated entity group")
+	flags.StringVar(&opts.Environment, "environment", opts.Environment, "ARO-HCP environment (for example int, stg or prod) used to scope cluster discovery; when set, only clusters whose scope tag (--scope-tag-key, default aroHCPEnvironment) equals <value> are included so each environment gets an isolated entity group")
 	flags.StringVar(&opts.TagKey, "tag-key", opts.TagKey, "resource tag key that marks a Kusto cluster as a sync target (default aroHCPPurpose)")
 	flags.StringVar(&opts.TagValue, "tag-value", opts.TagValue, "optional required value for the selection tag; when empty, presence of the key is sufficient")
 	flags.StringVar(&opts.ScopeTagKey, "scope-tag-key", opts.ScopeTagKey, "resource tag key projected for per-environment scoping (default aroHCPEnvironment)")
@@ -285,12 +286,14 @@ func (o *ValidatedSyncOptions) Complete(ctx context.Context) (*CompletedSyncOpti
 // selectClustersForEnvironment scopes discovered clusters to a single ARO-HCP
 // environment. When environment is empty, all clusters are returned unchanged
 // (legacy cross-environment behavior). When environment is set, it fails closed
-// if any discovered cluster is missing a valid aroHCPEnvironment tag, then
-// returns only the clusters whose tag matches case-insensitively.
+// if any discovered cluster is missing a valid scope tag (scopeTagKey, by
+// default aroHCPEnvironment), then returns only the clusters whose tag matches
+// case-insensitively.
 //
 // Failing closed on a missing or invalid tag is deliberate. Discovery finds
-// clusters by the aroHCPPurpose tag across every environment, and a cluster's
-// aroHCPEnvironment tag may still be propagating (an in-progress rollout) or not
+// clusters by the selection tag (by default aroHCPPurpose) across every
+// environment, and a cluster's scope tag may still be propagating (an
+// in-progress rollout) or not
 // yet indexed by Resource Graph. Rebuilding entity-group membership from a
 // partial set would silently drop the not-yet-visible clusters and leave stale
 // cross-environment groups behind, so the sync refuses to run until the whole
