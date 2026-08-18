@@ -20,18 +20,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/grafana-tools/sdk"
-
 	"github.com/Azure/ARO-Tools/tools/grafanactl/config"
 )
 
 type mockScratchClient struct {
-	folders              []sdk.Folder
-	dashboards           []sdk.FoundBoard
-	searchFolders        []sdk.FoundBoard
-	dashboardsByUID      map[string]sdk.BoardProperties
+	folders              []Folder
+	dashboards           []FoundBoard
+	searchFolders        []FoundBoard
+	dashboardsByUID      map[string]BoardProperties
 	createdFolders       []string
-	updatedPermissions   map[string][]sdk.FolderPermission
+	updatedPermissions   map[string][]FolderPermission
 	deletedDashboardUIDs []string
 	deletedFolderUIDs    []string
 
@@ -47,29 +45,29 @@ type mockScratchClient struct {
 
 func newMockScratchClient() *mockScratchClient {
 	return &mockScratchClient{
-		dashboardsByUID:    make(map[string]sdk.BoardProperties),
-		updatedPermissions: make(map[string][]sdk.FolderPermission),
+		dashboardsByUID:    make(map[string]BoardProperties),
+		updatedPermissions: make(map[string][]FolderPermission),
 	}
 }
 
-func (m *mockScratchClient) ListFolders(_ context.Context) ([]sdk.Folder, error) {
+func (m *mockScratchClient) ListFolders(_ context.Context) ([]Folder, error) {
 	if m.listFoldersErr != nil {
 		return nil, m.listFoldersErr
 	}
 	return m.folders, nil
 }
 
-func (m *mockScratchClient) CreateFolder(_ context.Context, title string) (sdk.Folder, error) {
+func (m *mockScratchClient) CreateFolder(_ context.Context, title string) (Folder, error) {
 	if m.createFolderErr != nil {
-		return sdk.Folder{}, m.createFolderErr
+		return Folder{}, m.createFolderErr
 	}
 	m.createdFolders = append(m.createdFolders, title)
-	f := sdk.Folder{Title: title, UID: "uid-" + title, ID: len(m.folders) + 1}
+	f := Folder{Title: title, UID: "uid-" + title}
 	m.folders = append(m.folders, f)
 	return f, nil
 }
 
-func (m *mockScratchClient) UpdateFolderPermissions(_ context.Context, folderUID string, permissions ...sdk.FolderPermission) error {
+func (m *mockScratchClient) UpdateFolderPermissions(_ context.Context, folderUID string, permissions ...FolderPermission) error {
 	if m.updatePermsErr != nil {
 		return m.updatePermsErr
 	}
@@ -77,29 +75,29 @@ func (m *mockScratchClient) UpdateFolderPermissions(_ context.Context, folderUID
 	return nil
 }
 
-func (m *mockScratchClient) ListDashboards(_ context.Context) ([]sdk.FoundBoard, error) {
+func (m *mockScratchClient) ListDashboards(_ context.Context) ([]FoundBoard, error) {
 	if m.listDashboardsErr != nil {
 		return nil, m.listDashboardsErr
 	}
 	return m.dashboards, nil
 }
 
-func (m *mockScratchClient) SearchFolders(_ context.Context) ([]sdk.FoundBoard, error) {
+func (m *mockScratchClient) SearchFolders(_ context.Context) ([]FoundBoard, error) {
 	if m.searchFoldersErr != nil {
 		return nil, m.searchFoldersErr
 	}
 	return m.searchFolders, nil
 }
 
-func (m *mockScratchClient) GetDashboardByUID(_ context.Context, uid string) (sdk.Board, sdk.BoardProperties, error) {
+func (m *mockScratchClient) GetDashboardByUID(_ context.Context, uid string) (BoardProperties, error) {
 	if m.getDashboardErr != nil {
-		return sdk.Board{}, sdk.BoardProperties{}, m.getDashboardErr
+		return BoardProperties{}, m.getDashboardErr
 	}
 	props, ok := m.dashboardsByUID[uid]
 	if !ok {
-		return sdk.Board{}, sdk.BoardProperties{}, fmt.Errorf("dashboard %q not found", uid)
+		return BoardProperties{}, fmt.Errorf("dashboard %q not found", uid)
 	}
-	return sdk.Board{UID: uid}, props, nil
+	return props, nil
 }
 
 func (m *mockScratchClient) DeleteDashboardByUID(_ context.Context, uid string) error {
@@ -135,7 +133,7 @@ func TestSyncScratchFolders_CreatesFolder(t *testing.T) {
 
 func TestSyncScratchFolders_ReuseExistingFolder(t *testing.T) {
 	client := newMockScratchClient()
-	client.folders = []sdk.Folder{{Title: "Scratchpad", UID: "existing-uid", ID: 42}}
+	client.folders = []Folder{{Title: "Scratchpad", UID: "existing-uid"}}
 	folders := []config.ScratchFolder{{Name: "Scratchpad", MaxAgeRaw: "168h"}}
 	now := time.Date(2025, 7, 28, 12, 0, 0, 0, time.UTC)
 
@@ -173,10 +171,10 @@ func TestSyncScratchFolders_SetsPermissions(t *testing.T) {
 		t.Fatalf("expected 3 permission entries, got %d", len(perms))
 	}
 
-	expected := map[string]sdk.PermissionType{
-		"Viewer": sdk.PermissionEdit,
-		"Editor": sdk.PermissionEdit,
-		"Admin":  sdk.PermissionAdmin,
+	expected := map[string]PermissionType{
+		"Viewer": PermissionEdit,
+		"Editor": PermissionEdit,
+		"Admin":  PermissionAdmin,
 	}
 	for _, p := range perms {
 		want, ok := expected[p.Role]
@@ -192,18 +190,18 @@ func TestSyncScratchFolders_SetsPermissions(t *testing.T) {
 
 func TestSyncScratchFolders_DeletesExpiredDashboards(t *testing.T) {
 	client := newMockScratchClient()
-	client.folders = []sdk.Folder{{Title: "Scratchpad", UID: "scratch-uid"}}
+	client.folders = []Folder{{Title: "Scratchpad", UID: "scratch-uid"}}
 	now := time.Date(2025, 7, 28, 12, 0, 0, 0, time.UTC)
 
-	client.dashboards = []sdk.FoundBoard{
+	client.dashboards = []FoundBoard{
 		{UID: "old-dash", Title: "Old Dashboard", FolderUID: "scratch-uid"},
 		{UID: "new-dash", Title: "New Dashboard", FolderUID: "scratch-uid"},
 		{UID: "other-dash", Title: "Other Dashboard", FolderUID: "other-folder"},
 	}
-	client.dashboardsByUID["old-dash"] = sdk.BoardProperties{
+	client.dashboardsByUID["old-dash"] = BoardProperties{
 		Created: now.Add(-8 * 24 * time.Hour),
 	}
-	client.dashboardsByUID["new-dash"] = sdk.BoardProperties{
+	client.dashboardsByUID["new-dash"] = BoardProperties{
 		Created: now.Add(-1 * 24 * time.Hour),
 	}
 
@@ -223,19 +221,19 @@ func TestSyncScratchFolders_DeletesExpiredDashboards(t *testing.T) {
 
 func TestSyncScratchFolders_DeletesExpiredDashboardsInSubfolders(t *testing.T) {
 	client := newMockScratchClient()
-	client.folders = []sdk.Folder{{Title: "Scratchpad", UID: "scratch-uid"}}
+	client.folders = []Folder{{Title: "Scratchpad", UID: "scratch-uid"}}
 	now := time.Date(2025, 7, 28, 12, 0, 0, 0, time.UTC)
 
-	client.searchFolders = []sdk.FoundBoard{
+	client.searchFolders = []FoundBoard{
 		{UID: "scratch-uid", Title: "Scratchpad", Type: "dash-folder"},
 		{UID: "sub-1", Title: "subfolder1", Type: "dash-folder", FolderUID: "scratch-uid"},
 	}
-	client.dashboards = []sdk.FoundBoard{
+	client.dashboards = []FoundBoard{
 		{UID: "root-dash", Title: "Root Dashboard", FolderUID: "scratch-uid"},
 		{UID: "sub-dash", Title: "Sub Dashboard", FolderUID: "sub-1"},
 	}
-	client.dashboardsByUID["root-dash"] = sdk.BoardProperties{Created: now.Add(-8 * 24 * time.Hour)}
-	client.dashboardsByUID["sub-dash"] = sdk.BoardProperties{Created: now.Add(-8 * 24 * time.Hour)}
+	client.dashboardsByUID["root-dash"] = BoardProperties{Created: now.Add(-8 * 24 * time.Hour)}
+	client.dashboardsByUID["sub-dash"] = BoardProperties{Created: now.Add(-8 * 24 * time.Hour)}
 
 	folders := []config.ScratchFolder{{Name: "Scratchpad", MaxAgeRaw: "168h"}}
 	err := syncScratchFolders(context.Background(), client, folders, false, now)
@@ -254,10 +252,10 @@ func TestSyncScratchFolders_DeletesExpiredDashboardsInSubfolders(t *testing.T) {
 
 func TestSyncScratchFolders_DeletesEmptySubfolders(t *testing.T) {
 	client := newMockScratchClient()
-	client.folders = []sdk.Folder{{Title: "Scratchpad", UID: "scratch-uid"}}
+	client.folders = []Folder{{Title: "Scratchpad", UID: "scratch-uid"}}
 	now := time.Date(2025, 7, 28, 12, 0, 0, 0, time.UTC)
 
-	client.searchFolders = []sdk.FoundBoard{
+	client.searchFolders = []FoundBoard{
 		{UID: "scratch-uid", Title: "Scratchpad", Type: "dash-folder"},
 		{UID: "empty-sub", Title: "empty", Type: "dash-folder", FolderUID: "scratch-uid"},
 	}
@@ -277,10 +275,10 @@ func TestSyncScratchFolders_DeletesEmptySubfolders(t *testing.T) {
 
 func TestSyncScratchFolders_DeletesNestedEmptySubfoldersLeafFirst(t *testing.T) {
 	client := newMockScratchClient()
-	client.folders = []sdk.Folder{{Title: "Scratchpad", UID: "scratch-uid"}}
+	client.folders = []Folder{{Title: "Scratchpad", UID: "scratch-uid"}}
 	now := time.Date(2025, 7, 28, 12, 0, 0, 0, time.UTC)
 
-	client.searchFolders = []sdk.FoundBoard{
+	client.searchFolders = []FoundBoard{
 		{UID: "scratch-uid", Title: "Scratchpad", Type: "dash-folder"},
 		{UID: "parent-sub", Title: "parent", Type: "dash-folder", FolderUID: "scratch-uid"},
 		{UID: "child-sub", Title: "child", Type: "dash-folder", FolderUID: "parent-sub"},
@@ -307,17 +305,17 @@ func TestSyncScratchFolders_DeletesNestedEmptySubfoldersLeafFirst(t *testing.T) 
 
 func TestSyncScratchFolders_KeepsNonEmptySubfolders(t *testing.T) {
 	client := newMockScratchClient()
-	client.folders = []sdk.Folder{{Title: "Scratchpad", UID: "scratch-uid"}}
+	client.folders = []Folder{{Title: "Scratchpad", UID: "scratch-uid"}}
 	now := time.Date(2025, 7, 28, 12, 0, 0, 0, time.UTC)
 
-	client.searchFolders = []sdk.FoundBoard{
+	client.searchFolders = []FoundBoard{
 		{UID: "scratch-uid", Title: "Scratchpad", Type: "dash-folder"},
 		{UID: "has-dash-sub", Title: "hasdash", Type: "dash-folder", FolderUID: "scratch-uid"},
 	}
-	client.dashboards = []sdk.FoundBoard{
+	client.dashboards = []FoundBoard{
 		{UID: "fresh-dash", Title: "Fresh Dashboard", FolderUID: "has-dash-sub"},
 	}
-	client.dashboardsByUID["fresh-dash"] = sdk.BoardProperties{
+	client.dashboardsByUID["fresh-dash"] = BoardProperties{
 		Created: now.Add(-1 * time.Hour), // not expired
 	}
 
@@ -334,10 +332,10 @@ func TestSyncScratchFolders_KeepsNonEmptySubfolders(t *testing.T) {
 
 func TestSyncScratchFolders_DoesNotDeleteRootScratchFolder(t *testing.T) {
 	client := newMockScratchClient()
-	client.folders = []sdk.Folder{{Title: "Scratchpad", UID: "scratch-uid"}}
+	client.folders = []Folder{{Title: "Scratchpad", UID: "scratch-uid"}}
 	now := time.Date(2025, 7, 28, 12, 0, 0, 0, time.UTC)
 
-	client.searchFolders = []sdk.FoundBoard{
+	client.searchFolders = []FoundBoard{
 		{UID: "scratch-uid", Title: "Scratchpad", Type: "dash-folder"},
 	}
 	client.dashboards = nil
@@ -357,22 +355,22 @@ func TestSyncScratchFolders_DoesNotDeleteRootScratchFolder(t *testing.T) {
 
 func TestSyncScratchFolders_ExpiryBoundary(t *testing.T) {
 	client := newMockScratchClient()
-	client.folders = []sdk.Folder{{Title: "Scratchpad", UID: "scratch-uid"}}
+	client.folders = []Folder{{Title: "Scratchpad", UID: "scratch-uid"}}
 	now := time.Date(2025, 7, 28, 12, 0, 0, 0, time.UTC)
 	maxAge := 168 * time.Hour
 
-	client.dashboards = []sdk.FoundBoard{
+	client.dashboards = []FoundBoard{
 		{UID: "exactly-at-boundary", Title: "Boundary", FolderUID: "scratch-uid"},
 		{UID: "one-second-before", Title: "Just Expired", FolderUID: "scratch-uid"},
 		{UID: "one-second-after", Title: "Not Expired", FolderUID: "scratch-uid"},
 	}
-	client.dashboardsByUID["exactly-at-boundary"] = sdk.BoardProperties{
+	client.dashboardsByUID["exactly-at-boundary"] = BoardProperties{
 		Created: now.Add(-maxAge),
 	}
-	client.dashboardsByUID["one-second-before"] = sdk.BoardProperties{
+	client.dashboardsByUID["one-second-before"] = BoardProperties{
 		Created: now.Add(-maxAge - time.Second),
 	}
-	client.dashboardsByUID["one-second-after"] = sdk.BoardProperties{
+	client.dashboardsByUID["one-second-after"] = BoardProperties{
 		Created: now.Add(-maxAge + time.Second),
 	}
 
@@ -394,14 +392,14 @@ func TestSyncScratchFolders_DryRun(t *testing.T) {
 	client := newMockScratchClient()
 	now := time.Date(2025, 7, 28, 12, 0, 0, 0, time.UTC)
 
-	client.searchFolders = []sdk.FoundBoard{
+	client.searchFolders = []FoundBoard{
 		{UID: "dry-run-Scratchpad", Title: "Scratchpad", Type: "dash-folder"},
 		{UID: "empty-sub", Title: "empty", Type: "dash-folder", FolderUID: "dry-run-Scratchpad"},
 	}
-	client.dashboards = []sdk.FoundBoard{
+	client.dashboards = []FoundBoard{
 		{UID: "old-dash", Title: "Old Dashboard", FolderUID: "dry-run-Scratchpad"},
 	}
-	client.dashboardsByUID["old-dash"] = sdk.BoardProperties{
+	client.dashboardsByUID["old-dash"] = BoardProperties{
 		Created: now.Add(-8 * 24 * time.Hour),
 	}
 
@@ -427,10 +425,10 @@ func TestSyncScratchFolders_DryRun(t *testing.T) {
 
 func TestSyncScratchFolders_IgnoresDashboardsInOtherFolders(t *testing.T) {
 	client := newMockScratchClient()
-	client.folders = []sdk.Folder{{Title: "Scratchpad", UID: "scratch-uid"}}
+	client.folders = []Folder{{Title: "Scratchpad", UID: "scratch-uid"}}
 	now := time.Date(2025, 7, 28, 12, 0, 0, 0, time.UTC)
 
-	client.dashboards = []sdk.FoundBoard{
+	client.dashboards = []FoundBoard{
 		{UID: "other-dash", Title: "Other Dashboard", FolderUID: "other-folder"},
 	}
 
@@ -447,13 +445,13 @@ func TestSyncScratchFolders_IgnoresDashboardsInOtherFolders(t *testing.T) {
 
 func TestSyncScratchFolders_DashboardDeleteErrorIsNonFatal(t *testing.T) {
 	client := newMockScratchClient()
-	client.folders = []sdk.Folder{{Title: "Scratchpad", UID: "scratch-uid"}}
+	client.folders = []Folder{{Title: "Scratchpad", UID: "scratch-uid"}}
 	now := time.Date(2025, 7, 28, 12, 0, 0, 0, time.UTC)
 
-	client.dashboards = []sdk.FoundBoard{
+	client.dashboards = []FoundBoard{
 		{UID: "old-dash", Title: "Old Dashboard", FolderUID: "scratch-uid"},
 	}
-	client.dashboardsByUID["old-dash"] = sdk.BoardProperties{
+	client.dashboardsByUID["old-dash"] = BoardProperties{
 		Created: now.Add(-8 * 24 * time.Hour),
 	}
 	client.deleteDashboardErr = fmt.Errorf("delete failed")
@@ -467,8 +465,8 @@ func TestSyncScratchFolders_DashboardDeleteErrorIsNonFatal(t *testing.T) {
 
 func TestSyncScratchFolders_MetadataErrorIsNonFatal(t *testing.T) {
 	client := newMockScratchClient()
-	client.folders = []sdk.Folder{{Title: "Scratchpad", UID: "scratch-uid"}}
-	client.dashboards = []sdk.FoundBoard{
+	client.folders = []Folder{{Title: "Scratchpad", UID: "scratch-uid"}}
+	client.dashboards = []FoundBoard{
 		{UID: "bad-dash", Title: "Bad Dashboard", FolderUID: "scratch-uid"},
 	}
 	client.getDashboardErr = fmt.Errorf("API error")
@@ -484,10 +482,10 @@ func TestSyncScratchFolders_MetadataErrorIsNonFatal(t *testing.T) {
 
 func TestSyncScratchFolders_FolderDeleteErrorIsNonFatal(t *testing.T) {
 	client := newMockScratchClient()
-	client.folders = []sdk.Folder{{Title: "Scratchpad", UID: "scratch-uid"}}
+	client.folders = []Folder{{Title: "Scratchpad", UID: "scratch-uid"}}
 	now := time.Date(2025, 7, 28, 12, 0, 0, 0, time.UTC)
 
-	client.searchFolders = []sdk.FoundBoard{
+	client.searchFolders = []FoundBoard{
 		{UID: "scratch-uid", Title: "Scratchpad", Type: "dash-folder"},
 		{UID: "empty-sub", Title: "empty", Type: "dash-folder", FolderUID: "scratch-uid"},
 	}
@@ -503,7 +501,7 @@ func TestSyncScratchFolders_FolderDeleteErrorIsNonFatal(t *testing.T) {
 
 func TestSyncScratchFolders_PermissionErrorIsFatal(t *testing.T) {
 	client := newMockScratchClient()
-	client.folders = []sdk.Folder{{Title: "Scratchpad", UID: "scratch-uid"}}
+	client.folders = []Folder{{Title: "Scratchpad", UID: "scratch-uid"}}
 	client.updatePermsErr = fmt.Errorf("forbidden")
 	now := time.Date(2025, 7, 28, 12, 0, 0, 0, time.UTC)
 
@@ -548,7 +546,7 @@ func TestSyncScratchFolders_NoScratchFolders(t *testing.T) {
 }
 
 func TestCollectScratchFolderUIDs(t *testing.T) {
-	allFolders := []sdk.FoundBoard{
+	allFolders := []FoundBoard{
 		{UID: "root", Title: "Root", Type: "dash-folder"},
 		{UID: "child-1", Title: "Child 1", Type: "dash-folder", FolderUID: "root"},
 		{UID: "child-2", Title: "Child 2", Type: "dash-folder", FolderUID: "root"},

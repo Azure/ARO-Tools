@@ -1,0 +1,1830 @@
+[
+  {
+    "name": "ListDataSources",
+    "method": "GET",
+    "path": "/api/datasources",
+    "authorization": "Bearer test-token",
+    "accept": "application/json",
+    "userAgent": "Go-http-client/1.1",
+    "responseStatus": 200,
+    "responseBody": [
+      {
+        "id": 1,
+        "uid": "azure-monitor-oob",
+        "orgId": 1,
+        "name": "Azure Monitor",
+        "type": "grafana-azure-monitor-datasource",
+        "typeName": "Azure Monitor",
+        "typeLogoUrl": "public/plugins/grafana-azure-monitor-datasource/img/logo.jpg",
+        "access": "proxy",
+        "url": "",
+        "user": "",
+        "database": "",
+        "basicAuth": false,
+        "isDefault": true,
+        "jsonData": {
+          "azureCredentials": {
+            "authType": "msi"
+          },
+          "subscriptionId": "1d3378d3-5a3f-4712-85a1-2485495dfc4b"
+        },
+        "readOnly": false
+      },
+      {
+        "id": 2490,
+        "uid": "dfl6w3u5wqbcwc",
+        "orgId": 1,
+        "name": "grafana-azureprometheus-datasource",
+        "type": "grafana-azureprometheus-datasource",
+        "typeName": "Azure Monitor Managed Service for Prometheus",
+        "typeLogoUrl": "public/plugins/grafana-azureprometheus-datasource/img/icon_prom_azure.svg",
+        "access": "proxy",
+        "url": "",
+        "user": "",
+        "database": "",
+        "basicAuth": false,
+        "isDefault": false,
+        "jsonData": {},
+        "readOnly": false
+      },
+      {
+        "id": 3830,
+        "uid": "bfs41t6bvw8w0b",
+        "orgId": 1,
+        "name": "grafana-azureprometheus-datasource-1",
+        "type": "grafana-azureprometheus-datasource",
+        "typeName": "Azure Monitor Managed Service for Prometheus",
+        "typeLogoUrl": "public/plugins/grafana-azureprometheus-datasource/img/icon_prom_azure.svg",
+        "access": "proxy",
+        "url": "",
+        "user": "",
+        "database": "",
+        "basicAuth": false,
+        "isDefault": false,
+        "jsonData": {},
+        "readOnly": false
+      }
+    ]
+  },
+  {
+    "name": "DeleteDataSource",
+    "method": "DELETE",
+    "path": "/api/datasources/name/Prometheus",
+    "authorization": "Bearer test-token",
+    "accept": "application/json",
+    "userAgent": "Go-http-client/1.1",
+    "responseStatus": 200,
+    "responseBody": {
+      "message": "Data source deleted"
+    }
+  },
+  {
+    "name": "ListFolders",
+    "method": "GET",
+    "path": "/api/folders",
+    "authorization": "Bearer test-token",
+    "accept": "application/json",
+    "userAgent": "Go-http-client/1.1",
+    "responseStatus": 200,
+    "responseBody": [
+      {
+        "id": 338,
+        "uid": "ffpxq3s5iwg74b",
+        "title": "achvtest"
+      },
+      {
+        "id": 30,
+        "uid": "az-databases",
+        "title": "Azure Databases"
+      },
+      {
+        "id": 60,
+        "uid": "ffd7cu3our1tsf",
+        "title": "Azure Managed Prometheus"
+      }
+    ]
+  },
+  {
+    "name": "ListDashboards",
+    "method": "GET",
+    "path": "/api/search",
+    "query": "type=dash-db",
+    "authorization": "Bearer test-token",
+    "accept": "application/json",
+    "userAgent": "Go-http-client/1.1",
+    "responseStatus": 200,
+    "responseBody": [
+      {
+        "id": 416,
+        "uid": "access-cluster-slo",
+        "orgId": 1,
+        "title": "Access the Cluster SLO",
+        "uri": "db/access-the-cluster-slo",
+        "url": "/d/access-cluster-slo/access-the-cluster-slo",
+        "slug": "",
+        "type": "dash-db",
+        "tags": [
+          "access-cluster",
+          "aro-hcp",
+          "slo",
+          "user-journey"
+        ],
+        "isStarred": false,
+        "folderId": 246,
+        "folderUid": "bfnh4us7ncd1ce",
+        "folderTitle": "SRE User Journey",
+        "folderUrl": "/dashboards/f/bfnh4us7ncd1ce/sre-user-journey",
+        "sortMeta": 0,
+        "isDeleted": false
+      },
+      {
+        "id": 149,
+        "uid": "dfhon0rimztvkb",
+        "orgId": 1,
+        "title": "Ad-hoc Explorer",
+        "uri": "db/ad-hoc-explorer",
+        "url": "/d/dfhon0rimztvkb/ad-hoc-explorer",
+        "slug": "",
+        "type": "dash-db",
+        "tags": [
+          "adhoc",
+          "explorer"
+        ],
+        "isStarred": false,
+        "folderId": 145,
+        "folderUid": "ffholguom0hs0c",
+        "folderTitle": "testing-jboll",
+        "folderUrl": "/dashboards/f/ffholguom0hs0c/testing-jboll",
+        "sortMeta": 0,
+        "isDeleted": false
+      },
+      {
+        "id": 165,
+        "uid": "adhoc-explorer",
+        "orgId": 1,
+        "title": "Ad-hoc Explorer",
+        "uri": "db/ad-hoc-explorer",
+        "url": "/d/adhoc-explorer/ad-hoc-explorer",
+        "slug": "",
+        "type": "dash-db",
+        "tags": [
+          "adhoc",
+          "explorer"
+        ],
+        "isStarred": false,
+        "folderId": 35,
+        "folderUid": "cfd6d0i9g0xz4a",
+        "folderTitle": "Infrastructure",
+        "folderUrl": "/dashboards/f/cfd6d0i9g0xz4a/infrastructure",
+        "sortMeta": 0,
+        "isDeleted": false
+      }
+    ]
+  },
+  {
+    "name": "SearchFolders",
+    "method": "GET",
+    "path": "/api/search",
+    "query": "type=dash-folder",
+    "authorization": "Bearer test-token",
+    "accept": "application/json",
+    "userAgent": "Go-http-client/1.1",
+    "responseStatus": 200,
+    "responseBody": [
+      {
+        "id": 338,
+        "uid": "ffpxq3s5iwg74b",
+        "orgId": 1,
+        "title": "achvtest",
+        "uri": "db/achvtest",
+        "url": "/dashboards/f/ffpxq3s5iwg74b/achvtest",
+        "slug": "",
+        "type": "dash-folder",
+        "tags": [],
+        "isStarred": false,
+        "sortMeta": 0,
+        "isDeleted": false
+      },
+      {
+        "id": 30,
+        "uid": "az-databases",
+        "orgId": 1,
+        "title": "Azure Databases",
+        "uri": "db/azure-databases",
+        "url": "/dashboards/f/az-databases/azure-databases",
+        "slug": "",
+        "type": "dash-folder",
+        "tags": [],
+        "isStarred": false,
+        "sortMeta": 0,
+        "isDeleted": false
+      },
+      {
+        "id": 60,
+        "uid": "ffd7cu3our1tsf",
+        "orgId": 1,
+        "title": "Azure Managed Prometheus",
+        "uri": "db/azure-managed-prometheus",
+        "url": "/dashboards/f/ffd7cu3our1tsf/azure-managed-prometheus",
+        "slug": "",
+        "type": "dash-folder",
+        "tags": [],
+        "isStarred": false,
+        "sortMeta": 0,
+        "isDeleted": false
+      }
+    ]
+  },
+  {
+    "name": "CreateFolder",
+    "method": "POST",
+    "path": "/api/folders",
+    "authorization": "Bearer test-token",
+    "accept": "application/json",
+    "contentType": "application/json",
+    "userAgent": "Go-http-client/1.1",
+    "requestBody": {
+      "title": "Scratchpad"
+    },
+    "responseStatus": 200,
+    "responseBody": {
+      "id": 2,
+      "uid": "scratch-uid",
+      "title": "Scratchpad"
+    }
+  },
+  {
+    "name": "GetRawDashboardByUID",
+    "method": "GET",
+    "path": "/api/dashboards/uid/test-dashboard",
+    "authorization": "Bearer test-token",
+    "accept": "application/json",
+    "userAgent": "Go-http-client/1.1",
+    "responseStatus": 200,
+    "responseBody": {
+      "meta": {
+        "type": "db",
+        "canSave": true,
+        "canEdit": true,
+        "canAdmin": true,
+        "canStar": true,
+        "canDelete": true,
+        "slug": "access-the-cluster-slo",
+        "url": "/d/access-cluster-slo/access-the-cluster-slo",
+        "expires": "0001-01-01T00:00:00Z",
+        "created": "2026-07-16T00:30:54Z",
+        "updated": "2026-07-17T16:00:37Z",
+        "updatedBy": "c209f8df-52ae-48fb-98ea-380f58b04652",
+        "createdBy": "c209f8df-52ae-48fb-98ea-380f58b04652",
+        "version": 7,
+        "hasAcl": false,
+        "isFolder": false,
+        "apiVersion": "v0alpha1",
+        "folderId": 246,
+        "folderUid": "bfnh4us7ncd1ce",
+        "folderTitle": "SRE User Journey",
+        "folderUrl": "/dashboards/f/bfnh4us7ncd1ce/sre-user-journey",
+        "provisioned": false,
+        "provisionedExternalId": "",
+        "annotationsPermissions": {
+          "dashboard": {
+            "canAdd": true,
+            "canEdit": true,
+            "canDelete": true
+          },
+          "organization": {
+            "canAdd": true,
+            "canEdit": true,
+            "canDelete": true
+          }
+        }
+      },
+      "dashboard": {
+        "annotations": {
+          "list": [
+            {
+              "datasource": {
+                "type": "grafana",
+                "uid": "-- Grafana --"
+              },
+              "enable": true,
+              "expr": "",
+              "iconColor": "rgba(0, 211, 255, 1)",
+              "iconSize": 0,
+              "lineColor": "",
+              "name": "Annotations \u0026 Alerts",
+              "query": "",
+              "showLine": false,
+              "step": "",
+              "tagKeys": "",
+              "tags": null,
+              "tagsField": "",
+              "textField": "",
+              "textFormat": "",
+              "titleFormat": "",
+              "type": "dashboard"
+            }
+          ]
+        },
+        "editable": true,
+        "graphTooltip": 1,
+        "hideControls": false,
+        "id": 416,
+        "links": [],
+        "originalTitle": "",
+        "panels": [
+          {
+            "content": "",
+            "editable": false,
+            "error": false,
+            "fieldConfig": {
+              "defaults": {
+                "color": {
+                  "mode": ""
+                },
+                "custom": {
+                  "axisPlacement": "",
+                  "barAlignment": 0,
+                  "drawStyle": "",
+                  "fillOpacity": 0,
+                  "gradientMode": "",
+                  "hideFrom": {
+                    "legend": false,
+                    "tooltip": false,
+                    "viz": false
+                  },
+                  "lineInterpolation": "",
+                  "lineStyle": {
+                    "fill": ""
+                  },
+                  "lineWidth": 0,
+                  "pointSize": 0,
+                  "scaleDistribution": {
+                    "type": ""
+                  },
+                  "showPoints": "",
+                  "spanNulls": false,
+                  "stacking": {
+                    "group": "",
+                    "mode": ""
+                  },
+                  "thresholdsStyle": {
+                    "mode": ""
+                  }
+                },
+                "thresholds": {
+                  "mode": "",
+                  "steps": null
+                },
+                "unit": ""
+              }
+            },
+            "gridPos": {
+              "h": 4,
+              "w": 24,
+              "x": 0,
+              "y": 0
+            },
+            "id": 1,
+            "isNew": false,
+            "mode": "",
+            "options": {
+              "content": "### Access the Cluster SLO Dashboard\n\nMonitors credential operation health (requestcredential, revokecredentials) against defined SLOs.\n\n**SLO Targets (Proposed — pending baseline):**\n- Credential operation success rate: 95% over 7-day rolling window\n- Stuck operations: none \u003e 1 hour\n\n**Metrics Source:** `backend_resource_operation_phase_info`, `backend_resource_operation_start_time_seconds` (Cosmos DB-backed)\n\n**Jira:** [ARO-26191](https://redhat.atlassian.net/browse/ARO-26191) | **Runbook:** [Access the Cluster](https://aka.ms/arohcp-runbook-access-cluster)",
+              "mode": "markdown"
+            },
+            "pageSize": 0,
+            "scroll": false,
+            "showHeader": false,
+            "sort": {
+              "col": 0,
+              "desc": false
+            },
+            "span": 0,
+            "styles": null,
+            "title": "Dashboard Info",
+            "transparent": false,
+            "type": "text"
+          },
+          {
+            "colorBackground": false,
+            "colorValue": false,
+            "colors": null,
+            "datasource": {
+              "type": "datasource",
+              "uid": "-- Mixed --"
+            },
+            "decimals": 0,
+            "description": "Current credential operation success rate — fraction of terminal operations in succeeded state. SLO target: 95%.",
+            "editable": false,
+            "error": false,
+            "format": "",
+            "gauge": {
+              "maxValue": 0,
+              "minValue": 0,
+              "show": false,
+              "thresholdLabels": false,
+              "thresholdMarkers": false
+            },
+            "gridPos": {
+              "h": 6,
+              "w": 6,
+              "x": 0,
+              "y": 4
+            },
+            "id": 2,
+            "isNew": false,
+            "nullPointMode": "",
+            "options": {
+              "colorMode": "background",
+              "content": "",
+              "displayMode": "",
+              "graphMode": "none",
+              "justifyMode": "auto",
+              "mode": "",
+              "orientation": "auto",
+              "reduceOptions": {
+                "calcs": [
+                  "lastNotNull"
+                ],
+                "fields": "",
+                "values": false
+              },
+              "textMode": "auto"
+            },
+            "span": 0,
+            "sparkline": {},
+            "targets": [
+              {
+                "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+                },
+                "expr": "(\n  (count(backend_resource_operation_phase_info{resource_type=\"microsoft.redhatopenshift/hcpopenshiftclusters\", operation_type=~\"requestcredential|revokecredentials\", phase=\"succeeded\"}) or vector(0))\n  /\n  (count(backend_resource_operation_phase_info{resource_type=\"microsoft.redhatopenshift/hcpopenshiftclusters\", operation_type=~\"requestcredential|revokecredentials\", phase=~\"succeeded|failed|canceled\"}) \u003e 0 or vector(1))\n) * 100",
+                "instant": true,
+                "legendFormat": "Success Rate",
+                "refId": "A"
+              }
+            ],
+            "thresholds": "",
+            "title": "Credential Operation Success Rate",
+            "transparent": false,
+            "type": "stat",
+            "valueFontSize": "",
+            "valueMaps": null,
+            "valueName": ""
+          },
+          {
+            "colorBackground": false,
+            "colorValue": false,
+            "colors": null,
+            "datasource": {
+              "type": "datasource",
+              "uid": "-- Mixed --"
+            },
+            "decimals": 0,
+            "description": "Current count of credential operations in failed terminal state.",
+            "editable": false,
+            "error": false,
+            "format": "",
+            "gauge": {
+              "maxValue": 0,
+              "minValue": 0,
+              "show": false,
+              "thresholdLabels": false,
+              "thresholdMarkers": false
+            },
+            "gridPos": {
+              "h": 6,
+              "w": 6,
+              "x": 6,
+              "y": 4
+            },
+            "id": 3,
+            "isNew": false,
+            "nullPointMode": "",
+            "options": {
+              "colorMode": "background",
+              "content": "",
+              "displayMode": "",
+              "graphMode": "none",
+              "justifyMode": "auto",
+              "mode": "",
+              "orientation": "auto",
+              "reduceOptions": {
+                "calcs": [
+                  "lastNotNull"
+                ],
+                "fields": "",
+                "values": false
+              },
+              "textMode": "auto"
+            },
+            "span": 0,
+            "sparkline": {},
+            "targets": [
+              {
+                "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+                },
+                "expr": "count(backend_resource_operation_phase_info{resource_type=\"microsoft.redhatopenshift/hcpopenshiftclusters\", operation_type=~\"requestcredential|revokecredentials\", phase=\"failed\"}) or vector(0)",
+                "instant": true,
+                "legendFormat": "Failed Credential Operations",
+                "refId": "A"
+              }
+            ],
+            "thresholds": "",
+            "title": "Failed Credential Operations",
+            "transparent": false,
+            "type": "stat",
+            "valueFontSize": "",
+            "valueMaps": null,
+            "valueName": ""
+          },
+          {
+            "colorBackground": false,
+            "colorValue": false,
+            "colors": null,
+            "datasource": {
+              "type": "datasource",
+              "uid": "-- Mixed --"
+            },
+            "decimals": 0,
+            "description": "Number of credential operations stuck in non-terminal phase for over 1 hour.",
+            "editable": false,
+            "error": false,
+            "format": "",
+            "gauge": {
+              "maxValue": 0,
+              "minValue": 0,
+              "show": false,
+              "thresholdLabels": false,
+              "thresholdMarkers": false
+            },
+            "gridPos": {
+              "h": 6,
+              "w": 6,
+              "x": 12,
+              "y": 4
+            },
+            "id": 4,
+            "isNew": false,
+            "nullPointMode": "",
+            "options": {
+              "colorMode": "background",
+              "content": "",
+              "displayMode": "",
+              "graphMode": "none",
+              "justifyMode": "auto",
+              "mode": "",
+              "orientation": "auto",
+              "reduceOptions": {
+                "calcs": [
+                  "lastNotNull"
+                ],
+                "fields": "",
+                "values": false
+              },
+              "textMode": "auto"
+            },
+            "span": 0,
+            "sparkline": {},
+            "targets": [
+              {
+                "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+                },
+                "expr": "count((time() - backend_resource_operation_start_time_seconds{resource_type=\"microsoft.redhatopenshift/hcpopenshiftclusters\", operation_type=~\"requestcredential|revokecredentials\", phase=~\"accepted|provisioning|deleting\"}) \u003e 3600) or vector(0)",
+                "instant": true,
+                "legendFormat": "Stuck Operations",
+                "refId": "A"
+              }
+            ],
+            "thresholds": "",
+            "title": "Stuck Credential Ops (\u003e1h)",
+            "transparent": false,
+            "type": "stat",
+            "valueFontSize": "",
+            "valueMaps": null,
+            "valueName": ""
+          },
+          {
+            "colorBackground": false,
+            "colorValue": false,
+            "colors": null,
+            "datasource": {
+              "type": "datasource",
+              "uid": "-- Mixed --"
+            },
+            "decimals": 0,
+            "description": "Total credential operations tracked by the backend.",
+            "editable": false,
+            "error": false,
+            "format": "",
+            "gauge": {
+              "maxValue": 0,
+              "minValue": 0,
+              "show": false,
+              "thresholdLabels": false,
+              "thresholdMarkers": false
+            },
+            "gridPos": {
+              "h": 6,
+              "w": 6,
+              "x": 18,
+              "y": 4
+            },
+            "id": 5,
+            "isNew": false,
+            "nullPointMode": "",
+            "options": {
+              "colorMode": "background",
+              "content": "",
+              "displayMode": "",
+              "graphMode": "none",
+              "justifyMode": "auto",
+              "mode": "",
+              "orientation": "auto",
+              "reduceOptions": {
+                "calcs": [
+                  "lastNotNull"
+                ],
+                "fields": "",
+                "values": false
+              },
+              "textMode": "auto"
+            },
+            "span": 0,
+            "sparkline": {},
+            "targets": [
+              {
+                "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+                },
+                "expr": "count(backend_resource_operation_phase_info{resource_type=\"microsoft.redhatopenshift/hcpopenshiftclusters\", operation_type=~\"requestcredential|revokecredentials\"}) or vector(0)",
+                "instant": true,
+                "legendFormat": "Total Credential Operations",
+                "refId": "A"
+              }
+            ],
+            "thresholds": "",
+            "title": "Total Credential Operations",
+            "transparent": false,
+            "type": "stat",
+            "valueFontSize": "",
+            "valueMaps": null,
+            "valueName": ""
+          },
+          {
+            "datasource": {
+              "type": "datasource",
+              "uid": "-- Mixed --"
+            },
+            "description": "Credential operation success rate over time. The green line marks the 95% SLO target.",
+            "editable": false,
+            "error": false,
+            "fieldConfig": {
+              "defaults": {
+                "color": {
+                  "mode": "palette-classic"
+                },
+                "custom": {
+                  "axisPlacement": "auto",
+                  "barAlignment": 0,
+                  "drawStyle": "line",
+                  "fillOpacity": 10,
+                  "gradientMode": "none",
+                  "hideFrom": {
+                    "legend": false,
+                    "tooltip": false,
+                    "viz": false
+                  },
+                  "lineInterpolation": "smooth",
+                  "lineStyle": {
+                    "fill": ""
+                  },
+                  "lineWidth": 2,
+                  "pointSize": 5,
+                  "scaleDistribution": {
+                    "type": ""
+                  },
+                  "showPoints": "never",
+                  "spanNulls": false,
+                  "stacking": {
+                    "group": "",
+                    "mode": ""
+                  },
+                  "thresholdsStyle": {
+                    "mode": "line"
+                  }
+                },
+                "decimals": 1,
+                "max": 100,
+                "min": 0,
+                "thresholds": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "green",
+                      "value": 95
+                    }
+                  ]
+                },
+                "unit": "percent"
+              }
+            },
+            "gridPos": {
+              "h": 8,
+              "w": 12,
+              "x": 0,
+              "y": 10
+            },
+            "id": 6,
+            "isNew": false,
+            "options": {
+              "legend": {
+                "calcs": [
+                  "mean",
+                  "lastNotNull",
+                  "min"
+                ],
+                "displayMode": "table",
+                "placement": "bottom"
+              },
+              "tooltip": {
+                "mode": "multi"
+              }
+            },
+            "span": 0,
+            "targets": [
+              {
+                "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+                },
+                "expr": "(\n  (count(backend_resource_operation_phase_info{resource_type=\"microsoft.redhatopenshift/hcpopenshiftclusters\", operation_type=~\"requestcredential|revokecredentials\", phase=\"succeeded\"}) or vector(0))\n  /\n  (count(backend_resource_operation_phase_info{resource_type=\"microsoft.redhatopenshift/hcpopenshiftclusters\", operation_type=~\"requestcredential|revokecredentials\", phase=~\"succeeded|failed|canceled\"}) \u003e 0 or vector(1))\n) * 100",
+                "legendFormat": "Success Rate %",
+                "refId": "A"
+              }
+            ],
+            "title": "Credential Operation Success Rate Over Time",
+            "transparent": false,
+            "type": "timeseries"
+          },
+          {
+            "datasource": {
+              "type": "datasource",
+              "uid": "-- Mixed --"
+            },
+            "description": "Credential operation phase breakdown over time.",
+            "editable": false,
+            "error": false,
+            "fieldConfig": {
+              "defaults": {
+                "color": {
+                  "mode": "palette-classic"
+                },
+                "custom": {
+                  "axisPlacement": "auto",
+                  "barAlignment": 0,
+                  "drawStyle": "line",
+                  "fillOpacity": 30,
+                  "gradientMode": "none",
+                  "hideFrom": {
+                    "legend": false,
+                    "tooltip": false,
+                    "viz": false
+                  },
+                  "lineInterpolation": "smooth",
+                  "lineStyle": {
+                    "fill": ""
+                  },
+                  "lineWidth": 1,
+                  "pointSize": 5,
+                  "scaleDistribution": {
+                    "type": ""
+                  },
+                  "showPoints": "never",
+                  "spanNulls": false,
+                  "stacking": {
+                    "group": "A",
+                    "mode": "normal"
+                  },
+                  "thresholdsStyle": {
+                    "mode": ""
+                  }
+                },
+                "thresholds": {
+                  "mode": "",
+                  "steps": null
+                },
+                "unit": ""
+              }
+            },
+            "gridPos": {
+              "h": 8,
+              "w": 12,
+              "x": 12,
+              "y": 10
+            },
+            "id": 7,
+            "isNew": false,
+            "options": {
+              "legend": {
+                "calcs": [
+                  "lastNotNull"
+                ],
+                "displayMode": "table",
+                "placement": "bottom"
+              },
+              "tooltip": {
+                "mode": "multi"
+              }
+            },
+            "span": 0,
+            "targets": [
+              {
+                "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+                },
+                "expr": "count by (phase) (backend_resource_operation_phase_info{resource_type=\"microsoft.redhatopenshift/hcpopenshiftclusters\", operation_type=~\"requestcredential|revokecredentials\"})",
+                "legendFormat": "{{ phase }}",
+                "refId": "A"
+              }
+            ],
+            "title": "Credential Operation Phase Distribution",
+            "transparent": false,
+            "type": "timeseries"
+          },
+          {
+            "datasource": {
+              "type": "datasource",
+              "uid": "-- Mixed --"
+            },
+            "description": "Duration of in-flight credential operations (time since start for operations in non-terminal phases).",
+            "editable": false,
+            "error": false,
+            "fieldConfig": {
+              "defaults": {
+                "color": {
+                  "mode": "palette-classic"
+                },
+                "custom": {
+                  "axisLabel": "Duration",
+                  "axisPlacement": "auto",
+                  "barAlignment": 0,
+                  "drawStyle": "bars",
+                  "fillOpacity": 80,
+                  "gradientMode": "none",
+                  "hideFrom": {
+                    "legend": false,
+                    "tooltip": false,
+                    "viz": false
+                  },
+                  "lineInterpolation": "",
+                  "lineStyle": {
+                    "fill": ""
+                  },
+                  "lineWidth": 1,
+                  "pointSize": 5,
+                  "scaleDistribution": {
+                    "type": ""
+                  },
+                  "showPoints": "never",
+                  "spanNulls": false,
+                  "stacking": {
+                    "group": "",
+                    "mode": ""
+                  },
+                  "thresholdsStyle": {
+                    "mode": ""
+                  }
+                },
+                "thresholds": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 600
+                    },
+                    {
+                      "color": "red",
+                      "value": 3600
+                    }
+                  ]
+                },
+                "unit": "s"
+              }
+            },
+            "gridPos": {
+              "h": 8,
+              "w": 12,
+              "x": 0,
+              "y": 18
+            },
+            "id": 8,
+            "isNew": false,
+            "options": {
+              "legend": {
+                "calcs": [
+                  "max"
+                ],
+                "displayMode": "table",
+                "placement": "bottom"
+              },
+              "tooltip": {
+                "mode": "multi"
+              }
+            },
+            "span": 0,
+            "targets": [
+              {
+                "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+                },
+                "expr": "time() - backend_resource_operation_start_time_seconds{resource_type=\"microsoft.redhatopenshift/hcpopenshiftclusters\", operation_type=~\"requestcredential|revokecredentials\", phase=~\"accepted|provisioning|deleting\"}",
+                "legendFormat": "{{ resource_id }} ({{ phase }})",
+                "refId": "A"
+              }
+            ],
+            "title": "In-Flight Credential Operation Duration",
+            "transparent": false,
+            "type": "timeseries"
+          },
+          {
+            "datasource": {
+              "type": "datasource",
+              "uid": "-- Mixed --"
+            },
+            "description": "Duration of completed credential operations (succeeded and failed).",
+            "editable": false,
+            "error": false,
+            "fieldConfig": {
+              "defaults": {
+                "color": {
+                  "mode": "palette-classic"
+                },
+                "custom": {
+                  "axisLabel": "Duration",
+                  "axisPlacement": "auto",
+                  "barAlignment": 0,
+                  "drawStyle": "points",
+                  "fillOpacity": 0,
+                  "gradientMode": "none",
+                  "hideFrom": {
+                    "legend": false,
+                    "tooltip": false,
+                    "viz": false
+                  },
+                  "lineInterpolation": "",
+                  "lineStyle": {
+                    "fill": ""
+                  },
+                  "lineWidth": 1,
+                  "pointSize": 8,
+                  "scaleDistribution": {
+                    "type": ""
+                  },
+                  "showPoints": "always",
+                  "spanNulls": false,
+                  "stacking": {
+                    "group": "",
+                    "mode": ""
+                  },
+                  "thresholdsStyle": {
+                    "mode": ""
+                  }
+                },
+                "thresholds": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 600
+                    },
+                    {
+                      "color": "red",
+                      "value": 1200
+                    }
+                  ]
+                },
+                "unit": "s"
+              }
+            },
+            "gridPos": {
+              "h": 8,
+              "w": 12,
+              "x": 12,
+              "y": 18
+            },
+            "id": 9,
+            "isNew": false,
+            "options": {
+              "legend": {
+                "calcs": [
+                  "mean",
+                  "max"
+                ],
+                "displayMode": "table",
+                "placement": "bottom"
+              },
+              "tooltip": {
+                "mode": "multi"
+              }
+            },
+            "span": 0,
+            "targets": [
+              {
+                "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+                },
+                "expr": "backend_resource_operation_last_transition_time_seconds{resource_type=\"microsoft.redhatopenshift/hcpopenshiftclusters\", operation_type=~\"requestcredential|revokecredentials\", phase=~\"succeeded|failed|canceled\"} - backend_resource_operation_start_time_seconds{resource_type=\"microsoft.redhatopenshift/hcpopenshiftclusters\", operation_type=~\"requestcredential|revokecredentials\", phase=~\"succeeded|failed|canceled\"}",
+                "legendFormat": "{{ operation_type }} - {{ phase }}",
+                "refId": "A"
+              }
+            ],
+            "title": "Completed Credential Operation Duration",
+            "transparent": false,
+            "type": "timeseries"
+          },
+          {
+            "datasource": {
+              "type": "datasource",
+              "uid": "-- Mixed --"
+            },
+            "description": "Frontend request rate for credential endpoints (requestAdminCredential, revokeCredentials).",
+            "editable": false,
+            "error": false,
+            "fieldConfig": {
+              "defaults": {
+                "color": {
+                  "mode": "palette-classic"
+                },
+                "custom": {
+                  "axisLabel": "Requests/sec",
+                  "axisPlacement": "auto",
+                  "barAlignment": 0,
+                  "drawStyle": "line",
+                  "fillOpacity": 10,
+                  "gradientMode": "none",
+                  "hideFrom": {
+                    "legend": false,
+                    "tooltip": false,
+                    "viz": false
+                  },
+                  "lineInterpolation": "smooth",
+                  "lineStyle": {
+                    "fill": ""
+                  },
+                  "lineWidth": 2,
+                  "pointSize": 5,
+                  "scaleDistribution": {
+                    "type": ""
+                  },
+                  "showPoints": "never",
+                  "spanNulls": false,
+                  "stacking": {
+                    "group": "",
+                    "mode": ""
+                  },
+                  "thresholdsStyle": {
+                    "mode": ""
+                  }
+                },
+                "thresholds": {
+                  "mode": "",
+                  "steps": null
+                },
+                "unit": ""
+              }
+            },
+            "gridPos": {
+              "h": 8,
+              "w": 12,
+              "x": 0,
+              "y": 26
+            },
+            "id": 10,
+            "isNew": false,
+            "options": {
+              "legend": {
+                "calcs": [
+                  "mean",
+                  "max"
+                ],
+                "displayMode": "table",
+                "placement": "bottom"
+              },
+              "tooltip": {
+                "mode": "multi"
+              }
+            },
+            "span": 0,
+            "targets": [
+              {
+                "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+                },
+                "expr": "sum by (route, code) (rate(frontend_http_requests_total{route=~\".*requestadmincredential.*|.*revokecredentials.*\"}[5m]))",
+                "legendFormat": "{{ route }} [{{ code }}]",
+                "refId": "A"
+              }
+            ],
+            "title": "Frontend Credential Request Rate (Traffic)",
+            "transparent": false,
+            "type": "timeseries"
+          },
+          {
+            "datasource": {
+              "type": "datasource",
+              "uid": "-- Mixed --"
+            },
+            "description": "Credential operations by type (requestcredential vs revokecredentials) in terminal states.",
+            "editable": false,
+            "error": false,
+            "fieldConfig": {
+              "defaults": {
+                "color": {
+                  "mode": "palette-classic"
+                },
+                "custom": {
+                  "axisPlacement": "auto",
+                  "barAlignment": 0,
+                  "drawStyle": "line",
+                  "fillOpacity": 10,
+                  "gradientMode": "none",
+                  "hideFrom": {
+                    "legend": false,
+                    "tooltip": false,
+                    "viz": false
+                  },
+                  "lineInterpolation": "smooth",
+                  "lineStyle": {
+                    "fill": ""
+                  },
+                  "lineWidth": 2,
+                  "pointSize": 5,
+                  "scaleDistribution": {
+                    "type": ""
+                  },
+                  "showPoints": "never",
+                  "spanNulls": false,
+                  "stacking": {
+                    "group": "",
+                    "mode": ""
+                  },
+                  "thresholdsStyle": {
+                    "mode": ""
+                  }
+                },
+                "thresholds": {
+                  "mode": "",
+                  "steps": null
+                },
+                "unit": ""
+              }
+            },
+            "gridPos": {
+              "h": 8,
+              "w": 12,
+              "x": 12,
+              "y": 26
+            },
+            "id": 11,
+            "isNew": false,
+            "options": {
+              "legend": {
+                "calcs": [
+                  "lastNotNull"
+                ],
+                "displayMode": "table",
+                "placement": "bottom"
+              },
+              "tooltip": {
+                "mode": "multi"
+              }
+            },
+            "span": 0,
+            "targets": [
+              {
+                "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+                },
+                "expr": "count by (operation_type, phase) (backend_resource_operation_phase_info{resource_type=\"microsoft.redhatopenshift/hcpopenshiftclusters\", operation_type=~\"requestcredential|revokecredentials\", phase=~\"succeeded|failed|canceled\"})",
+                "legendFormat": "{{ operation_type }} - {{ phase }}",
+                "refId": "A"
+              }
+            ],
+            "title": "Credential Operations by Type and Outcome",
+            "transparent": false,
+            "type": "timeseries"
+          },
+          {
+            "collapsed": false,
+            "editable": false,
+            "error": false,
+            "gridPos": {
+              "h": 1,
+              "w": 24,
+              "x": 0,
+              "y": 34
+            },
+            "id": 20,
+            "isNew": false,
+            "panels": null,
+            "span": 0,
+            "title": "Component Health — Workqueue",
+            "transparent": false,
+            "type": "row"
+          },
+          {
+            "datasource": {
+              "type": "datasource",
+              "uid": "-- Mixed --"
+            },
+            "description": "Credential controller workqueue depth. Alert threshold: \u003e 10 for 5 minutes.",
+            "editable": false,
+            "error": false,
+            "fieldConfig": {
+              "defaults": {
+                "color": {
+                  "mode": "palette-classic"
+                },
+                "custom": {
+                  "axisLabel": "Queue Depth",
+                  "axisPlacement": "auto",
+                  "barAlignment": 0,
+                  "drawStyle": "line",
+                  "fillOpacity": 20,
+                  "gradientMode": "none",
+                  "hideFrom": {
+                    "legend": false,
+                    "tooltip": false,
+                    "viz": false
+                  },
+                  "lineInterpolation": "smooth",
+                  "lineStyle": {
+                    "fill": ""
+                  },
+                  "lineWidth": 2,
+                  "pointSize": 5,
+                  "scaleDistribution": {
+                    "type": ""
+                  },
+                  "showPoints": "never",
+                  "spanNulls": false,
+                  "stacking": {
+                    "group": "",
+                    "mode": ""
+                  },
+                  "thresholdsStyle": {
+                    "mode": "line"
+                  }
+                },
+                "thresholds": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 10
+                    }
+                  ]
+                },
+                "unit": ""
+              }
+            },
+            "gridPos": {
+              "h": 8,
+              "w": 12,
+              "x": 0,
+              "y": 35
+            },
+            "id": 21,
+            "isNew": false,
+            "options": {
+              "legend": {
+                "calcs": [
+                  "mean",
+                  "max"
+                ],
+                "displayMode": "table",
+                "placement": "bottom"
+              },
+              "tooltip": {
+                "mode": "multi"
+              }
+            },
+            "span": 0,
+            "targets": [
+              {
+                "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+                },
+                "expr": "max by (name, cluster) (max without(prometheus_replica) (workqueue_depth{namespace=\"aro-hcp\", name=~\".*(RequestCredential|RevokeCredentials).*\"}))",
+                "legendFormat": "{{ name }} ({{ cluster }})",
+                "refId": "A"
+              }
+            ],
+            "title": "Credential Workqueue Depth",
+            "transparent": false,
+            "type": "timeseries"
+          },
+          {
+            "datasource": {
+              "type": "datasource",
+              "uid": "-- Mixed --"
+            },
+            "description": "Ratio of retries to total adds for credential controllers. Alert threshold: \u003e 50% for 10 minutes.",
+            "editable": false,
+            "error": false,
+            "fieldConfig": {
+              "defaults": {
+                "color": {
+                  "mode": "palette-classic"
+                },
+                "custom": {
+                  "axisLabel": "Retry Ratio",
+                  "axisPlacement": "auto",
+                  "barAlignment": 0,
+                  "drawStyle": "line",
+                  "fillOpacity": 10,
+                  "gradientMode": "none",
+                  "hideFrom": {
+                    "legend": false,
+                    "tooltip": false,
+                    "viz": false
+                  },
+                  "lineInterpolation": "smooth",
+                  "lineStyle": {
+                    "fill": ""
+                  },
+                  "lineWidth": 2,
+                  "pointSize": 5,
+                  "scaleDistribution": {
+                    "type": ""
+                  },
+                  "showPoints": "never",
+                  "spanNulls": false,
+                  "stacking": {
+                    "group": "",
+                    "mode": ""
+                  },
+                  "thresholdsStyle": {
+                    "mode": "line"
+                  }
+                },
+                "max": 1,
+                "min": 0,
+                "thresholds": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 0.5
+                    }
+                  ]
+                },
+                "unit": "percentunit"
+              }
+            },
+            "gridPos": {
+              "h": 8,
+              "w": 12,
+              "x": 12,
+              "y": 35
+            },
+            "id": 22,
+            "isNew": false,
+            "options": {
+              "legend": {
+                "calcs": [
+                  "mean",
+                  "max"
+                ],
+                "displayMode": "table",
+                "placement": "bottom"
+              },
+              "tooltip": {
+                "mode": "multi"
+              }
+            },
+            "span": 0,
+            "targets": [
+              {
+                "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+                },
+                "expr": "sum by (name, cluster) (max without(prometheus_replica) (rate(workqueue_retries_total{namespace=\"aro-hcp\", name=~\".*(RequestCredential|RevokeCredentials).*\"}[10m]))) / sum by (name, cluster) (max without(prometheus_replica) (rate(workqueue_adds_total{namespace=\"aro-hcp\", name=~\".*(RequestCredential|RevokeCredentials).*\"}[10m])))",
+                "legendFormat": "{{ name }} ({{ cluster }})",
+                "refId": "A"
+              }
+            ],
+            "title": "Credential Workqueue Retry Ratio",
+            "transparent": false,
+            "type": "timeseries"
+          },
+          {
+            "datasource": {
+              "type": "datasource",
+              "uid": "-- Mixed --"
+            },
+            "description": "Rate of items being added to credential workqueues.",
+            "editable": false,
+            "error": false,
+            "fieldConfig": {
+              "defaults": {
+                "color": {
+                  "mode": "palette-classic"
+                },
+                "custom": {
+                  "axisLabel": "Items/sec",
+                  "axisPlacement": "auto",
+                  "barAlignment": 0,
+                  "drawStyle": "line",
+                  "fillOpacity": 10,
+                  "gradientMode": "none",
+                  "hideFrom": {
+                    "legend": false,
+                    "tooltip": false,
+                    "viz": false
+                  },
+                  "lineInterpolation": "smooth",
+                  "lineStyle": {
+                    "fill": ""
+                  },
+                  "lineWidth": 2,
+                  "pointSize": 5,
+                  "scaleDistribution": {
+                    "type": ""
+                  },
+                  "showPoints": "never",
+                  "spanNulls": false,
+                  "stacking": {
+                    "group": "",
+                    "mode": ""
+                  },
+                  "thresholdsStyle": {
+                    "mode": ""
+                  }
+                },
+                "thresholds": {
+                  "mode": "",
+                  "steps": null
+                },
+                "unit": ""
+              }
+            },
+            "gridPos": {
+              "h": 8,
+              "w": 12,
+              "x": 0,
+              "y": 43
+            },
+            "id": 23,
+            "isNew": false,
+            "options": {
+              "legend": {
+                "calcs": [
+                  "mean",
+                  "max"
+                ],
+                "displayMode": "table",
+                "placement": "bottom"
+              },
+              "tooltip": {
+                "mode": "multi"
+              }
+            },
+            "span": 0,
+            "targets": [
+              {
+                "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+                },
+                "expr": "sum by (name, cluster) (max without(prometheus_replica) (rate(workqueue_adds_total{namespace=\"aro-hcp\", name=~\".*(RequestCredential|RevokeCredentials).*\"}[5m])))",
+                "legendFormat": "{{ name }} ({{ cluster }})",
+                "refId": "A"
+              }
+            ],
+            "title": "Credential Workqueue Add Rate (Traffic)",
+            "transparent": false,
+            "type": "timeseries"
+          },
+          {
+            "columns": null,
+            "datasource": {
+              "type": "datasource",
+              "uid": "-- Mixed --"
+            },
+            "description": "Table of currently failed credential operations with resource details.",
+            "editable": false,
+            "error": false,
+            "gridPos": {
+              "h": 8,
+              "w": 12,
+              "x": 12,
+              "y": 43
+            },
+            "id": 24,
+            "isNew": false,
+            "scroll": false,
+            "span": 0,
+            "styles": null,
+            "targets": [
+              {
+                "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+                },
+                "expr": "backend_resource_operation_phase_info{resource_type=\"microsoft.redhatopenshift/hcpopenshiftclusters\", operation_type=~\"requestcredential|revokecredentials\", phase=\"failed\"} == 1",
+                "format": "table",
+                "instant": true,
+                "refId": "A"
+              }
+            ],
+            "title": "Failed Credential Operations Detail",
+            "transform": "",
+            "transparent": false,
+            "type": "table"
+          }
+        ],
+        "rows": null,
+        "schemaVersion": 39,
+        "sharedCrosshair": false,
+        "slug": "",
+        "style": "",
+        "tags": [
+          "aro-hcp",
+          "access-cluster",
+          "slo",
+          "user-journey"
+        ],
+        "templating": {
+          "list": [
+            {
+              "allFormat": "",
+              "allValue": "",
+              "current": {
+                "text": [
+                  "All"
+                ],
+                "value": "$__all"
+              },
+              "datasource": null,
+              "hide": 0,
+              "includeAll": true,
+              "label": "",
+              "multi": false,
+              "multiFormat": "",
+              "name": "datasource",
+              "options": [],
+              "query": "prometheus",
+              "refresh": 1,
+              "regex": "^Managed_Prometheus_services-.*$",
+              "sort": 0,
+              "type": "datasource"
+            }
+          ]
+        },
+        "time": {
+          "from": "now-7d",
+          "to": "now"
+        },
+        "timepicker": {
+          "refresh_intervals": null,
+          "time_options": null
+        },
+        "timezone": "browser",
+        "title": "Access the Cluster SLO",
+        "uid": "access-cluster-slo",
+        "version": 7
+      }
+    }
+  },
+  {
+    "name": "SetRawDashboard",
+    "method": "POST",
+    "path": "/api/dashboards/db",
+    "authorization": "Bearer test-token",
+    "accept": "application/json",
+    "contentType": "application/json",
+    "userAgent": "Go-http-client/1.1",
+    "requestBody": {
+      "dashboard": {
+        "id": null,
+        "uid": "test-dashboard",
+        "title": "Test Dashboard",
+        "version": 7,
+        "templating": {
+          "list": [
+            {
+              "name": "datasource",
+              "query": "prometheus",
+              "regex": "/managed-prometheus/",
+              "type": "datasource"
+            }
+          ]
+        },
+        "panels": [
+          {
+            "id": 1,
+            "title": "Status",
+            "type": "table",
+            "transformations": [
+              {
+                "id": "renameByRegex",
+                "options": {
+                  "regex": "^Value$",
+                  "renamePattern": "Time in Progress (Minutes)"
+                }
+              }
+            ],
+            "pluginSpecificField": {
+              "preserve": true
+            }
+          }
+        ]
+      },
+      "folderUid": "folder-uid",
+      "overwrite": true
+    },
+    "responseStatus": 200,
+    "responseBody": {
+      "status": "success",
+      "uid": "test-dashboard",
+      "id": 1,
+      "url": "/d/test-dashboard",
+      "slug": "test",
+      "version": 1
+    }
+  },
+  {
+    "name": "DeleteDashboardByUID",
+    "method": "DELETE",
+    "path": "/api/dashboards/uid/test-dashboard",
+    "authorization": "Bearer test-token",
+    "accept": "application/json",
+    "userAgent": "Go-http-client/1.1",
+    "responseStatus": 200,
+    "responseBody": {
+      "title": "Test Dashboard",
+      "message": "Dashboard deleted",
+      "id": 1
+    }
+  },
+  {
+    "name": "GetFolderPermissions",
+    "method": "GET",
+    "path": "/api/folders/folder-uid/permissions",
+    "authorization": "Bearer test-token",
+    "accept": "application/json",
+    "userAgent": "Go-http-client/1.1",
+    "responseStatus": 200,
+    "responseBody": [
+      {
+        "created": "2026-06-22T20:24:44Z",
+        "folderId": 338,
+        "inherited": false,
+        "isFolder": true,
+        "permission": 4,
+        "permissionName": "Admin",
+        "slug": "",
+        "team": "",
+        "teamAvatarUrl": "",
+        "teamEmail": "",
+        "teamId": 0,
+        "teamUid": "",
+        "title": "achvtest",
+        "uid": "ffpxq3s5iwg74b",
+        "updated": "2026-06-22T20:24:44Z",
+        "url": "/dashboards/f/ffpxq3s5iwg74b/achvtest",
+        "userAvatarUrl": "\u003credacted\u003e",
+        "userEmail": "\u003credacted\u003e",
+        "userId": 134,
+        "userLogin": "\u003credacted\u003e",
+        "userUid": "\u003credacted\u003e"
+      },
+      {
+        "created": "2026-06-22T20:24:44Z",
+        "folderId": 338,
+        "inherited": false,
+        "isFolder": true,
+        "permission": 2,
+        "permissionName": "Edit",
+        "role": "Editor",
+        "slug": "",
+        "team": "",
+        "teamAvatarUrl": "",
+        "teamEmail": "",
+        "teamId": 0,
+        "teamUid": "",
+        "title": "achvtest",
+        "uid": "ffpxq3s5iwg74b",
+        "updated": "2026-06-22T20:24:44Z",
+        "url": "/dashboards/f/ffpxq3s5iwg74b/achvtest",
+        "userAvatarUrl": "",
+        "userEmail": "",
+        "userId": 0,
+        "userLogin": "",
+        "userUid": ""
+      },
+      {
+        "created": "2026-06-22T20:24:44Z",
+        "folderId": 338,
+        "inherited": false,
+        "isFolder": true,
+        "permission": 1,
+        "permissionName": "View",
+        "role": "Viewer",
+        "slug": "",
+        "team": "",
+        "teamAvatarUrl": "",
+        "teamEmail": "",
+        "teamId": 0,
+        "teamUid": "",
+        "title": "achvtest",
+        "uid": "ffpxq3s5iwg74b",
+        "updated": "2026-06-22T20:24:44Z",
+        "url": "/dashboards/f/ffpxq3s5iwg74b/achvtest",
+        "userAvatarUrl": "",
+        "userEmail": "",
+        "userId": 0,
+        "userLogin": "",
+        "userUid": ""
+      }
+    ]
+  },
+  {
+    "name": "UpdateFolderPermissions",
+    "method": "POST",
+    "path": "/api/folders/folder-uid/permissions",
+    "authorization": "Bearer test-token",
+    "accept": "application/json",
+    "contentType": "application/json",
+    "userAgent": "Go-http-client/1.1",
+    "requestBody": {
+      "items": [
+        {
+          "permission": 2,
+          "role": "Viewer"
+        },
+        {
+          "permission": 2,
+          "role": "Editor"
+        },
+        {
+          "permission": 4,
+          "role": "Admin"
+        }
+      ]
+    },
+    "responseStatus": 200,
+    "responseBody": {
+      "message": "Folder permissions updated"
+    }
+  },
+  {
+    "name": "DeleteFolderByUID",
+    "method": "DELETE",
+    "path": "/api/folders/folder-uid",
+    "authorization": "Bearer test-token",
+    "accept": "application/json",
+    "userAgent": "Go-http-client/1.1",
+    "responseStatus": 200,
+    "responseBody": {
+      "id": 1,
+      "title": "SRE",
+      "message": "Folder deleted"
+    }
+  }
+]

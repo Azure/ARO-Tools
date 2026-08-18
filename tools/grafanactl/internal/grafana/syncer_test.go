@@ -65,8 +65,8 @@ func TestReadDashboardFilePreservesUnknownFields(t *testing.T) {
 
 	dashboard, err := readDashboardFile(path)
 	require.NoError(t, err)
-	require.Equal(t, "test-dashboard", dashboard.board.UID)
-	require.Equal(t, "Test Dashboard", dashboard.board.Title)
+	require.Equal(t, "test-dashboard", dashboard.meta.UID)
+	require.Equal(t, "Test Dashboard", dashboard.meta.Title)
 
 	var raw map[string]interface{}
 	require.NoError(t, json.Unmarshal(dashboard.raw, &raw))
@@ -82,7 +82,7 @@ func TestReadDashboardFileUnwrapsDashboard(t *testing.T) {
 
 	dashboard, err := readDashboardFile(path)
 	require.NoError(t, err)
-	require.Equal(t, "test-dashboard", dashboard.board.UID)
+	require.Equal(t, "test-dashboard", dashboard.meta.UID)
 
 	var raw map[string]interface{}
 	require.NoError(t, json.Unmarshal(dashboard.raw, &raw))
@@ -105,7 +105,7 @@ func TestReadDashboardFileFallsBackForRawDashboardField(t *testing.T) {
 
 	dashboard, err := readDashboardFile(path)
 	require.NoError(t, err)
-	require.Equal(t, "test-dashboard", dashboard.board.UID)
+	require.Equal(t, "test-dashboard", dashboard.meta.UID)
 	require.JSONEq(t, raw, string(dashboard.raw))
 }
 
