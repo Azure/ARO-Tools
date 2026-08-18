@@ -65,6 +65,11 @@ func (e *EV2RetryableError) Unwrap() error {
 	return e.Cause
 }
 
+// abortTimeout bounds the best-effort abort issued when monitoring is cancelled.
+// It must stay well within the process's shutdown grace period so the request can
+// be sent before the container is killed.
+const abortTimeout = 30 * time.Second
+
 // Monitor handles job execution and monitoring
 type Monitor struct {
 	client               *Client
@@ -73,6 +78,7 @@ type Monitor struct {
 	dryRun               bool
 	gatePromotion        bool
 	allowEV2Retry        bool
+	abortOnCancel        bool
 	maxAutoRetryFailures int
 
 	// checkRetryMarker fetches finished.json for a job's status URL and reports
@@ -89,7 +95,7 @@ type Monitor struct {
 // gatePromotion is also true. maxAutoRetryFailures caps how many failed tests a run may
 // have (all labeled allow-retry) and still qualify; pass DefaultMaxEV2AutoRetryFailures
 // unless a caller wants to tune it without an ARO-HCP rebuild.
-func NewMonitor(client *Client, pollInterval, timeout time.Duration, dryRun, gatePromotion, allowEV2Retry bool, maxAutoRetryFailures int) *Monitor {
+func NewMonitor(client *Client, pollInterval, timeout time.Duration, dryRun, gatePromotion, allowEV2Retry, abortOnCancel bool, maxAutoRetryFailures int) *Monitor {
 	return &Monitor{
 		client:               client,
 		pollInterval:         pollInterval,
@@ -97,6 +103,7 @@ func NewMonitor(client *Client, pollInterval, timeout time.Duration, dryRun, gat
 		dryRun:               dryRun,
 		gatePromotion:        gatePromotion,
 		allowEV2Retry:        allowEV2Retry,
+		abortOnCancel:        abortOnCancel,
 		maxAutoRetryFailures: maxAutoRetryFailures,
 		checkRetryMarker:     jobAllowsEV2Retry,
 	}
@@ -120,7 +127,8 @@ type JobOutcome struct {
 	JobURL string
 }
 
-// WaitForCompletion polls job status until completion.
+// WaitForCompletion polls job status until completion. Cancellation of ctx is
+// treated as a signal to abort the Prow job when abortOnCancel is set.
 func (m *Monitor) WaitForCompletion(ctx context.Context, logger logr.Logger, prowExecutionID string) error {
 	return m.waitForCompletion(ctx, logger, prowExecutionID).Err
 }
@@ -129,7 +137,11 @@ func (m *Monitor) WaitForCompletion(ctx context.Context, logger logr.Logger, pro
 // that need to distinguish a retry-eligible job failure (ExecuteAndWait) can check
 // outcome.Retryable directly, without control flow via typed-error inspection.
 func (m *Monitor) waitForCompletion(ctx context.Context, logger logr.Logger, prowExecutionID string) JobOutcome {
-	ctx, cancel := context.WithTimeout(ctx, m.timeout)
+	// Bound monitoring by the configured timeout while keeping a handle on the
+	// caller's context, so an external cancellation (e.g. EV2/ACI sending SIGTERM
+	// when the rollout is cancelled) can be told apart from our own timeout.
+	parent := ctx
+	monCtx, cancel := context.WithTimeout(parent, m.timeout)
 	defer cancel()
 
 	// Create ticker for polling interval
@@ -138,7 +150,7 @@ func (m *Monitor) waitForCompletion(ctx context.Context, logger logr.Logger, pro
 
 	// Check status immediately, then poll at intervals
 	for {
-		job, err := m.client.GetJobStatus(ctx, prowExecutionID)
+		job, err := m.client.GetJobStatus(monCtx, prowExecutionID)
 		if err != nil {
 			logger.Error(err, "Failed to get job status after retries, will continue polling")
 		} else {
@@ -190,7 +202,13 @@ func (m *Monitor) waitForCompletion(ctx context.Context, logger logr.Logger, pro
 		}
 
 		select {
-		case <-ctx.Done():
+		case <-monCtx.Done():
+			// Distinguish caller cancellation (rollout cancelled) from the
+			// monitor's own timeout: only the former should abort the Prow job.
+			if parent.Err() != nil {
+				m.handleCancellation(parent, logger, prowExecutionID)
+				return JobOutcome{Err: fmt.Errorf("job monitoring cancelled for job %s: %w", prowExecutionID, context.Cause(parent))}
+			}
 			if job != nil {
 				return JobOutcome{
 					Err:    fmt.Errorf("job monitoring timed out after %v - job %s may still be running, check Prow UI: %s", m.timeout, prowExecutionID, job.Status.URL),
@@ -201,6 +219,30 @@ func (m *Monitor) waitForCompletion(ctx context.Context, logger logr.Logger, pro
 		case <-ticker.C:
 			// Continue to next iteration
 		}
+	}
+}
+
+// handleCancellation makes a best-effort attempt to abort the Prow job after the
+// monitoring context was cancelled by the caller (rollout cancellation). The
+// abort runs on a fresh, short-lived context derived from the cancelled parent
+// (values preserved, cancellation dropped) so the request can still be sent
+// during the process's shutdown grace period.
+func (m *Monitor) handleCancellation(parent context.Context, logger logr.Logger, prowExecutionID string) {
+	if !m.abortOnCancel {
+		logger.Info("Monitoring cancelled; abort-on-cancel disabled, leaving Prow job running", "prowExecutionID", prowExecutionID)
+		return
+	}
+
+	logger.Info("Monitoring cancelled; handling Prow job abort", "prowExecutionID", prowExecutionID)
+	// Derive a fresh, short-lived context (values preserved, cancellation dropped)
+	// and re-attach the logger explicitly: the client methods extract it via
+	// logr.FromContext, so the abort must not depend on the parent carrying one.
+	abortCtx, cancel := context.WithTimeout(context.WithoutCancel(parent), abortTimeout)
+	abortCtx = logr.NewContext(abortCtx, logger)
+	defer cancel()
+
+	if err := m.client.AbortJob(abortCtx, prowExecutionID); err != nil {
+		logger.Error(err, "Failed to abort Prow job after cancellation", "prowExecutionID", prowExecutionID)
 	}
 }
 
