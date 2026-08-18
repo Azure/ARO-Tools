@@ -135,7 +135,7 @@ func newClient(endpoint, token string) (*Client, error) {
 // An endpoint that already ends in "/api" is used as-is to avoid "/api/api".
 func parseGrafanaAPILocation(endpoint string) (grafanaAPILocation, error) {
 	if endpoint == "" {
-		return grafanaAPILocation{}, fmt.Errorf("Grafana endpoint is empty")
+		return grafanaAPILocation{}, fmt.Errorf("grafana endpoint is empty")
 	}
 	if !strings.Contains(endpoint, "://") {
 		endpoint = "https://" + endpoint
@@ -342,7 +342,7 @@ func (c *Client) GetRawDashboardByUID(ctx context.Context, uid string) ([]byte, 
 	if err != nil {
 		return nil, BoardProperties{}, fmt.Errorf("failed to get dashboard %q: %w", uid, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		// Drain a bounded amount so the connection can be reused; do not keep
@@ -427,7 +427,7 @@ func (c *Client) SetRawDashboard(ctx context.Context, dashboard []byte, folderUI
 	if err != nil {
 		return fmt.Errorf("failed to set dashboard: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if _, err := io.Copy(io.Discard, resp.Body); err != nil {
 		return fmt.Errorf("failed to set dashboard: %w", err)

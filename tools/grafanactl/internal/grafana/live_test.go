@@ -108,12 +108,12 @@ func TestSeedHTTPGolden(t *testing.T) {
 	goldenPath := filepath.Join("testdata", "http", httpGoldenFixture)
 	golden := loadGolden(t, goldenPath)
 	bodies := map[string]json.RawMessage{
-		"ListDataSources":       datasources,
-		"ListFolders":           folders,
-		"ListDashboards":        dashboards,
-		"SearchFolders":         searchFolders,
-		"GetFolderPermissions":  permissions,
-		"GetRawDashboardByUID":  dashboard,
+		"ListDataSources":      datasources,
+		"ListFolders":          folders,
+		"ListDashboards":       dashboards,
+		"SearchFolders":        searchFolders,
+		"GetFolderPermissions": permissions,
+		"GetRawDashboardByUID": dashboard,
 	}
 	for i, rec := range golden {
 		if body, ok := bodies[rec.Name]; ok {
@@ -142,7 +142,7 @@ func seedGET(ctx context.Context, c *Client, relPath string, query url.Values) (
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
