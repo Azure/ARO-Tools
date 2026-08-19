@@ -4,6 +4,7 @@ use (
 	./config
 	./pipelines
 	./testutil
+	./tools/acrauth
 	./tools/cmdutils
 	./tools/grafanactl
 	./tools/helm
