@@ -70,6 +70,13 @@ type ResourceGraphDiscoveryClient struct {
 	client *armresourcegraph.Client
 }
 
+// KustoCluster identifies a managed Kusto cluster and its geography tag.
+type KustoCluster struct {
+	ResourceID        string
+	Geography         string
+	ProvisioningState string
+}
+
 // NewResourceGraphDiscoveryClient creates a new ResourceGraphDiscoveryClient.
 func NewResourceGraphDiscoveryClient(cred azcore.TokenCredential, clientOptions *arm.ClientOptions) (*ResourceGraphDiscoveryClient, error) {
 	client, err := armresourcegraph.NewClient(cred, clientOptions)
@@ -125,4 +132,91 @@ func (c *ResourceGraphDiscoveryClient) DiscoverMonitorWorkspaceIDs(ctx context.C
 	}
 
 	return ids, nil
+}
+
+// DiscoverKustoClusters returns Kusto clusters tagged for ARO HCP logs in one environment.
+func (c *ResourceGraphDiscoveryClient) DiscoverKustoClusters(ctx context.Context, subscriptionID, environment string) ([]KustoCluster, error) {
+	format := armresourcegraph.ResultFormatObjectArray
+
+	var clusters []KustoCluster
+	var skipToken *string
+	for {
+		request, err := newKustoClusterQueryRequest(subscriptionID, environment, format, skipToken)
+		if err != nil {
+			return nil, err
+		}
+		result, err := c.client.Resources(ctx, request, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to query Resource Graph for Kusto clusters: %w", err)
+		}
+
+		rows, ok := result.Data.([]any)
+		if !ok {
+			raw, _ := json.Marshal(result.Data)
+			return nil, fmt.Errorf("unexpected Resource Graph result type: %T (raw: %s)", result.Data, string(raw))
+		}
+
+		for _, row := range rows {
+			values, ok := row.(map[string]any)
+			if !ok {
+				continue
+			}
+			id, ok := values["id"].(string)
+			if !ok || id == "" {
+				continue
+			}
+			geography, _ := values["geography"].(string)
+			provisioningState, _ := values["provisioningState"].(string)
+			clusters = append(clusters, KustoCluster{
+				ResourceID:        id,
+				Geography:         geography,
+				ProvisioningState: provisioningState,
+			})
+		}
+
+		skipToken = result.SkipToken
+		if skipToken == nil || *skipToken == "" {
+			break
+		}
+	}
+
+	return clusters, nil
+}
+
+// ValidateKustoEnvironment validates a value before it is embedded in a KQL string literal.
+func ValidateKustoEnvironment(environment string) error {
+	if environment == "" {
+		return fmt.Errorf("environment cannot be empty")
+	}
+	for _, character := range environment {
+		if character >= 'a' && character <= 'z' ||
+			character >= 'A' && character <= 'Z' ||
+			character >= '0' && character <= '9' ||
+			character == '-' {
+			continue
+		}
+		return fmt.Errorf("environment must contain only ASCII letters, numbers, and hyphens")
+	}
+	return nil
+}
+
+func newKustoClusterQueryRequest(subscriptionID, environment string, format armresourcegraph.ResultFormat, skipToken *string) (armresourcegraph.QueryRequest, error) {
+	if err := ValidateKustoEnvironment(environment); err != nil {
+		return armresourcegraph.QueryRequest{}, err
+	}
+	query := fmt.Sprintf(`resources
+| where type =~ 'microsoft.kusto/clusters'
+| where tostring(tags['aroHCPPurpose']) =~ 'logs'
+| where tostring(tags['aroHCPEnvironment']) =~ '%s'
+| project id, geography = tostring(tags['aroHCPGeoShortId']), provisioningState = tostring(properties.provisioningState)
+| order by id asc`, environment)
+
+	return armresourcegraph.QueryRequest{
+		Query:         &query,
+		Subscriptions: []*string{&subscriptionID},
+		Options: &armresourcegraph.QueryRequestOptions{
+			ResultFormat: &format,
+			SkipToken:    skipToken,
+		},
+	}, nil
 }

@@ -18,6 +18,12 @@ import (
 	"context"
 	"strings"
 	"testing"
+
+	"github.com/spf13/cobra"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/Azure/ARO-Tools/tools/grafanactl/cmd/base"
 )
 
 func TestDefaultReconcileOptions(t *testing.T) {
@@ -87,4 +93,80 @@ func TestValidatePublicNetworkAccess(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestBindReconcileOptionsADXFlags(t *testing.T) {
+	options := DefaultReconcileOptions()
+	command := &cobra.Command{Use: "reconcile"}
+	require.NoError(t, BindReconcileOptions(options, command))
+
+	require.NoError(t, command.ParseFlags([]string{
+		"--adx-integrations-enabled",
+		"--adx-integrations-environment=int-one",
+		"--adx-integrations-geographies=EUS,WUS",
+		"--adx-integrations-scenario=scenario",
+		"--adx-integrations-target-resource-id=/subscriptions/example/resourceGroups/rg/providers/example/type/name",
+	}))
+
+	assert.True(t, options.ADXIntegrationsEnabled)
+	assert.Equal(t, "int-one", options.ADXEnvironment)
+	assert.Equal(t, "EUS,WUS", options.ADXGeographies)
+	assert.Equal(t, "scenario", options.ADXScenario)
+	assert.Equal(t, "/subscriptions/example/resourceGroups/rg/providers/example/type/name", options.ADXTargetResourceID)
+}
+
+func TestValidateADXOptions(t *testing.T) {
+	newOptions := func() *RawReconcileOptions {
+		return &RawReconcileOptions{
+			BaseOptions: &base.BaseOptions{
+				SubscriptionID: "subscription-id",
+				ResourceGroup:  "resource-group",
+				GrafanaName:    "grafana",
+				OutputFormat:   "table",
+			},
+			Location:            "eastus",
+			SKU:                 "Standard",
+			ZoneRedundancy:      "Disabled",
+			PublicNetworkAccess: "Enabled",
+		}
+	}
+
+	t.Run("disabled does not require ADX selection", func(t *testing.T) {
+		_, err := newOptions().Validate(t.Context())
+		require.NoError(t, err)
+	})
+
+	t.Run("enabled requires environment", func(t *testing.T) {
+		options := newOptions()
+		options.ADXIntegrationsEnabled = true
+		options.ADXGeographies = "eus"
+		_, err := options.Validate(t.Context())
+		assert.ErrorContains(t, err, "--adx-integrations-environment is required")
+	})
+
+	t.Run("enabled rejects unsafe environment", func(t *testing.T) {
+		options := newOptions()
+		options.ADXIntegrationsEnabled = true
+		options.ADXEnvironment = "int'bad"
+		options.ADXGeographies = "eus"
+		_, err := options.Validate(t.Context())
+		assert.ErrorContains(t, err, "only ASCII letters, numbers, and hyphens")
+	})
+
+	t.Run("enabled requires geographies", func(t *testing.T) {
+		options := newOptions()
+		options.ADXIntegrationsEnabled = true
+		options.ADXEnvironment = "int"
+		_, err := options.Validate(t.Context())
+		assert.ErrorContains(t, err, "--adx-integrations-geographies is required")
+	})
+
+	t.Run("enabled accepts explicit selection", func(t *testing.T) {
+		options := newOptions()
+		options.ADXIntegrationsEnabled = true
+		options.ADXEnvironment = "int-one"
+		options.ADXGeographies = "eus,wus"
+		_, err := options.Validate(t.Context())
+		require.NoError(t, err)
+	})
 }

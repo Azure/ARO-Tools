@@ -158,6 +158,9 @@ func (o *CompletedReconcileOptions) Run(ctx context.Context) error {
 			"public-network-access", o.PublicNetworkAccess,
 			"integrations", workspaceIDs.Len(),
 		)
+		if err := o.reconcileADXIntegrations(ctx, o.Location, logger); err != nil {
+			return fmt.Errorf("failed to preview ADX integration fabrics: %w", err)
+		}
 		return nil
 	}
 
@@ -181,6 +184,14 @@ func (o *CompletedReconcileOptions) Run(ctx context.Context) error {
 		"principal-id", principalID,
 		"integrations", workspaceIDs.Len(),
 	)
+
+	location := o.Location
+	if result.Location != nil {
+		location = *result.Location
+	}
+	if err := o.reconcileADXIntegrations(ctx, location, logger); err != nil {
+		return fmt.Errorf("failed to reconcile ADX integration fabrics: %w", err)
+	}
 
 	return nil
 }

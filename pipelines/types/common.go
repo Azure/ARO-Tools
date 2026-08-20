@@ -802,17 +802,26 @@ func (s *GrafanaDashboardsStep) IsWellFormedOverInputs() bool {
 
 const StepActionGrafanaManage = "GrafanaManage"
 
+type GrafanaADXIntegrations struct {
+	Enabled          Value `json:"enabled"`
+	Environment      Value `json:"environment,omitempty"`
+	Geographies      Value `json:"geographies,omitempty"`
+	Scenario         Value `json:"scenario,omitempty"`
+	TargetResourceID Value `json:"targetResourceId,omitempty"`
+}
+
 type GrafanaManageStep struct {
 	StepMeta `json:",inline"`
 
-	GrafanaName              Value  `json:"grafanaName"`
-	Location                 Value  `json:"location"`
-	SKU                      Value  `json:"sku,omitempty"`
-	MajorVersion             Value  `json:"majorVersion,omitempty"`
-	ZoneRedundancy           Value  `json:"zoneRedundancy,omitempty"`
-	PublicNetworkAccess      Value  `json:"publicNetworkAccess,omitempty"`
-	CrossTenantSecurityGroup Value  `json:"crossTenantSecurityGroup,omitempty"`
-	Timeout                  string `json:"timeout,omitempty"`
+	GrafanaName              Value                   `json:"grafanaName"`
+	Location                 Value                   `json:"location"`
+	SKU                      Value                   `json:"sku,omitempty"`
+	MajorVersion             Value                   `json:"majorVersion,omitempty"`
+	ZoneRedundancy           Value                   `json:"zoneRedundancy,omitempty"`
+	PublicNetworkAccess      Value                   `json:"publicNetworkAccess,omitempty"`
+	CrossTenantSecurityGroup Value                   `json:"crossTenantSecurityGroup,omitempty"`
+	ADX                      *GrafanaADXIntegrations `json:"adx,omitempty"`
+	Timeout                  string                  `json:"timeout,omitempty"`
 
 	// IdentityFrom specifies the managed identity with which this deployment will run in Ev2.
 	IdentityFrom Input `json:"identityFrom,omitempty"`
@@ -827,6 +836,19 @@ func (s *GrafanaManageStep) RequiredInputs() []StepDependency {
 	for _, val := range []Value{s.GrafanaName, s.Location, s.SKU, s.MajorVersion, s.ZoneRedundancy, s.PublicNetworkAccess, s.CrossTenantSecurityGroup} {
 		if val.Input != nil {
 			deps = append(deps, val.Input.StepDependency)
+		}
+	}
+	if s.ADX != nil {
+		for _, val := range []Value{
+			s.ADX.Enabled,
+			s.ADX.Environment,
+			s.ADX.Geographies,
+			s.ADX.Scenario,
+			s.ADX.TargetResourceID,
+		} {
+			if val.Input != nil {
+				deps = append(deps, val.Input.StepDependency)
+			}
 		}
 	}
 	deps = append(deps, s.IdentityFrom.StepDependency)
