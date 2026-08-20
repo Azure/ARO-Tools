@@ -87,10 +87,14 @@ copyImageFromRegistry() {
     }
     retry 5 acr_login_target
     TARGET_ACR_LOGIN_SERVER="$(jq --raw-output .loginServer <<<"${RESPONSE}" )"
-    oras login --registry-config "${AUTH_JSON}" \
-               --username 00000000-0000-0000-0000-000000000000 \
-               --password-stdin \
-               "${TARGET_ACR_LOGIN_SERVER}" <<<"$( jq --raw-output .accessToken <<<"${RESPONSE}" )"
+    ACCESS_TOKEN="$(jq --raw-output .accessToken <<<"${RESPONSE}")"
+    oras_login_target() {
+      oras login --registry-config "${AUTH_JSON}" \
+                 --username 00000000-0000-0000-0000-000000000000 \
+                 --password-stdin \
+                 "${TARGET_ACR_LOGIN_SERVER}" <<<"${ACCESS_TOKEN}"
+    }
+    retry 5 oras_login_target
 
     # at this point we have an auth config that can read from the source registry and
     # write to the target registry.
@@ -167,7 +171,10 @@ copyImageFromOciLayout() {
     retry 5 acr_login_oci
 
     echo "Logging in with ORAS."
-    oras login $TARGET_ACR_LOGIN_SERVER --username $USERNAME  --password-stdin <<< $PASSWORD
+    oras_login_oci() {
+      oras login "$TARGET_ACR_LOGIN_SERVER" --username "$USERNAME" --password-stdin <<< "$PASSWORD"
+    }
+    retry 5 oras_login_oci
    
     # Check for DRY_RUN
     if [ "${DRY_RUN:-false}" == "true" ]; then
