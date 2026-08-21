@@ -682,7 +682,8 @@ func reconcileRetiredGatewayLeases(
 		opts.ClusterName,
 	)
 	if err != nil {
-		return fmt.Errorf("get mesh state before retired lease reconciliation: %w", err)
+		logger.Error(err, "Failed to get mesh state before retired lease reconciliation (non-fatal)")
+		return nil
 	}
 
 	upgradeInfo, err := aksClient.GetMeshUpgradeTargets(
@@ -691,7 +692,8 @@ func reconcileRetiredGatewayLeases(
 		opts.ClusterName,
 	)
 	if err != nil {
-		return fmt.Errorf("get Istio upgrade state before retired lease reconciliation: %w", err)
+		logger.Error(err, "Failed to get Istio upgrade state before retired lease reconciliation (non-fatal)")
+		return nil
 	}
 
 	// Do not touch leases while AKS is adding/removing revisions, or while
