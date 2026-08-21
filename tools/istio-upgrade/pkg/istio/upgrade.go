@@ -715,6 +715,7 @@ func reconcileRetiredGatewayLeases(
 	logger.Info("Reconciling retired Istio gateway leases")
 	if err := ReconcileRetiredGatewayLeases(
 		ctx,
+		logger,
 		kubeClient,
 		meshProfile.Revisions,
 	); err != nil {

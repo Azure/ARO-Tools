@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"regexp"
 
+	"github.com/go-logr/logr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -32,6 +33,7 @@ var gatewayRevisionLeasePattern = regexp.MustCompile(
 // The caller is responsible for confirming the mesh is stable before invoking it.
 func ReconcileRetiredGatewayLeases(
 	ctx context.Context,
+	logger logr.Logger,
 	kubeClient *KubeClient,
 	installedRevisions []string,
 ) error {
@@ -47,6 +49,7 @@ func ReconcileRetiredGatewayLeases(
 		return fmt.Errorf("list Istio gateway leader-election leases: %w", err)
 	}
 
+	var orphaned []string
 	for _, lease := range leases.Items {
 		matches := gatewayRevisionLeasePattern.FindStringSubmatch(lease.Name)
 		if matches == nil {
@@ -58,6 +61,7 @@ func ReconcileRetiredGatewayLeases(
 			continue
 		}
 
+		orphaned = append(orphaned, lease.Name)
 		if err := kubeClient.client.CoordinationV1().
 			Leases(istioSystemNamespace).
 			Delete(ctx, lease.Name, metav1.DeleteOptions{}); err != nil &&
@@ -68,6 +72,10 @@ func ReconcileRetiredGatewayLeases(
 				err,
 			)
 		}
+	}
+
+	if len(orphaned) > 0 {
+		logger.Info("Deleted orphaned Istio gateway leases", "count", len(orphaned), "leases", orphaned)
 	}
 
 	return nil

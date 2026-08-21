@@ -48,6 +48,7 @@ func TestReconcileRetiredGatewayLeases(t *testing.T) {
 
 		err := ReconcileRetiredGatewayLeases(
 			context.Background(),
+			logr.FromContextOrDiscard(context.Background()),
 			NewKubeClientFromInterface(client),
 			[]string{"asm-1-29"},
 		)
