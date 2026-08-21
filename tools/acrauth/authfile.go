@@ -24,7 +24,7 @@ import (
 	"path/filepath"
 )
 
-// authFileMode is the mode os.CreateTemp gives the temporary file, which survives the rename.
+// authFileMode keeps the credential readable only by its owner.
 const authFileMode fs.FileMode = 0o600
 
 // UpsertCredential adds or replaces the entry for one registry in a container auth file,
@@ -109,7 +109,10 @@ func writeAuthFile(path string, document map[string]any) error {
 	}
 
 	if err := os.Rename(tmp.Name(), path); err != nil {
-		return fmt.Errorf("failed to replace auth file %q: %w", path, err)
+		// A bind-mounted auth file cannot be renamed over (EBUSY), so write through it instead.
+		if fallbackErr := os.WriteFile(path, raw, authFileMode); fallbackErr != nil {
+			return fmt.Errorf("failed to replace auth file %q: %w: in-place write also failed: %w", path, err, fallbackErr)
+		}
 	}
 	return nil
 }
