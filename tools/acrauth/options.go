@@ -30,7 +30,7 @@ func DefaultOptions() *RawOptions {
 }
 
 func BindOptions(opts *RawOptions, cmd *cobra.Command) error {
-	cmd.Flags().StringVar(&opts.Registry, "registry", opts.Registry, "Fully-qualified registry login server, e.g. myregistry.azurecr.io.")
+	cmd.Flags().StringVar(&opts.Registry, "registry", opts.Registry, "Fully-qualified registry login server (e.g. myregistry.azurecr.io).")
 	cmd.Flags().StringVar(&opts.AuthFile, "auth-file", opts.AuthFile, "Path to the container auth file to update.")
 	cmd.Flags().StringVar(&opts.ClientID, "client-id", opts.ClientID, "Client ID of the user-assigned managed identity to authenticate with. Defaults to the ambient credential.")
 

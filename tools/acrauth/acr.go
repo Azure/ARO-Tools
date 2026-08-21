@@ -60,7 +60,7 @@ func ExchangeForRefreshToken(ctx context.Context, cred azcore.TokenCredential, a
 	if err != nil {
 		return "", fmt.Errorf("failed to exchange AAD access token for ACR refresh token: %w", err)
 	}
-	if response.RefreshToken == nil {
+	if response.RefreshToken == nil || *response.RefreshToken == "" {
 		return "", errors.New("got an empty response when exchanging AAD access token for ACR refresh token")
 	}
 
