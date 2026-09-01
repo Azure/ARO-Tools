@@ -72,7 +72,7 @@ func TestExecuteAndWaitFailsWithMarkerWhenEligible(t *testing.T) {
 	client, submitCount := newTestServers(t, []string{"failure"})
 
 	var markerChecks int32
-	m := NewMonitor(client, time.Millisecond, time.Second, false, true, true, DefaultMaxEV2AutoRetryFailures)
+	m := NewMonitor(client, time.Millisecond, time.Second, false, true, true, false, DefaultMaxEV2AutoRetryFailures)
 	m.checkRetryMarker = func(ctx context.Context, jobURL string, maxAutoRetryFailures int) (RetryEligibility, error) {
 		atomic.AddInt32(&markerChecks, 1)
 		if !strings.Contains(jobURL, "job-1") {
@@ -103,7 +103,7 @@ func TestExecuteAndWaitFailsWithMarkerWhenEligible(t *testing.T) {
 func TestExecuteAndWaitFailsWithInfraMarkerWhenNoStepRanTests(t *testing.T) {
 	client, submitCount := newTestServers(t, []string{"failure"})
 
-	m := NewMonitor(client, time.Millisecond, time.Second, false, true, true, DefaultMaxEV2AutoRetryFailures)
+	m := NewMonitor(client, time.Millisecond, time.Second, false, true, true, false, DefaultMaxEV2AutoRetryFailures)
 	m.checkRetryMarker = func(ctx context.Context, jobURL string, maxAutoRetryFailures int) (RetryEligibility, error) {
 		return InfraPreconditionEligible, nil
 	}
@@ -127,7 +127,7 @@ func TestExecuteAndWaitFailsWithInfraMarkerWhenNoStepRanTests(t *testing.T) {
 func TestExecuteAndWaitFailsPlainWhenMarkerAbsent(t *testing.T) {
 	client, submitCount := newTestServers(t, []string{"failure"})
 
-	m := NewMonitor(client, time.Millisecond, time.Second, false, true, true, DefaultMaxEV2AutoRetryFailures)
+	m := NewMonitor(client, time.Millisecond, time.Second, false, true, true, false, DefaultMaxEV2AutoRetryFailures)
 	m.checkRetryMarker = func(ctx context.Context, jobURL string, maxAutoRetryFailures int) (RetryEligibility, error) {
 		return NotEligible, nil
 	}
@@ -152,7 +152,7 @@ func TestExecuteAndWaitFailsPlainWhenMarkerAbsent(t *testing.T) {
 func TestExecuteAndWaitSkipsMarkerCheckWhenNotAllowed(t *testing.T) {
 	client, submitCount := newTestServers(t, []string{"failure"})
 
-	m := NewMonitor(client, time.Millisecond, time.Second, false, true, false, DefaultMaxEV2AutoRetryFailures)
+	m := NewMonitor(client, time.Millisecond, time.Second, false, true, false, false, DefaultMaxEV2AutoRetryFailures)
 	m.checkRetryMarker = func(ctx context.Context, jobURL string, maxAutoRetryFailures int) (RetryEligibility, error) {
 		t.Fatal("checkRetryMarker should not be called when allowEV2Retry is false")
 		return NotEligible, nil
