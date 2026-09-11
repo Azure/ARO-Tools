@@ -11,6 +11,7 @@ resourceGroups:
   subscription: '{{ .svc.subscription.key }}'
   executionConstraints:
     - singleton: true
+      level: Region
       clouds:
         - ff
         - usnat

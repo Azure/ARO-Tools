@@ -62,6 +62,11 @@ type ExecutionConstraint struct {
 	// will be allowed.
 	Singleton bool `json:"singleton"`
 
+	// Level defines the ev2 execution constraint level ("Cloud" or "Region")
+	// By default, if one or fewer regions is omitted, the level will be inferred as Cloud.
+	// If a deployment does not specify regions, but it should go to every region in that cloud, the level should be set to "Region".
+	Level string `json:"level,omitempty"`
+
 	// Clouds define the clouds in which this pipeline should run. If unset, execution will be unconstrained across clouds.
 	Clouds []string `json:"clouds,omitempty"`
 	// Environments define the environments in which this pipeline should run, for the given clouds. If unset, execution will be unconstrained across environments.
