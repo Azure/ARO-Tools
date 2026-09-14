@@ -1467,7 +1467,7 @@ func TestRunReconcile_SkipsWhenRevisionMismatch(t *testing.T) {
 	// This is a defensive path — Decide() would not normally produce this state.
 	ctx := testCtx(t)
 	logger := logr.FromContextOrDiscard(ctx)
-	err := runReconcile(ctx, logger, tc.kube, tc.opts, "asm-1-29", []string{"asm-1-28"})
+	err := runReconcile(ctx, logger, tc.aks, tc.kube, tc.opts, "asm-1-29", []string{"asm-1-28"})
 	require.NoError(t, err)
 
 	// Should not have created a ConfigMap since reconcile bailed early
@@ -1500,7 +1500,7 @@ func TestRunReconcile_NonFatalErrors(t *testing.T) {
 
 	ctx := testCtx(t)
 	logger := logr.FromContextOrDiscard(ctx)
-	err := runReconcile(ctx, logger, tc.kube, tc.opts, "asm-1-29", []string{"asm-1-29"})
+	err := runReconcile(ctx, logger, tc.aks, tc.kube, tc.opts, "asm-1-29", []string{"asm-1-29"})
 	require.NoError(t, err, "reconcile errors are non-fatal and should not fail the pipeline")
 }
 

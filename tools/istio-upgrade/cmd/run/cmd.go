@@ -23,7 +23,8 @@ import (
 //
 //	ARM: Contributor + Reader on subscription
 //	Kubernetes: cluster-admin equivalent (namespaces, configmaps, deployments,
-//	  statefulsets, daemonsets, pods, services, mutatingwebhookconfigurations)
+//	  statefulsets, daemonsets, pods, services, mutatingwebhookconfigurations,
+//	  leases in coordination.k8s.io for orphaned gateway leader-election cleanup)
 func NewCommand() (*cobra.Command, error) {
 	opts := DefaultOptions()
 	cmd := &cobra.Command{
