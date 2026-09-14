@@ -375,6 +375,7 @@ resourceGroups:
         - "Transient error"
         maximumRetryCount: 8
         durationBetweenRetries: 1h
+        honorRetryBudgetWhenFailingFast: true
     - name: image-mirror-oci-layout
       action: ImageMirror
       targetACR:
