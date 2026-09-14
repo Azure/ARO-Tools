@@ -35,6 +35,9 @@
             },
             "durationBetweenRetries": {
               "type": "string"
+            },
+            "honorRetryBudgetWhenFailingFast": {
+              "type": "boolean"
             }
           }
         }

@@ -367,6 +367,7 @@ resourceGroups:
       durationBetweenRetries: 1h
       errorContainsAny:
       - Transient error
+      honorRetryBudgetWhenFailingFast: true
       maximumRetryCount: 8
     digest:
       value: digest

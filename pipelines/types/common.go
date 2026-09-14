@@ -87,6 +87,10 @@ type AutomatedRetry struct {
 	// DurationBetweenRetries is the amount of time to wait between retries. Must be between 1 minute and 3 hours.
 	// Formatted using Go's time.Duration syntax.
 	DurationBetweenRetries string `json:"durationBetweenRetries,omitempty"`
+
+	// HonorRetryBudgetWhenFailingFast retains the configured retry count and duration
+	// when a stage uses fail-fast behavior.
+	HonorRetryBudgetWhenFailingFast bool `json:"honorRetryBudgetWhenFailingFast,omitempty"`
 }
 
 func SortDependencies(a, b StepDependency) int {
