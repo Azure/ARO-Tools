@@ -164,6 +164,12 @@ func (m *Monitor) waitForCompletion(ctx context.Context, logger logr.Logger, pro
 	for {
 		job, err := m.client.GetJobStatus(ctx, prowExecutionID)
 		if err != nil {
+			if IsNotFoundError(err) {
+				// A 404 that survived GetJobStatus's own propagation-delay retries means
+				// Prow has no record of this job at all and never will - polling until
+				// the overall timeout would just waste that whole window, so fail now.
+				return JobOutcome{Err: fmt.Errorf("job %s not found: %w", prowExecutionID, err)}
+			}
 			logger.Error(err, "Failed to get job status after retries, will continue polling")
 		} else {
 			status := string(job.Status.State)

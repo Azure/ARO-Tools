@@ -149,6 +149,39 @@ func TestExecuteAndWaitFailsPlainWhenMarkerAbsent(t *testing.T) {
 	}
 }
 
+// TestWaitForCompletionFailsFastOn404 verifies that a status endpoint returning a
+// persistent 404 (e.g. the job was garbage-collected and will never appear) makes the
+// monitor fail immediately, rather than logging and polling until the whole timeout
+// elapses - a 404 that survives GetJobStatus's own propagation-delay retries is
+// definitive, not transient.
+func TestWaitForCompletionFailsFastOn404(t *testing.T) {
+	prowSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	t.Cleanup(prowSrv.Close)
+
+	client := NewClient("test-token", "http://unused", prowSrv.URL)
+	// Generous relative to GetJobStatus's own internal retry budget (~3s worst case)
+	// so a pass can't be confused with the timeout path; a failure here should return
+	// well before this deadline.
+	const timeout = 30 * time.Second
+	m := NewMonitor(client, time.Millisecond, timeout, false, false, false, DefaultMaxEV2AutoRetryFailures)
+
+	start := time.Now()
+	err := m.WaitForCompletion(testContext(), logr.Discard(), "job-1")
+	elapsed := time.Since(start)
+
+	if err == nil {
+		t.Fatal("expected an error for a persistently 404ing job, got nil")
+	}
+	if !strings.Contains(err.Error(), "not found") {
+		t.Fatalf("expected the error to mention the job wasn't found, got: %v", err)
+	}
+	if elapsed >= timeout {
+		t.Fatalf("expected to fail fast well before the %v timeout, took %v", timeout, elapsed)
+	}
+}
+
 func TestExecuteAndWaitSkipsMarkerCheckWhenNotAllowed(t *testing.T) {
 	client, submitCount := newTestServers(t, []string{"failure"})
 
