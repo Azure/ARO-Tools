@@ -225,6 +225,18 @@ func isNonRetryableHTTPError(err error) bool {
 	return false
 }
 
+// IsNotFoundError reports whether err is a GetJobStatus failure carrying an HTTP 404 -
+// i.e. Prow's status endpoint has no record of the job at all, rather than a transient
+// or auth failure. A freshly submitted job can 404 briefly before it propagates (which
+// GetJobStatus's own retry already absorbs), but a 404 that survives those retries means
+// the job's status page will never appear (e.g. it was garbage-collected), so callers
+// should treat it as a definitive failure rather than keep polling until the overall
+// timeout.
+func IsNotFoundError(err error) bool {
+	var httpErr *httpStatusError
+	return errors.As(err, &httpErr) && httpErr.statusCode == http.StatusNotFound
+}
+
 // isRetryableError reports whether a job-submission error is transient and worth
 // retrying. Only HTTP 429, 5xx responses and network-level errors are retried;
 // deterministic failures (request marshaling/construction, response decoding, and

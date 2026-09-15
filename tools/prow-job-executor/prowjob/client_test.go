@@ -232,6 +232,26 @@ func TestIsRetryableError(t *testing.T) {
 	}
 }
 
+func TestIsNotFoundError(t *testing.T) {
+	tests := []struct {
+		name       string
+		err        error
+		wantResult bool
+	}{
+		{"404", &httpStatusError{statusCode: http.StatusNotFound}, true},
+		{"403", &httpStatusError{statusCode: http.StatusForbidden}, false},
+		{"500", &httpStatusError{statusCode: http.StatusInternalServerError}, false},
+		{"non-http error", context.Canceled, false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := IsNotFoundError(tc.err); got != tc.wantResult {
+				t.Errorf("IsNotFoundError(%v) = %v, want %v", tc.err, got, tc.wantResult)
+			}
+		})
+	}
+}
+
 func TestIsRetryableStatusCode(t *testing.T) {
 	// isRetryableStatusCode backs GetJobStatus, where everything except 401/403 is
 	// retried (a freshly submitted job's status may 404 until it propagates).
