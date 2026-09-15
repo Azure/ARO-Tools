@@ -161,6 +161,46 @@ The config file (e.g., `observability.yaml`) defines:
 - `grafana-dashboards.dashboardFolders`: List of folders with `name` and `path` to dashboard JSON files
 - `grafana-dashboards.azureManagedFolders`: List of folder names managed by Azure (will not be modified)
 
+### Manage Commands
+
+#### Reconcile Grafana
+
+Create or update the Azure Managed Grafana instance and reconcile its Azure
+Monitor Workspace integrations:
+
+```bash
+grafanactl manage reconcile \
+  --subscription "your-subscription-id" \
+  --resource-group "your-resource-group" \
+  --grafana-name "your-grafana-instance" \
+  --location "eastus"
+```
+
+ADX integration fabrics are disabled by default. When enabled, both the
+environment and complete geography set must be provided explicitly:
+
+- `--adx-integrations-enabled`: Reconcile owned
+  `Microsoft.Dashboard/grafana/integrationFabrics` child resources for
+  Kusto clusters tagged with `aroHCPPurpose=logs`.
+- `--adx-integrations-environment`: Required alphanumeric or hyphenated
+  `aroHCPEnvironment` tag value.
+- `--adx-integrations-geographies`: Comma-separated, case-insensitive
+  complete set of expected `aroHCPGeoShortId` values. Each geography must
+  resolve to exactly one succeeded cluster.
+- `--adx-integrations-scenario`: Optional scenario value.
+- `--adx-integrations-target-resource-id`: Optional target resource ID.
+
+Discovery fails closed before reading or changing integration fabrics when a
+requested geography is missing, duplicated, or not fully provisioned, or when
+any discovered managed Kusto cluster is missing its `aroHCPGeoShortId` tag
+(an untagged cluster cannot be attributed to a geography, so it fails closed
+regardless of the requested allowlist). Dry-run performs discovery and
+planning but does not create, update, or delete child resources.
+
+The scenario and target resource ID are Resource Provider contract inputs.
+They are intentionally not defaulted or inferred while that contract is being
+confirmed.
+
 ## Error Handling
 
 - The tool includes retry logic for transient Azure API failures
@@ -195,4 +235,3 @@ GRAFANACTL_HTTP_DUMP_DIR=/tmp/grafana-http \
     --resource-group global \
     --grafana-name arohcp-dev
 ```
-
