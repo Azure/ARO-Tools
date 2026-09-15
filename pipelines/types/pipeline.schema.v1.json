@@ -250,6 +250,13 @@
         "singleton": {
           "type": "boolean"
         },
+        "level": {
+          "type": "string",
+          "enum": [
+            "Cloud",
+            "Region"
+          ]
+        },
         "clouds": {
           "type": "array",
           "items": {

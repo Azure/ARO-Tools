@@ -787,6 +787,9 @@ func resourceGroupMetaEqual(a, b *types.ResourceGroupMeta) bool {
 		if ac.Singleton != bc.Singleton {
 			return false
 		}
+		if ac.Level != bc.Level {
+			return false
+		}
 		if !sets.New(ac.Clouds...).Equal(sets.New(bc.Clouds...)) {
 			return false
 		}
