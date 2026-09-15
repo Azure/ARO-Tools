@@ -72,7 +72,7 @@ func TestExecuteAndWaitFailsWithMarkerWhenEligible(t *testing.T) {
 	client, submitCount := newTestServers(t, []string{"failure"})
 
 	var markerChecks int32
-	m := NewMonitor(client, time.Millisecond, time.Second, false, true, true, DefaultMaxEV2AutoRetryFailures)
+	m := NewMonitor(client, time.Millisecond, time.Second, DefaultNotFoundGracePeriod, false, true, true, DefaultMaxEV2AutoRetryFailures)
 	m.checkRetryMarker = func(ctx context.Context, jobURL string, maxAutoRetryFailures int) (RetryEligibility, error) {
 		atomic.AddInt32(&markerChecks, 1)
 		if !strings.Contains(jobURL, "job-1") {
@@ -103,7 +103,7 @@ func TestExecuteAndWaitFailsWithMarkerWhenEligible(t *testing.T) {
 func TestExecuteAndWaitFailsWithInfraMarkerWhenNoStepRanTests(t *testing.T) {
 	client, submitCount := newTestServers(t, []string{"failure"})
 
-	m := NewMonitor(client, time.Millisecond, time.Second, false, true, true, DefaultMaxEV2AutoRetryFailures)
+	m := NewMonitor(client, time.Millisecond, time.Second, DefaultNotFoundGracePeriod, false, true, true, DefaultMaxEV2AutoRetryFailures)
 	m.checkRetryMarker = func(ctx context.Context, jobURL string, maxAutoRetryFailures int) (RetryEligibility, error) {
 		return InfraPreconditionEligible, nil
 	}
@@ -127,7 +127,7 @@ func TestExecuteAndWaitFailsWithInfraMarkerWhenNoStepRanTests(t *testing.T) {
 func TestExecuteAndWaitFailsPlainWhenMarkerAbsent(t *testing.T) {
 	client, submitCount := newTestServers(t, []string{"failure"})
 
-	m := NewMonitor(client, time.Millisecond, time.Second, false, true, true, DefaultMaxEV2AutoRetryFailures)
+	m := NewMonitor(client, time.Millisecond, time.Second, DefaultNotFoundGracePeriod, false, true, true, DefaultMaxEV2AutoRetryFailures)
 	m.checkRetryMarker = func(ctx context.Context, jobURL string, maxAutoRetryFailures int) (RetryEligibility, error) {
 		return NotEligible, nil
 	}
@@ -149,23 +149,25 @@ func TestExecuteAndWaitFailsPlainWhenMarkerAbsent(t *testing.T) {
 	}
 }
 
-// TestWaitForCompletionFailsFastOn404 verifies that a status endpoint returning a
-// persistent 404 (e.g. the job was garbage-collected and will never appear) makes the
-// monitor fail immediately, rather than logging and polling until the whole timeout
-// elapses - a 404 that survives GetJobStatus's own propagation-delay retries is
-// definitive, not transient.
-func TestWaitForCompletionFailsFastOn404(t *testing.T) {
+// TestWaitForCompletionFailsAfterGracePeriodOn404 verifies that a status endpoint
+// returning a persistent 404 (e.g. the job was garbage-collected and will never appear)
+// makes the monitor fail once the 404s outlast notFoundGracePeriod, rather than logging
+// and polling until the whole --timeout elapses.
+func TestWaitForCompletionFailsAfterGracePeriodOn404(t *testing.T) {
 	prowSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 	}))
 	t.Cleanup(prowSrv.Close)
 
 	client := NewClient("test-token", "http://unused", prowSrv.URL)
-	// Generous relative to GetJobStatus's own internal retry budget (~3s worst case)
-	// so a pass can't be confused with the timeout path; a failure here should return
-	// well before this deadline.
-	const timeout = 30 * time.Second
-	m := NewMonitor(client, time.Millisecond, timeout, false, false, false, DefaultMaxEV2AutoRetryFailures)
+	client.statusBackoff = fastBackoff() // decouple this test from GetJobStatus's own real-time retry delay
+	const (
+		gracePeriod = 50 * time.Millisecond
+		// Generous relative to gracePeriod so a pass can't be confused with the
+		// overall-timeout path; a failure here should return well before this deadline.
+		timeout = 30 * time.Second
+	)
+	m := NewMonitor(client, time.Millisecond, timeout, gracePeriod, false, false, false, DefaultMaxEV2AutoRetryFailures)
 
 	start := time.Now()
 	err := m.WaitForCompletion(testContext(), logr.Discard(), "job-1")
@@ -177,15 +179,51 @@ func TestWaitForCompletionFailsFastOn404(t *testing.T) {
 	if !strings.Contains(err.Error(), "not found") {
 		t.Fatalf("expected the error to mention the job wasn't found, got: %v", err)
 	}
+	if elapsed < gracePeriod {
+		t.Fatalf("expected to wait out at least the %v grace period, took %v", gracePeriod, elapsed)
+	}
 	if elapsed >= timeout {
-		t.Fatalf("expected to fail fast well before the %v timeout, took %v", timeout, elapsed)
+		t.Fatalf("expected to fail well before the %v timeout, took %v", timeout, elapsed)
+	}
+}
+
+// TestWaitForCompletionToleratesTransient404 verifies that a run of 404s shorter than
+// notFoundGracePeriod - e.g. a brief Prow/OCP maintenance window - does not fail the job,
+// as long as the status endpoint recovers before the grace period elapses.
+func TestWaitForCompletionToleratesTransient404(t *testing.T) {
+	var requests int32
+	prowSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		n := atomic.AddInt32(&requests, 1)
+		// 404 for exactly one full GetJobStatus attempt budget (fastBackoffSteps
+		// requests), so the first external poll exhausts its own retries and reports a
+		// 404 to the monitor; every request after that succeeds, simulating the
+		// maintenance window clearing before the next poll.
+		if n <= fastBackoffSteps {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = fmt.Fprint(w, "status:\n  state: success\n  url: https://prow.ci.openshift.org/view/gs/bucket/job-1\nspec:\n  job: test-job\n")
+	}))
+	t.Cleanup(prowSrv.Close)
+
+	client := NewClient("test-token", "http://unused", prowSrv.URL)
+	client.statusBackoff = fastBackoff() // decouple this test from GetJobStatus's own real-time retry delay
+	// The grace period comfortably outlasts the one 404'd poll above, and the overall
+	// timeout comfortably outlasts the grace period, so a bug that fails fast on the
+	// first 404 (rather than tolerating it) is what this test catches.
+	m := NewMonitor(client, 10*time.Millisecond, 30*time.Second, time.Second, false, false, false, DefaultMaxEV2AutoRetryFailures)
+
+	err := m.WaitForCompletion(testContext(), logr.Discard(), "job-1")
+	if err != nil {
+		t.Fatalf("expected the job to succeed once the transient 404s clear, got: %v", err)
 	}
 }
 
 func TestExecuteAndWaitSkipsMarkerCheckWhenNotAllowed(t *testing.T) {
 	client, submitCount := newTestServers(t, []string{"failure"})
 
-	m := NewMonitor(client, time.Millisecond, time.Second, false, true, false, DefaultMaxEV2AutoRetryFailures)
+	m := NewMonitor(client, time.Millisecond, time.Second, DefaultNotFoundGracePeriod, false, true, false, DefaultMaxEV2AutoRetryFailures)
 	m.checkRetryMarker = func(ctx context.Context, jobURL string, maxAutoRetryFailures int) (RetryEligibility, error) {
 		t.Fatal("checkRetryMarker should not be called when allowEV2Retry is false")
 		return NotEligible, nil

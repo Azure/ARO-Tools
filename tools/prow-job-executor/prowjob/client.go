@@ -50,6 +50,7 @@ type Client struct {
 	gangwayURL    string
 	prowURL       string
 	submitBackoff wait.Backoff
+	statusBackoff wait.Backoff
 }
 
 // NewClient creates a new Prow API client with the provided authentication token and API URLs.
@@ -74,6 +75,19 @@ func NewClient(token, gangwayURL, prowURL string) *Client {
 			Factor:   2.0,         // Exponential factor
 			Jitter:   0.1,         // 10% jitter to de-sync concurrent submitters
 			Steps:    7,           // Maximum attempts (~63m worst-case cumulative wait)
+		},
+		// Exponential backoff with jitter for transient GetJobStatus failures - a
+		// freshly submitted job's status may 404 until it propagates, and transport
+		// errors are transient. This only absorbs that short propagation delay; a 404
+		// that outlives it is handled separately by waitForCompletion's
+		// notFoundGracePeriod, which tolerates a longer outage (e.g. a Prow/OCP
+		// maintenance window) across repeated polls.
+		statusBackoff: wait.Backoff{
+			Duration: time.Second,      // Initial delay
+			Factor:   2.0,              // Exponential factor
+			Jitter:   0.1,              // 10% jitter
+			Steps:    3,                // Maximum attempts
+			Cap:      10 * time.Second, // Maximum delay cap
 		},
 	}
 }
@@ -138,15 +152,6 @@ func (c *Client) submitJobOnce(ctx context.Context, request *prowgangway.CreateJ
 
 // GetJobStatus retrieves the full job information by Prow execution ID with retry logic
 func (c *Client) GetJobStatus(ctx context.Context, prowExecutionID string) (*prowjobs.ProwJob, error) {
-	// Configure exponential backoff with jitter
-	backoff := wait.Backoff{
-		Duration: time.Second,      // Initial delay
-		Factor:   2.0,              // Exponential factor
-		Jitter:   0.1,              // 10% jitter
-		Steps:    3,                // Maximum attempts
-		Cap:      10 * time.Second, // Maximum delay cap
-	}
-
 	// Everything except a non-retryable HTTP status (e.g. 401/403) is retried: a
 	// freshly submitted job's status may 404 until it propagates, and transport
 	// errors are transient.
@@ -154,7 +159,7 @@ func (c *Client) GetJobStatus(ctx context.Context, prowExecutionID string) (*pro
 		return !isNonRetryableHTTPError(err)
 	}
 
-	return retry.WithValue(ctx, backoff, isRetryable, func(ctx context.Context) (*prowjobs.ProwJob, error) {
+	return retry.WithValue(ctx, c.statusBackoff, isRetryable, func(ctx context.Context) (*prowjobs.ProwJob, error) {
 		return c.getJobStatusOnce(ctx, prowExecutionID)
 	})
 }

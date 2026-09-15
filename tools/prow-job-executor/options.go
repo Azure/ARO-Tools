@@ -60,6 +60,7 @@ func DefaultExecuteOptions() *RawExecuteOptions {
 		EnvironmentVars:         make(map[string]string),
 		PollInterval:            300 * time.Second,
 		Timeout:                 4 * time.Hour,
+		NotFoundGracePeriod:     prowjob.DefaultNotFoundGracePeriod,
 		GangwayURL:              defaultGangwayURL,
 		ProwURL:                 defaultProwURL,
 		BaseRef:                 defaultBaseRef,
@@ -81,6 +82,7 @@ func (o *RawExecuteOptions) BindFlags(cmd *cobra.Command) error {
 	cmd.Flags().StringVar(&o.EV2RolloutVersion, "ev2-rollout-version", o.EV2RolloutVersion, fmt.Sprintf("EV2 rollout version (format: tag.value.tag.value...) - will be provided as %stag=value annotations to the job", ev2RolloutPrefix))
 	cmd.Flags().DurationVar(&o.PollInterval, "poll-interval", o.PollInterval, "Status polling interval")
 	cmd.Flags().DurationVar(&o.Timeout, "timeout", o.Timeout, "Maximum wait time for job completion")
+	cmd.Flags().DurationVar(&o.NotFoundGracePeriod, "not-found-grace-period", o.NotFoundGracePeriod, "How long a consecutive run of 404s from the job status endpoint is tolerated (e.g. a short Prow/OCP maintenance window) before giving up on the job")
 	cmd.Flags().StringVar(&o.GangwayURL, "gangway-url", o.GangwayURL, "Gangway API URL for job execution")
 	cmd.Flags().StringVar(&o.ProwURL, "prow-url", o.ProwURL, "Prow API URL for job status monitoring")
 	cmd.Flags().BoolVar(&o.DryRun, "dry-run", o.DryRun, "Print which job would be started, but do not start one.")
@@ -122,6 +124,7 @@ type RawExecuteOptions struct {
 	EV2RolloutVersion       string
 	PollInterval            time.Duration
 	Timeout                 time.Duration
+	NotFoundGracePeriod     time.Duration
 	GangwayURL              string
 	ProwURL                 string
 	DryRun                  bool
@@ -163,6 +166,7 @@ type completedExecuteOptions struct {
 	EnvironmentVars         map[string]string
 	PollInterval            time.Duration
 	Timeout                 time.Duration
+	NotFoundGracePeriod     time.Duration
 	ProwToken               string
 	GangwayURL              string
 	ProwURL                 string
@@ -268,6 +272,10 @@ func (o *RawExecuteOptions) Validate(ctx context.Context) (*ValidatedExecuteOpti
 		return nil, fmt.Errorf("timeout must be greater than 0")
 	}
 
+	if o.NotFoundGracePeriod <= 0 {
+		return nil, fmt.Errorf("not-found-grace-period must be greater than 0")
+	}
+
 	if o.AllowEV2Retry && !o.GatePromotion {
 		return nil, fmt.Errorf("gate-promotion must be set when allow-ev2-retry is set")
 	}
@@ -305,6 +313,7 @@ func (o *ValidatedExecuteOptions) Complete(ctx context.Context) (*ExecuteOptions
 			EnvironmentVars:         o.ParsedEnvironmentVars,
 			PollInterval:            o.PollInterval,
 			Timeout:                 o.Timeout,
+			NotFoundGracePeriod:     o.NotFoundGracePeriod,
 			ProwToken:               completed.ProwToken,
 			GangwayURL:              o.GangwayURL,
 			ProwURL:                 o.ProwURL,
@@ -330,7 +339,7 @@ func (o *ExecuteOptions) Execute(ctx context.Context) error {
 	client := prowjob.NewClient(o.ProwToken, o.GangwayURL, o.ProwURL)
 
 	// Create job monitor
-	monitor := prowjob.NewMonitor(client, o.PollInterval, o.Timeout, o.DryRun, o.GatePromotion, o.AllowEV2Retry, o.MaxEV2AutoRetryFailures)
+	monitor := prowjob.NewMonitor(client, o.PollInterval, o.Timeout, o.NotFoundGracePeriod, o.DryRun, o.GatePromotion, o.AllowEV2Retry, o.MaxEV2AutoRetryFailures)
 
 	// Prepare environment variables, including the region
 	envs := make(map[string]string)
@@ -412,6 +421,7 @@ func DefaultMonitorOptions() *RawMonitorOptions {
 		RawProwTokenOptions: NewDefaultRawProwTokenOptions(),
 		PollInterval:        300 * time.Second,
 		Timeout:             4 * time.Hour,
+		NotFoundGracePeriod: prowjob.DefaultNotFoundGracePeriod,
 		GangwayURL:          defaultGangwayURL,
 		ProwURL:             defaultProwURL,
 	}
@@ -421,6 +431,7 @@ func (o *RawMonitorOptions) BindFlags(cmd *cobra.Command) error {
 	cmd.Flags().StringVar(&o.JobExecutionID, "execution-id", o.JobExecutionID, "Prow job execution ID to monitor")
 	cmd.Flags().DurationVar(&o.PollInterval, "poll-interval", o.PollInterval, "Status polling interval")
 	cmd.Flags().DurationVar(&o.Timeout, "timeout", o.Timeout, "Maximum wait time for job completion")
+	cmd.Flags().DurationVar(&o.NotFoundGracePeriod, "not-found-grace-period", o.NotFoundGracePeriod, "How long a consecutive run of 404s from the job status endpoint is tolerated (e.g. a short Prow/OCP maintenance window) before giving up on the job")
 	cmd.Flags().StringVar(&o.GangwayURL, "gangway-url", o.GangwayURL, "Gangway API URL for job execution")
 	cmd.Flags().StringVar(&o.ProwURL, "prow-url", o.ProwURL, "PROW API URL for job status monitoring")
 
@@ -440,11 +451,12 @@ func (o *RawMonitorOptions) BindFlags(cmd *cobra.Command) error {
 type RawMonitorOptions struct {
 	*RawProwTokenOptions
 
-	JobExecutionID string
-	PollInterval   time.Duration
-	Timeout        time.Duration
-	GangwayURL     string
-	ProwURL        string
+	JobExecutionID      string
+	PollInterval        time.Duration
+	Timeout             time.Duration
+	NotFoundGracePeriod time.Duration
+	GangwayURL          string
+	ProwURL             string
 }
 
 // validatedMonitorOptions is a private wrapper that enforces a call of Validate() before Complete() can be invoked.
@@ -460,12 +472,13 @@ type ValidatedMonitorOptions struct {
 
 // completedMonitorOptions is a private wrapper that enforces a call of Complete() before execution can be invoked.
 type completedMonitorOptions struct {
-	JobExecutionID string
-	PollInterval   time.Duration
-	Timeout        time.Duration
-	ProwToken      string
-	GangwayURL     string
-	ProwURL        string
+	JobExecutionID      string
+	PollInterval        time.Duration
+	Timeout             time.Duration
+	NotFoundGracePeriod time.Duration
+	ProwToken           string
+	GangwayURL          string
+	ProwURL             string
 }
 
 type MonitorOptions struct {
@@ -504,6 +517,10 @@ func (o *RawMonitorOptions) Validate(ctx context.Context) (*ValidatedMonitorOpti
 		return nil, fmt.Errorf("timeout must be greater than 0")
 	}
 
+	if o.NotFoundGracePeriod <= 0 {
+		return nil, fmt.Errorf("not-found-grace-period must be greater than 0")
+	}
+
 	return &ValidatedMonitorOptions{
 		validatedMonitorOptions: &validatedMonitorOptions{
 			RawMonitorOptions:         o,
@@ -520,12 +537,13 @@ func (o *ValidatedMonitorOptions) Complete(ctx context.Context) (*MonitorOptions
 
 	return &MonitorOptions{
 		completedMonitorOptions: &completedMonitorOptions{
-			JobExecutionID: o.JobExecutionID,
-			PollInterval:   o.PollInterval,
-			Timeout:        o.Timeout,
-			ProwToken:      completed.ProwToken,
-			GangwayURL:     o.GangwayURL,
-			ProwURL:        o.ProwURL,
+			JobExecutionID:      o.JobExecutionID,
+			PollInterval:        o.PollInterval,
+			Timeout:             o.Timeout,
+			NotFoundGracePeriod: o.NotFoundGracePeriod,
+			ProwToken:           completed.ProwToken,
+			GangwayURL:          o.GangwayURL,
+			ProwURL:             o.ProwURL,
 		},
 	}, nil
 }
@@ -533,7 +551,7 @@ func (o *ValidatedMonitorOptions) Complete(ctx context.Context) (*MonitorOptions
 func (o *MonitorOptions) Monitor(ctx context.Context, logger logr.Logger) error {
 	// Create Prow client and monitor
 	client := prowjob.NewClient(o.ProwToken, o.GangwayURL, o.ProwURL)
-	monitor := prowjob.NewMonitor(client, o.PollInterval, o.Timeout, false, false, false, prowjob.DefaultMaxEV2AutoRetryFailures)
+	monitor := prowjob.NewMonitor(client, o.PollInterval, o.Timeout, o.NotFoundGracePeriod, false, false, false, prowjob.DefaultMaxEV2AutoRetryFailures)
 
 	// Monitor existing job using shared polling logic
 	logger.Info("Starting to monitor existing job", "jobExecutionID", o.JobExecutionID)

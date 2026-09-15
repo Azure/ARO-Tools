@@ -94,6 +94,7 @@ type Monitor struct {
 	client               *Client
 	pollInterval         time.Duration
 	timeout              time.Duration
+	notFoundGracePeriod  time.Duration
 	dryRun               bool
 	gatePromotion        bool
 	allowEV2Retry        bool
@@ -105,6 +106,14 @@ type Monitor struct {
 	checkRetryMarker func(ctx context.Context, jobURL string, maxAutoRetryFailures int) (RetryEligibility, error)
 }
 
+// DefaultNotFoundGracePeriod bounds how long waitForCompletion tolerates a consecutive run
+// of 404s from GetJobStatus before giving up - long enough to ride out a short-lived Prow/
+// OCP hiccup (e.g. an oauth-proxy restart or a brief maintenance window), but short enough
+// that a job that's genuinely gone for good doesn't burn the whole --timeout budget. 30
+// minutes is several multiples of the 300s default --poll-interval, so a real outage gets
+// more than one chance to recover before this gives up.
+const DefaultNotFoundGracePeriod = 30 * time.Minute
+
 // NewMonitor creates a new job monitor with the specified polling interval and timeout.
 // allowEV2Retry opts into checking a failed job's finished.json metadata and, if it marks
 // the failure as safe to retry (see AROSLSRE-1721), failing with EV2RetryableError instead
@@ -112,12 +121,16 @@ type Monitor struct {
 // step, rather than prow-job-executor resubmitting the job itself. It has no effect unless
 // gatePromotion is also true. maxAutoRetryFailures caps how many failed tests a run may
 // have (all labeled allow-retry) and still qualify; pass DefaultMaxEV2AutoRetryFailures
-// unless a caller wants to tune it without an ARO-HCP rebuild.
-func NewMonitor(client *Client, pollInterval, timeout time.Duration, dryRun, gatePromotion, allowEV2Retry bool, maxAutoRetryFailures int) *Monitor {
+// unless a caller wants to tune it without an ARO-HCP rebuild. notFoundGracePeriod bounds
+// how long a consecutive run of 404s from GetJobStatus is tolerated before the monitor
+// gives up on the job (see DefaultNotFoundGracePeriod); pass that constant unless a caller
+// wants to tune it.
+func NewMonitor(client *Client, pollInterval, timeout, notFoundGracePeriod time.Duration, dryRun, gatePromotion, allowEV2Retry bool, maxAutoRetryFailures int) *Monitor {
 	return &Monitor{
 		client:               client,
 		pollInterval:         pollInterval,
 		timeout:              timeout,
+		notFoundGracePeriod:  notFoundGracePeriod,
 		dryRun:               dryRun,
 		gatePromotion:        gatePromotion,
 		allowEV2Retry:        allowEV2Retry,
@@ -160,18 +173,35 @@ func (m *Monitor) waitForCompletion(ctx context.Context, logger logr.Logger, pro
 	ticker := time.NewTicker(m.pollInterval)
 	defer ticker.Stop()
 
+	// notFoundSince tracks how long the current consecutive run of 404s from
+	// GetJobStatus has lasted (zero means "not currently 404ing"). It's reset on any
+	// successful status fetch, so a job that goes 404 -> recovers -> 404 again (e.g.
+	// across two separate Prow/OCP hiccups) gets a fresh grace period each time, rather
+	// than accumulating toward a single budget across unrelated outages.
+	var notFoundSince time.Time
+
 	// Check status immediately, then poll at intervals
 	for {
 		job, err := m.client.GetJobStatus(ctx, prowExecutionID)
 		if err != nil {
 			if IsNotFoundError(err) {
-				// A 404 that survived GetJobStatus's own propagation-delay retries means
-				// Prow has no record of this job at all and never will - polling until
-				// the overall timeout would just waste that whole window, so fail now.
-				return JobOutcome{Err: fmt.Errorf("job %s not found: %w", prowExecutionID, err)}
+				if notFoundSince.IsZero() {
+					notFoundSince = time.Now()
+				}
+				// A 404 that survived GetJobStatus's own propagation-delay retries could
+				// still be a transient Prow/OCP hiccup (e.g. an oauth-proxy restart or a
+				// brief maintenance window), so give it up to notFoundGracePeriod to
+				// recover before concluding the job's status page will never appear
+				// (e.g. it was garbage-collected) and giving up.
+				if elapsed := time.Since(notFoundSince); elapsed >= m.notFoundGracePeriod {
+					return JobOutcome{Err: fmt.Errorf("job %s not found for over %v: %w", prowExecutionID, m.notFoundGracePeriod, err)}
+				}
+				logger.Error(err, "Job status endpoint returned 404, still within grace period, will continue polling", "notFoundFor", time.Since(notFoundSince))
+			} else {
+				logger.Error(err, "Failed to get job status after retries, will continue polling")
 			}
-			logger.Error(err, "Failed to get job status after retries, will continue polling")
 		} else {
+			notFoundSince = time.Time{}
 			status := string(job.Status.State)
 			logger = logger.WithValues(
 				"prowExecutionID", prowExecutionID,
