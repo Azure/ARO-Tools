@@ -16,6 +16,11 @@ type SanitizedCloudConfigValues struct {
 	Entra                  SanitizedEntraConfig         `json:"entra"`
 	ARM                    SanitizedARMConfig           `json:"arm"`
 	Geneva                 SanitizedGenevaConfig        `json:"geneva"`
+	CosmosDB               SanitizedCosmosDBConfig      `json:"cosmosDB"`
+}
+
+type SanitizedCosmosDBConfig struct {
+	DnsSuffix string `json:"dnsSuffix"`
 }
 
 type KeyVaultValues struct {
