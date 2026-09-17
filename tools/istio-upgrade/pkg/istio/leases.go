@@ -35,8 +35,8 @@ var gatewayRevisionLeasePattern = regexp.MustCompile(
 // The caller must confirm the mesh is stable before invoking it.
 //
 // Requires list/delete on coordination.k8s.io/leases in aks-istio-system.
-// List failure is returned to the caller. Per-lease delete errors, including
-// NotFound, are logged and otherwise ignored.
+// List failure is returned to the caller. Per-lease delete errors are logged
+// and otherwise ignored; NotFound is treated as benign.
 func ReconcileOrphanedGatewayLeases(
 	ctx context.Context,
 	logger logr.Logger,
