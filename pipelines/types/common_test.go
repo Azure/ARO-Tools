@@ -307,14 +307,26 @@ func TestRequiredInputs(t *testing.T) {
 		{
 			name: "grafana manage full",
 			input: &GrafanaManageStep{
-				GrafanaName:  Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step1"}}},
-				Location:     Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step2"}}},
+				GrafanaName: Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step1"}}},
+				Location:    Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step2"}}},
+				ADX: &GrafanaADXIntegrations{
+					Enabled:          Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step4"}}},
+					Environment:      Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step5"}}},
+					Geographies:      Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step6"}}},
+					Scenario:         Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step7"}}},
+					TargetResourceID: Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step8"}}},
+				},
 				IdentityFrom: Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step3"}},
 			},
 			expected: []StepDependency{
 				{ResourceGroup: "rg", Step: "step1"},
 				{ResourceGroup: "rg", Step: "step2"},
 				{ResourceGroup: "rg", Step: "step3"},
+				{ResourceGroup: "rg", Step: "step4"},
+				{ResourceGroup: "rg", Step: "step5"},
+				{ResourceGroup: "rg", Step: "step6"},
+				{ResourceGroup: "rg", Step: "step7"},
+				{ResourceGroup: "rg", Step: "step8"},
 			},
 		},
 		{

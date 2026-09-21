@@ -15,6 +15,7 @@
 package types
 
 import (
+	"encoding/json"
 	"testing"
 
 	"gotest.tools/v3/assert"
@@ -509,6 +510,7 @@ func TestValidatePipelineSchema(t *testing.T) {
 			err: "pipeline is not compliant with schema pipeline.schema.v1",
 		},
 	}
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			pipelineBytes, err := yaml.Marshal(tc.pipeline)
@@ -521,4 +523,66 @@ func TestValidatePipelineSchema(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGrafanaADXIntegrationsSchemaValidation(t *testing.T) {
+	newPipeline := func(adx map[string]interface{}) map[string]interface{} {
+		return map[string]interface{}{
+			"serviceGroup": "test",
+			"rolloutName":  "test",
+			"resourceGroups": []interface{}{
+				map[string]interface{}{
+					"name":          "rg",
+					"resourceGroup": "rg",
+					"subscription":  "sub",
+					"steps": []interface{}{
+						map[string]interface{}{
+							"name":        "grafana",
+							"action":      "GrafanaManage",
+							"grafanaName": map[string]interface{}{"value": "grafana"},
+							"location":    map[string]interface{}{"value": "eastus"},
+							"adx":         adx,
+							"identityFrom": map[string]interface{}{
+								"resourceGroup": "rg",
+								"step":          "identity",
+								"name":          "resourceId",
+							},
+						},
+					},
+				},
+			},
+		}
+	}
+	validate := func(t *testing.T, pipeline map[string]interface{}) error {
+		t.Helper()
+		content, err := json.Marshal(pipeline)
+		assert.NilError(t, err)
+		return ValidatePipelineSchema(content)
+	}
+
+	t.Run("valid", func(t *testing.T) {
+		err := validate(t, newPipeline(map[string]interface{}{
+			"enabled":          map[string]interface{}{"value": "true"},
+			"environment":      map[string]interface{}{"value": "int"},
+			"geographies":      map[string]interface{}{"value": "eus,wus"},
+			"scenario":         map[string]interface{}{"configRef": "grafana.adx.scenario"},
+			"targetResourceId": map[string]interface{}{"configRef": "grafana.adx.targetResourceId"},
+		}))
+		assert.NilError(t, err)
+	})
+
+	t.Run("enabled required", func(t *testing.T) {
+		err := validate(t, newPipeline(map[string]interface{}{
+			"geographies": map[string]interface{}{"value": "eus"},
+		}))
+		assert.ErrorContains(t, err, "pipeline is not compliant with schema")
+	})
+
+	t.Run("unknown field rejected", func(t *testing.T) {
+		err := validate(t, newPipeline(map[string]interface{}{
+			"enabled": map[string]interface{}{"value": "true"},
+			"unknown": map[string]interface{}{"value": "value"},
+		}))
+		assert.ErrorContains(t, err, "pipeline is not compliant with schema")
+	})
 }

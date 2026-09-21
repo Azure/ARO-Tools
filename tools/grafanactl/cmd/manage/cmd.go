@@ -151,6 +151,7 @@ func (o *CompletedReconcileOptions) Run(ctx context.Context) error {
 		grafanaResource.Properties.GrafanaMajorVersion = &o.MajorVersion
 	}
 
+	location := o.Location
 	if o.DryRun {
 		logger.Info("dry run - would create/update Grafana instance",
 			"location", o.Location,
@@ -175,6 +176,10 @@ func (o *CompletedReconcileOptions) Run(ctx context.Context) error {
 			resultID = *result.ID
 		}
 
+		if result.Location != nil {
+			location = *result.Location
+		}
+
 		logger.Info("Grafana instance reconciled",
 			"id", resultID,
 			"principal-id", principalID,
@@ -186,6 +191,10 @@ func (o *CompletedReconcileOptions) Run(ctx context.Context) error {
 	logger.Info("Reconciling datasources", "valid-workspaces", validWorkspaceNames.Len())
 	if err := o.GrafanaClient.DeleteStaleDatasources(ctx, logger, validWorkspaceNames, o.DryRun); err != nil {
 		return fmt.Errorf("failed to delete stale datasources: %w", err)
+	}
+
+	if err := o.reconcileADXIntegrations(ctx, location, logger); err != nil {
+		return fmt.Errorf("failed to reconcile ADX integration fabrics: %w", err)
 	}
 
 	return nil
