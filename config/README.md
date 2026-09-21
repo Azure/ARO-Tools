@@ -15,6 +15,25 @@ Configuration files in this system are **Go templates**, not plain YAML. This al
 
 ## Two-Stage Design
 
+### Structured values in output templates
+
+Use `configJSON` with a dotted configuration path to emit JSON into a JSON or YAML
+output template:
+
+```yaml
+configuration: {{ configJSON "service.policy" }}
+```
+
+This preserves objects, arrays, booleans, numbers, string escaping and empty lists.
+The path must exist and the value must be JSON serializable; errors stop rendering.
+Use it in output templates after resolving the configuration, not to reference
+sibling fields while parsing the configuration source.
+
+Deferred renderers can pass `WithConfigJSON` to the preprocessing functions.
+The callback receives the path and must return a transport reference whose
+substitution preserves the fully resolved JSON value, including regional
+overrides. Serializing a tree of string placeholders does not preserve its types.
+
 The system uses a two-stage approach to handle the chicken-and-egg problem of needing to discover available contexts before users specify their target context.
 
 ### Stage 1: Discovery (NewConfigProvider)

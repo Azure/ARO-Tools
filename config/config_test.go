@@ -15,6 +15,9 @@
 package config_test
 
 import (
+	"bytes"
+	"encoding/json"
+	"fmt"
 	"os"
 	"testing"
 
@@ -26,6 +29,46 @@ import (
 	"github.com/Azure/ARO-Tools/config/types"
 	"github.com/Azure/ARO-Tools/testutil"
 )
+
+func TestConfigJSON(t *testing.T) {
+	value := map[string]any{
+		"enabled": true, "limit": int64(9007199254740993),
+		"empty": []any{}, "policies": []any{map[string]any{"allow": false}},
+		"selector": map[string]any{"quoted": "line\n\"value\"\\path", "boolean": "true"},
+	}
+	vars := map[string]any{"service": map[string]any{"policy": value}}
+	want, err := json.Marshal(value)
+	require.NoError(t, err)
+	got, err := config.PreprocessContent([]byte(`{{ configJSON "service.policy" }}`), vars)
+	require.NoError(t, err)
+	require.Equal(t, string(want), string(got))
+
+	for _, content := range []string{
+		`{{ configJSON "missing" }}`, `{{ configJSON "service.policy.enabled.child" }}`,
+	} {
+		_, err := config.PreprocessContent([]byte(content), vars)
+		require.Error(t, err)
+	}
+	_, err = config.PreprocessContent([]byte(`{{ configJSON "unsupported" }}`), map[string]any{"unsupported": make(chan int)})
+	require.ErrorContains(t, err, "unsupported type")
+}
+
+func TestConfigJSONDeferredRendering(t *testing.T) {
+	resolve := config.WithConfigJSON(func(path string) (string, error) {
+		if path != "service.policy" {
+			return "", fmt.Errorf("unexpected path %q", path)
+		}
+		return "__transport_reference__", nil
+	})
+	var output bytes.Buffer
+	err := config.PreprocessContentIntoWriter([]byte(`configuration: {{ configJSON "service.policy" }}`), nil, &output, resolve)
+	require.NoError(t, err)
+	require.Equal(t, "configuration: __transport_reference__", output.String())
+	_, err = config.PreprocessContent([]byte(`{{ configJSON "missing" }}`), nil, resolve)
+	require.ErrorContains(t, err, "unexpected path")
+	_, err = config.PreprocessContent(nil, nil, config.WithConfigJSON(nil))
+	require.ErrorContains(t, err, "must not be nil")
+}
 
 func TestConfigProvider(t *testing.T) {
 	region := "uksouth"

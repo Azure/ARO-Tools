@@ -381,12 +381,12 @@ func (cr *configResolver) ValueProvenance(region, path string) (*Provenance, err
 
 // PreprocessFile reads and processes a gotemplate
 // The path will be read as is. It parses the file as a template, and executes it with the pro
-func PreprocessFile(templateFilePath string, vars map[string]any) ([]byte, error) {
+func PreprocessFile(templateFilePath string, vars map[string]any, options ...PreprocessOption) ([]byte, error) {
 	content, err := os.ReadFile(templateFilePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file %s: %w", templateFilePath, err)
 	}
-	processedContent, err := PreprocessContent(content, vars)
+	processedContent, err := PreprocessContent(content, vars, options...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to preprocess content %s: %w", templateFilePath, err)
 	}
@@ -394,16 +394,47 @@ func PreprocessFile(templateFilePath string, vars map[string]any) ([]byte, error
 }
 
 // PreprocessContent processes a gotemplate from memory
-func PreprocessContent(content []byte, vars map[string]any) ([]byte, error) {
+func PreprocessContent(content []byte, vars map[string]any, options ...PreprocessOption) ([]byte, error) {
 	var tmplBytes bytes.Buffer
-	if err := PreprocessContentIntoWriter(content, vars, &tmplBytes); err != nil {
+	if err := PreprocessContentIntoWriter(content, vars, &tmplBytes, options...); err != nil {
 		return nil, err
 	}
 	return tmplBytes.Bytes(), nil
 }
 
-func PreprocessContentIntoWriter(content []byte, vars map[string]any, writer io.Writer) error {
-	tmpl, err := template.New("file").Parse(string(content))
+type preprocessOptions struct {
+	configJSON func(string) (string, error)
+}
+
+type PreprocessOption func(*preprocessOptions)
+
+// WithConfigJSON lets deferred renderers supply a transport reference for a
+// configuration path. The renderer must preserve the resolved value's JSON types.
+func WithConfigJSON(resolve func(string) (string, error)) PreprocessOption {
+	return func(options *preprocessOptions) {
+		options.configJSON = resolve
+	}
+}
+
+func PreprocessContentIntoWriter(content []byte, vars map[string]any, writer io.Writer, options ...PreprocessOption) error {
+	settings := preprocessOptions{configJSON: func(path string) (string, error) {
+		value, err := types.Configuration(vars).GetByPath(path)
+		if err != nil {
+			return "", err
+		}
+		encoded, err := json.Marshal(value)
+		if err != nil {
+			return "", fmt.Errorf("serialize configuration %q: %w", path, err)
+		}
+		return string(encoded), nil
+	}}
+	for _, option := range options {
+		option(&settings)
+	}
+	if settings.configJSON == nil {
+		return fmt.Errorf("configJSON resolver must not be nil")
+	}
+	tmpl, err := template.New("file").Funcs(template.FuncMap{"configJSON": settings.configJSON}).Parse(string(content))
 	if err != nil {
 		return fmt.Errorf("failed to parse template: %w", err)
 	}
