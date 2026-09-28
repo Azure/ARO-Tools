@@ -46,6 +46,15 @@ echo base > "$tmp/repo/README.md"
 git -C "$tmp/repo" add README.md
 git -C "$tmp/repo" commit -qm base
 git -C "$tmp/repo" push -q origin main
+mkdir -p "$tmp/repo/.github/skills/agentic-workflows"
+echo generated > "$tmp/repo/.github/skills/agentic-workflows/SKILL.md"
+(cd "$tmp/repo" && bash "$script" --check-scope-only)
+echo unrelated > "$tmp/repo/stray.txt"
+if (cd "$tmp/repo" && bash "$script" --check-scope-only) > "$tmp/scope.log" 2>&1; then
+  echo "Untracked out-of-scope files must be rejected." >&2
+  exit 1
+fi
+rm "$tmp/repo/stray.txt" "$tmp/repo/.github/skills/agentic-workflows/SKILL.md"
 git -C "$tmp/repo" switch -qc upgrade-agentic-workflows-123
 echo unrelated > "$tmp/repo/unrelated.txt"
 git -C "$tmp/repo" add unrelated.txt
