@@ -1,0 +1,49 @@
+name: gh-aw recompile
+on:
+  schedule:
+  - cron: "0 6 * * 1"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: gh-aw-recompile
+  cancel-in-progress: false
+jobs:
+  recompile:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    steps:
+    - name: Mint aro-hcp-robot App token
+      id: app-token
+      uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+      with:
+        client-id: ${{ secrets.DEPENDABOT_APP_CLIENT_ID }}
+        private-key: ${{ secrets.DEPENDABOT_APP_PRIVATE_KEY }}
+        permission-contents: write
+        permission-pull-requests: write
+        permission-workflows: write
+    - name: Checkout default branch
+      uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      with:
+        ref: ${{ github.event.repository.default_branch }}
+        persist-credentials: false
+        fetch-depth: 0
+    - name: Configure App git identity
+      env:
+        GH_TOKEN: ${{ steps.app-token.outputs.token }}
+      run: |
+        set -euo pipefail
+        bot_login='aro-hcp-robot[bot]'
+        bot_id=$(gh api "/users/${bot_login}" --jq '.id')
+        git config --global user.name "$bot_login"
+        git config --global user.email "${bot_id}+${bot_login}@users.noreply.github.com"
+        gh auth setup-git
+    - name: Install released gh-aw compiler
+      env:
+        GH_TOKEN: ${{ steps.app-token.outputs.token }}
+      run: gh extension install github/gh-aw
+    - name: Validate and publish compiler upgrade
+      env:
+        GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        GITHUB_BASE_REF: ${{ github.event.repository.default_branch }}
+      run: bash hack/gh-aw-recompile.sh
