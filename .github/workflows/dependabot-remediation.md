@@ -147,6 +147,8 @@ safe-outputs:
     fallback-as-issue: false            # no issues: write on the App token, fail instead of opening an issue
     title-prefix: "fix(deps): "
     labels: [dependencies, security, agentic-dependabot]
+    excluded-files:
+      - CHANGELOG.md
     # gh-aw guards package manifests (go.mod/go.sum) as supply-chain-sensitive by
     # default and refuses to push them. Managing those files IS this bot's whole job,
     # so exclude them from the protected set. Everything else (.github/, README,
