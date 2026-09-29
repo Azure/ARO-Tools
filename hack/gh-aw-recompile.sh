@@ -71,59 +71,44 @@ if [[ ${1:-} == --check-changelog-only ]]; then
   exit 0
 fi
 
-prs=$(gh pr list --repo "$repo" --state open --author app/aro-hcp-robot \
-  --limit 500 --json number,headRefName,author)
-matches=$(jq -c '[.[] | select(
-  (.author.login == "app/aro-hcp-robot" or .author.login == "aro-hcp-robot[bot]") and
-  (.headRefName | test("^upgrade-agentic-workflows-[0-9]+$"))
-)]' <<<"$prs")
-count=$(jq 'length' <<<"$matches")
-(( count <= 1 )) || { echo "Multiple upgrade PRs match; refusing to choose." >&2; exit 1; }
-
-if (( count == 1 )); then
-  number=$(jq -r '.[0].number' <<<"$matches")
-  branch=$(jq -r '.[0].headRefName' <<<"$matches")
-  gh api "repos/$repo/pulls/$number" |
-    jq -e --arg bot "$bot" --arg repo "$repo" --arg base "$base" --arg branch "$branch" \
-      '.state == "open" and .user.login == $bot and .head.repo.full_name == $repo and .head.ref == $branch and .base.ref == $base' >/dev/null ||
-    { echo "Upgrade PR identity, repository, or base does not match." >&2; exit 1; }
-  if [[ ${1:-} == --select-only ]]; then
-    printf '%s %s\n' "$number" "$branch"
-    exit 0
+if [[ ${1:-} == --publish-only ]]; then
+  artifact=${RUNNER_TEMP:?RUNNER_TEMP is required}/gh-aw-upgrade
+  [[ -f $artifact/metadata.json && -f $artifact/changes.patch ]] ||
+    { echo "Validated upgrade artifact is missing." >&2; exit 1; }
+  number=$(jq -er '.number | select(type == "number" and . >= 0)' "$artifact/metadata.json")
+  branch=$(jq -er '.branch | select(type == "string" and test("^upgrade-agentic-workflows-[0-9]+$"))' "$artifact/metadata.json")
+  initial_sha=$(jq -er '.initial_sha | select(type == "string" and test("^[0-9a-f]{40}$"))' "$artifact/metadata.json")
+  [[ $repo == 'Azure/ARO-Tools' ]] || { echo "Unexpected repository." >&2; exit 1; }
+  if (( number > 0 )); then
+    gh api "repos/$repo/pulls/$number" |
+      jq -e --arg bot "$bot" --arg repo "$repo" --arg base "$base" --arg branch "$branch" --arg sha "$initial_sha" \
+        '.state == "open" and .user.login == $bot and .head.repo.full_name == $repo and .head.ref == $branch and .head.sha == $sha and .base.ref == $base' >/dev/null ||
+      { echo "Upgrade PR changed during compilation." >&2; exit 1; }
+    git fetch origin "refs/heads/$branch:refs/remotes/origin/$branch"
+    [[ $(git rev-parse "origin/$branch") == "$initial_sha" ]] ||
+      { echo "Upgrade branch changed during compilation." >&2; exit 1; }
+    git switch -c "$branch" "origin/$branch"
+  else
+    [[ $branch == "upgrade-agentic-workflows-${GITHUB_RUN_ID:?GITHUB_RUN_ID is required}" ]] ||
+      { echo "Upgrade branch does not match this run." >&2; exit 1; }
+    [[ $(git rev-parse HEAD) == "$initial_sha" ]] ||
+      { echo "Default branch changed during compilation: expected $initial_sha, got $(git rev-parse HEAD)." >&2; exit 1; }
+    git switch -c "$branch"
   fi
-  git fetch origin "refs/heads/$branch:refs/remotes/origin/$branch"
-  git switch --detach "origin/$branch"
-  git switch -c "$branch"
-  git merge --no-edit "origin/$base"
+  git apply --index "$artifact/changes.patch"
   check_scope
-else
-  number=''
-  branch="upgrade-agentic-workflows-${GITHUB_RUN_ID:?GITHUB_RUN_ID is required}"
-  if [[ ${1:-} == --select-only ]]; then
-    printf 'new %s\n' "$branch"
-    exit 0
+  check_changelog_exclusion
+  git diff --cached --check
+  if git diff --cached --quiet; then
+    echo "Validated patch is empty; refusing to publish." >&2
+    exit 1
   fi
-  git switch -c "$branch"
-fi
-
-gh aw upgrade --yes
-repair_agent
-gh aw compile --validate --no-emit
-git add -A
-check_scope
-check_changelog_exclusion
-git diff --cached --check
-if git diff --cached --quiet; then
-  echo "No upgrade changes."
-  exit 0
-fi
-git commit -m "$title"
-[[ -z $(git status --porcelain) ]] ||
-  { echo "Verification left uncommitted changes; refusing to publish." >&2; exit 1; }
-
-body=$(mktemp)
-trap 'rm -f "$body"' EXIT
-cat > "$body" <<'EOF'
+  git commit -m "$title"
+  [[ -z $(git status --porcelain) ]] ||
+    { echo "Uncommitted changes remain; refusing to publish." >&2; exit 1; }
+  body=$(mktemp)
+  trap 'rm -f "$body"' EXIT
+  cat > "$body" <<'EOF'
 [AROSLSRE-2278](https://redhat.atlassian.net/browse/AROSLSRE-2278)
 
 ### Problem
@@ -150,10 +135,70 @@ Compilation, changelog protection and the file scope are validated before pushin
 
 Review the generated workflow permissions and protected-file exclusions.
 EOF
-git push origin "HEAD:refs/heads/$branch"
-if [[ -n $number ]]; then
-  gh pr edit "$number" --repo "$repo" --title "$title" --body-file "$body"
-else
-  gh pr create --repo "$repo" --base "$base" --head "$branch" \
-    --title "$title" --body-file "$body"
+  git push origin "HEAD:refs/heads/$branch"
+  if (( number > 0 )); then
+    gh pr edit "$number" --repo "$repo" --title "$title" --body-file "$body"
+  else
+    gh pr create --repo "$repo" --base "$base" --head "$branch" \
+      --title "$title" --body-file "$body"
+  fi
+  exit 0
 fi
+
+[[ ${1:-} == --prepare-only || ${1:-} == --select-only ]] ||
+  { echo "Expected --prepare-only or --publish-only." >&2; exit 1; }
+prs=$(gh pr list --repo "$repo" --state open --author app/aro-hcp-robot \
+  --limit 500 --json number,headRefName,author)
+matches=$(jq -c '[.[] | select(
+  (.author.login == "app/aro-hcp-robot" or .author.login == "aro-hcp-robot[bot]") and
+  (.headRefName | test("^upgrade-agentic-workflows-[0-9]+$"))
+)]' <<<"$prs")
+count=$(jq 'length' <<<"$matches")
+(( count <= 1 )) || { echo "Multiple upgrade PRs match; refusing to choose." >&2; exit 1; }
+
+if (( count == 1 )); then
+  number=$(jq -r '.[0].number' <<<"$matches")
+  branch=$(jq -r '.[0].headRefName' <<<"$matches")
+  gh api "repos/$repo/pulls/$number" |
+    jq -e --arg bot "$bot" --arg repo "$repo" --arg base "$base" --arg branch "$branch" \
+      '.state == "open" and .user.login == $bot and .head.repo.full_name == $repo and .head.ref == $branch and .base.ref == $base' >/dev/null ||
+    { echo "Upgrade PR identity, repository, or base does not match." >&2; exit 1; }
+  if [[ ${1:-} == --select-only ]]; then
+    printf '%s %s\n' "$number" "$branch"
+    exit 0
+  fi
+  git fetch origin "refs/heads/$branch:refs/remotes/origin/$branch"
+  initial_sha=$(git rev-parse "origin/$branch")
+  git switch --detach "origin/$branch"
+  git switch -c "$branch"
+  git merge --no-edit "origin/$base"
+  check_scope
+else
+  number=''
+  branch="upgrade-agentic-workflows-${GITHUB_RUN_ID:?GITHUB_RUN_ID is required}"
+  if [[ ${1:-} == --select-only ]]; then
+    printf 'new %s\n' "$branch"
+    exit 0
+  fi
+  initial_sha=$(git rev-parse HEAD)
+  git switch -c "$branch"
+fi
+
+gh aw upgrade --yes
+repair_agent
+gh aw compile --validate --no-emit
+git add -A
+check_scope
+check_changelog_exclusion
+git diff --cached --check
+if git diff --cached --quiet "$initial_sha"; then
+  echo "No upgrade changes."
+  printf 'changed=false\n' >> "${GITHUB_OUTPUT:?GITHUB_OUTPUT is required}"
+  exit 0
+fi
+artifact=${RUNNER_TEMP:?RUNNER_TEMP is required}/gh-aw-upgrade
+mkdir -p "$artifact"
+git diff --cached --binary "$initial_sha" > "$artifact/changes.patch"
+jq -n --argjson number "${number:-0}" --arg branch "$branch" --arg initial_sha "$initial_sha" \
+  '{number:$number,branch:$branch,initial_sha:$initial_sha}' > "$artifact/metadata.json"
+printf 'changed=true\n' >> "${GITHUB_OUTPUT:?GITHUB_OUTPUT is required}"
