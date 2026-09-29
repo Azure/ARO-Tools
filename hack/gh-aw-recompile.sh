@@ -45,12 +45,29 @@ repair_agent() {
   fi
 }
 
+check_changelog_exclusion() {
+  grep -A2 '^    excluded-files:' .github/workflows/dependabot-remediation.md |
+    grep -Fxq '      - CHANGELOG.md' ||
+    { echo "Protected changelog exclusion missing from workflow source." >&2; exit 1; }
+  local key count
+  for key in GH_AW_SAFE_OUTPUTS_CONFIG GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG; do
+    count=$(grep -F "$key:" .github/workflows/dependabot-remediation.lock.yml |
+      grep -Fc '\"excluded_files\":[\"CHANGELOG.md\"]' || true)
+    [[ $count == 1 ]] ||
+      { echo "Protected changelog exclusion missing from $key." >&2; exit 1; }
+  done
+}
+
 if [[ ${1:-} == --repair-only ]]; then
   repair_agent
   exit 0
 fi
 if [[ ${1:-} == --check-scope-only ]]; then
   check_scope
+  exit 0
+fi
+if [[ ${1:-} == --check-changelog-only ]]; then
+  check_changelog_exclusion
   exit 0
 fi
 
@@ -94,11 +111,7 @@ repair_agent
 gh aw compile --validate --no-emit
 git add -A
 check_scope
-grep -A2 '^    excluded-files:' .github/workflows/dependabot-remediation.md |
-  grep -Fxq '      - CHANGELOG.md' ||
-  { echo "Protected changelog exclusion missing from workflow source." >&2; exit 1; }
-grep -Fq '\"excluded_files\":[\"CHANGELOG.md\"]' .github/workflows/dependabot-remediation.lock.yml ||
-  { echo "Protected changelog exclusion missing from compiled workflow." >&2; exit 1; }
+check_changelog_exclusion
 git diff --cached --check
 if git diff --cached --quiet; then
   echo "No upgrade changes."

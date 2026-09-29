@@ -74,6 +74,26 @@ if (cd "$tmp/repo" && bash "$script") > "$tmp/scope.log" 2>&1; then
 fi
 grep -q 'out-of-scope file: unrelated.txt' "$tmp/scope.log"
 
+mkdir -p "$tmp/guard/.github/workflows"
+cat > "$tmp/guard/.github/workflows/dependabot-remediation.md" <<'EOF'
+    excluded-files:
+      - CHANGELOG.md
+EOF
+cat > "$tmp/guard/.github/workflows/dependabot-remediation.lock.yml" <<'EOF'
+          GH_AW_SAFE_OUTPUTS_CONFIG: "{\"excluded_files\":[\"CHANGELOG.md\"]}"
+          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"excluded_files\":[\"CHANGELOG.md\"]}"
+EOF
+(cd "$tmp/guard" && bash "$script" --check-changelog-only)
+for key in GH_AW_SAFE_OUTPUTS_CONFIG GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG; do
+  sed -i "/$key:/s/CHANGELOG.md/OTHER.md/" "$tmp/guard/.github/workflows/dependabot-remediation.lock.yml"
+  if (cd "$tmp/guard" && bash "$script" --check-changelog-only) > "$tmp/changelog.log" 2>&1; then
+    echo "Missing exclusion in $key must be rejected." >&2
+    exit 1
+  fi
+  grep -q "Protected changelog exclusion missing from $key" "$tmp/changelog.log"
+  sed -i "/$key:/s/OTHER.md/CHANGELOG.md/" "$tmp/guard/.github/workflows/dependabot-remediation.lock.yml"
+done
+
 mkdir -p "$tmp/agent/.github/agents"
 echo 'https://raw.githubusercontent.com/github/gh-aw/main/example' > "$tmp/agent/.github/agents/agentic-workflows.md"
 (
