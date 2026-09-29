@@ -161,8 +161,12 @@ if git -C "$tmp/publish-existing" diff --name-only "$base_sha"...HEAD | grep -Fx
   exit 1
 fi
 
-mkdir -p "$tmp/agent/.github/agents"
+mkdir -p "$tmp/agent/.github/agents" "$tmp/agent/.github/skills/agentic-workflows"
 echo 'https://raw.githubusercontent.com/github/gh-aw/main/example' > "$tmp/agent/.github/agents/agentic-workflows.md"
+cat > "$tmp/agent/.github/skills/agentic-workflows/SKILL.md" <<'EOF'
+Load these files from `github/gh-aw` (they are not available locally).
+- `.github/aw/create-agentic-workflow.md`
+EOF
 (
   cd "$tmp/agent"
   if MOCK_VERSION='unparseable' bash "$script" --repair-only > "$tmp/version.log" 2>&1; then
@@ -178,5 +182,14 @@ echo 'https://raw.githubusercontent.com/github/gh-aw/main/example' > "$tmp/agent
   bash "$script" --repair-only
   grep -q 'github/gh-aw/c35393777e5604a63721d09512263b1383301d4f/' \
     .github/agents/agentic-workflows.agent.md
+  grep -Fq 'https://raw.githubusercontent.com/github/gh-aw/c35393777e5604a63721d09512263b1383301d4f/' \
+    .github/skills/agentic-workflows/SKILL.md
+  bash "$script" --repair-only
+  echo 'Load https://raw.githubusercontent.com/github/gh-aw/main/unsafe.md' >> .github/skills/agentic-workflows/SKILL.md
+  if bash "$script" --repair-only > "$tmp/skill.log" 2>&1; then
+    echo "Unpinned skill references must be rejected." >&2
+    exit 1
+  fi
+  grep -q 'An unpinned gh-aw prompt reference remains' "$tmp/skill.log"
 )
 echo "gh-aw recompile tests passed"

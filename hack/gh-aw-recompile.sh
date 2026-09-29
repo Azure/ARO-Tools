@@ -26,11 +26,13 @@ check_scope() {
 repair_agent() {
   local agent=.github/agents/agentic-workflows.agent.md
   local generated=.github/agents/agentic-workflows.md
-  local version_output version commit
+  local skill=.github/skills/agentic-workflows/SKILL.md
+  local version_output version commit file
   if [[ -f $generated ]]; then
     mv "$generated" "$agent"
   fi
   [[ -f $agent ]] || { echo "gh-aw did not generate its dispatcher agent." >&2; exit 1; }
+  [[ -f $skill ]] || { echo "gh-aw did not generate its dispatcher skill." >&2; exit 1; }
   version_output=$(gh aw version 2>&1) || { echo "gh aw version failed: $version_output" >&2; exit 1; }
   [[ $version_output =~ v[0-9]+\.[0-9]+\.[0-9]+ ]] ||
     { echo "Cannot determine installed gh-aw version." >&2; exit 1; }
@@ -38,9 +40,19 @@ repair_agent() {
   commit=$(gh api "repos/github/gh-aw/commits/$version" --jq '.sha')
   [[ $commit =~ ^[0-9a-f]{40}$ ]] || { echo "Cannot pin gh-aw prompts to a commit." >&2; exit 1; }
   sed -E -i "s@raw\.githubusercontent\.com/github/gh-aw/(main|refs/heads/main|[0-9a-f]{40})/@raw.githubusercontent.com/github/gh-aw/$commit/@g" "$agent"
-  if grep -Eo 'raw\.githubusercontent\.com/github/gh-aw/(refs/heads/)?[^/]+/' "$agent" |
-    grep -Fvx "raw.githubusercontent.com/github/gh-aw/$commit/"; then
-    echo "An unpinned gh-aw prompt reference remains." >&2
+  grep -Eq '^Load these files from `(github/gh-aw|https://raw\.githubusercontent\.com/github/gh-aw/[0-9a-f]{40}/)`' "$skill" ||
+    { echo "Cannot identify the generated skill's gh-aw prompt root." >&2; exit 1; }
+  sed -E -i "s@^Load these files from \`(github/gh-aw|https://raw\.githubusercontent\.com/github/gh-aw/[0-9a-f]{40}/)\`.*@Load these files from \`https://raw.githubusercontent.com/github/gh-aw/$commit/\` (resolve every listed path against this pinned root).@" "$skill"
+  for file in "$agent" "$skill"; do
+    if grep -Eo 'raw\.githubusercontent\.com/github/gh-aw/(refs/heads/)?[^/]+/' "$file" |
+      grep -Fvx "raw.githubusercontent.com/github/gh-aw/$commit/"; then
+      echo "An unpinned gh-aw prompt reference remains in $file." >&2
+      exit 1
+    fi
+  done
+  if grep -F 'github/gh-aw' "$skill" |
+    grep -Fv "raw.githubusercontent.com/github/gh-aw/$commit/"; then
+    echo "An unpinned gh-aw skill reference remains." >&2
     exit 1
   fi
 }
