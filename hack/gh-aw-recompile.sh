@@ -78,7 +78,10 @@ if [[ ${1:-} == --publish-only ]]; then
   number=$(jq -er '.number | select(type == "number" and . >= 0)' "$artifact/metadata.json")
   branch=$(jq -er '.branch | select(type == "string" and test("^upgrade-agentic-workflows-[0-9]+$"))' "$artifact/metadata.json")
   initial_sha=$(jq -er '.initial_sha | select(type == "string" and test("^[0-9a-f]{40}$"))' "$artifact/metadata.json")
+  base_sha=$(jq -er '.base_sha | select(type == "string" and test("^[0-9a-f]{40}$"))' "$artifact/metadata.json")
   [[ $repo == 'Azure/ARO-Tools' ]] || { echo "Unexpected repository." >&2; exit 1; }
+  [[ $(git rev-parse "origin/$base") == "$base_sha" ]] ||
+    { echo "Default branch changed during compilation." >&2; exit 1; }
   if (( number > 0 )); then
     gh api "repos/$repo/pulls/$number" |
       jq -e --arg bot "$bot" --arg repo "$repo" --arg base "$base" --arg branch "$branch" --arg sha "$initial_sha" \
@@ -88,6 +91,7 @@ if [[ ${1:-} == --publish-only ]]; then
     [[ $(git rev-parse "origin/$branch") == "$initial_sha" ]] ||
       { echo "Upgrade branch changed during compilation." >&2; exit 1; }
     git switch -c "$branch" "origin/$branch"
+    git merge --no-edit "origin/$base"
   else
     [[ $branch == "upgrade-agentic-workflows-${GITHUB_RUN_ID:?GITHUB_RUN_ID is required}" ]] ||
       { echo "Upgrade branch does not match this run." >&2; exit 1; }
@@ -95,15 +99,17 @@ if [[ ${1:-} == --publish-only ]]; then
       { echo "Default branch changed during compilation: expected $initial_sha, got $(git rev-parse HEAD)." >&2; exit 1; }
     git switch -c "$branch"
   fi
-  git apply --index "$artifact/changes.patch"
+  if [[ -s $artifact/changes.patch ]]; then
+    git apply --index "$artifact/changes.patch"
+  fi
   check_scope
   check_changelog_exclusion
   git diff --cached --check
-  if git diff --cached --quiet; then
-    echo "Validated patch is empty; refusing to publish." >&2
-    exit 1
+  if ! git diff --cached --quiet; then
+    git commit -m "$title"
   fi
-  git commit -m "$title"
+  [[ $(git rev-parse HEAD) != "$initial_sha" ]] ||
+    { echo "Validated upgrade is empty; refusing to publish." >&2; exit 1; }
   [[ -z $(git status --porcelain) ]] ||
     { echo "Uncommitted changes remain; refusing to publish." >&2; exit 1; }
   body=$(mktemp)
@@ -155,6 +161,7 @@ matches=$(jq -c '[.[] | select(
 )]' <<<"$prs")
 count=$(jq 'length' <<<"$matches")
 (( count <= 1 )) || { echo "Multiple upgrade PRs match; refusing to choose." >&2; exit 1; }
+base_sha=$(git rev-parse "origin/$base")
 
 if (( count == 1 )); then
   number=$(jq -r '.[0].number' <<<"$matches")
@@ -191,14 +198,14 @@ git add -A
 check_scope
 check_changelog_exclusion
 git diff --cached --check
-if git diff --cached --quiet "$initial_sha"; then
+if [[ $(git rev-parse HEAD) == "$initial_sha" ]] && git diff --cached --quiet; then
   echo "No upgrade changes."
   printf 'changed=false\n' >> "${GITHUB_OUTPUT:?GITHUB_OUTPUT is required}"
   exit 0
 fi
 artifact=${RUNNER_TEMP:?RUNNER_TEMP is required}/gh-aw-upgrade
 mkdir -p "$artifact"
-git diff --cached --binary "$initial_sha" > "$artifact/changes.patch"
-jq -n --argjson number "${number:-0}" --arg branch "$branch" --arg initial_sha "$initial_sha" \
-  '{number:$number,branch:$branch,initial_sha:$initial_sha}' > "$artifact/metadata.json"
+git diff --cached --binary HEAD > "$artifact/changes.patch"
+jq -n --argjson number "${number:-0}" --arg branch "$branch" --arg initial_sha "$initial_sha" --arg base_sha "$base_sha" \
+  '{number:$number,branch:$branch,initial_sha:$initial_sha,base_sha:$base_sha}' > "$artifact/metadata.json"
 printf 'changed=true\n' >> "${GITHUB_OUTPUT:?GITHUB_OUTPUT is required}"

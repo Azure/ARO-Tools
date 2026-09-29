@@ -12,6 +12,7 @@ case "$1 $2" in
   'aw version') printf '%s\n' "${MOCK_VERSION:-gh aw version v0.89.21}"; exit "${MOCK_VERSION_EXIT:-0}" ;;
   'api repos/github/gh-aw/commits/v0.89.21') echo 'c35393777e5604a63721d09512263b1383301d4f' ;;
   'pr create') echo 'https://github.com/Azure/ARO-Tools/pull/99' ;;
+  'pr edit') : ;;
   *) echo "Unexpected gh invocation: $*" >&2; exit 1 ;;
 esac
 EOF
@@ -101,7 +102,7 @@ git -C "$tmp/repo" add .github
 mkdir -p "$tmp/gh-aw-upgrade"
 git -C "$tmp/repo" diff --cached --binary HEAD > "$tmp/gh-aw-upgrade/changes.patch"
 jq -n --arg initial_sha "$(git -C "$tmp/repo" rev-parse HEAD)" \
-  '{number:0,branch:"upgrade-agentic-workflows-999",initial_sha:$initial_sha}' \
+  '{number:0,branch:"upgrade-agentic-workflows-999",initial_sha:$initial_sha,base_sha:$initial_sha}' \
   > "$tmp/gh-aw-upgrade/metadata.json"
 git clone -q -b main "$tmp/origin.git" "$tmp/publish"
 git -C "$tmp/publish" config user.name Test
@@ -112,6 +113,53 @@ git -C "$tmp/publish" status --porcelain | grep -q . &&
 git -C "$tmp/publish" branch --show-current | grep -Fxq upgrade-agentic-workflows-999
 git -C "$tmp/publish" diff --name-only HEAD^ HEAD |
   grep -Fxq .github/workflows/dependabot-remediation.lock.yml
+
+git clone -q -b main "$tmp/origin.git" "$tmp/reuse"
+git -C "$tmp/reuse" config user.name Test
+git -C "$tmp/reuse" config user.email test@example.com
+cp -r "$tmp/guard/.github" "$tmp/reuse/"
+git -C "$tmp/reuse" add .github
+git -C "$tmp/reuse" commit -qm 'Workflow baseline'
+git -C "$tmp/reuse" push -q origin main
+git -C "$tmp/reuse" switch -qc upgrade-agentic-workflows-456
+mkdir -p "$tmp/reuse/.github/aw"
+echo existing > "$tmp/reuse/.github/aw/actions-lock.json"
+git -C "$tmp/reuse" add .github
+git -C "$tmp/reuse" commit -qm 'Existing bot upgrade'
+git -C "$tmp/reuse" push -q origin HEAD
+initial_sha=$(git -C "$tmp/reuse" rev-parse HEAD)
+git -C "$tmp/reuse" switch -q main
+echo base-change >> "$tmp/reuse/README.md"
+git -C "$tmp/reuse" add README.md
+git -C "$tmp/reuse" commit -qm 'Unrelated base change'
+git -C "$tmp/reuse" push -q origin main
+base_sha=$(git -C "$tmp/reuse" rev-parse HEAD)
+git -C "$tmp/reuse" switch -q upgrade-agentic-workflows-456
+git -C "$tmp/reuse" merge -q --no-edit "$base_sha"
+echo generated > "$tmp/reuse/.github/aw/actions-lock.json"
+git -C "$tmp/reuse" add .github
+git -C "$tmp/reuse" diff --cached --binary HEAD > "$tmp/gh-aw-upgrade/changes.patch"
+if grep -q README.md "$tmp/gh-aw-upgrade/changes.patch"; then
+  echo "Compiler patch must not contain base changes." >&2
+  exit 1
+fi
+jq -n --arg initial_sha "$initial_sha" --arg base_sha "$base_sha" \
+  '{number:42,branch:"upgrade-agentic-workflows-456",initial_sha:$initial_sha,base_sha:$base_sha}' \
+  > "$tmp/gh-aw-upgrade/metadata.json"
+export MOCK_PR_DETAIL
+MOCK_PR_DETAIL=$(jq -n --arg sha "$initial_sha" \
+  '{state:"open",user:{login:"aro-hcp-robot[bot]"},head:{repo:{full_name:"Azure/ARO-Tools"},ref:"upgrade-agentic-workflows-456",sha:$sha},base:{ref:"main"}}')
+git clone -q -b main "$tmp/origin.git" "$tmp/publish-existing"
+git -C "$tmp/publish-existing" config user.name Test
+git -C "$tmp/publish-existing" config user.email test@example.com
+(cd "$tmp/publish-existing" && RUNNER_TEMP="$tmp" bash "$script" --publish-only) > "$tmp/publish-existing.log"
+git -C "$tmp/publish-existing" merge-base --is-ancestor "$base_sha" HEAD
+[[ $(git -C "$tmp/publish-existing" show HEAD:README.md) == $'base\nbase-change' ]]
+[[ $(git -C "$tmp/publish-existing" show HEAD:.github/aw/actions-lock.json) == generated ]]
+if git -C "$tmp/publish-existing" diff --name-only "$base_sha"...HEAD | grep -Fxq README.md; then
+  echo "Base changes must remain in merge ancestry, not the upgrade diff." >&2
+  exit 1
+fi
 
 mkdir -p "$tmp/agent/.github/agents"
 echo 'https://raw.githubusercontent.com/github/gh-aw/main/example' > "$tmp/agent/.github/agents/agentic-workflows.md"
