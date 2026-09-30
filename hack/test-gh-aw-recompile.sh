@@ -166,6 +166,8 @@ echo 'https://raw.githubusercontent.com/github/gh-aw/main/example' > "$tmp/agent
 cat > "$tmp/agent/.github/skills/agentic-workflows/SKILL.md" <<'EOF'
 Load these files from `github/gh-aw` (they are not available locally).
 - `.github/aw/create-agentic-workflow.md`
+
+When the task involves OTEL, OTLP, traces, observability backends, or telemetry-driven analysis, also read and follow `skills/otel-queries/SKILL.md` after loading the matching workflow prompt or skill.
 EOF
 (
   cd "$tmp/agent"
@@ -184,7 +186,29 @@ EOF
     .github/agents/agentic-workflows.agent.md
   grep -Fq 'https://raw.githubusercontent.com/github/gh-aw/c35393777e5604a63721d09512263b1383301d4f/' \
     .github/skills/agentic-workflows/SKILL.md
+  if grep -Fq 'skills/otel-queries/SKILL.md' .github/skills/agentic-workflows/SKILL.md; then
+    echo "Generated dispatcher must not reference a missing OTEL skill." >&2
+    exit 1
+  fi
+  grep -Fq -- '- `.github/aw/create-agentic-workflow.md`' .github/skills/agentic-workflows/SKILL.md
   bash "$script" --repair-only
+  if grep -Fq 'skills/otel-queries/SKILL.md' .github/skills/agentic-workflows/SKILL.md; then
+    echo "Repeat repair must not restore a missing OTEL route." >&2
+    exit 1
+  fi
+  mkdir -p skills/otel-queries
+  echo 'OTEL skill' > skills/otel-queries/SKILL.md
+  echo 'When the task involves OTEL, OTLP, traces, observability backends, or telemetry-driven analysis, also read and follow `skills/otel-queries/SKILL.md` after loading the matching workflow prompt or skill.' >> .github/skills/agentic-workflows/SKILL.md
+  bash "$script" --repair-only
+  grep -Fq 'also read and follow `skills/otel-queries/SKILL.md`' .github/skills/agentic-workflows/SKILL.md
+  rm -r skills/otel-queries
+  echo 'Read `skills/otel-queries/SKILL.md` for telemetry.' >> .github/skills/agentic-workflows/SKILL.md
+  if bash "$script" --repair-only > "$tmp/skill.log" 2>&1; then
+    echo "Unknown missing-skill references must be rejected." >&2
+    exit 1
+  fi
+  grep -q 'Generated dispatcher references a missing OTEL skill' "$tmp/skill.log"
+  sed -i '/^Read `skills\/otel-queries\/SKILL.md` for telemetry\.$/d' .github/skills/agentic-workflows/SKILL.md
   echo 'Load https://raw.githubusercontent.com/github/gh-aw/main/unsafe.md' >> .github/skills/agentic-workflows/SKILL.md
   if bash "$script" --repair-only > "$tmp/skill.log" 2>&1; then
     echo "Unpinned skill references must be rejected." >&2

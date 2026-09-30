@@ -43,6 +43,13 @@ repair_agent() {
   grep -Eq '^Load these files from `(github/gh-aw|https://raw\.githubusercontent\.com/github/gh-aw/[0-9a-f]{40}/)`' "$skill" ||
     { echo "Cannot identify the generated skill's gh-aw prompt root." >&2; exit 1; }
   sed -E -i "s@^Load these files from \`(github/gh-aw|https://raw\.githubusercontent\.com/github/gh-aw/[0-9a-f]{40}/)\`.*@Load these files from \`https://raw.githubusercontent.com/github/gh-aw/$commit/\` (resolve every listed path against this pinned root).@" "$skill"
+  if [[ ! -f skills/otel-queries/SKILL.md ]]; then
+    sed -i '/^When the task involves OTEL, OTLP, traces, observability backends, or telemetry-driven analysis, also read and follow `skills\/otel-queries\/SKILL.md` after loading the matching workflow prompt or skill\.$/d' "$skill"
+    if grep -Fq 'skills/otel-queries/SKILL.md' "$skill"; then
+      echo "Generated dispatcher references a missing OTEL skill." >&2
+      exit 1
+    fi
+  fi
   for file in "$agent" "$skill"; do
     if grep -Eo 'raw\.githubusercontent\.com/github/gh-aw/(refs/heads/)?[^/]+/' "$file" |
       grep -Fvx "raw.githubusercontent.com/github/gh-aw/$commit/"; then
