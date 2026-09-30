@@ -162,6 +162,7 @@ if git -C "$tmp/publish-existing" diff --name-only "$base_sha"...HEAD | grep -Fx
 fi
 
 mkdir -p "$tmp/agent/.github/agents" "$tmp/agent/.github/skills/agentic-workflows"
+git init -q "$tmp/agent"
 echo 'https://raw.githubusercontent.com/github/gh-aw/main/example' > "$tmp/agent/.github/agents/agentic-workflows.md"
 cat > "$tmp/agent/.github/skills/agentic-workflows/SKILL.md" <<'EOF'
 Load these files from `github/gh-aw` (they are not available locally).
@@ -191,11 +192,15 @@ EOF
     exit 1
   fi
   grep -Fq -- '- `.github/aw/create-agentic-workflow.md`' .github/skills/agentic-workflows/SKILL.md
+  git add .github/agents/agentic-workflows.agent.md .github/skills/agentic-workflows/SKILL.md
+  git diff --cached --check
   bash "$script" --repair-only
   if grep -Fq 'skills/otel-queries/SKILL.md' .github/skills/agentic-workflows/SKILL.md; then
     echo "Repeat repair must not restore a missing OTEL route." >&2
     exit 1
   fi
+  git add .github/skills/agentic-workflows/SKILL.md
+  git diff --cached --check
   mkdir -p skills/otel-queries
   echo 'OTEL skill' > skills/otel-queries/SKILL.md
   echo 'When the task involves OTEL, OTLP, traces, observability backends, or telemetry-driven analysis, also read and follow `skills/otel-queries/SKILL.md` after loading the matching workflow prompt or skill.' >> .github/skills/agentic-workflows/SKILL.md
