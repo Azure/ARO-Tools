@@ -87,6 +87,7 @@ Load these files from `https://raw.githubusercontent.com/github/gh-aw/c35393777e
 - `.github/aw/update-agentic-workflow.md`
 - `.github/aw/upgrade-agentic-workflows.md`
 - `.github/aw/visual-regression.md`
+- `.github/aw/work-queue.md`
 - `.github/aw/workflow-constraints.md`
 - `.github/aw/workflow-editing.md`
 - `.github/aw/workflow-patterns.md`
