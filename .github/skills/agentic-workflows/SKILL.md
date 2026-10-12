@@ -31,6 +31,7 @@ Load these files from `https://raw.githubusercontent.com/github/gh-aw/c35393777e
 - `.github/aw/create-agentic-workflow.md`
 - `.github/aw/create-shared-agentic-workflow.md`
 - `.github/aw/debug-agentic-workflow.md`
+- `.github/aw/debug-security-review.md`
 - `.github/aw/dependabot.md`
 - `.github/aw/deployment-status.md`
 - `.github/aw/designer-mappings.md`
@@ -46,6 +47,7 @@ Load these files from `https://raw.githubusercontent.com/github/gh-aw/c35393777e
 - `.github/aw/instructions.md`
 - `.github/aw/intent.md`
 - `.github/aw/jobs.md`
+- `.github/aw/ledger.md`
 - `.github/aw/linter-workflows.md`
 - `.github/aw/llms.md`
 - `.github/aw/loop.md`
