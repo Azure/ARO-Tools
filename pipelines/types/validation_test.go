@@ -339,6 +339,29 @@ func TestValidatePipelineSchema(t *testing.T) {
 			},
 		},
 		{
+			// identityFrom names the Ev2 managed identity to run as, so it is
+			// optional for registrations driven by ambient credentials.
+			name: "valid provider feature registration without identityFrom",
+			pipeline: map[string]interface{}{
+				"serviceGroup": "test",
+				"rolloutName":  "test",
+				"resourceGroups": []interface{}{
+					map[string]interface{}{
+						"name":          "rg",
+						"resourceGroup": "rg",
+						"subscription":  "sub",
+						"steps": []interface{}{
+							map[string]interface{}{
+								"name":              "step",
+								"action":            "ProviderFeatureRegistration",
+								"providerConfigRef": "some.providers",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
 			name: "safefly is not authorable",
 			pipeline: map[string]interface{}{
 				"serviceGroup": "test",
