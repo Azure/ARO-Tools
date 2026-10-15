@@ -27,6 +27,14 @@ it. Comment `/retest` to re-run failed checks.
 Note: only merge commits are allowed on `main` (squash and rebase merges are disabled), matching
 [Azure/ARO-HCP](https://github.com/Azure/ARO-HCP)'s repo settings.
 
+## Helm deployment
+
+The `helmdeploy` tool removes legacy `helm` field-manager entries before upgrading
+a release with server-side apply. Resources without a legacy entry are not written.
+Resource-version conflicts are retried with bounded backoff and a fresh read on
+each attempt, preserving concurrent controller updates. Other API errors and
+conflicts that exhaust the retry budget fail the deployment.
+
 ## Contributing
 
 This project welcomes contributions and suggestions.  Most contributions require you to agree to a

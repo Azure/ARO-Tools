@@ -36,6 +36,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/ptr"
 
 	"sigs.k8s.io/yaml"
@@ -776,6 +777,7 @@ func releaseListToV1List(ls []helmrelease.Releaser) ([]*helmreleasev1.Release, e
 	return rls, nil
 }
 
+// Removes legacy Helm ownership without overwriting concurrent resource updates.
 func removeOldFieldManager(ctx context.Context, logger logr.Logger, opts *Options, release *helmreleasev1.Release) error {
 	logger.Info("Removing old field manager from objects in release manifest.")
 	inputDecoder := yamlutil.NewYAMLOrJSONDecoder(bytes.NewBuffer([]byte(release.Manifest)), 4096)
@@ -811,29 +813,33 @@ func removeOldFieldManager(ctx context.Context, logger logr.Logger, opts *Option
 			obj.SetNamespace(opts.ReleaseNamespace)
 		}
 
-		current, err := opts.DynamicClient.Resource(mapping.Resource).Namespace(obj.GetNamespace()).Get(ctx, obj.GetName(), metav1.GetOptions{})
-		if err != nil {
-			if !kapierrors.IsNotFound(err) {
-				return fmt.Errorf("failed to fetch current resource state: %v", err)
+		resource := opts.DynamicClient.Resource(mapping.Resource).Namespace(obj.GetNamespace())
+		if err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			current, err := resource.Get(ctx, obj.GetName(), metav1.GetOptions{})
+			if kapierrors.IsNotFound(err) {
+				return nil
 			}
-			continue
-		}
-		var toKeep []metav1.ManagedFieldsEntry
-		fields := current.GetManagedFields()
-		found := false
-		for _, field := range fields {
-			if field.Manager == "helm" {
-				found = true
-				continue
+			if err != nil {
+				return err
 			}
-			toKeep = append(toKeep, field)
-		}
-		current.SetManagedFields(toKeep)
-		if _, err := opts.DynamicClient.Resource(mapping.Resource).Namespace(obj.GetNamespace()).Update(ctx, current, metav1.UpdateOptions{}); err != nil {
-			return fmt.Errorf("failed to remove old field manager from release manifest: %v", err)
-		}
-		if found {
+			fields := current.GetManagedFields()
+			toKeep := fields[:0]
+			for _, field := range fields {
+				if field.Manager != "helm" {
+					toKeep = append(toKeep, field)
+				}
+			}
+			if len(toKeep) == len(fields) {
+				return nil
+			}
+			current.SetManagedFields(toKeep)
+			if _, err := resource.Update(ctx, current, metav1.UpdateOptions{}); err != nil {
+				return err
+			}
 			objLogger.Info("Removed old field manager from release manifest.")
+			return nil
+		}); err != nil {
+			return fmt.Errorf("failed to remove old field manager from release manifest: %w", err)
 		}
 	}
 	return nil
