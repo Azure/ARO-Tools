@@ -1,0 +1,7 @@
+registry: __acr.name__
+alias: __acr.alias__
+enabled: __enabled__
+replicas: __replicas__
+regions: __regions__
+optional: __optional__
+input: __clientId__
