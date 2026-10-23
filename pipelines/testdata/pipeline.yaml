@@ -88,6 +88,21 @@ resourceGroups:
     actionOnUnmanage: delete
     bypassStackOutOfSyncError: false
     omitFromServiceGroupCompletion: true
+  - name: remove-legacy-stack
+    action: ARMStack
+    operation: delete
+    deploymentLevel: ResourceGroup
+    deploymentStackName:
+      value: Global.singleton.acrs
+    actionOnUnmanage: detach
+    timeout: 30m
+    identityFrom:
+      resourceGroup: regional
+      step: deploy
+      name: whatever
+    dependsOn:
+      - resourceGroup: regional
+        step: svc-stack
   - name: cxChildZone
     action: DelegateChildZone
     parentZone:

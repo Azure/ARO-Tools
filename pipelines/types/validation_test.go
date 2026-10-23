@@ -525,6 +525,105 @@ func TestValidatePipelineSchema(t *testing.T) {
 	}
 }
 
+func TestARMStackSchemaValidation(t *testing.T) {
+	const schemaErr = "pipeline is not compliant with schema pipeline.schema.v1"
+	createStep := func() map[string]interface{} {
+		return map[string]interface{}{
+			"name":             "deploy",
+			"action":           "ARMStack",
+			"template":         "templates/main.bicep",
+			"parameters":       "configurations/main.tmpl.bicepparam",
+			"deploymentLevel":  "ResourceGroup",
+			"actionOnUnmanage": "delete",
+		}
+	}
+	deleteStep := func() map[string]interface{} {
+		return map[string]interface{}{
+			"name":                "remove-acrs-stack",
+			"action":              "ARMStack",
+			"operation":           "delete",
+			"deploymentLevel":     "ResourceGroup",
+			"deploymentStackName": map[string]interface{}{"value": "Global.singleton.acrs"},
+			"actionOnUnmanage":    "detach",
+			"identityFrom": map[string]interface{}{
+				"resourceGroup": "global",
+				"step":          "output",
+				"name":          "globalMSIId",
+			},
+		}
+	}
+
+	for _, tc := range []struct {
+		name   string
+		step   func() map[string]interface{}
+		mutate func(step map[string]interface{})
+		err    string
+	}{
+		{name: "create without operation", step: createStep},
+		{name: "create with explicit operation", step: createStep, mutate: func(s map[string]interface{}) { s["operation"] = "createOrUpdate" }},
+		{name: "create missing template", step: createStep, mutate: func(s map[string]interface{}) { delete(s, "template") }, err: schemaErr},
+		{name: "create missing parameters", step: createStep, mutate: func(s map[string]interface{}) { delete(s, "parameters") }, err: schemaErr},
+		{name: "create missing actionOnUnmanage", step: createStep, mutate: func(s map[string]interface{}) { delete(s, "actionOnUnmanage") }, err: schemaErr},
+		{name: "create rejects deploymentStackName", step: createStep, mutate: func(s map[string]interface{}) {
+			s["deploymentStackName"] = map[string]interface{}{"value": "Global.singleton.acrs"}
+		}, err: schemaErr},
+		{name: "create rejects identityFrom", step: createStep, mutate: func(s map[string]interface{}) {
+			s["identityFrom"] = map[string]interface{}{"resourceGroup": "global", "step": "output", "name": "globalMSIId"}
+		}, err: schemaErr},
+		{name: "create rejects timeout", step: createStep, mutate: func(s map[string]interface{}) { s["timeout"] = "30m" }, err: schemaErr},
+		{name: "unknown operation", step: createStep, mutate: func(s map[string]interface{}) { s["operation"] = "destroy" }, err: schemaErr},
+
+		{name: "delete with detach", step: deleteStep},
+		{name: "delete with delete", step: deleteStep, mutate: func(s map[string]interface{}) { s["actionOnUnmanage"] = "delete" }},
+		{name: "delete with timeout", step: deleteStep, mutate: func(s map[string]interface{}) { s["timeout"] = "30m" }},
+		{name: "delete with name from config", step: deleteStep, mutate: func(s map[string]interface{}) {
+			s["deploymentStackName"] = map[string]interface{}{"configRef": "global.acrStackName"}
+		}},
+		{name: "delete with name from input", step: deleteStep, mutate: func(s map[string]interface{}) {
+			s["deploymentStackName"] = map[string]interface{}{"input": map[string]interface{}{"resourceGroup": "global", "step": "output", "name": "stackName"}}
+		}},
+		{name: "delete missing deploymentStackName", step: deleteStep, mutate: func(s map[string]interface{}) { delete(s, "deploymentStackName") }, err: schemaErr},
+		{name: "delete with bare string deploymentStackName", step: deleteStep, mutate: func(s map[string]interface{}) { s["deploymentStackName"] = "Global.singleton.acrs" }, err: schemaErr},
+		{name: "delete missing actionOnUnmanage", step: deleteStep, mutate: func(s map[string]interface{}) { delete(s, "actionOnUnmanage") }, err: schemaErr},
+		{name: "delete missing identityFrom", step: deleteStep, mutate: func(s map[string]interface{}) { delete(s, "identityFrom") }, err: schemaErr},
+		{name: "delete invalid timeout", step: deleteStep, mutate: func(s map[string]interface{}) { s["timeout"] = "soon" }, err: schemaErr},
+		{name: "delete at subscription level", step: deleteStep, mutate: func(s map[string]interface{}) { s["deploymentLevel"] = "Subscription" }, err: schemaErr},
+		{name: "delete rejects template", step: deleteStep, mutate: func(s map[string]interface{}) { s["template"] = "templates/main.bicep" }, err: schemaErr},
+		{name: "delete rejects parameters", step: deleteStep, mutate: func(s map[string]interface{}) { s["parameters"] = "main.bicepparam" }, err: schemaErr},
+		{name: "delete rejects variables", step: deleteStep, mutate: func(s map[string]interface{}) {
+			s["variables"] = []interface{}{map[string]interface{}{"name": "x", "value": "y"}}
+		}, err: schemaErr},
+		{name: "delete rejects bypassStackOutOfSyncError", step: deleteStep, mutate: func(s map[string]interface{}) { s["bypassStackOutOfSyncError"] = true }, err: schemaErr},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			step := tc.step()
+			if tc.mutate != nil {
+				tc.mutate(step)
+			}
+			pipeline := map[string]interface{}{
+				"serviceGroup": "test",
+				"rolloutName":  "test",
+				"resourceGroups": []interface{}{
+					map[string]interface{}{
+						"name":          "rg",
+						"resourceGroup": "rg",
+						"subscription":  "sub",
+						"steps":         []interface{}{step},
+					},
+				},
+			}
+			pipelineBytes, err := yaml.Marshal(pipeline)
+			assert.NilError(t, err)
+			err = ValidatePipelineSchema(pipelineBytes)
+			if tc.err == "" {
+				assert.NilError(t, err)
+			} else {
+				assert.ErrorContains(t, err, tc.err)
+			}
+		})
+	}
+}
+
 func TestGrafanaADXIntegrationsSchemaValidation(t *testing.T) {
 	newPipeline := func(adx map[string]interface{}) map[string]interface{} {
 		return map[string]interface{}{

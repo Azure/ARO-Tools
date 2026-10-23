@@ -351,6 +351,38 @@ func TestRequiredInputs(t *testing.T) {
 			name:  "istio upgrade empty",
 			input: &IstioUpgradeStep{},
 		},
+		{
+			name: "arm stack create",
+			input: &ARMStackStep{
+				Variables: []Variable{{Name: "v", Value: Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "vars"}}}}},
+			},
+			expected: []StepDependency{{ResourceGroup: "rg", Step: "vars"}},
+		},
+		{
+			name: "arm stack delete",
+			input: &ARMStackStep{
+				Operation:           ARMStackOperationDelete,
+				DeploymentStackName: &Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "name"}}},
+				IdentityFrom:        &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "identity"}},
+			},
+			expected: []StepDependency{
+				{ResourceGroup: "rg", Step: "identity"},
+				{ResourceGroup: "rg", Step: "name"},
+			},
+		},
+		{
+			name: "arm stack delete with literal name",
+			input: &ARMStackStep{
+				Operation:           ARMStackOperationDelete,
+				DeploymentStackName: &Value{Value: "Global.singleton.acrs"},
+				IdentityFrom:        &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "identity"}},
+			},
+			expected: []StepDependency{{ResourceGroup: "rg", Step: "identity"}},
+		},
+		{
+			name:  "arm stack empty",
+			input: &ARMStackStep{},
+		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			if diff := cmp.Diff(testCase.expected, testCase.input.RequiredInputs()); diff != "" {
