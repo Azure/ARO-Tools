@@ -351,6 +351,20 @@ func TestRequiredInputs(t *testing.T) {
 			name:  "istio upgrade empty",
 			input: &IstioUpgradeStep{},
 		},
+		{
+			name: "arm stack detach full",
+			input: &ARMStackDetachStep{
+				DeploymentStackName: "Global.singleton.acrs",
+				IdentityFrom:        Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step"}},
+			},
+			expected: []StepDependency{
+				{ResourceGroup: "rg", Step: "step"},
+			},
+		},
+		{
+			name:  "arm stack detach empty",
+			input: &ARMStackDetachStep{},
+		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			if diff := cmp.Diff(testCase.expected, testCase.input.RequiredInputs()); diff != "" {
@@ -371,6 +385,7 @@ func TestIsWellFormedOverInputs(t *testing.T) {
 		{in: &HelmStep{}, expected: true},
 		{in: &ARMStep{}, expected: true},
 		{in: &ARMStackStep{}, expected: true},
+		{in: &ARMStackDetachStep{}, expected: true},
 		{in: &DelegateChildZoneStep{}, expected: true},
 		{in: &SetCertificateIssuerStep{}, expected: true},
 		{in: &CreateCertificateStep{}, expected: true},

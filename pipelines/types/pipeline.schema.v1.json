@@ -409,6 +409,45 @@
         }
       ]
     },
+    "armStackDetachStep": {
+      "unevaluatedProperties": false,
+      "allOf": [
+        {
+          "$ref": "#/definitions/stepMeta"
+        },
+        {
+          "properties": {
+            "action": {
+              "const": "ARMStackDetach"
+            },
+            "deploymentLevel": {
+              "type": "string",
+              "enum": [
+                "ResourceGroup"
+              ]
+            },
+            "deploymentStackName": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 90,
+              "pattern": "^[-\\w._()]+$",
+              "description": "Name of the existing deployment stack to remove, exactly as Azure shows it. Every resource the stack manages is detached, never deleted. The step succeeds without changes when the stack does not exist."
+            },
+            "timeout": {
+              "$ref": "#/definitions/durationString"
+            },
+            "identityFrom": {
+              "$ref": "#/definitions/input"
+            }
+          },
+          "required": [
+            "deploymentLevel",
+            "deploymentStackName",
+            "identityFrom"
+          ]
+        }
+      ]
+    },
     "shellStepBase": {
       "type": "object",
       "properties": {
@@ -1837,6 +1876,22 @@
                   },
                   "then": {
                     "$ref": "#/definitions/armStackStep"
+                  }
+                },
+                {
+                  "if": {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "ARMStackDetach"
+                      }
+                    },
+                    "required": [
+                      "action"
+                    ]
+                  },
+                  "then": {
+                    "$ref": "#/definitions/armStackDetachStep"
                   }
                 },
                 {

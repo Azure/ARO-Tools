@@ -509,6 +509,65 @@ func TestValidatePipelineSchema(t *testing.T) {
 			},
 			err: "pipeline is not compliant with schema pipeline.schema.v1",
 		},
+		{
+			name:     "valid arm stack detach",
+			pipeline: armStackDetachSchemaPipeline(func(step map[string]interface{}) {}),
+		},
+		{
+			name: "valid arm stack detach with timeout",
+			pipeline: armStackDetachSchemaPipeline(func(step map[string]interface{}) {
+				step["timeout"] = "30m"
+			}),
+		},
+		{
+			name: "arm stack detach invalid timeout",
+			pipeline: armStackDetachSchemaPipeline(func(step map[string]interface{}) {
+				step["timeout"] = "soon"
+			}),
+			err: "pipeline is not compliant with schema pipeline.schema.v1",
+		},
+		{
+			name: "arm stack detach missing deploymentStackName",
+			pipeline: armStackDetachSchemaPipeline(func(step map[string]interface{}) {
+				delete(step, "deploymentStackName")
+			}),
+			err: "pipeline is not compliant with schema pipeline.schema.v1",
+		},
+		{
+			name: "arm stack detach empty deploymentStackName",
+			pipeline: armStackDetachSchemaPipeline(func(step map[string]interface{}) {
+				step["deploymentStackName"] = ""
+			}),
+			err: "pipeline is not compliant with schema pipeline.schema.v1",
+		},
+		{
+			name: "arm stack detach invalid deploymentStackName",
+			pipeline: armStackDetachSchemaPipeline(func(step map[string]interface{}) {
+				step["deploymentStackName"] = "Global/singleton acrs"
+			}),
+			err: "pipeline is not compliant with schema pipeline.schema.v1",
+		},
+		{
+			name: "arm stack detach subscription level is not supported",
+			pipeline: armStackDetachSchemaPipeline(func(step map[string]interface{}) {
+				step["deploymentLevel"] = "Subscription"
+			}),
+			err: "pipeline is not compliant with schema pipeline.schema.v1",
+		},
+		{
+			name: "arm stack detach missing identityFrom",
+			pipeline: armStackDetachSchemaPipeline(func(step map[string]interface{}) {
+				delete(step, "identityFrom")
+			}),
+			err: "pipeline is not compliant with schema pipeline.schema.v1",
+		},
+		{
+			name: "arm stack detach rejects actionOnUnmanage",
+			pipeline: armStackDetachSchemaPipeline(func(step map[string]interface{}) {
+				step["actionOnUnmanage"] = "delete"
+			}),
+			err: "pipeline is not compliant with schema pipeline.schema.v1",
+		},
 	}
 
 	for _, tc := range testCases {
@@ -525,6 +584,33 @@ func TestValidatePipelineSchema(t *testing.T) {
 	}
 }
 
+// armStackDetachSchemaPipeline returns a pipeline with one valid ARMStackDetach step, after mutate has edited that step.
+func armStackDetachSchemaPipeline(mutate func(step map[string]interface{})) map[string]interface{} {
+	step := map[string]interface{}{
+		"name":                "detach-acrs-stack",
+		"action":              "ARMStackDetach",
+		"deploymentLevel":     "ResourceGroup",
+		"deploymentStackName": "Global.singleton.acrs",
+		"identityFrom": map[string]interface{}{
+			"resourceGroup": "global",
+			"step":          "output",
+			"name":          "globalMSIId",
+		},
+	}
+	mutate(step)
+	return map[string]interface{}{
+		"serviceGroup": "test",
+		"rolloutName":  "test",
+		"resourceGroups": []interface{}{
+			map[string]interface{}{
+				"name":          "rg",
+				"resourceGroup": "rg",
+				"subscription":  "sub",
+				"steps":         []interface{}{step},
+			},
+		},
+	}
+}
 func TestGrafanaADXIntegrationsSchemaValidation(t *testing.T) {
 	newPipeline := func(adx map[string]interface{}) map[string]interface{} {
 		return map[string]interface{}{

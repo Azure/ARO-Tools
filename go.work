@@ -14,5 +14,6 @@ use (
 	./tools/registration
 	./tools/release
 	./tools/secret-sync
+	./tools/stackctl
 	./tools/yamlwrap
 )
