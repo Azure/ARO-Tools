@@ -93,3 +93,42 @@ func (s *ARMStackStep) RequiredInputs() []StepDependency {
 	deps = slices.Compact(deps)
 	return deps
 }
+
+const StepActionARMStackDetach = "ARMStackDetach"
+
+// ARMStackDetachStep removes an existing deployment stack and detaches every resource, resource group and
+// management group it manages. It never deletes a managed resource, and it succeeds without making changes
+// when the stack does not exist. Use it to release a stack left behind by an earlier ARMStack step, or to free
+// resources before a differently named stack adopts them.
+type ARMStackDetachStep struct {
+	StepMeta        `json:",inline"`
+	DeploymentLevel string `json:"deploymentLevel,omitempty"`
+
+	// DeploymentStackName is the name of the existing deployment stack, exactly as Azure shows it. The stack is
+	// looked up in the resource group this step runs in.
+	DeploymentStackName string `json:"deploymentStackName"`
+
+	// Timeout bounds the whole removal, as a Go duration string. The tool's default applies when unset.
+	Timeout string `json:"timeout,omitempty"`
+
+	// IdentityFrom specifies the managed identity with which this step will run in Ev2.
+	IdentityFrom Input `json:"identityFrom,omitempty"`
+}
+
+// Description
+// Returns:
+//   - A string representation of this ARMStackDetachStep
+func (s *ARMStackDetachStep) Description() string {
+	var details []string
+	details = append(details, fmt.Sprintf("DeploymentStackName: %s", s.DeploymentStackName))
+	details = append(details, fmt.Sprintf("DeploymentLevel: %s", s.DeploymentLevel))
+	return fmt.Sprintf("Step %s\n  Kind: %s\n  %s", s.Name, s.Action, strings.Join(details, "\n  "))
+}
+
+func (s *ARMStackDetachStep) RequiredInputs() []StepDependency {
+	var deps []StepDependency
+	if s.IdentityFrom.StepDependency != (StepDependency{}) {
+		deps = append(deps, s.IdentityFrom.StepDependency)
+	}
+	return deps
+}

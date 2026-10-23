@@ -115,6 +115,8 @@ func (s *Steps) UnmarshalJSON(data []byte) error {
 			step = &ARMStep{}
 		case StepActionARMStack:
 			step = &ARMStackStep{}
+		case StepActionARMStackDetach:
+			step = &ARMStackDetachStep{}
 		case StepActionDelegateChildZone:
 			step = &DelegateChildZoneStep{}
 		case StepActionSetCertificateIssuer:

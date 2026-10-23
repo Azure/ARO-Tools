@@ -78,6 +78,18 @@ resourceGroups:
         resourceGroup: regional
         step: deploy
       name: MAESTRO_IMAGE
+  - action: ARMStackDetach
+    dependsOn:
+    - resourceGroup: regional
+      step: svc-stack
+    deploymentLevel: ResourceGroup
+    deploymentStackName: Global.singleton.acrs
+    identityFrom:
+      name: whatever
+      resourceGroup: regional
+      step: deploy
+    name: detach-legacy-stack
+    timeout: 30m
   - action: DelegateChildZone
     childZone:
       configRef: childZone
