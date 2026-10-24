@@ -27,6 +27,14 @@ it. Comment `/retest` to re-run failed checks.
 Note: only merge commits are allowed on `main` (squash and rebase merges are disabled), matching
 [Azure/ARO-HCP](https://github.com/Azure/ARO-HCP)'s repo settings.
 
+## Istio upgrade timeouts
+
+The `tools/istio-upgrade` ARM client polls each managed-cluster update for up to
+20 minutes, bounded by the caller's context. AKS updates can complete successfully
+after more than 15 minutes even when the new Istio pods have already started.
+The separate post-operation provisioning check has a five-minute timeout; the
+overall upgrade remains bounded by its 60-minute timeout.
+
 ## Contributing
 
 This project welcomes contributions and suggestions.  Most contributions require you to agree to a
