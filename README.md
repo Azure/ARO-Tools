@@ -35,6 +35,14 @@ Resource-version conflicts are retried with bounded backoff and a fresh read on
 each attempt, preserving concurrent controller updates. Other API errors and
 conflicts that exhaust the retry budget fail the deployment.
 
+## Istio upgrade timeouts
+
+The `tools/istio-upgrade` ARM client polls each managed-cluster update for up to
+20 minutes, bounded by the caller's context. AKS updates can complete successfully
+after more than 15 minutes even when the new Istio pods have already started.
+The separate post-operation provisioning check has a five-minute timeout; the
+overall upgrade remains bounded by its 60-minute timeout.
+
 ## Contributing
 
 This project welcomes contributions and suggestions.  Most contributions require you to agree to a

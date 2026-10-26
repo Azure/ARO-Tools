@@ -37,9 +37,10 @@ type AKSClientConfig struct {
 	ProvisioningInterval time.Duration
 }
 
+// DefaultAKSClientConfig returns bounded ARM polling and provisioning timeouts.
 func DefaultAKSClientConfig() AKSClientConfig {
 	return AKSClientConfig{
-		ARMPollTimeout:       15 * time.Minute,
+		ARMPollTimeout:       20 * time.Minute,
 		ProvisioningTimeout:  5 * time.Minute,
 		ProvisioningInterval: 15 * time.Second,
 	}
