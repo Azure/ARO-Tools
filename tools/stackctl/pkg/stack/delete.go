@@ -120,12 +120,18 @@ func DeleteAtResourceGroup(ctx context.Context, client *armdeploymentstacks.Clie
 	return ResultDeleted, nil
 }
 
-// notFoundCode reports whether err is an ARM 404, which covers both a missing stack and a missing resource group,
-// and returns the ARM error code so the log shows which one it was.
+// notFoundCode reports whether err is an ARM 404 saying the stack or its resource group does not exist, and returns
+// the ARM error code so the log shows which one it was. Other 404s, such as SubscriptionNotFound, are not a missing
+// stack and must fail the command.
 func notFoundCode(err error) (string, bool) {
 	var respErr *azcore.ResponseError
-	if errors.As(err, &respErr) && respErr.StatusCode == http.StatusNotFound {
-		return respErr.ErrorCode, true
+	if !errors.As(err, &respErr) || respErr.StatusCode != http.StatusNotFound {
+		return "", false
 	}
-	return "", false
+	switch respErr.ErrorCode {
+	case "DeploymentStackResourceNotFound", "ResourceGroupNotFound":
+		return respErr.ErrorCode, true
+	default:
+		return "", false
+	}
 }

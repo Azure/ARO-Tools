@@ -124,8 +124,25 @@ func TestDeleteAtResourceGroup(t *testing.T) {
 			wantErr: "failed to get deployment stack",
 		},
 		{
+			name:    "missing subscription is returned, not treated as a missing stack",
+			stacks:  fakeStacks{getStatus: http.StatusNotFound, getErrorCode: "SubscriptionNotFound"},
+			wantErr: "failed to get deployment stack",
+		},
+		{
+			name:        "unrelated 404 on delete is returned",
+			stacks:      fakeStacks{deleteStatus: http.StatusNotFound, deleteError: "SubscriptionNotFound"},
+			wantErr:     "failed to start deleting deployment stack",
+			wantDeletes: 1,
+		},
+		{
 			name:        "stack deleted by someone else in the meantime is a no-op",
 			stacks:      fakeStacks{deleteStatus: http.StatusNotFound, deleteError: "DeploymentStackResourceNotFound"},
+			want:        ResultNotFound,
+			wantDeletes: 1,
+		},
+		{
+			name:        "resource group deleted by someone else in the meantime is a no-op",
+			stacks:      fakeStacks{deleteStatus: http.StatusNotFound, deleteError: "ResourceGroupNotFound"},
 			want:        ResultNotFound,
 			wantDeletes: 1,
 		},
