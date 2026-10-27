@@ -53,8 +53,7 @@ existing cluster, including Failed clusters and active canaries, produces
 `{"istioVersions":""}` so consumers omit creation-only revisions. Listing errors
 fail the command rather than imply absence.
 
-`--versions` accepts ordered CSV revisions. Native deployment harnesses may use
-`--versions-json '["asm-1-29"]'` instead for an array-valued configuration binding.
+`--versions` accepts ordered CSV revisions.
 `--output-file <path>` additionally writes the same JSON emitted on stdout.
 The `IstioBootstrapDiscovery` pipeline action takes `aksCluster` and `versions`
 as `Value` bindings and an optional `identityFrom` input; its output is named

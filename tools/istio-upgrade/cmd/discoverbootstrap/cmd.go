@@ -49,7 +49,7 @@ func newManagedClustersClient(subscriptionID string) (*armcontainerservice.Manag
 // newCommand isolates SDK client construction so command tests can use an HTTP
 // transport without real Azure credentials or a Kubernetes connection.
 func newCommand(newClient func(string) (*armcontainerservice.ManagedClustersClient, error)) (*cobra.Command, error) {
-	var subscriptionID, resourceGroup, clusterName, versions, versionsJSON, outputFile string
+	var subscriptionID, resourceGroup, clusterName, versions, outputFile string
 	cmd := &cobra.Command{
 		Use:           "discover-bootstrap",
 		Short:         "Discover creation-only Istio revisions without reading the target AKS resource",
@@ -60,17 +60,7 @@ func newCommand(newClient func(string) (*armcontainerservice.ManagedClustersClie
 			if strings.TrimSpace(subscriptionID) == "" || strings.TrimSpace(resourceGroup) == "" || strings.TrimSpace(clusterName) == "" {
 				return fmt.Errorf("--subscription-id, --resource-group and --cluster-name must be nonempty")
 			}
-			var targets []string
-			if cmd.Flags().Changed("versions-json") {
-				if err := json.Unmarshal([]byte(versionsJSON), &targets); err != nil {
-					return fmt.Errorf("invalid --versions-json: expected an array of revisions: %w", err)
-				}
-			} else {
-				targets = strings.Split(versions, ",")
-			}
-			if len(targets) == 0 {
-				return fmt.Errorf("at least one bootstrap Istio revision is required")
-			}
+			targets := strings.Split(versions, ",")
 			for _, target := range targets {
 				if !istio.RevisionPattern.MatchString(target) {
 					return fmt.Errorf("invalid --versions revision %q: must match %s", target, istio.RevisionPattern.String())
@@ -104,14 +94,11 @@ func newCommand(newClient func(string) (*armcontainerservice.ManagedClustersClie
 	cmd.Flags().StringVar(&resourceGroup, "resource-group", "", "Azure resource group containing the AKS cluster")
 	cmd.Flags().StringVar(&clusterName, "cluster-name", "", "AKS cluster name")
 	cmd.Flags().StringVar(&versions, "versions", "", "configured bootstrap Istio revisions as CSV (e.g. asm-1-29)")
-	cmd.Flags().StringVar(&versionsJSON, "versions-json", "", "configured bootstrap Istio revisions as a JSON array")
 	cmd.Flags().StringVar(&outputFile, "output-file", "", "also write the JSON output to this file")
-	for _, name := range []string{"subscription-id", "resource-group", "cluster-name"} {
+	for _, name := range []string{"subscription-id", "resource-group", "cluster-name", "versions"} {
 		if err := cmd.MarkFlagRequired(name); err != nil {
 			return nil, fmt.Errorf("failed to mark flag %s as required: %w", name, err)
 		}
 	}
-	cmd.MarkFlagsOneRequired("versions", "versions-json")
-	cmd.MarkFlagsMutuallyExclusive("versions", "versions-json")
 	return cmd, nil
 }

@@ -49,12 +49,10 @@ func TestCommandDiscoveryOutput(t *testing.T) {
 	for _, tt := range []struct {
 		name, body, want string
 		status           int
-		jsonVersions     bool
 		nextBody         string
 		nextStatus       int
 	}{
 		{name: "absent exact ordered CSV", body: `{"value":[]}`, want: "asm-1-29,asm-1-28"},
-		{name: "absent native JSON config", body: `{"value":[]}`, want: "asm-1-29,asm-1-28", jsonVersions: true},
 		{name: "existing failed", body: `{"value":[{"name":"TARGET","properties":{"provisioningState":"Failed"}}]}`},
 		{name: "existing canary", body: `{"value":[{"name":"target","properties":{"serviceMeshProfile":{"mode":"Istio","istio":{"revisions":["asm-1-28","asm-1-29"]}}}}]}`},
 		{name: "permission error", body: `{"error":{"code":"AuthorizationFailed","message":"denied"}}`, status: 403},
@@ -90,11 +88,7 @@ func TestCommandDiscoveryOutput(t *testing.T) {
 			require.NoError(t, err)
 			path := filepath.Join(t.TempDir(), "outputs.json")
 			args := []string{"--subscription-id", "sub", "--resource-group", "rg", "--cluster-name", "target", "--output-file", path}
-			if tt.jsonVersions {
-				args = append(args, "--versions-json", `["asm-1-29","asm-1-28"]`)
-			} else {
-				args = append(args, "--versions", "asm-1-29,asm-1-28")
-			}
+			args = append(args, "--versions", "asm-1-29,asm-1-28")
 			cmd.SetArgs(args)
 			var stdout bytes.Buffer
 			cmd.SetOut(&stdout)
@@ -127,11 +121,6 @@ func TestCommandRejectsInvalidConfigurationBeforeCredentials(t *testing.T) {
 		{"--versions", ""},
 		{"--versions", "asm-1-29,"},
 		{"--versions", "asm-1-29, asm-1-28"},
-		{"--versions-json", `[]`},
-		{"--versions-json", `null`},
-		{"--versions-json", `"asm-1-29"`},
-		{"--versions-json", `["asm-1-29",42]`},
-		{"--versions-json", `["asm-1-29"]`, "--versions", "asm-1-29"},
 	} {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
 			cmd, err := newCommand(func(string) (*armcontainerservice.ManagedClustersClient, error) {
