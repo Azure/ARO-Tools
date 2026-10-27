@@ -17,9 +17,11 @@ package istio
 import (
 	"github.com/spf13/cobra"
 
+	"github.com/Azure/ARO-Tools/tools/istio-upgrade/cmd/discoverbootstrap"
 	"github.com/Azure/ARO-Tools/tools/istio-upgrade/cmd/run"
 )
 
+// NewCommand groups Istio upgrade and read-only bootstrap discovery commands.
 func NewCommand() (*cobra.Command, error) {
 	cmd := &cobra.Command{
 		Use:   "istio",
@@ -28,6 +30,7 @@ func NewCommand() (*cobra.Command, error) {
 
 	commands := []func() (*cobra.Command, error){
 		run.NewCommand,
+		discoverbootstrap.NewCommand,
 	}
 	for _, newCmd := range commands {
 		c, err := newCmd()

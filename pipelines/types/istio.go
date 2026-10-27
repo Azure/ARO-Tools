@@ -48,3 +48,41 @@ func (s *IstioUpgradeStep) RequiredInputs() []StepDependency {
 func (s *IstioUpgradeStep) IsWellFormedOverInputs() bool {
 	return true
 }
+
+// StepActionIstioBootstrapDiscovery identifies creation-only mesh discovery.
+const StepActionIstioBootstrapDiscovery = "IstioBootstrapDiscovery"
+
+// IstioBootstrapDiscoveryStep discovers the istioVersions CSV output before ARM
+// deployment, without reading a potentially Failed managed-cluster resource.
+type IstioBootstrapDiscoveryStep struct {
+	StepMeta     `json:",inline"`
+	AKSCluster   Value `json:"aksCluster"`
+	Versions     Value `json:"versions"`
+	IdentityFrom Input `json:"identityFrom,omitempty"`
+}
+
+// Description identifies the target and configured creation revisions.
+func (s *IstioBootstrapDiscoveryStep) Description() string {
+	return fmt.Sprintf("Step %s\n  Kind: %s\n  AKSCluster: %s\n  Versions: %s\n", s.Name, s.Action, s.AKSCluster.String(), s.Versions.String())
+}
+
+// RequiredInputs includes target, revisions and optional identity dependencies.
+func (s *IstioBootstrapDiscoveryStep) RequiredInputs() []StepDependency {
+	var deps []StepDependency
+	for _, value := range []Value{s.AKSCluster, s.Versions} {
+		if value.Input != nil {
+			deps = append(deps, value.Input.StepDependency)
+		}
+	}
+	if s.IdentityFrom.StepDependency != (StepDependency{}) {
+		deps = append(deps, s.IdentityFrom.StepDependency)
+	}
+	slices.SortFunc(deps, SortDependencies)
+	return slices.Compact(deps)
+}
+
+// IsWellFormedOverInputs excludes live discovery from cross-execution output
+// caching. Runners checkpoint the result within a single deployment execution.
+func (s *IstioBootstrapDiscoveryStep) IsWellFormedOverInputs() bool {
+	return false
+}

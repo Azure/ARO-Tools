@@ -43,6 +43,25 @@ after more than 15 minutes even when the new Istio pods have already started.
 The separate post-operation provisioning check has a five-minute timeout; the
 overall upgrade remains bounded by its 60-minute timeout.
 
+## Istio bootstrap discovery
+
+`istio discover-bootstrap --subscription-id <subscription> --resource-group <group>
+--cluster-name <cluster> --versions asm-1-29` lists all managed-cluster pages in
+the resource group without GETting the target cluster or loading a kubeconfig.
+It emits `{"istioVersions":"asm-1-29"}` only when the cluster is absent; every
+existing cluster, including Failed clusters and active canaries, produces
+`{"istioVersions":""}` so consumers omit creation-only revisions. Listing errors
+fail the command rather than imply absence.
+
+`--versions` accepts ordered CSV revisions. Native deployment harnesses may use
+`--versions-json '["asm-1-29"]'` instead for an array-valued configuration binding.
+`--output-file <path>` additionally writes the same JSON emitted on stdout.
+The `IstioBootstrapDiscovery` pipeline action takes `aksCluster` and `versions`
+as `Value` bindings and an optional `identityFrom` input; its output is named
+`istioVersions`. Runners must checkpoint this live discovery within the deployment
+execution, preserving its output for ARM retries and supported resume without
+reusing it for an unrelated execution.
+
 ## Contributing
 
 This project welcomes contributions and suggestions.  Most contributions require you to agree to a

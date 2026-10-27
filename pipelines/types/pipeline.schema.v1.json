@@ -901,6 +901,34 @@
         }
       ]
     },
+    "istioBootstrapDiscoveryStep": {
+      "unevaluatedProperties": false,
+      "allOf": [
+        {
+          "$ref": "#/definitions/stepMeta"
+        },
+        {
+          "properties": {
+            "action": {
+              "const": "IstioBootstrapDiscovery"
+            },
+            "aksCluster": {
+              "$ref": "#/definitions/value"
+            },
+            "versions": {
+              "$ref": "#/definitions/value"
+            },
+            "identityFrom": {
+              "$ref": "#/definitions/input"
+            }
+          },
+          "required": [
+            "aksCluster",
+            "versions"
+          ]
+        }
+      ]
+    },
     "helmStep": {
       "unevaluatedProperties": false,
       "allOf": [
@@ -2208,6 +2236,22 @@
                   },
                   "then": {
                     "$ref": "#/definitions/istioUpgradeStep"
+                  }
+                },
+                {
+                  "if": {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "IstioBootstrapDiscovery"
+                      }
+                    },
+                    "required": [
+                      "action"
+                    ]
+                  },
+                  "then": {
+                    "$ref": "#/definitions/istioBootstrapDiscoveryStep"
                   }
                 },
                 {

@@ -90,6 +90,7 @@ func (rg *ResourceGroup) Validate() error {
 
 type Steps []Step
 
+// UnmarshalJSON decodes each step into the native type selected by its action.
 func (s *Steps) UnmarshalJSON(data []byte) error {
 	var raw []json.RawMessage
 	if err := yaml.Unmarshal(data, &raw); err != nil {
@@ -159,6 +160,8 @@ func (s *Steps) UnmarshalJSON(data []byte) error {
 			step = &KustoEntityGroupsStep{}
 		case StepActionIstioUpgrade:
 			step = &IstioUpgradeStep{}
+		case StepActionIstioBootstrapDiscovery:
+			step = &IstioBootstrapDiscoveryStep{}
 		default:
 			step = &GenericStep{}
 		}
