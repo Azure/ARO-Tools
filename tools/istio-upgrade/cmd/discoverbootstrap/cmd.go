@@ -20,11 +20,11 @@ import (
 	"os"
 	"strings"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
 	"github.com/spf13/cobra"
 
 	"github.com/Azure/ARO-Tools/tools/istio-upgrade/pkg/istio"
+	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
 )
 
 // NewCommand creates read-only bootstrap discovery. Only ARM managed-cluster
