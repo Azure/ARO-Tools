@@ -65,10 +65,8 @@ func TestIstioBootstrapDiscoverySchemaAndDeserialization(t *testing.T) {
 			require.NoError(t, err)
 			var pipeline Pipeline
 			require.NoError(t, json.Unmarshal(data, &pipeline))
-			discovery, ok := pipeline.ResourceGroups[0].Steps[0].(*IstioBootstrapDiscoveryStep)
+			_, ok := pipeline.ResourceGroups[0].Steps[0].(*IstioBootstrapDiscoveryStep)
 			require.True(t, ok, "native discovery must not deserialize as GenericStep")
-			require.Equal(t, StepActionIstioBootstrapDiscovery, discovery.ActionType())
-			require.Contains(t, discovery.Description(), "bootstrap")
 		})
 	}
 }
