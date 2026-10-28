@@ -405,9 +405,9 @@
                 "createOrUpdate",
                 "delete"
               ],
-              "description": "What the step does with the stack. 'createOrUpdate' (the default) deploys the template. 'delete' removes the stack named by deploymentStackName and applies actionOnUnmanage to every resource it manages; it succeeds without changes when the stack does not exist."
+              "description": "What the step does with the stack. 'createOrUpdate' (the default) deploys the template. 'delete' removes the stack named by deploymentStackNameForDelete and applies actionOnUnmanage to every resource it manages; it succeeds without changes when the stack does not exist."
             },
-            "deploymentStackName": {
+            "deploymentStackNameForDelete": {
               "$ref": "#/definitions/value",
               "description": "Name of the existing deployment stack to delete, exactly as Azure shows it. Only allowed with operation 'delete'."
             },
@@ -443,7 +443,7 @@
               }
             },
             "required": [
-              "deploymentStackName",
+              "deploymentStackNameForDelete",
               "identityFrom"
             ],
             "not": {
@@ -480,7 +480,7 @@
               "anyOf": [
                 {
                   "required": [
-                    "deploymentStackName"
+                    "deploymentStackNameForDelete"
                   ]
                 },
                 {

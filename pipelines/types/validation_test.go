@@ -539,12 +539,12 @@ func TestARMStackSchemaValidation(t *testing.T) {
 	}
 	deleteStep := func() map[string]interface{} {
 		return map[string]interface{}{
-			"name":                "remove-acrs-stack",
-			"action":              "ARMStack",
-			"operation":           "delete",
-			"deploymentLevel":     "ResourceGroup",
-			"deploymentStackName": map[string]interface{}{"value": "Global.singleton.acrs"},
-			"actionOnUnmanage":    "detach",
+			"name":                         "remove-acrs-stack",
+			"action":                       "ARMStack",
+			"operation":                    "delete",
+			"deploymentLevel":              "ResourceGroup",
+			"deploymentStackNameForDelete": map[string]interface{}{"value": "Global.singleton.acrs"},
+			"actionOnUnmanage":             "detach",
 			"identityFrom": map[string]interface{}{
 				"resourceGroup": "global",
 				"step":          "output",
@@ -564,8 +564,8 @@ func TestARMStackSchemaValidation(t *testing.T) {
 		{name: "create missing template", step: createStep, mutate: func(s map[string]interface{}) { delete(s, "template") }, err: schemaErr},
 		{name: "create missing parameters", step: createStep, mutate: func(s map[string]interface{}) { delete(s, "parameters") }, err: schemaErr},
 		{name: "create missing actionOnUnmanage", step: createStep, mutate: func(s map[string]interface{}) { delete(s, "actionOnUnmanage") }, err: schemaErr},
-		{name: "create rejects deploymentStackName", step: createStep, mutate: func(s map[string]interface{}) {
-			s["deploymentStackName"] = map[string]interface{}{"value": "Global.singleton.acrs"}
+		{name: "create rejects deploymentStackNameForDelete", step: createStep, mutate: func(s map[string]interface{}) {
+			s["deploymentStackNameForDelete"] = map[string]interface{}{"value": "Global.singleton.acrs"}
 		}, err: schemaErr},
 		{name: "create rejects identityFrom", step: createStep, mutate: func(s map[string]interface{}) {
 			s["identityFrom"] = map[string]interface{}{"resourceGroup": "global", "step": "output", "name": "globalMSIId"}
@@ -577,13 +577,13 @@ func TestARMStackSchemaValidation(t *testing.T) {
 		{name: "delete with delete", step: deleteStep, mutate: func(s map[string]interface{}) { s["actionOnUnmanage"] = "delete" }},
 		{name: "delete with timeout", step: deleteStep, mutate: func(s map[string]interface{}) { s["timeout"] = "30m" }},
 		{name: "delete with name from config", step: deleteStep, mutate: func(s map[string]interface{}) {
-			s["deploymentStackName"] = map[string]interface{}{"configRef": "global.acrStackName"}
+			s["deploymentStackNameForDelete"] = map[string]interface{}{"configRef": "global.acrStackName"}
 		}},
 		{name: "delete with name from input", step: deleteStep, mutate: func(s map[string]interface{}) {
-			s["deploymentStackName"] = map[string]interface{}{"input": map[string]interface{}{"resourceGroup": "global", "step": "output", "name": "stackName"}}
+			s["deploymentStackNameForDelete"] = map[string]interface{}{"input": map[string]interface{}{"resourceGroup": "global", "step": "output", "name": "stackName"}}
 		}},
-		{name: "delete missing deploymentStackName", step: deleteStep, mutate: func(s map[string]interface{}) { delete(s, "deploymentStackName") }, err: schemaErr},
-		{name: "delete with bare string deploymentStackName", step: deleteStep, mutate: func(s map[string]interface{}) { s["deploymentStackName"] = "Global.singleton.acrs" }, err: schemaErr},
+		{name: "delete missing deploymentStackNameForDelete", step: deleteStep, mutate: func(s map[string]interface{}) { delete(s, "deploymentStackNameForDelete") }, err: schemaErr},
+		{name: "delete with bare string deploymentStackNameForDelete", step: deleteStep, mutate: func(s map[string]interface{}) { s["deploymentStackNameForDelete"] = "Global.singleton.acrs" }, err: schemaErr},
 		{name: "delete missing actionOnUnmanage", step: deleteStep, mutate: func(s map[string]interface{}) { delete(s, "actionOnUnmanage") }, err: schemaErr},
 		{name: "delete missing identityFrom", step: deleteStep, mutate: func(s map[string]interface{}) { delete(s, "identityFrom") }, err: schemaErr},
 		{name: "delete invalid timeout", step: deleteStep, mutate: func(s map[string]interface{}) { s["timeout"] = "soon" }, err: schemaErr},

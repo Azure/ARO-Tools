@@ -361,9 +361,9 @@ func TestRequiredInputs(t *testing.T) {
 		{
 			name: "arm stack delete",
 			input: &ARMStackStep{
-				Operation:           ARMStackOperationDelete,
-				DeploymentStackName: &Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "name"}}},
-				IdentityFrom:        &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "identity"}},
+				Operation:                    ARMStackOperationDelete,
+				DeploymentStackNameForDelete: &Value{Input: &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "name"}}},
+				IdentityFrom:                 &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "identity"}},
 			},
 			expected: []StepDependency{
 				{ResourceGroup: "rg", Step: "identity"},
@@ -373,9 +373,9 @@ func TestRequiredInputs(t *testing.T) {
 		{
 			name: "arm stack delete with literal name",
 			input: &ARMStackStep{
-				Operation:           ARMStackOperationDelete,
-				DeploymentStackName: &Value{Value: "Global.singleton.acrs"},
-				IdentityFrom:        &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "identity"}},
+				Operation:                    ARMStackOperationDelete,
+				DeploymentStackNameForDelete: &Value{Value: "Global.singleton.acrs"},
+				IdentityFrom:                 &Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "identity"}},
 			},
 			expected: []StepDependency{{ResourceGroup: "rg", Step: "identity"}},
 		},

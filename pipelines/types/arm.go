@@ -73,7 +73,7 @@ type ARMStackStep struct {
 	DeploymentLevel string     `json:"deploymentLevel,omitempty"`
 
 	// Operation is either 'createOrUpdate' (the default when empty) or 'delete'. With 'delete', the step removes the
-	// stack named by DeploymentStackName instead of deploying a template.
+	// stack named by DeploymentStackNameForDelete instead of deploying a template.
 	Operation string `json:"operation,omitempty"`
 
 	// ActionOnUnmanage specifies what action to take when a resource previously owned by the deployment stack is no longer
@@ -83,9 +83,9 @@ type ARMStackStep struct {
 	// BypassStackOutOfSyncError allows bypassing service errors that indicate the stack resource list is not correctly synchronized.
 	BypassStackOutOfSyncError bool `json:"bypassStackOutOfSyncError,omitempty"`
 
-	// DeploymentStackName is the name of the existing stack to delete, exactly as Azure shows it, in the resource
+	// DeploymentStackNameForDelete is the name of the existing stack to delete, exactly as Azure shows it, in the resource
 	// group this step runs in. Only used with operation 'delete'; create and update always derive the name from the step.
-	DeploymentStackName *Value `json:"deploymentStackName,omitempty"`
+	DeploymentStackNameForDelete *Value `json:"deploymentStackNameForDelete,omitempty"`
 	// Timeout bounds a delete, as a Go duration string. The tool's default applies when unset.
 	Timeout string `json:"timeout,omitempty"`
 	// IdentityFrom specifies the managed identity with which a delete runs in Ev2.
@@ -104,8 +104,8 @@ func (s *ARMStackStep) Description() string {
 	var details []string
 	if s.IsDelete() {
 		details = append(details, fmt.Sprintf("Operation: %s", s.Operation))
-		if s.DeploymentStackName != nil {
-			details = append(details, fmt.Sprintf("DeploymentStackName: %s", s.DeploymentStackName.String()))
+		if s.DeploymentStackNameForDelete != nil {
+			details = append(details, fmt.Sprintf("DeploymentStackNameForDelete: %s", s.DeploymentStackNameForDelete.String()))
 		}
 		details = append(details, fmt.Sprintf("ActionOnUnmanage: %s", s.ActionOnUnmanage))
 	} else {
@@ -122,8 +122,8 @@ func (s *ARMStackStep) RequiredInputs() []StepDependency {
 			deps = append(deps, val.Input.StepDependency)
 		}
 	}
-	if s.DeploymentStackName != nil && s.DeploymentStackName.Input != nil {
-		deps = append(deps, s.DeploymentStackName.Input.StepDependency)
+	if s.DeploymentStackNameForDelete != nil && s.DeploymentStackNameForDelete.Input != nil {
+		deps = append(deps, s.DeploymentStackNameForDelete.Input.StepDependency)
 	}
 	if s.IdentityFrom != nil {
 		deps = append(deps, s.IdentityFrom.StepDependency)

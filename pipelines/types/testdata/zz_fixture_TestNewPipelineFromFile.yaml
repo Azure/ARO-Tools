@@ -84,7 +84,7 @@ resourceGroups:
     - resourceGroup: regional
       step: svc-stack
     deploymentLevel: ResourceGroup
-    deploymentStackName:
+    deploymentStackNameForDelete:
       value: Global.singleton.acrs
     identityFrom:
       name: whatever

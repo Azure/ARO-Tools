@@ -92,7 +92,7 @@ resourceGroups:
     action: ARMStack
     operation: delete
     deploymentLevel: ResourceGroup
-    deploymentStackName:
+    deploymentStackNameForDelete:
       value: Global.singleton.acrs
     actionOnUnmanage: detach
     timeout: 30m
