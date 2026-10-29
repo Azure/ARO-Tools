@@ -23,8 +23,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/Azure/ARO-Tools/testutil"
 	"sigs.k8s.io/yaml"
+
+	"github.com/Azure/ARO-Tools/testutil"
 )
 
 func TestWrapYAML(t *testing.T) {
