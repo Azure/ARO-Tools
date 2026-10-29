@@ -23,6 +23,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"sigs.k8s.io/yaml"
+
 	"github.com/Azure/ARO-Tools/testutil"
 )
 
@@ -81,4 +83,34 @@ another: normal value
 	// This should succeed when validation is disabled
 	_, err = WrapYAML(invalidYAML, false)
 	require.NoError(t, err)
+}
+
+func TestWrapPipelineConditionalKey(t *testing.T) {
+	for _, key := range []string{
+		"${{ if ne(parameters.providerNamespace, 'Microsoft.RedHatOpenShift.hcp') }}",
+		`"${{ if ne(parameters.providerNamespace, 'Microsoft.RedHatOpenShift.hcp') }}"`,
+		"'${{ if parameters.enabled }}'",
+	} {
+		t.Run(key, func(t *testing.T) {
+			input := []byte("stages:\n- " + key + ": # conditional stage\n  - stage: Fairfax\n")
+			wrapped, err := WrapYAML(input, true)
+			require.NoError(t, err)
+			var before, after any
+			require.NoError(t, yaml.Unmarshal(input, &before))
+			require.NoError(t, yaml.Unmarshal(wrapped, &after))
+			assert.Equal(t, before, after)
+		})
+	}
+}
+
+func TestWrapValueUnderPipelineConditionalKey(t *testing.T) {
+	input := []byte("- ${{ if parameters.enabled }}: {{ .stage }}\n")
+	wrapped, err := WrapYAML(input, true)
+	require.NoError(t, err)
+	var stages []map[string]string
+	require.NoError(t, yaml.Unmarshal(wrapped, &stages))
+	assert.Equal(t, WrapperMarker+"{{ .stage }}", stages[0]["${{ if parameters.enabled }}"])
+	unwrapped, err := UnwrapYAML(wrapped)
+	require.NoError(t, err)
+	assert.Equal(t, string(input), string(unwrapped))
 }
