@@ -406,6 +406,9 @@ func (s *ProviderFeatureRegistrationStep) Description() string {
 }
 
 func (s *ProviderFeatureRegistrationStep) RequiredInputs() []StepDependency {
+	if s.IdentityFrom.StepDependency == (StepDependency{}) {
+		return nil
+	}
 	return []StepDependency{s.IdentityFrom.StepDependency}
 }
 

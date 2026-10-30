@@ -223,6 +223,10 @@ func TestRequiredInputs(t *testing.T) {
 			},
 		},
 		{
+			name:  "provider empty",
+			input: &ProviderFeatureRegistrationStep{},
+		},
+		{
 			name: "ev2 full",
 			input: &Ev2RegistrationStep{
 				IdentityFrom: Input{StepDependency: StepDependency{ResourceGroup: "rg", Step: "step"}},

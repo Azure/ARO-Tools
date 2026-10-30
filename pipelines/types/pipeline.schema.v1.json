@@ -1699,8 +1699,7 @@
             }
           },
           "required": [
-            "providerConfigRef",
-            "identityFrom"
+            "providerConfigRef"
           ]
         }
       ]
