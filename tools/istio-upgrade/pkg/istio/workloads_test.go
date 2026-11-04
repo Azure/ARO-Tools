@@ -17,9 +17,13 @@ package istio
 import (
 	"context"
 	"fmt"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/go-logr/logr"
+	"github.com/go-logr/logr/funcr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -28,6 +32,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
 	"k8s.io/utils/ptr"
@@ -529,6 +534,176 @@ func TestWaitForRollout_Timeout(t *testing.T) {
 	assert.ErrorContains(t, err, "rollout did not converge in app-ns")
 }
 
+func TestWaitForRollout_RetriesTransientDeploymentListTimeout(t *testing.T) {
+	fakeClient := fake.NewSimpleClientset(
+		&appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{Name: "web", Namespace: "app-ns", Generation: 1},
+			Spec:       appsv1.DeploymentSpec{Replicas: ptr.To[int32](1)},
+			Status:     appsv1.DeploymentStatus{ObservedGeneration: 1, UpdatedReplicas: 1, ReadyReplicas: 1},
+		},
+	)
+	listCalls := 0
+	fakeClient.PrependReactor("list", "deployments", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		listCalls++
+		if listCalls == 1 {
+			return true, nil, apierrors.NewTimeoutError(
+				"the server was unable to return a response in the time allotted, but may still be processing the request",
+				0,
+			)
+		}
+		return false, nil, nil
+	})
+
+	err := WaitForRollout(context.Background(), NewKubeClientFromInterface(fakeClient), "app-ns", 5*time.Second, 50*time.Millisecond)
+	require.NoError(t, err, "apiserver list timeout should be retried within the rollout poll budget")
+	assert.GreaterOrEqual(t, listCalls, 2, "expected a retry after the transient timeout")
+}
+
+func TestWaitForRollout_PersistentDeploymentListError(t *testing.T) {
+	fakeClient := fake.NewSimpleClientset()
+	fakeClient.PrependReactor("list", "deployments", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, fmt.Errorf("deployment list forbidden")
+	})
+
+	err := WaitForRollout(context.Background(), NewKubeClientFromInterface(fakeClient), "app-ns", 5*time.Second, 50*time.Millisecond)
+	assert.ErrorContains(t, err, "failed to list deployments")
+	assert.ErrorContains(t, err, "deployment list forbidden")
+}
+
+func TestIsTransientKubeAPIError(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{
+			name: "timeout",
+			err: apierrors.NewTimeoutError(
+				"the server was unable to return a response in the time allotted, but may still be processing the request", 0),
+			want: true,
+		},
+		{
+			name: "server timeout",
+			err:  apierrors.NewServerTimeout(schema.GroupResource{Resource: "deployments"}, "list", 0),
+			want: true,
+		},
+		{
+			name: "too many requests",
+			err:  apierrors.NewTooManyRequests("rate limited", 1),
+			want: true,
+		},
+		{
+			name: "service unavailable",
+			err:  apierrors.NewServiceUnavailable("apiserver unavailable"),
+			want: true,
+		},
+		{
+			name: "forbidden is not transient",
+			err:  apierrors.NewForbidden(schema.GroupResource{Resource: "deployments"}, "web", fmt.Errorf("denied")),
+			want: false,
+		},
+		{
+			name: "plain error is not transient",
+			err:  fmt.Errorf("connection reset"),
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, isTransientKubeAPIError(tt.err))
+		})
+	}
+}
+
+func TestWaitForRollout_RetriesTransientStatefulSetListTimeout(t *testing.T) {
+	fakeClient := fake.NewSimpleClientset(
+		&appsv1.StatefulSet{
+			ObjectMeta: metav1.ObjectMeta{Name: "db", Namespace: "app-ns", Generation: 1},
+			Spec:       appsv1.StatefulSetSpec{Replicas: ptr.To[int32](1)},
+			Status:     appsv1.StatefulSetStatus{ObservedGeneration: 1, UpdatedReplicas: 1, ReadyReplicas: 1},
+		},
+	)
+	listCalls := 0
+	fakeClient.PrependReactor("list", "statefulsets", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		listCalls++
+		if listCalls == 1 {
+			return true, nil, apierrors.NewServiceUnavailable("apiserver unavailable")
+		}
+		return false, nil, nil
+	})
+
+	err := WaitForRollout(context.Background(), NewKubeClientFromInterface(fakeClient), "app-ns", 5*time.Second, 50*time.Millisecond)
+	require.NoError(t, err, "apiserver statefulset list error should be retried within the rollout poll budget")
+	assert.GreaterOrEqual(t, listCalls, 2, "expected a retry after the transient error")
+}
+
+func TestWaitForRollout_RetriesTransientDaemonSetListTimeout(t *testing.T) {
+	fakeClient := fake.NewSimpleClientset(
+		&appsv1.DaemonSet{
+			ObjectMeta: metav1.ObjectMeta{Name: "agent", Namespace: "app-ns", Generation: 1},
+			Status: appsv1.DaemonSetStatus{
+				ObservedGeneration:     1,
+				DesiredNumberScheduled: 1,
+				UpdatedNumberScheduled: 1,
+				NumberReady:            1,
+			},
+		},
+	)
+	listCalls := 0
+	fakeClient.PrependReactor("list", "daemonsets", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		listCalls++
+		if listCalls == 1 {
+			return true, nil, apierrors.NewTooManyRequests("rate limited", 1)
+		}
+		return false, nil, nil
+	})
+
+	err := WaitForRollout(context.Background(), NewKubeClientFromInterface(fakeClient), "app-ns", 5*time.Second, 50*time.Millisecond)
+	require.NoError(t, err, "apiserver daemonset list error should be retried within the rollout poll budget")
+	assert.GreaterOrEqual(t, listCalls, 2, "expected a retry after the transient error")
+}
+
+func TestWaitForRollout_PersistentTransientErrorReportsLastError(t *testing.T) {
+	fakeClient := fake.NewSimpleClientset()
+	fakeClient.PrependReactor("list", "deployments", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, apierrors.NewTimeoutError(
+			"the server was unable to return a response in the time allotted, but may still be processing the request", 0)
+	})
+
+	err := WaitForRollout(context.Background(), NewKubeClientFromInterface(fakeClient), "app-ns", 200*time.Millisecond, 50*time.Millisecond)
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "rollout did not converge in app-ns")
+	assert.ErrorContains(t, err, "unable to return a response",
+		"timeout error should surface the last transient apiserver error, not just context.DeadlineExceeded")
+}
+
+func TestWaitForRollout_DedupesTransientErrorLogging(t *testing.T) {
+	fakeClient := fake.NewSimpleClientset()
+	fakeClient.PrependReactor("list", "deployments", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, apierrors.NewTimeoutError(
+			"the server was unable to return a response in the time allotted, but may still be processing the request", 0)
+	})
+
+	var mu sync.Mutex
+	var transientLogLines int
+	logger := funcr.New(func(prefix, args string) {
+		mu.Lock()
+		defer mu.Unlock()
+		if strings.Contains(args, "transient error listing deployments") {
+			transientLogLines++
+		}
+	}, funcr.Options{})
+	ctx := logr.NewContext(context.Background(), logger)
+
+	err := WaitForRollout(ctx, NewKubeClientFromInterface(fakeClient), "app-ns", 300*time.Millisecond, 50*time.Millisecond)
+	require.Error(t, err)
+
+	mu.Lock()
+	defer mu.Unlock()
+	assert.Equal(t, 1, transientLogLines,
+		"identical transient errors should be logged exactly once")
+}
+
 func TestCreateRevisionConfigMap(t *testing.T) {
 	fakeClient := fake.NewSimpleClientset()
 	kubeClient := NewKubeClientFromInterface(fakeClient)
@@ -684,6 +859,60 @@ func TestWaitForRolloutAllNamespaces_ContextCancellation(t *testing.T) {
 
 	err := WaitForRolloutAllNamespaces(ctx, kubeClient, 5*time.Second, 50*time.Millisecond)
 	assert.Error(t, err, "should fail promptly when context is already cancelled")
+}
+
+func TestWaitForRolloutAllNamespaces_RetriesTransientNamespaceListError(t *testing.T) {
+	fakeClient := fake.NewSimpleClientset(
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "ns-a", Labels: map[string]string{"istio.io/rev": "asm-1-29"}}},
+		&appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{Name: "web", Namespace: "ns-a", Generation: 1},
+			Spec:       appsv1.DeploymentSpec{Replicas: ptr.To[int32](1)},
+			Status:     appsv1.DeploymentStatus{ObservedGeneration: 1, UpdatedReplicas: 1, ReadyReplicas: 1},
+		},
+	)
+	listCalls := 0
+	fakeClient.PrependReactor("list", "namespaces", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		listCalls++
+		if listCalls == 1 {
+			return true, nil, apierrors.NewTimeoutError(
+				"the server was unable to return a response in the time allotted, but may still be processing the request", 0)
+		}
+		return false, nil, nil
+	})
+
+	err := WaitForRolloutAllNamespaces(context.Background(), NewKubeClientFromInterface(fakeClient), 5*time.Second, 50*time.Millisecond)
+	require.NoError(t, err, "apiserver namespace list timeout should be retried within the rollout poll budget")
+	assert.GreaterOrEqual(t, listCalls, 2, "expected a retry after the transient timeout")
+}
+
+func TestWaitForRolloutAllNamespaces_PersistentNamespaceListError(t *testing.T) {
+	fakeClient := fake.NewSimpleClientset()
+	fakeClient.PrependReactor("list", "namespaces", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, fmt.Errorf("namespace list forbidden")
+	})
+
+	err := WaitForRolloutAllNamespaces(context.Background(), NewKubeClientFromInterface(fakeClient), 5*time.Second, 50*time.Millisecond)
+	assert.ErrorContains(t, err, "namespace list forbidden")
+}
+
+func TestWaitForRolloutAllNamespaces_NamespaceListRetryBudgetIsIndependentOfRolloutTimeout(t *testing.T) {
+	original := namespaceListRetryTimeout
+	namespaceListRetryTimeout = 150 * time.Millisecond
+	t.Cleanup(func() { namespaceListRetryTimeout = original })
+
+	fakeClient := fake.NewSimpleClientset()
+	fakeClient.PrependReactor("list", "namespaces", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, apierrors.NewTimeoutError(
+			"the server was unable to return a response in the time allotted, but may still be processing the request", 0)
+	})
+
+	start := time.Now()
+	err := WaitForRolloutAllNamespaces(context.Background(), NewKubeClientFromInterface(fakeClient), 5*time.Second, 50*time.Millisecond)
+	elapsed := time.Since(start)
+
+	require.Error(t, err)
+	assert.Less(t, elapsed, 1*time.Second,
+		"a persistent transient namespace-list error should give up on its own short budget, not consume the much longer RolloutTimeout")
 }
 
 func TestExecuteRestartAllNamespaces_ConcurrentSuccess(t *testing.T) {
