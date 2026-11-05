@@ -99,10 +99,13 @@ func DeleteRevisionConfigMap(ctx context.Context, kubeClient *KubeClient, revisi
 // (as created by CreateRevisionConfigMap) only when their revision is no longer
 // installed. The caller must confirm the mesh is stable before invoking it.
 //
-// Only ConfigMaps named with the istio-shared-configmap- prefix are considered,
-// never anything else that happens to carry an istio.io/rev label (AKS-managed
-// ConfigMaps like istio-<rev> and istio-sidecar-injector-<rev> also carry that
-// label and must never be touched).
+// Only ConfigMaps named with the istio-shared-configmap- prefix, followed by a
+// suffix matching RevisionPattern, are considered -- never anything else that
+// happens to carry an istio.io/rev label (AKS-managed ConfigMaps like
+// istio-<rev> and istio-sidecar-injector-<rev> also carry that label and must
+// never be touched), and never a same-prefix name whose suffix isn't actually
+// a revision. The revision-pattern check is a cheap safety rail on code that
+// deletes things.
 //
 // List failure is returned to the caller. Per-ConfigMap delete errors are
 // logged and otherwise ignored; NotFound is treated as benign.
@@ -122,7 +125,7 @@ func ReconcileOrphanedRevisionConfigMaps(
 	var orphaned []string
 	for _, cm := range cms.Items {
 		revision, ok := strings.CutPrefix(cm.Name, revisionConfigMapPrefix)
-		if !ok || installed.Has(revision) {
+		if !ok || !RevisionPattern.MatchString(revision) || installed.Has(revision) {
 			continue
 		}
 

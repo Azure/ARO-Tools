@@ -185,6 +185,27 @@ func TestReconcileOrphanedRevisionConfigMaps(t *testing.T) {
 		}
 	})
 
+	t.Run("preserves same-prefix ConfigMap whose suffix is not a revision", func(t *testing.T) {
+		client := fake.NewSimpleClientset(
+			&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: istioSystemNamespace}},
+			&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{
+				Name: "istio-shared-configmap-backup", Namespace: istioSystemNamespace,
+			}},
+		)
+
+		err := ReconcileOrphanedRevisionConfigMaps(
+			context.Background(),
+			logr.FromContextOrDiscard(context.Background()),
+			NewKubeClientFromInterface(client),
+			[]string{"asm-1-29"},
+		)
+		require.NoError(t, err)
+
+		_, err = client.CoreV1().ConfigMaps(istioSystemNamespace).Get(
+			context.Background(), "istio-shared-configmap-backup", metav1.GetOptions{})
+		require.NoError(t, err, "same-prefix ConfigMap with a non-revision suffix must never be touched")
+	})
+
 	t.Run("list error is returned to caller", func(t *testing.T) {
 		client := fake.NewSimpleClientset(
 			&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: istioSystemNamespace}},
