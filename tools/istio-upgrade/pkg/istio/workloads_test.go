@@ -559,6 +559,33 @@ func TestWaitForRollout_RetriesTransientDeploymentListTimeout(t *testing.T) {
 	assert.GreaterOrEqual(t, listCalls, 2, "expected a retry after the transient timeout")
 }
 
+func TestWaitForRollout_TimeoutAfterTransientErrorDoesNotBlameTransientError(t *testing.T) {
+	fakeClient := fake.NewSimpleClientset(
+		&appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{Name: "stuck", Namespace: "app-ns", Generation: 1},
+			Spec:       appsv1.DeploymentSpec{Replicas: ptr.To[int32](1)},
+			Status:     appsv1.DeploymentStatus{ObservedGeneration: 1, UpdatedReplicas: 0, ReadyReplicas: 0},
+		},
+	)
+	listCalls := 0
+	fakeClient.PrependReactor("list", "deployments", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		listCalls++
+		if listCalls == 1 {
+			return true, nil, apierrors.NewTimeoutError(
+				"the server was unable to return a response in the time allotted, but may still be processing the request",
+				0,
+			)
+		}
+		return false, nil, nil
+	})
+
+	err := WaitForRollout(context.Background(), NewKubeClientFromInterface(fakeClient), "app-ns", 300*time.Millisecond, 50*time.Millisecond)
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "rollout did not converge in app-ns")
+	assert.NotContains(t, err.Error(), "unable to return a response",
+		"workload never became ready after the transient error cleared; the timeout should not blame the stale transient error")
+}
+
 func TestWaitForRollout_PersistentDeploymentListError(t *testing.T) {
 	fakeClient := fake.NewSimpleClientset()
 	fakeClient.PrependReactor("list", "deployments", func(action k8stesting.Action) (bool, runtime.Object, error) {
@@ -881,7 +908,7 @@ func TestWaitForRolloutAllNamespaces_RetriesTransientNamespaceListError(t *testi
 	})
 
 	err := WaitForRolloutAllNamespaces(context.Background(), NewKubeClientFromInterface(fakeClient), 5*time.Second, 50*time.Millisecond)
-	require.NoError(t, err, "apiserver namespace list timeout should be retried within the rollout poll budget")
+	require.NoError(t, err, "apiserver namespace list timeout should be retried within the namespace-list retry budget")
 	assert.GreaterOrEqual(t, listCalls, 2, "expected a retry after the transient timeout")
 }
 
