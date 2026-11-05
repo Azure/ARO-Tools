@@ -39,7 +39,7 @@ func gatewayLease(name string) *coordinationv1.Lease {
 	}
 }
 
-func TestReconcileOrphanedGatewayLeases(t *testing.T) {
+func TestReconcileOrphanedMeshResources(t *testing.T) {
 	t.Run("removes only orphaned gateway lease formats", func(t *testing.T) {
 		client := fake.NewSimpleClientset(
 			&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: istioSystemNamespace}},
@@ -166,6 +166,7 @@ func TestReconcileOrphanedGatewayLeases(t *testing.T) {
 			NewKubeClientFromInterface(client),
 			DefaultUpgradeOptions(),
 			"asm-1-29",
+			nil,
 		)
 
 		assert.Equal(t, []string{"GetClusterState", "GetMeshUpgradeTargets"}, aks.calls)
@@ -218,7 +219,7 @@ func TestReconcileOrphanedGatewayLeases(t *testing.T) {
 			NewKubeClientFromInterface(client),
 			DefaultUpgradeOptions(),
 			"asm-1-29",
-			"asm-1-30",
+			[]string{"asm-1-30"},
 		)
 
 		_, err := client.CoreV1().ConfigMaps(istioSystemNamespace).Get(
@@ -257,6 +258,7 @@ func TestReconcileOrphanedGatewayLeases(t *testing.T) {
 			NewKubeClientFromInterface(client),
 			DefaultUpgradeOptions(),
 			"asm-1-29",
+			nil,
 		)
 
 		_, err := client.CoreV1().ConfigMaps(istioSystemNamespace).Get(
@@ -323,6 +325,7 @@ func TestReconcileOrphanedGatewayLeases(t *testing.T) {
 					NewKubeClientFromInterface(client),
 					DefaultUpgradeOptions(),
 					tt.target,
+					nil,
 				)
 
 				_, err := client.CoordinationV1().Leases(istioSystemNamespace).Get(

@@ -215,7 +215,7 @@ func runReconcile(ctx context.Context, logger logr.Logger, aksClient AKSClusterC
 	if err := ensureIngress(ctx, kubeClient, opts); err != nil {
 		logger.Error(err, "Failed to ensure ingress on reconcile (non-fatal)")
 	}
-	reconcileOrphanedMeshResources(ctx, logger, aksClient, kubeClient, opts, target)
+	reconcileOrphanedMeshResources(ctx, logger, aksClient, kubeClient, opts, target, nil)
 	return nil
 }
 
@@ -368,7 +368,7 @@ func runCleanupAndUpgrade(ctx context.Context, logger logr.Logger, aksClient AKS
 		return fmt.Errorf("cleanup verification failed: %v", verification.Issues)
 	}
 
-	reconcileOrphanedMeshResources(ctx, logger, aksClient, kubeClient, opts, oldRevision, target)
+	reconcileOrphanedMeshResources(ctx, logger, aksClient, kubeClient, opts, oldRevision, []string{target})
 
 	// Phase 3: Start a fresh canary from old to target — this runs the full
 	// post-install flow with health checks, orphan guard, and auto-rollback.
@@ -522,7 +522,7 @@ func runCanaryPostInstall(ctx context.Context, logger logr.Logger, aksClient AKS
 		return fmt.Errorf("post-upgrade verification failed: %v", verification.Issues)
 	}
 
-	reconcileOrphanedMeshResources(ctx, logger, aksClient, kubeClient, opts, target)
+	reconcileOrphanedMeshResources(ctx, logger, aksClient, kubeClient, opts, target, nil)
 
 	logger.Info("Istio upgrade complete and verified", "target", target)
 	return nil
@@ -651,7 +651,7 @@ func verifyControlPlaneAndTag(ctx context.Context, kubeClient *KubeClient, tag, 
 	return nil
 }
 
-// pendingConfigMapRevisions are additional revisions to treat as not-yet-orphaned
+// preserveConfigMapRevisions are additional revisions to treat as not-yet-orphaned
 // for ConfigMap cleanup only -- e.g. the overall upgrade target during stale-canary
 // recovery (runCleanupAndUpgrade), where the stability gate matches only the old
 // revision but a real canary toward the target is about to start in the same run.
@@ -665,7 +665,7 @@ func reconcileOrphanedMeshResources(
 	kubeClient *KubeClient,
 	opts UpgradeOptions,
 	target string,
-	pendingConfigMapRevisions ...string,
+	preserveConfigMapRevisions []string,
 ) {
 	clusterInfo, meshProfile, err := aksClient.GetClusterState(
 		ctx,
@@ -718,7 +718,7 @@ func reconcileOrphanedMeshResources(
 	}
 
 	logger.Info("Reconciling orphaned Istio shared revision ConfigMaps")
-	keepConfigMapRevisions := append(slices.Clone(meshProfile.Revisions), pendingConfigMapRevisions...)
+	keepConfigMapRevisions := append(slices.Clone(meshProfile.Revisions), preserveConfigMapRevisions...)
 	if err := ReconcileOrphanedRevisionConfigMaps(
 		ctx,
 		logger,
