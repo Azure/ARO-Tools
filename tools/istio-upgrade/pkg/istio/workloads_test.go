@@ -700,6 +700,7 @@ func TestWaitForRollout_PersistentTransientErrorReportsLastError(t *testing.T) {
 	err := WaitForRollout(context.Background(), NewKubeClientFromInterface(fakeClient), "app-ns", 200*time.Millisecond, 50*time.Millisecond)
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "rollout did not converge in app-ns")
+	assert.ErrorContains(t, err, "workload state never observed")
 	assert.ErrorContains(t, err, "unable to return a response",
 		"timeout error should surface the last transient apiserver error, not just context.DeadlineExceeded")
 }
