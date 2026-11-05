@@ -638,10 +638,14 @@ func WaitForRollout(ctx context.Context, kubeClient *KubeClient, namespace strin
 		return false, nil
 	})
 	if err != nil {
-		if lastTransientErr != nil {
-			return fmt.Errorf("rollout did not converge in %s: pending=[%s]: %w (last error: %v)", namespace, lastPending, err, lastTransientErr)
+		pendingDesc := "workload state never observed"
+		if lastPending != "" {
+			pendingDesc = fmt.Sprintf("pending=[%s]", lastPending)
 		}
-		return fmt.Errorf("rollout did not converge in %s: pending=[%s]: %w", namespace, lastPending, err)
+		if lastTransientErr != nil {
+			return fmt.Errorf("rollout did not converge in %s: %s: %w (last error: %v)", namespace, pendingDesc, err, lastTransientErr)
+		}
+		return fmt.Errorf("rollout did not converge in %s: %s: %w", namespace, pendingDesc, err)
 	}
 	return nil
 }
