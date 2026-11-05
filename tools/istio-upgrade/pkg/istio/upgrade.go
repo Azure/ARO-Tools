@@ -215,7 +215,7 @@ func runReconcile(ctx context.Context, logger logr.Logger, aksClient AKSClusterC
 	if err := ensureIngress(ctx, kubeClient, opts); err != nil {
 		logger.Error(err, "Failed to ensure ingress on reconcile (non-fatal)")
 	}
-	reconcileOrphanedGatewayLeases(ctx, logger, aksClient, kubeClient, opts, target)
+	reconcileOrphanedMeshResources(ctx, logger, aksClient, kubeClient, opts, target)
 	return nil
 }
 
@@ -368,7 +368,7 @@ func runCleanupAndUpgrade(ctx context.Context, logger logr.Logger, aksClient AKS
 		return fmt.Errorf("cleanup verification failed: %v", verification.Issues)
 	}
 
-	reconcileOrphanedGatewayLeases(ctx, logger, aksClient, kubeClient, opts, oldRevision)
+	reconcileOrphanedMeshResources(ctx, logger, aksClient, kubeClient, opts, oldRevision, target)
 
 	// Phase 3: Start a fresh canary from old to target — this runs the full
 	// post-install flow with health checks, orphan guard, and auto-rollback.
@@ -522,7 +522,7 @@ func runCanaryPostInstall(ctx context.Context, logger logr.Logger, aksClient AKS
 		return fmt.Errorf("post-upgrade verification failed: %v", verification.Issues)
 	}
 
-	reconcileOrphanedGatewayLeases(ctx, logger, aksClient, kubeClient, opts, target)
+	reconcileOrphanedMeshResources(ctx, logger, aksClient, kubeClient, opts, target)
 
 	logger.Info("Istio upgrade complete and verified", "target", target)
 	return nil
@@ -651,13 +651,21 @@ func verifyControlPlaneAndTag(ctx context.Context, kubeClient *KubeClient, tag, 
 	return nil
 }
 
-func reconcileOrphanedGatewayLeases(
+// pendingConfigMapRevisions are additional revisions to treat as not-yet-orphaned
+// for ConfigMap cleanup only -- e.g. the overall upgrade target during stale-canary
+// recovery (runCleanupAndUpgrade), where the stability gate matches only the old
+// revision but a real canary toward the target is about to start in the same run.
+// Gateway lease cleanup is intentionally not extended the same way: a lease only
+// exists once its control plane is actually running, so there's nothing pending to
+// preserve there.
+func reconcileOrphanedMeshResources(
 	ctx context.Context,
 	logger logr.Logger,
 	aksClient AKSClusterClient,
 	kubeClient *KubeClient,
 	opts UpgradeOptions,
 	target string,
+	pendingConfigMapRevisions ...string,
 ) {
 	clusterInfo, meshProfile, err := aksClient.GetClusterState(
 		ctx,
@@ -679,14 +687,16 @@ func reconcileOrphanedGatewayLeases(
 		return
 	}
 
-	// Do not touch leases while AKS is adding/removing revisions, or while
-	// a rollback can still reactivate the previous control plane.
+	// Do not touch leases or shared ConfigMaps while AKS is adding/removing
+	// revisions, or while a rollback can still reactivate the previous control
+	// plane -- e.g. a pre-seeded ConfigMap for an unavailable upgrade target
+	// is not yet orphaned, it's waiting to be used.
 	if clusterInfo.ProvisioningState != "Succeeded" ||
 		upgradeInfo.UpgradeInProgress ||
 		len(meshProfile.Revisions) != 1 ||
 		meshProfile.Revisions[0] != target {
 		logger.Info(
-			"Skipping orphaned Istio gateway lease reconciliation until mesh is stable",
+			"Skipping orphaned Istio mesh resource reconciliation until mesh is stable",
 			"provisioningState", clusterInfo.ProvisioningState,
 			"upgradeInProgress", upgradeInfo.UpgradeInProgress,
 			"installedRevisions", meshProfile.Revisions,
@@ -703,7 +713,20 @@ func reconcileOrphanedGatewayLeases(
 		meshProfile.Revisions,
 	); err != nil {
 		logger.Error(err, "Failed to reconcile orphaned Istio gateway leases (non-fatal)")
+	} else {
+		logger.Info("Orphaned Istio gateway leases reconciled")
+	}
+
+	logger.Info("Reconciling orphaned Istio shared revision ConfigMaps")
+	keepConfigMapRevisions := append(slices.Clone(meshProfile.Revisions), pendingConfigMapRevisions...)
+	if err := ReconcileOrphanedRevisionConfigMaps(
+		ctx,
+		logger,
+		kubeClient,
+		keepConfigMapRevisions,
+	); err != nil {
+		logger.Error(err, "Failed to reconcile orphaned Istio shared revision ConfigMaps (non-fatal)")
 		return
 	}
-	logger.Info("Orphaned Istio gateway leases reconciled")
+	logger.Info("Orphaned Istio shared revision ConfigMaps reconciled")
 }

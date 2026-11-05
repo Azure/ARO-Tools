@@ -24,6 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	_ "embed"
 )
@@ -31,8 +32,10 @@ import (
 //go:embed mesh-config.yaml
 var meshConfig string
 
+const revisionConfigMapPrefix = "istio-shared-configmap-"
+
 func revisionConfigMapName(revision string) string {
-	return fmt.Sprintf("istio-shared-configmap-%s", revision)
+	return revisionConfigMapPrefix + revision
 }
 
 func istiodServiceName(revision string) string {
@@ -89,5 +92,50 @@ func DeleteRevisionConfigMap(ctx context.Context, kubeClient *KubeClient, revisi
 		}
 		return fmt.Errorf("failed to delete ConfigMap %s: %w", cmName, err)
 	}
+	return nil
+}
+
+// ReconcileOrphanedRevisionConfigMaps removes shared Istio revision ConfigMaps
+// (as created by CreateRevisionConfigMap) only when their revision is no longer
+// installed. The caller must confirm the mesh is stable before invoking it.
+//
+// Only ConfigMaps named with the istio-shared-configmap- prefix are considered,
+// never anything else that happens to carry an istio.io/rev label (AKS-managed
+// ConfigMaps like istio-<rev> and istio-sidecar-injector-<rev> also carry that
+// label and must never be touched).
+//
+// List failure is returned to the caller. Per-ConfigMap delete errors are
+// logged and otherwise ignored; NotFound is treated as benign.
+func ReconcileOrphanedRevisionConfigMaps(
+	ctx context.Context,
+	logger logr.Logger,
+	kubeClient *KubeClient,
+	installedRevisions []string,
+) error {
+	installed := sets.New(installedRevisions...)
+
+	cms, err := kubeClient.client.CoreV1().ConfigMaps(istioSystemNamespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("list Istio shared revision ConfigMaps: %w", err)
+	}
+
+	var orphaned []string
+	for _, cm := range cms.Items {
+		revision, ok := strings.CutPrefix(cm.Name, revisionConfigMapPrefix)
+		if !ok || installed.Has(revision) {
+			continue
+		}
+
+		if err := DeleteRevisionConfigMap(ctx, kubeClient, revision); err != nil {
+			logger.Error(err, "Failed to delete orphaned Istio shared ConfigMap (non-fatal)", "configmap", cm.Name)
+			continue
+		}
+		orphaned = append(orphaned, cm.Name)
+	}
+
+	if len(orphaned) > 0 {
+		logger.Info("Removed orphaned Istio shared revision ConfigMaps", "count", len(orphaned), "configmaps", orphaned)
+	}
+
 	return nil
 }

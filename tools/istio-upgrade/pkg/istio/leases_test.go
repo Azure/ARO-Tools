@@ -143,13 +143,15 @@ func TestReconcileOrphanedGatewayLeases(t *testing.T) {
 		assert.True(t, apierrors.IsNotFound(err), "reconciliation should continue after non-fatal delete error")
 	})
 
-	t.Run("removes orphaned leases when mesh is stable", func(t *testing.T) {
+	t.Run("removes orphaned leases and ConfigMaps when mesh is stable", func(t *testing.T) {
 		ctx := logr.NewContext(context.Background(), testr.New(t))
 		client := fake.NewSimpleClientset(
 			&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: istioSystemNamespace}},
 			gatewayLease("istio-gateway-deployment-asm-1-28"),
 			gatewayLease("istio-gateway-status-leader-asm-1-28"),
 			gatewayLease("istio-gateway-deployment-asm-1-29"),
+			sharedConfigMap("asm-1-28"),
+			sharedConfigMap("asm-1-29"),
 		)
 		aks := &fakeAKSClient{
 			clusterInfo: &ClusterInfo{ProvisioningState: "Succeeded"},
@@ -157,7 +159,7 @@ func TestReconcileOrphanedGatewayLeases(t *testing.T) {
 			upgradeInfo: &MeshUpgradeInfo{UpgradeInProgress: false},
 		}
 
-		reconcileOrphanedGatewayLeases(
+		reconcileOrphanedMeshResources(
 			ctx,
 			logr.FromContextOrDiscard(ctx),
 			aks,
@@ -180,6 +182,87 @@ func TestReconcileOrphanedGatewayLeases(t *testing.T) {
 		_, err := client.CoordinationV1().Leases(istioSystemNamespace).Get(
 			context.Background(), "istio-gateway-deployment-asm-1-29", metav1.GetOptions{})
 		require.NoError(t, err, "active revision lease should be preserved")
+
+		_, err = client.CoreV1().ConfigMaps(istioSystemNamespace).Get(
+			context.Background(), "istio-shared-configmap-asm-1-28", metav1.GetOptions{})
+		assert.True(t, apierrors.IsNotFound(err), "expected orphaned shared ConfigMap to be removed")
+
+		_, err = client.CoreV1().ConfigMaps(istioSystemNamespace).Get(
+			context.Background(), "istio-shared-configmap-asm-1-29", metav1.GetOptions{})
+		require.NoError(t, err, "active revision ConfigMap should be preserved")
+	})
+
+	t.Run("preserves pending upgrade target's pre-seeded ConfigMap during stale-canary cleanup", func(t *testing.T) {
+		// Mirrors runCleanupAndUpgrade's call: the stability gate matches only
+		// oldRevision (the stale canary has already been removed via ARM), but
+		// the overall upgrade target -- pre-seeded by ARO-HCP's Helm chart ahead
+		// of Phase 3 starting a real canary toward it -- must not be treated as
+		// orphaned just because it isn't installed yet.
+		ctx := logr.NewContext(context.Background(), testr.New(t))
+		client := fake.NewSimpleClientset(
+			&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: istioSystemNamespace}},
+			sharedConfigMap("asm-1-29"),
+			sharedConfigMap("asm-1-30"),
+			sharedConfigMap("asm-1-27"),
+		)
+		aks := &fakeAKSClient{
+			clusterInfo: &ClusterInfo{ProvisioningState: "Succeeded"},
+			meshProfile: &MeshProfile{Revisions: []string{"asm-1-29"}},
+			upgradeInfo: &MeshUpgradeInfo{UpgradeInProgress: false},
+		}
+
+		reconcileOrphanedMeshResources(
+			ctx,
+			logr.FromContextOrDiscard(ctx),
+			aks,
+			NewKubeClientFromInterface(client),
+			DefaultUpgradeOptions(),
+			"asm-1-29",
+			"asm-1-30",
+		)
+
+		_, err := client.CoreV1().ConfigMaps(istioSystemNamespace).Get(
+			context.Background(), "istio-shared-configmap-asm-1-29", metav1.GetOptions{})
+		require.NoError(t, err, "installed revision ConfigMap should be preserved")
+
+		_, err = client.CoreV1().ConfigMaps(istioSystemNamespace).Get(
+			context.Background(), "istio-shared-configmap-asm-1-30", metav1.GetOptions{})
+		require.NoError(t, err, "pending upgrade target's pre-seeded ConfigMap should be preserved, not treated as orphaned")
+
+		_, err = client.CoreV1().ConfigMaps(istioSystemNamespace).Get(
+			context.Background(), "istio-shared-configmap-asm-1-27", metav1.GetOptions{})
+		assert.True(t, apierrors.IsNotFound(err), "genuinely unrelated stale ConfigMap should still be removed")
+	})
+
+	t.Run("lease reconciliation failure does not block ConfigMap reconciliation", func(t *testing.T) {
+		ctx := logr.NewContext(context.Background(), testr.New(t))
+		client := fake.NewSimpleClientset(
+			&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: istioSystemNamespace}},
+			gatewayLease("istio-gateway-deployment-asm-1-28"),
+			sharedConfigMap("asm-1-28"),
+		)
+		client.PrependReactor("list", "leases", func(action k8stesting.Action) (bool, runtime.Object, error) {
+			return true, nil, fmt.Errorf("apiserver unavailable")
+		})
+		aks := &fakeAKSClient{
+			clusterInfo: &ClusterInfo{ProvisioningState: "Succeeded"},
+			meshProfile: &MeshProfile{Revisions: []string{"asm-1-29"}},
+			upgradeInfo: &MeshUpgradeInfo{UpgradeInProgress: false},
+		}
+
+		reconcileOrphanedMeshResources(
+			ctx,
+			logr.FromContextOrDiscard(ctx),
+			aks,
+			NewKubeClientFromInterface(client),
+			DefaultUpgradeOptions(),
+			"asm-1-29",
+		)
+
+		_, err := client.CoreV1().ConfigMaps(istioSystemNamespace).Get(
+			context.Background(), "istio-shared-configmap-asm-1-28", metav1.GetOptions{})
+		assert.True(t, apierrors.IsNotFound(err),
+			"ConfigMap reconciliation should still run even though lease reconciliation failed")
 	})
 
 	t.Run("skips while mesh is not stable", func(t *testing.T) {
@@ -226,9 +309,10 @@ func TestReconcileOrphanedGatewayLeases(t *testing.T) {
 				client := fake.NewSimpleClientset(
 					&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: istioSystemNamespace}},
 					gatewayLease("istio-gateway-deployment-asm-1-28"),
+					sharedConfigMap("asm-1-28"),
 				)
 
-				reconcileOrphanedGatewayLeases(
+				reconcileOrphanedMeshResources(
 					ctx,
 					logr.FromContextOrDiscard(ctx),
 					&fakeAKSClient{
@@ -244,6 +328,10 @@ func TestReconcileOrphanedGatewayLeases(t *testing.T) {
 				_, err := client.CoordinationV1().Leases(istioSystemNamespace).Get(
 					context.Background(), "istio-gateway-deployment-asm-1-28", metav1.GetOptions{})
 				require.NoError(t, err, "orphaned lease should be preserved while mesh is unstable")
+
+				_, err = client.CoreV1().ConfigMaps(istioSystemNamespace).Get(
+					context.Background(), "istio-shared-configmap-asm-1-28", metav1.GetOptions{})
+				require.NoError(t, err, "orphaned ConfigMap should be preserved while mesh is unstable")
 			})
 		}
 	})
