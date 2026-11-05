@@ -46,11 +46,10 @@ overall upgrade remains bounded by its 60-minute timeout.
 Workload rollout waits retry transient apiserver errors (timeouts, 429s, 503s)
 within the existing per-namespace rollout timeout (15 minutes by default), since
 that wait already budgets for real work -- pods scheduling and becoming ready.
-The mesh-namespace list that precedes it does no such work, so it retries on its
-own short, fixed one-minute budget instead of the much longer rollout timeout;
-reusing the rollout timeout there would let a degraded apiserver burn a second
-full rollout window before failing, cutting into the 60-minute overall budget
-that rollback also depends on.
+The mesh-namespace list that precedes it does no such work, so it uses its own
+short, fixed one-minute retry budget instead: reusing the rollout timeout there
+would let a degraded apiserver burn a full extra rollout window before failing,
+eating into the 60-minute overall budget.
 
 ## Contributing
 
