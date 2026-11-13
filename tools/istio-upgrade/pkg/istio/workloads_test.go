@@ -732,6 +732,80 @@ func TestWaitForRollout_DedupesTransientErrorLogging(t *testing.T) {
 		"identical transient errors should be logged exactly once")
 }
 
+func TestWaitForRollout_LogsRecurringTransientErrorAfterCleanPoll(t *testing.T) {
+	fakeClient := fake.NewSimpleClientset(
+		// A stuck deployment keeps the rollout polling so the sequence of
+		// transient / clean / transient polls can be observed.
+		&appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{Name: "stuck", Namespace: "app-ns", Generation: 2},
+			Spec:       appsv1.DeploymentSpec{Replicas: ptr.To[int32](1)},
+			Status:     appsv1.DeploymentStatus{ObservedGeneration: 1, UpdatedReplicas: 0, ReadyReplicas: 0},
+		},
+	)
+	transientErr := apierrors.NewTimeoutError(
+		"the server was unable to return a response in the time allotted, but may still be processing the request", 0)
+	listCalls := 0
+	fakeClient.PrependReactor("list", "deployments", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		listCalls++
+		// poll 1: transient error (logged)
+		// poll 2: clean observation (clears transient state)
+		// poll 3: same transient error again — must be logged again
+		if listCalls == 1 || listCalls == 3 {
+			return true, nil, transientErr
+		}
+		return false, nil, nil
+	})
+
+	var mu sync.Mutex
+	var transientLogLines int
+	logger := funcr.New(func(prefix, args string) {
+		mu.Lock()
+		defer mu.Unlock()
+		if strings.Contains(args, "transient error listing deployments") {
+			transientLogLines++
+		}
+	}, funcr.Options{})
+	ctx := logr.NewContext(context.Background(), logger)
+
+	err := WaitForRollout(ctx, NewKubeClientFromInterface(fakeClient), "app-ns", 400*time.Millisecond, 30*time.Millisecond)
+	require.Error(t, err)
+	require.GreaterOrEqual(t, listCalls, 3, "test setup requires at least three polls")
+
+	mu.Lock()
+	defer mu.Unlock()
+	assert.Equal(t, 2, transientLogLines,
+		"an identical transient error recurring after a clean poll should be logged again, not suppressed by stale dedup state")
+}
+
+func TestWaitForRolloutAllNamespaces_NamespaceListRetryUsesOwnPollInterval(t *testing.T) {
+	originalTimeout := namespaceListRetryTimeout
+	namespaceListRetryTimeout = 250 * time.Millisecond
+	t.Cleanup(func() { namespaceListRetryTimeout = originalTimeout })
+	shortNamespaceListPollInterval(t)
+
+	fakeClient := fake.NewSimpleClientset(
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "ns-a", Labels: map[string]string{"istio.io/rev": "asm-1-29"}}},
+	)
+	listCalls := 0
+	fakeClient.PrependReactor("list", "namespaces", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		listCalls++
+		if listCalls == 1 {
+			return true, nil, apierrors.NewTimeoutError(
+				"the server was unable to return a response in the time allotted, but may still be processing the request", 0)
+		}
+		return false, nil, nil
+	})
+	kubeClient := NewKubeClientFromInterface(fakeClient)
+
+	// A caller-configured rollout poll interval far larger than the namespace-list
+	// retry budget must not shrink that budget: the retry should use the
+	// namespace-list poll interval, not the rollout poll interval.
+	err := WaitForRolloutAllNamespaces(context.Background(), kubeClient, 5*time.Second, 10*time.Second)
+	require.NoError(t, err,
+		"the namespace-list retry must use its own poll interval; a large rollout poll interval should not starve it")
+	assert.GreaterOrEqual(t, listCalls, 2, "expected a retry after the transient timeout")
+}
+
 func TestCreateRevisionConfigMap(t *testing.T) {
 	fakeClient := fake.NewSimpleClientset()
 	kubeClient := NewKubeClientFromInterface(fakeClient)
@@ -921,6 +995,70 @@ func TestWaitForRolloutAllNamespaces_PersistentNamespaceListError(t *testing.T) 
 
 	err := WaitForRolloutAllNamespaces(context.Background(), NewKubeClientFromInterface(fakeClient), 5*time.Second, 50*time.Millisecond)
 	assert.ErrorContains(t, err, "namespace list forbidden")
+}
+
+// shortNamespaceListPollInterval keeps retry tests fast; restored via t.Cleanup.
+func shortNamespaceListPollInterval(t *testing.T) {
+	t.Helper()
+	original := namespaceListPollInterval
+	namespaceListPollInterval = 20 * time.Millisecond
+	t.Cleanup(func() { namespaceListPollInterval = original })
+}
+
+func TestUpdateMeshNamespaceLabels_RetriesTransientNamespaceListError(t *testing.T) {
+	shortNamespaceListPollInterval(t)
+	fakeClient := fake.NewSimpleClientset(
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "ns-a", Labels: map[string]string{"istio.io/rev": "asm-1-28"}}},
+	)
+	listCalls := 0
+	fakeClient.PrependReactor("list", "namespaces", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		listCalls++
+		if listCalls == 1 {
+			return true, nil, apierrors.NewTimeoutError(
+				"the server was unable to return a response in the time allotted, but may still be processing the request", 0)
+		}
+		return false, nil, nil
+	})
+	kubeClient := NewKubeClientFromInterface(fakeClient)
+
+	updated, err := UpdateMeshNamespaceLabels(context.Background(), kubeClient, "asm-1-29")
+	require.NoError(t, err, "a transient apiserver error on the namespace list should be retried, not fail the label update")
+	assert.Equal(t, 1, updated)
+	assert.GreaterOrEqual(t, listCalls, 2, "expected a retry after the transient timeout")
+}
+
+func TestExecuteRestartAllNamespaces_RetriesTransientNamespaceListError(t *testing.T) {
+	shortNamespaceListPollInterval(t)
+	fakeClient := fake.NewSimpleClientset(
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "ns-a", Labels: map[string]string{"istio.io/rev": "asm-1-29"}}},
+	)
+	listCalls := 0
+	fakeClient.PrependReactor("list", "namespaces", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		listCalls++
+		if listCalls == 1 {
+			return true, nil, apierrors.NewTimeoutError(
+				"the server was unable to return a response in the time allotted, but may still be processing the request", 0)
+		}
+		return false, nil, nil
+	})
+	kubeClient := NewKubeClientFromInterface(fakeClient)
+
+	_, err := ExecuteRestartAllNamespaces(context.Background(), kubeClient, "asm-1-29")
+	require.NoError(t, err, "a transient apiserver error on the namespace list should be retried, not fail the restart")
+	assert.GreaterOrEqual(t, listCalls, 2, "expected a retry after the transient timeout")
+}
+
+func TestGetMeshNamespacesWithRetry_PermanentErrorKeepsPrefix(t *testing.T) {
+	fakeClient := fake.NewSimpleClientset()
+	fakeClient.PrependReactor("list", "namespaces", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, fmt.Errorf("namespace list forbidden")
+	})
+	kubeClient := NewKubeClientFromInterface(fakeClient)
+
+	_, err := getMeshNamespacesWithRetry(context.Background(), kubeClient, 50*time.Millisecond)
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "failed to get mesh namespaces:",
+		"the permanent-error path should keep the same context prefix as the transient-timeout path")
 }
 
 func TestWaitForRolloutAllNamespaces_NamespaceListRetryBudgetIsIndependentOfRolloutTimeout(t *testing.T) {

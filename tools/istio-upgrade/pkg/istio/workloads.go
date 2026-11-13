@@ -46,7 +46,7 @@ type MeshNamespace struct {
 
 func UpdateMeshNamespaceLabels(ctx context.Context, kubeClient *KubeClient, newRevision string) (int, error) {
 	logger := logr.FromContextOrDiscard(ctx).WithName("namespace-labels")
-	namespaces, err := kubeClient.GetMeshNamespaces(ctx)
+	namespaces, err := getMeshNamespacesWithRetry(ctx, kubeClient, namespaceListPollInterval)
 	if err != nil {
 		return 0, err
 	}
@@ -221,7 +221,7 @@ func migrateWorkloads(ctx context.Context, kubeClient *KubeClient, opts UpgradeO
 const namespaceConcurrencyLimit = 10
 
 func ExecuteRestartAllNamespaces(ctx context.Context, kubeClient *KubeClient, targetRevision string) ([]RestartResult, error) {
-	namespaces, err := kubeClient.GetMeshNamespaces(ctx)
+	namespaces, err := getMeshNamespacesWithRetry(ctx, kubeClient, namespaceListPollInterval)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list mesh namespaces for restart: %w", err)
 	}
@@ -469,21 +469,45 @@ func listRunningPodsWithSidecar(ctx context.Context, kubeClient *KubeClient, nam
 // that every subsequent list call will hit the same wall. Reusing RolloutTimeout would
 // let this retry consume a full extra rollout window before failing, eating into the
 // 60-minute overall upgrade budget (see README "Istio upgrade timeouts").
+//
+// Both vars below are mutated by tests; tests in this package must not use t.Parallel().
 var namespaceListRetryTimeout = 1 * time.Minute
 
+// namespaceListPollInterval is the interval between namespace-list retry attempts,
+// used by every caller of getMeshNamespacesWithRetry so the retry budget behaves
+// identically regardless of the caller's rollout poll interval.
+var namespaceListPollInterval = 5 * time.Second
+
+// transientLogDedup logs the first occurrence of a transient error and suppresses
+// repeats while the identical error recurs on consecutive polls. reset() is called
+// on a clean observation so the same error recurring after a healthy stretch is
+// logged again rather than silently suppressed.
+type transientLogDedup struct {
+	lastLoggedErr error
+}
+
+func (d *transientLogDedup) log(logger logr.Logger, msg string, err error) {
+	if d.lastLoggedErr == nil || d.lastLoggedErr.Error() != err.Error() {
+		logger.Info(msg, "err", err)
+		d.lastLoggedErr = err
+	}
+}
+
+func (d *transientLogDedup) reset() {
+	d.lastLoggedErr = nil
+}
+
 func getMeshNamespacesWithRetry(ctx context.Context, kubeClient *KubeClient, pollInterval time.Duration) ([]MeshNamespace, error) {
-	logger := logr.FromContextOrDiscard(ctx).WithName("rollout-wait")
+	logger := logr.FromContextOrDiscard(ctx).WithName("mesh-namespaces")
 	var namespaces []MeshNamespace
-	var lastErr, lastLoggedErr error
+	var lastErr error
+	var logDedup transientLogDedup
 	err := wait.PollUntilContextTimeout(ctx, pollInterval, namespaceListRetryTimeout, true, func(ctx context.Context) (bool, error) {
 		ns, err := kubeClient.GetMeshNamespaces(ctx)
 		if err != nil {
 			if isTransientKubeAPIError(err) {
 				lastErr = err
-				if lastLoggedErr == nil || lastLoggedErr.Error() != err.Error() {
-					logger.Info("transient error listing mesh namespaces; will retry", "err", err)
-					lastLoggedErr = err
-				}
+				logDedup.log(logger, "transient error listing mesh namespaces; will retry", err)
 				return false, nil
 			}
 			return false, err
@@ -495,13 +519,13 @@ func getMeshNamespacesWithRetry(ctx context.Context, kubeClient *KubeClient, pol
 		if lastErr != nil {
 			return nil, fmt.Errorf("failed to get mesh namespaces: %w (last error: %v)", err, lastErr)
 		}
-		return nil, err
+		return nil, fmt.Errorf("failed to get mesh namespaces: %w", err)
 	}
 	return namespaces, nil
 }
 
 func WaitForRolloutAllNamespaces(ctx context.Context, kubeClient *KubeClient, timeout, pollInterval time.Duration) error {
-	namespaces, err := getMeshNamespacesWithRetry(ctx, kubeClient, pollInterval)
+	namespaces, err := getMeshNamespacesWithRetry(ctx, kubeClient, namespaceListPollInterval)
 	if err != nil {
 		return err
 	}
@@ -553,15 +577,13 @@ func isTransientKubeAPIError(err error) bool {
 func WaitForRollout(ctx context.Context, kubeClient *KubeClient, namespace string, timeout, pollInterval time.Duration) error {
 	logger := logr.FromContextOrDiscard(ctx).WithName("rollout-wait").WithValues("namespace", namespace)
 	var lastPending string
-	var lastTransientErr, lastLoggedTransientErr error
+	var lastTransientErr error
+	var logDedup transientLogDedup
 	waited := false
 
 	logTransientErr := func(msg string, err error) {
 		lastTransientErr = err
-		if lastLoggedTransientErr == nil || lastLoggedTransientErr.Error() != err.Error() {
-			logger.Info(msg, "err", err)
-			lastLoggedTransientErr = err
-		}
+		logDedup.log(logger, msg, err)
 	}
 
 	err := wait.PollUntilContextTimeout(ctx, pollInterval, timeout, true, func(ctx context.Context) (bool, error) {
@@ -621,6 +643,7 @@ func WaitForRollout(ctx context.Context, kubeClient *KubeClient, namespace strin
 		}
 
 		lastTransientErr = nil
+		logDedup.reset()
 
 		if len(pending) == 0 {
 			if waited {
