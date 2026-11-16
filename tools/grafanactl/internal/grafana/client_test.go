@@ -24,8 +24,111 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-logr/logr"
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 )
+
+func TestReconcileDatasourceEndpoints(t *testing.T) {
+	for _, test := range []struct {
+		name       string
+		sourceName string
+		currentURL string
+		dryRun     bool
+		status     int
+		wantWrites int
+		wantError  string
+	}{
+		{name: "stale endpoint", sourceName: "Managed_Prometheus_workspace", currentURL: "https://old.example.com", status: http.StatusOK, wantWrites: 1},
+		{name: "unchanged endpoint", sourceName: "Managed_Prometheus_workspace", currentURL: "https://current.example.com", status: http.StatusOK},
+		{name: "trailing slash", sourceName: "Managed_Prometheus_workspace", currentURL: "https://current.example.com/", status: http.StatusOK},
+		{name: "dry run", sourceName: "Managed_Prometheus_workspace", currentURL: "https://old.example.com", dryRun: true, status: http.StatusOK},
+		{name: "unmanaged source", sourceName: "workspace", currentURL: "https://old.example.com", status: http.StatusOK},
+		{name: "undiscovered source", sourceName: "Managed_Prometheus_other", currentURL: "https://old.example.com", status: http.StatusOK},
+		{name: "update rejected", sourceName: "Managed_Prometheus_workspace", currentURL: "https://old.example.com", status: http.StatusForbidden, wantWrites: 1, wantError: "HTTP 403"},
+		{name: "concurrent update", sourceName: "Managed_Prometheus_workspace", currentURL: "https://old.example.com", status: http.StatusConflict, wantWrites: 1, wantError: "HTTP 409"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			writes := 0
+			server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+				writer.Header().Set("Content-Type", "application/json")
+				switch {
+				case request.URL.Path == "/api/datasources":
+					require.NoError(t, json.NewEncoder(writer).Encode([]map[string]any{{"uid": "stable", "name": test.sourceName, "type": "prometheus", "url": test.currentURL}}))
+				case request.URL.Path == "/api/datasources/uid/stable" && request.Method == http.MethodGet:
+					_, err := io.WriteString(writer, `{"uid":"stable","name":"Managed_Prometheus_workspace","type":"prometheus","url":"https://old.example.com","access":"proxy","jsonData":{"azureAuth":true,"azureCredentials":{"authType":"msi"}},"secureJsonFields":{"password":true},"version":7,"futureOption":{"enabled":true}}`)
+					require.NoError(t, err)
+				case request.URL.Path == "/api/datasources/uid/stable" && request.Method == http.MethodPut:
+					writes++
+					var got map[string]any
+					require.NoError(t, json.NewDecoder(request.Body).Decode(&got))
+					var want map[string]any
+					require.NoError(t, json.Unmarshal([]byte(`{"uid":"stable","name":"Managed_Prometheus_workspace","type":"prometheus","url":"https://current.example.com","access":"proxy","jsonData":{"azureAuth":true,"azureCredentials":{"authType":"msi"}},"version":7,"futureOption":{"enabled":true}}`), &want))
+					if diff := cmp.Diff(want, got); diff != "" {
+						t.Errorf("datasource update (-want +got):\n%s", diff)
+					}
+					writer.WriteHeader(test.status)
+					_, err := io.WriteString(writer, `{}`)
+					require.NoError(t, err)
+				default:
+					t.Errorf("unexpected request: %s %s", request.Method, request.URL.Path)
+					writer.WriteHeader(http.StatusNotFound)
+				}
+			}))
+			defer server.Close()
+			err := newTestClient(t, server.URL).ReconcileDatasourceEndpoints(t.Context(), logr.Discard(), map[string]string{"workspace": "https://current.example.com"}, test.dryRun)
+			if test.wantError != "" {
+				require.ErrorContains(t, err, test.wantError)
+			} else {
+				require.NoError(t, err)
+			}
+			if diff := cmp.Diff(test.wantWrites, writes); diff != "" {
+				t.Errorf("writes (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestUpdateDatasourceEndpointRejectsChangedState(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		body      string
+		wantError string
+	}{
+		{
+			name:      "renamed datasource",
+			body:      `{"uid":"stable","name":"renamed","type":"prometheus","version":2}`,
+			wantError: "identity changed",
+		},
+		{
+			name:      "missing version",
+			body:      `{"uid":"stable","name":"Managed_Prometheus_workspace","type":"prometheus"}`,
+			wantError: "no valid version",
+		},
+		{
+			name:      "malformed response",
+			body:      `{`,
+			wantError: "failed to decode datasource",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+				require.Equal(t, http.MethodGet, request.Method)
+				require.Equal(t, "Bearer test-token", request.Header.Get("Authorization"))
+				writer.Header().Set("Content-Type", "application/json")
+				_, err := io.WriteString(writer, test.body)
+				require.NoError(t, err)
+			}))
+			defer server.Close()
+			err := newTestClientWithToken(t, server.URL, "test-token").updateDatasourceEndpoint(t.Context(), Datasource{
+				UID:  "stable",
+				Name: "Managed_Prometheus_workspace",
+				Type: "prometheus",
+			}, "https://current.example.com")
+			require.ErrorContains(t, err, test.wantError)
+		})
+	}
+}
 
 // newTestClient builds a Client whose backend targets the given test server.
 // An empty token is passed because these tests exercise request/response bodies,

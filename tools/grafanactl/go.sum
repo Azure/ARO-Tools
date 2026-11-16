@@ -1,7 +1,7 @@
 github.com/Azure/ARO-Tools/testutil v0.0.0-20260227032723-11f678744bf9 h1:pCeM3MglVEdm59gqaJBYVmOUHMS4qQmGne6HQexvvzI=
 github.com/Azure/ARO-Tools/testutil v0.0.0-20260227032723-11f678744bf9/go.mod h1:6V1kLTbkz3TLTspxt7fAI8Xy4EdBdsvLR5mk0gkry7k=
-github.com/Azure/ARO-Tools/tools/cmdutils v0.0.0-20260227032723-11f678744bf9 h1:Tsyb3xmWPTJplBF5g47rvp2tKjn1rX1KTLbTxykBcOY=
-github.com/Azure/ARO-Tools/tools/cmdutils v0.0.0-20260227032723-11f678744bf9/go.mod h1:bBo5YOjQf47SHTl5ohULLUin2PAEt6s5D5GQZQRgO5w=
+github.com/Azure/ARO-Tools/tools/cmdutils v0.0.0-20261029184915-ae250b4c53dd h1:xA8uBGcmaXbNxC95SVfzVyRiNsK/+Bfi/H9tgrDEykI=
+github.com/Azure/ARO-Tools/tools/cmdutils v0.0.0-20261029184915-ae250b4c53dd/go.mod h1:AkTVKg1qrn1qSXrE8siTuChtKLuXDsToerjcSnZ23eM=
 github.com/Azure/azure-sdk-for-go/sdk/azcore v1.23.0 h1:4gRPBpN1f6xt88yi4WR26m7XaD9OlWtVT6bWPdGUIok=
 github.com/Azure/azure-sdk-for-go/sdk/azcore v1.23.0/go.mod h1:G7QVLxw1j1JVyrO1MA95S8m8HStaaleDZYTcfGgjB2o=
 github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.14.0 h1:CU4+EJeJi3TKYWEcYuSdWsjzw0nVsK/H0MSQOiPcymU=
