@@ -145,7 +145,7 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 34,
-      "pattern": "[a-zA-Z0-9\\-]{1,34}"
+      "pattern": "^[a-zA-Z0-9\\-]{1,34}$"
     },
     "input": {
       "type": "object",
@@ -1748,7 +1748,7 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 12,
-            "pattern": "[a-zA-Z0-9\\-]{1,12}"
+            "pattern": "^[a-zA-Z0-9\\-]{1,12}$"
           },
           "resourceGroup": {
             "type": "string",

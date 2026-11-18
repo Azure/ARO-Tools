@@ -107,6 +107,9 @@ func (p *Pipeline) Validate() error {
 				return fmt.Errorf("pipeline.resourceGroups[%d:%s].steps[%d:%s]: step name %q duplicated", i, rg.Name, j, step.StepName(), step.StepName())
 			}
 			steps.Insert(step.StepName())
+			if err := p.validateEv2StepName(rg.Name, step.StepName()); err != nil {
+				return fmt.Errorf("pipeline.resourceGroups[%d:%s].steps[%d:%s]: %w", i, rg.Name, j, step.StepName(), err)
+			}
 		}
 		references[rg.Name] = steps
 
@@ -119,6 +122,9 @@ func (p *Pipeline) Validate() error {
 				return fmt.Errorf("pipeline.resourceGroups[%d:%s].serviceValidationSteps[%d:%s]: step name %q duplicated", i, rg.Name, j, step.StepName(), step.StepName())
 			}
 			serviceValidationSteps.Insert(step.StepName())
+			if err := p.validateEv2StepName(rg.Name, step.StepName()); err != nil {
+				return fmt.Errorf("pipeline.resourceGroups[%d:%s].serviceValidationSteps[%d:%s]: %w", i, rg.Name, j, step.StepName(), err)
+			}
 		}
 	}
 
@@ -146,4 +152,12 @@ func (p *Pipeline) Validate() error {
 		}
 	}
 	return nil
+}
+
+func (p *Pipeline) validateEv2StepName(resourceGroupName, stepName string) error {
+	if p.ServiceGroup == "" {
+		return nil
+	}
+	_, err := Ev2OrchestratedStepName(p.ServiceGroup, resourceGroupName, stepName)
+	return err
 }

@@ -587,4 +587,4 @@ resourceGroups:
     validation:
     - Internal
 rolloutName: Test Rollout
-serviceGroup: Microsoft.Azure.ARO.Test
+serviceGroup: Microsoft.Azure.ARO.HCP.Test
