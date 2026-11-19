@@ -1,6 +1,6 @@
 module github.com/Azure/ARO-Tools/config
 
-go 1.25.0
+go 1.26.0
 
 require (
 	github.com/Azure/ARO-Tools/testutil v0.0.0-20260227032723-11f678744bf9
@@ -10,9 +10,9 @@ require (
 	github.com/google/go-cmp v0.7.0
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
 	github.com/spf13/cobra v1.10.2
-	github.com/stretchr/testify v1.12.0
-	golang.org/x/mod v0.38.0
-	golang.org/x/text v0.41.0
+	github.com/stretchr/testify v1.12.1
+	golang.org/x/mod v0.41.0
+	golang.org/x/text v0.42.0
 	k8s.io/apimachinery v0.35.4
 	sigs.k8s.io/yaml v1.6.0
 )
@@ -31,14 +31,13 @@ require (
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
-	go.yaml.in/yaml/v3 v3.0.4 // indirect
-	golang.org/x/crypto v0.55.0 // indirect
+	go.yaml.in/yaml/v3 v3.0.5 // indirect
+	golang.org/x/crypto v0.57.0 // indirect
 	golang.org/x/exp v0.0.0-20250210185358-939b2ce775ac // indirect
-	golang.org/x/net v0.58.0 // indirect
-	golang.org/x/sync v0.22.0 // indirect
-	golang.org/x/sys v0.47.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20260803160001-6ac0973c030d // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260803160001-6ac0973c030d // indirect
-	google.golang.org/protobuf v1.36.11 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
+	golang.org/x/net v0.59.0 // indirect
+	golang.org/x/sync v0.23.0 // indirect
+	golang.org/x/sys v0.48.0 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20260928230214-8a89bd6388cc // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260928230214-8a89bd6388cc // indirect
+	google.golang.org/protobuf v1.36.12 // indirect
 )
