@@ -154,8 +154,10 @@ func (p *Pipeline) Validate() error {
 	return nil
 }
 
+// validateEv2StepName checks the composed EV2 step name. Service groups without
+// a suffix after the EV2 prefix, such as test fixtures, produce no name to check.
 func (p *Pipeline) validateEv2StepName(resourceGroupName, stepName string) error {
-	if p.ServiceGroup == "" {
+	if !hasEv2ServiceGroupSuffix(p.ServiceGroup) {
 		return nil
 	}
 	_, err := Ev2OrchestratedStepName(p.ServiceGroup, resourceGroupName, stepName)

@@ -241,27 +241,32 @@ func TestPipelineValidate(t *testing.T) {
 
 func TestPipelineValidateEv2StepNameLength(t *testing.T) {
 	for _, testCase := range []struct {
-		name        string
-		regularStep bool
-		servicePart string
-		expectError bool
+		name         string
+		regularStep  bool
+		serviceGroup string
+		expectError  bool
 	}{
 		{
-			name:        "exactly 70 bytes",
-			regularStep: true,
-			servicePart: strings.Repeat("s", 22),
+			name:         "exactly 70 bytes",
+			regularStep:  true,
+			serviceGroup: "Microsoft.Azure.ARO.HCP." + strings.Repeat("s", 22),
 		},
 		{
-			name:        "regular step over limit",
-			regularStep: true,
-			servicePart: strings.Repeat("s", 23),
-			expectError: true,
+			name:         "regular step over limit",
+			regularStep:  true,
+			serviceGroup: "Microsoft.Azure.ARO.HCP." + strings.Repeat("s", 23),
+			expectError:  true,
 		},
 		{
-			name:        "validation step over limit",
-			regularStep: false,
-			servicePart: strings.Repeat("s", 23),
-			expectError: true,
+			name:         "validation step over limit",
+			regularStep:  false,
+			serviceGroup: "Microsoft.Azure.ARO.HCP." + strings.Repeat("s", 23),
+			expectError:  true,
+		},
+		{
+			name:         "service group without EV2 suffix is not checked",
+			regularStep:  true,
+			serviceGroup: "Microsoft.Test.Infra",
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -287,7 +292,7 @@ func TestPipelineValidateEv2StepNameLength(t *testing.T) {
 				}}
 			}
 			pipeline := &Pipeline{
-				ServiceGroup:   "Microsoft.Azure.ARO.HCP." + testCase.servicePart,
+				ServiceGroup:   testCase.serviceGroup,
 				ResourceGroups: []*ResourceGroup{rg},
 			}
 

@@ -66,7 +66,7 @@ func TestSubscriptionProvisioningSchemaValidation(t *testing.T) {
 			name: "backfill_only",
 			yaml: `
 $schema: pipeline.schema.v1
-serviceGroup: Microsoft.Azure.ARO.HCP.Test
+serviceGroup: Microsoft.Azure.ARO.Test
 rolloutName: Test Rollout
 resourceGroups:
 - name: test
@@ -89,7 +89,7 @@ resourceGroups:
 			name: "new_subscription_only",
 			yaml: `
 $schema: pipeline.schema.v1
-serviceGroup: Microsoft.Azure.ARO.HCP.Test
+serviceGroup: Microsoft.Azure.ARO.Test
 rolloutName: Test Rollout
 resourceGroups:
 - name: test
@@ -113,7 +113,7 @@ resourceGroups:
 			name: "backfill_with_display_name",
 			yaml: `
 $schema: pipeline.schema.v1
-serviceGroup: Microsoft.Azure.ARO.HCP.Test
+serviceGroup: Microsoft.Azure.ARO.Test
 rolloutName: Test Rollout
 resourceGroups:
 - name: test
@@ -138,7 +138,7 @@ resourceGroups:
 			name: "backfill_with_all_fields",
 			yaml: `
 $schema: pipeline.schema.v1
-serviceGroup: Microsoft.Azure.ARO.HCP.Test
+serviceGroup: Microsoft.Azure.ARO.Test
 rolloutName: Test Rollout
 resourceGroups:
 - name: test
@@ -168,7 +168,7 @@ resourceGroups:
 			name: "missing_required_fields",
 			yaml: `
 $schema: pipeline.schema.v1
-serviceGroup: Microsoft.Azure.ARO.HCP.Test
+serviceGroup: Microsoft.Azure.ARO.Test
 rolloutName: Test Rollout
 resourceGroups:
 - name: test
@@ -191,7 +191,7 @@ resourceGroups:
 			name: "display_name_without_role_assignment",
 			yaml: `
 $schema: pipeline.schema.v1
-serviceGroup: Microsoft.Azure.ARO.HCP.Test
+serviceGroup: Microsoft.Azure.ARO.Test
 rolloutName: Test Rollout
 resourceGroups:
 - name: test

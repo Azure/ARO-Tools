@@ -22,14 +22,18 @@ import (
 // MaxEv2OrchestratedStepNameBytes is the maximum UTF-8 byte length accepted by EV2.
 const MaxEv2OrchestratedStepNameBytes = 70
 
+// ev2ServiceGroupPrefixParts is the number of leading service-group segments,
+// such as Microsoft.Azure.ARO.HCP, that EV2 omits from orchestrated step names.
+const ev2ServiceGroupPrefixParts = 4
+
 // Ev2OrchestratedStepName composes and validates the name EV2 uses for a rollout step.
 func Ev2OrchestratedStepName(serviceGroup, resourceGroupName, stepName string) (string, error) {
-	parts := strings.Split(serviceGroup, ".")
-	if len(parts) < 5 {
-		return "", fmt.Errorf("invalid service group %q: expected at least 5 dot-separated parts", serviceGroup)
+	if !hasEv2ServiceGroupSuffix(serviceGroup) {
+		return "", fmt.Errorf("invalid service group %q: expected at least %d dot-separated parts", serviceGroup, ev2ServiceGroupPrefixParts+1)
 	}
 
-	name := fmt.Sprintf("%s.%s.%s", strings.Join(parts[4:], "."), resourceGroupName, stepName)
+	parts := strings.Split(serviceGroup, ".")
+	name := fmt.Sprintf("%s.%s.%s", strings.Join(parts[ev2ServiceGroupPrefixParts:], "."), resourceGroupName, stepName)
 	byteLength := len([]byte(name))
 	if byteLength > MaxEv2OrchestratedStepNameBytes {
 		return "", fmt.Errorf(
@@ -41,4 +45,10 @@ func Ev2OrchestratedStepName(serviceGroup, resourceGroupName, stepName string) (
 	}
 
 	return name, nil
+}
+
+// hasEv2ServiceGroupSuffix reports whether serviceGroup has segments after the
+// EV2 prefix and therefore produces orchestrated step names.
+func hasEv2ServiceGroupSuffix(serviceGroup string) bool {
+	return len(strings.Split(serviceGroup, ".")) > ev2ServiceGroupPrefixParts
 }
