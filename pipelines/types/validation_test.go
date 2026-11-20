@@ -16,6 +16,7 @@ package types
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"gotest.tools/v3/assert"
@@ -233,6 +234,73 @@ func TestPipelineValidate(t *testing.T) {
 				assert.NilError(t, err)
 			} else {
 				assert.Error(t, err, tc.err)
+			}
+		})
+	}
+}
+
+func TestPipelineValidateEv2StepNameLength(t *testing.T) {
+	for _, testCase := range []struct {
+		name         string
+		regularStep  bool
+		serviceGroup string
+		expectError  bool
+	}{
+		{
+			name:         "exactly 70 bytes",
+			regularStep:  true,
+			serviceGroup: "Microsoft.Azure.ARO.HCP." + strings.Repeat("s", 22),
+		},
+		{
+			name:         "regular step over limit",
+			regularStep:  true,
+			serviceGroup: "Microsoft.Azure.ARO.HCP." + strings.Repeat("s", 23),
+			expectError:  true,
+		},
+		{
+			name:         "validation step over limit",
+			regularStep:  false,
+			serviceGroup: "Microsoft.Azure.ARO.HCP." + strings.Repeat("s", 23),
+			expectError:  true,
+		},
+		{
+			name:         "service group without EV2 suffix is not checked",
+			regularStep:  true,
+			serviceGroup: "Microsoft.Test.Infra",
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			stepMeta := StepMeta{
+				Name:   strings.Repeat("t", 34),
+				Action: StepActionShell,
+			}
+			rg := &ResourceGroup{
+				ResourceGroupMeta: &ResourceGroupMeta{
+					Name:          strings.Repeat("r", 12),
+					ResourceGroup: "rg",
+					Subscription:  "subscription",
+				},
+			}
+			if testCase.regularStep {
+				rg.Steps = Steps{&ShellStep{StepMeta: stepMeta, Command: "echo test"}}
+			} else {
+				rg.ValidationSteps = ValidationSteps{&ShellValidationStep{
+					ShellStep: ShellStep{
+						StepMeta: stepMeta,
+						Command:  "echo test",
+					},
+				}}
+			}
+			pipeline := &Pipeline{
+				ServiceGroup:   testCase.serviceGroup,
+				ResourceGroups: []*ResourceGroup{rg},
+			}
+
+			err := pipeline.Validate()
+			if testCase.expectError {
+				assert.ErrorContains(t, err, "is 71 UTF-8 bytes; maximum is 70 bytes")
+			} else {
+				assert.NilError(t, err)
 			}
 		})
 	}
@@ -502,6 +570,56 @@ func TestValidatePipelineSchema(t *testing.T) {
 							map[string]interface{}{
 								"name":   "step",
 								"action": "Shell",
+							},
+						},
+					},
+				},
+			},
+			err: "pipeline is not compliant with schema pipeline.schema.v1",
+		},
+		{
+			name: "invalid step name character",
+			pipeline: map[string]interface{}{
+				"serviceGroup": "Microsoft.Azure.ARO.HCP.Test",
+				"rolloutName":  "test",
+				"resourceGroups": []interface{}{
+					map[string]interface{}{
+						"name":          "rg",
+						"resourceGroup": "rg",
+						"subscription":  "sub",
+						"steps": []interface{}{
+							map[string]interface{}{
+								"name":    "deploy.",
+								"action":  "Shell",
+								"command": "echo hello",
+								"shellIdentity": map[string]interface{}{
+									"value": "test-msi",
+								},
+							},
+						},
+					},
+				},
+			},
+			err: "pipeline is not compliant with schema pipeline.schema.v1",
+		},
+		{
+			name: "invalid resource group name character",
+			pipeline: map[string]interface{}{
+				"serviceGroup": "Microsoft.Azure.ARO.HCP.Test",
+				"rolloutName":  "test",
+				"resourceGroups": []interface{}{
+					map[string]interface{}{
+						"name":          "resource.",
+						"resourceGroup": "rg",
+						"subscription":  "sub",
+						"steps": []interface{}{
+							map[string]interface{}{
+								"name":    "deploy",
+								"action":  "Shell",
+								"command": "echo hello",
+								"shellIdentity": map[string]interface{}{
+									"value": "test-msi",
+								},
 							},
 						},
 					},
