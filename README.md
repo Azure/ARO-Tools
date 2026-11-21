@@ -43,6 +43,15 @@ after more than 15 minutes even when the new Istio pods have already started.
 The separate post-operation provisioning check has a five-minute timeout; the
 overall upgrade remains bounded by its 60-minute timeout.
 
+Workload rollout waits retry transient apiserver errors (timeouts, 429s, 503s)
+within the existing per-namespace rollout timeout (15 minutes by default), since
+that wait already budgets for real work -- pods scheduling and becoming ready.
+The mesh-namespace lists that precede it (namespace label updates, workload
+restarts, and the rollout wait itself) do no such work, so each uses its own
+short, fixed one-minute retry budget instead: reusing the rollout timeout there
+would let a degraded apiserver burn a full extra rollout window before failing,
+eating into the 60-minute overall budget.
+
 ## Contributing
 
 This project welcomes contributions and suggestions.  Most contributions require you to agree to a

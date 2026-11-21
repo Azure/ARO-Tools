@@ -26,6 +26,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -45,7 +46,7 @@ type MeshNamespace struct {
 
 func UpdateMeshNamespaceLabels(ctx context.Context, kubeClient *KubeClient, newRevision string) (int, error) {
 	logger := logr.FromContextOrDiscard(ctx).WithName("namespace-labels")
-	namespaces, err := kubeClient.GetMeshNamespaces(ctx)
+	namespaces, err := getMeshNamespacesWithRetry(ctx, kubeClient, namespaceListPollInterval)
 	if err != nil {
 		return 0, err
 	}
@@ -220,7 +221,7 @@ func migrateWorkloads(ctx context.Context, kubeClient *KubeClient, opts UpgradeO
 const namespaceConcurrencyLimit = 10
 
 func ExecuteRestartAllNamespaces(ctx context.Context, kubeClient *KubeClient, targetRevision string) ([]RestartResult, error) {
-	namespaces, err := kubeClient.GetMeshNamespaces(ctx)
+	namespaces, err := getMeshNamespacesWithRetry(ctx, kubeClient, namespaceListPollInterval)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list mesh namespaces for restart: %w", err)
 	}
@@ -461,10 +462,72 @@ func listRunningPodsWithSidecar(ctx context.Context, kubeClient *KubeClient, nam
 	return result, nil
 }
 
-func WaitForRolloutAllNamespaces(ctx context.Context, kubeClient *KubeClient, timeout, pollInterval time.Duration) error {
-	namespaces, err := kubeClient.GetMeshNamespaces(ctx)
+// namespaceListRetryTimeout bounds retries of the mesh-namespace list call on its own,
+// short budget rather than RolloutTimeout. Unlike WaitForRollout -- which legitimately
+// waits minutes for pods to become ready -- this call does no real work; a transient
+// apiserver blip here resolves in seconds or it indicates degradation severe enough
+// that every subsequent list call will hit the same wall. Reusing RolloutTimeout would
+// let this retry consume a full extra rollout window before failing, eating into the
+// 60-minute overall upgrade budget (see README "Istio upgrade timeouts").
+//
+// Both vars below are mutated by tests; tests in this package must not use t.Parallel().
+var namespaceListRetryTimeout = 1 * time.Minute
+
+// namespaceListPollInterval is the interval between namespace-list retry attempts,
+// used by every caller of getMeshNamespacesWithRetry so the retry budget behaves
+// identically regardless of the caller's rollout poll interval.
+var namespaceListPollInterval = 5 * time.Second
+
+// transientLogDedup logs the first occurrence of a transient error and suppresses
+// repeats while the identical error recurs on consecutive polls. reset() is called
+// on a clean observation so the same error recurring after a healthy stretch is
+// logged again rather than silently suppressed.
+type transientLogDedup struct {
+	lastLoggedErr error
+}
+
+func (d *transientLogDedup) log(logger logr.Logger, msg string, err error) {
+	if d.lastLoggedErr == nil || d.lastLoggedErr.Error() != err.Error() {
+		logger.Info(msg, "err", err)
+		d.lastLoggedErr = err
+	}
+}
+
+func (d *transientLogDedup) reset() {
+	d.lastLoggedErr = nil
+}
+
+func getMeshNamespacesWithRetry(ctx context.Context, kubeClient *KubeClient, pollInterval time.Duration) ([]MeshNamespace, error) {
+	logger := logr.FromContextOrDiscard(ctx).WithName("mesh-namespaces")
+	var namespaces []MeshNamespace
+	var lastErr error
+	var logDedup transientLogDedup
+	err := wait.PollUntilContextTimeout(ctx, pollInterval, namespaceListRetryTimeout, true, func(ctx context.Context) (bool, error) {
+		ns, err := kubeClient.GetMeshNamespaces(ctx)
+		if err != nil {
+			if isTransientKubeAPIError(err) {
+				lastErr = err
+				logDedup.log(logger, "transient error listing mesh namespaces; will retry", err)
+				return false, nil
+			}
+			return false, err
+		}
+		namespaces = ns
+		return true, nil
+	})
 	if err != nil {
-		return fmt.Errorf("failed to get mesh namespaces: %w", err)
+		if lastErr != nil {
+			return nil, fmt.Errorf("failed to get mesh namespaces: %w (last error: %v)", err, lastErr)
+		}
+		return nil, fmt.Errorf("failed to get mesh namespaces: %w", err)
+	}
+	return namespaces, nil
+}
+
+func WaitForRolloutAllNamespaces(ctx context.Context, kubeClient *KubeClient, timeout, pollInterval time.Duration) error {
+	namespaces, err := getMeshNamespacesWithRetry(ctx, kubeClient, namespaceListPollInterval)
+	if err != nil {
+		return err
 	}
 
 	errs := make([]error, len(namespaces))
@@ -495,16 +558,43 @@ func checkWorkloadPending(kind, name string, desired, updated, ready int32, gene
 	return ""
 }
 
+// isTransientKubeAPIError reports whether err is a short-lived apiserver failure
+// that should be absorbed by WaitForRollout's poll budget instead of aborting the
+// upgrade. Matches the Timeout status seen in production when listing Deployments
+// ("unable to return a response in the time allotted").
+//
+// Timeout and ServerTimeout are distinct apiserver reasons despite the similar
+// names: Timeout (HTTP 504) means the request itself ran out of time server-side;
+// ServerTimeout (HTTP 500) means the server declined to even start the request,
+// e.g. while a dependency warms up, and asks the client to retry later.
+func isTransientKubeAPIError(err error) bool {
+	return apierrors.IsTimeout(err) ||
+		apierrors.IsServerTimeout(err) ||
+		apierrors.IsTooManyRequests(err) ||
+		apierrors.IsServiceUnavailable(err)
+}
+
 func WaitForRollout(ctx context.Context, kubeClient *KubeClient, namespace string, timeout, pollInterval time.Duration) error {
 	logger := logr.FromContextOrDiscard(ctx).WithName("rollout-wait").WithValues("namespace", namespace)
 	var lastPending string
+	var lastTransientErr error
+	var logDedup transientLogDedup
 	waited := false
+
+	logTransientErr := func(msg string, err error) {
+		lastTransientErr = err
+		logDedup.log(logger, msg, err)
+	}
 
 	err := wait.PollUntilContextTimeout(ctx, pollInterval, timeout, true, func(ctx context.Context) (bool, error) {
 		var pending []string
 
 		deps, err := kubeClient.client.AppsV1().Deployments(namespace).List(ctx, metav1.ListOptions{})
 		if err != nil {
+			if isTransientKubeAPIError(err) {
+				logTransientErr("transient error listing deployments; will retry", err)
+				return false, nil
+			}
 			return false, fmt.Errorf("failed to list deployments: %w", err)
 		}
 		for _, d := range deps.Items {
@@ -519,6 +609,10 @@ func WaitForRollout(ctx context.Context, kubeClient *KubeClient, namespace strin
 
 		sts, err := kubeClient.client.AppsV1().StatefulSets(namespace).List(ctx, metav1.ListOptions{})
 		if err != nil {
+			if isTransientKubeAPIError(err) {
+				logTransientErr("transient error listing statefulsets; will retry", err)
+				return false, nil
+			}
 			return false, fmt.Errorf("failed to list statefulsets: %w", err)
 		}
 		for _, s := range sts.Items {
@@ -533,6 +627,10 @@ func WaitForRollout(ctx context.Context, kubeClient *KubeClient, namespace strin
 
 		dss, err := kubeClient.client.AppsV1().DaemonSets(namespace).List(ctx, metav1.ListOptions{})
 		if err != nil {
+			if isTransientKubeAPIError(err) {
+				logTransientErr("transient error listing daemonsets; will retry", err)
+				return false, nil
+			}
 			return false, fmt.Errorf("failed to list daemonsets: %w", err)
 		}
 		for _, ds := range dss.Items {
@@ -543,6 +641,9 @@ func WaitForRollout(ctx context.Context, kubeClient *KubeClient, namespace strin
 				pending = append(pending, p)
 			}
 		}
+
+		lastTransientErr = nil
+		logDedup.reset()
 
 		if len(pending) == 0 {
 			if waited {
@@ -560,7 +661,14 @@ func WaitForRollout(ctx context.Context, kubeClient *KubeClient, namespace strin
 		return false, nil
 	})
 	if err != nil {
-		return fmt.Errorf("rollout did not converge in %s: %w", namespace, err)
+		pendingDesc := "workload state never observed"
+		if lastPending != "" {
+			pendingDesc = fmt.Sprintf("pending=[%s]", lastPending)
+		}
+		if lastTransientErr != nil {
+			return fmt.Errorf("rollout did not converge in %s: %s: %w (last error: %v)", namespace, pendingDesc, err, lastTransientErr)
+		}
+		return fmt.Errorf("rollout did not converge in %s: %s: %w", namespace, pendingDesc, err)
 	}
 	return nil
 }
