@@ -19,7 +19,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -505,7 +507,7 @@ func getMeshNamespacesWithRetry(ctx context.Context, kubeClient *KubeClient, pol
 	err := wait.PollUntilContextTimeout(ctx, pollInterval, namespaceListRetryTimeout, true, func(ctx context.Context) (bool, error) {
 		ns, err := kubeClient.GetMeshNamespaces(ctx)
 		if err != nil {
-			if isTransientKubeAPIError(err) {
+			if isTransientKubeAPIError(ctx, err) {
 				lastErr = err
 				logDedup.log(logger, "transient error listing mesh namespaces; will retry", err)
 				return false, nil
@@ -567,11 +569,39 @@ func checkWorkloadPending(kind, name string, desired, updated, ready int32, gene
 // names: Timeout (HTTP 504) means the request itself ran out of time server-side;
 // ServerTimeout (HTTP 500) means the server declined to even start the request,
 // e.g. while a dependency warms up, and asks the client to retry later.
-func isTransientKubeAPIError(err error) bool {
-	return apierrors.IsTimeout(err) ||
+//
+// A slow-but-reachable or restarting apiserver often never gets to answer with a
+// Status error at all: client-go surfaces those failures client-side as a
+// url.Error wrapping the request's own context.DeadlineExceeded, a net.Error with
+// Timeout() true, or ECONNRESET/ECONNREFUSED from a dropped or refused
+// connection. Those are treated as transient here for the same reason as the
+// Status errors above. context.Canceled is deliberately excluded: it means the
+// caller aborted the upgrade, not that the apiserver misbehaved, so retrying it
+// would only burn the poll budget. A dead parent context is likewise never
+// transient: the wrapped DeadlineExceeded it produces is indistinguishable from
+// a client-side request timeout, but retrying it cannot succeed, so ctx is
+// checked first and any error observed after cancellation is fatal.
+func isTransientKubeAPIError(ctx context.Context, err error) bool {
+	if ctx.Err() != nil {
+		return false
+	}
+	if apierrors.IsTimeout(err) ||
 		apierrors.IsServerTimeout(err) ||
 		apierrors.IsTooManyRequests(err) ||
-		apierrors.IsServiceUnavailable(err)
+		apierrors.IsServiceUnavailable(err) ||
+		apierrors.IsInternalError(err) {
+		return true
+	}
+	if errors.Is(err, context.DeadlineExceeded) ||
+		errors.Is(err, syscall.ECONNRESET) ||
+		errors.Is(err, syscall.ECONNREFUSED) {
+		return true
+	}
+	var netErr net.Error
+	if errors.As(err, &netErr) && netErr.Timeout() {
+		return true
+	}
+	return false
 }
 
 func WaitForRollout(ctx context.Context, kubeClient *KubeClient, namespace string, timeout, pollInterval time.Duration) error {
@@ -591,7 +621,7 @@ func WaitForRollout(ctx context.Context, kubeClient *KubeClient, namespace strin
 
 		deps, err := kubeClient.client.AppsV1().Deployments(namespace).List(ctx, metav1.ListOptions{})
 		if err != nil {
-			if isTransientKubeAPIError(err) {
+			if isTransientKubeAPIError(ctx, err) {
 				logTransientErr("transient error listing deployments; will retry", err)
 				return false, nil
 			}
@@ -609,7 +639,7 @@ func WaitForRollout(ctx context.Context, kubeClient *KubeClient, namespace strin
 
 		sts, err := kubeClient.client.AppsV1().StatefulSets(namespace).List(ctx, metav1.ListOptions{})
 		if err != nil {
-			if isTransientKubeAPIError(err) {
+			if isTransientKubeAPIError(ctx, err) {
 				logTransientErr("transient error listing statefulsets; will retry", err)
 				return false, nil
 			}
@@ -627,7 +657,7 @@ func WaitForRollout(ctx context.Context, kubeClient *KubeClient, namespace strin
 
 		dss, err := kubeClient.client.AppsV1().DaemonSets(namespace).List(ctx, metav1.ListOptions{})
 		if err != nil {
-			if isTransientKubeAPIError(err) {
+			if isTransientKubeAPIError(ctx, err) {
 				logTransientErr("transient error listing daemonsets; will retry", err)
 				return false, nil
 			}

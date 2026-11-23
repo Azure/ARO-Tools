@@ -17,8 +17,12 @@ package istio
 import (
 	"context"
 	"fmt"
+	"net"
+	"net/url"
+	"os"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 
@@ -586,6 +590,49 @@ func TestWaitForRollout_TimeoutAfterTransientErrorDoesNotBlameTransientError(t *
 		"workload never became ready after the transient error cleared; the timeout should not blame the stale transient error")
 }
 
+func TestWaitForRollout_RetriesClientSideConnectionReset(t *testing.T) {
+	fakeClient := fake.NewSimpleClientset(
+		&appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{Name: "web", Namespace: "app-ns", Generation: 1},
+			Spec:       appsv1.DeploymentSpec{Replicas: ptr.To[int32](1)},
+			Status:     appsv1.DeploymentStatus{ObservedGeneration: 1, UpdatedReplicas: 1, ReadyReplicas: 1},
+		},
+	)
+	listCalls := 0
+	fakeClient.PrependReactor("list", "deployments", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		listCalls++
+		if listCalls == 1 {
+			// The shape client-go returns when the apiserver drops a connection.
+			return true, nil, &url.Error{
+				Op: "Get", URL: "https://apiserver/apis/apps/v1/deployments",
+				Err: fmt.Errorf("read tcp: %w", syscall.ECONNRESET),
+			}
+		}
+		return false, nil, nil
+	})
+
+	err := WaitForRollout(context.Background(), NewKubeClientFromInterface(fakeClient), "app-ns", 5*time.Second, 50*time.Millisecond)
+	require.NoError(t, err, "a dropped connection should be retried within the rollout poll budget")
+	assert.GreaterOrEqual(t, listCalls, 2, "expected a retry after the connection reset")
+}
+
+func TestWaitForRollout_ParentContextDeadlineIsNotTransient(t *testing.T) {
+	fakeClient := fake.NewSimpleClientset()
+	ctx, cancel := context.WithTimeout(context.Background(), 150*time.Millisecond)
+	defer cancel()
+	fakeClient.PrependReactor("list", "deployments", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		// Block like a real in-flight request, then fail with the shape client-go
+		// returns when the caller's context expires mid-request.
+		<-ctx.Done()
+		return true, nil, &url.Error{Op: "Get", URL: "https://apiserver/apis/apps/v1/deployments", Err: ctx.Err()}
+	})
+
+	err := WaitForRollout(ctx, NewKubeClientFromInterface(fakeClient), "app-ns", 5*time.Second, 20*time.Millisecond)
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "failed to list deployments",
+		"expiry of the parent upgrade context must abort the rollout, not be retried as an apiserver blip")
+}
+
 func TestWaitForRollout_PersistentDeploymentListError(t *testing.T) {
 	fakeClient := fake.NewSimpleClientset()
 	fakeClient.PrependReactor("list", "deployments", func(action k8stesting.Action) (bool, runtime.Object, error) {
@@ -625,6 +672,46 @@ func TestIsTransientKubeAPIError(t *testing.T) {
 			want: true,
 		},
 		{
+			name: "internal error",
+			err:  apierrors.NewInternalError(fmt.Errorf("etcd is having a moment")),
+			want: true,
+		},
+		{
+			name: "client-side context deadline exceeded",
+			err:  context.DeadlineExceeded,
+			want: true,
+		},
+		{
+			name: "url.Error wrapping context deadline exceeded",
+			err:  &url.Error{Op: "Get", URL: "https://apiserver/apis/apps/v1/deployments", Err: context.DeadlineExceeded},
+			want: true,
+		},
+		{
+			name: "net.Error with Timeout() true",
+			err:  &net.OpError{Op: "dial", Net: "tcp", Err: os.ErrDeadlineExceeded},
+			want: true,
+		},
+		{
+			name: "connection reset by peer",
+			err:  fmt.Errorf("Get %q: %w", "https://apiserver/apis/apps/v1/deployments", syscall.ECONNRESET),
+			want: true,
+		},
+		{
+			name: "connection refused",
+			err:  fmt.Errorf("Get %q: %w", "https://apiserver/apis/apps/v1/deployments", syscall.ECONNREFUSED),
+			want: true,
+		},
+		{
+			name: "context canceled is not transient",
+			err:  context.Canceled,
+			want: false,
+		},
+		{
+			name: "url.Error wrapping context canceled is not transient",
+			err:  &url.Error{Op: "Get", URL: "https://apiserver/apis/apps/v1/deployments", Err: context.Canceled},
+			want: false,
+		},
+		{
 			name: "forbidden is not transient",
 			err:  apierrors.NewForbidden(schema.GroupResource{Resource: "deployments"}, "web", fmt.Errorf("denied")),
 			want: false,
@@ -637,9 +724,17 @@ func TestIsTransientKubeAPIError(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, isTransientKubeAPIError(tt.err))
+			assert.Equal(t, tt.want, isTransientKubeAPIError(context.Background(), tt.err))
 		})
 	}
+
+	t.Run("dead context makes any error fatal", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		assert.False(t, isTransientKubeAPIError(ctx, apierrors.NewTimeoutError(
+			"the server was unable to return a response in the time allotted", 0)),
+			"an error observed after the parent context expired must not be retried")
+	})
 }
 
 func TestWaitForRollout_RetriesTransientStatefulSetListTimeout(t *testing.T) {
@@ -961,6 +1056,25 @@ func TestWaitForRolloutAllNamespaces_ContextCancellation(t *testing.T) {
 
 	err := WaitForRolloutAllNamespaces(ctx, kubeClient, 5*time.Second, 50*time.Millisecond)
 	assert.Error(t, err, "should fail promptly when context is already cancelled")
+}
+
+func TestWaitForRolloutAllNamespaces_ParentContextDeadlineIsNotTransient(t *testing.T) {
+	fakeClient := fake.NewSimpleClientset()
+	ctx, cancel := context.WithTimeout(context.Background(), 150*time.Millisecond)
+	defer cancel()
+	fakeClient.PrependReactor("list", "namespaces", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		// Block like a real in-flight request, then fail with the shape client-go
+		// returns when the caller's context expires mid-request.
+		<-ctx.Done()
+		return true, nil, &url.Error{Op: "Get", URL: "https://apiserver/api/v1/namespaces", Err: ctx.Err()}
+	})
+
+	err := WaitForRolloutAllNamespaces(ctx, NewKubeClientFromInterface(fakeClient), 5*time.Second, 20*time.Millisecond)
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "failed to get mesh namespaces: failed to list mesh namespaces: Get",
+		"expiry of the parent upgrade context must abort with the raw error, not be retried as a transient namespace-list error")
+	assert.NotContains(t, err.Error(), "last error:",
+		"the parent-context expiry must not be reported as a transient error that was being retried")
 }
 
 func TestWaitForRolloutAllNamespaces_RetriesTransientNamespaceListError(t *testing.T) {
