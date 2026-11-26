@@ -9,6 +9,8 @@ grafanactl helps maintain Azure Managed Grafana instances by providing tools to:
 - Remove orphaned Azure Monitor Workspace integrations
 - Clean up stale datasources pointing to deleted resources
 - Sync dashboards and folders from git to Grafana
+- Create, inspect, list, and delete individual folders
+- Upload an individual dashboard into a folder
 
 This tool is particularly useful when Azure Monitor Workspaces (Prometheus instances) are removed from your infrastructure but their references remain in Grafana, creating stale integrations.
 
@@ -160,6 +162,60 @@ grafanactl sync dashboards \
 The config file (e.g., `observability.yaml`) defines:
 - `grafana-dashboards.dashboardFolders`: List of folders with `name` and `path` to dashboard JSON files
 - `grafana-dashboards.azureManagedFolders`: List of folder names managed by Azure (will not be modified)
+
+### Folder Commands
+
+Folder commands operate on one folder at a time. Use them to build a set of
+dashboards outside the git-managed `sync` flow, such as a short-lived preview
+folder, and to remove that folder afterwards.
+
+```bash
+# Create a folder. Repeating the command leaves the existing folder unchanged.
+grafanactl folder create \
+  --uid "pr-123" \
+  --title "PR-123" \
+  --subscription "your-subscription-id" \
+  --resource-group "your-resource-group" \
+  --grafana-name "your-grafana-instance"
+
+# Show one folder (including when it was created)
+grafanactl folder get --uid "pr-123" --output json ...
+
+# List folders, optionally restricted to a UID prefix
+grafanactl folder list --prefix "pr-" ...
+
+# Delete a folder and the dashboards it holds
+grafanactl folder delete --uid "pr-123" ...
+```
+
+Note: `folder list` does not report creation times because Grafana omits them from its folder
+list endpoint. If you need creation time, use `folder get` on a specific folder.
+
+### Dashboard Commands
+
+#### Upload a Dashboard
+
+Upload one dashboard JSON file into a folder. The file can be a plain dashboard
+document or an export wrapped as `{"dashboard": {...}}`. `--uid` and `--title`
+replace the values in the file, which lets the same file go up more than once
+under different names. An existing dashboard with the same UID is replaced.
+
+```bash
+grafanactl dashboard upload \
+  --file "../../observability/grafana-dashboards/hcp-slo.json" \
+  --folder-uid "pr-123" \
+  --uid "pr-123-hcp-slo" \
+  --title "PR-123 HCP SLO" \
+  --subscription "your-subscription-id" \
+  --resource-group "your-resource-group" \
+  --grafana-name "your-grafana-instance"
+```
+
+The command prints the UID, title, and link of the uploaded dashboard. Add
+`--output json` to read those values from a script.
+
+Fields that grafanactl does not model, such as plugin options, are uploaded
+unchanged.
 
 ### Manage Commands
 

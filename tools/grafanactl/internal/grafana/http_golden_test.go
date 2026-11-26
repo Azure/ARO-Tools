@@ -166,7 +166,21 @@ func httpGoldenOps(t *testing.T) []httpGoldenOp {
 		{
 			name: "CreateFolder",
 			call: func(t *testing.T, c *Client) {
-				_, err := c.CreateFolder(ctx, "Scratchpad")
+				_, err := c.CreateFolder(ctx, "", "Scratchpad")
+				require.NoError(t, err)
+			},
+		},
+		{
+			name: "CreateFolderWithUID",
+			call: func(t *testing.T, c *Client) {
+				_, err := c.CreateFolder(ctx, "scratchpad-uid", "Scratchpad")
+				require.NoError(t, err)
+			},
+		},
+		{
+			name: "GetFolderByUID",
+			call: func(t *testing.T, c *Client) {
+				_, err := c.GetFolderByUID(ctx, "folder-uid")
 				require.NoError(t, err)
 			},
 		},
