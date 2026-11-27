@@ -82,6 +82,7 @@
     "name": "ListFolders",
     "method": "GET",
     "path": "/api/folders",
+    "query": "limit=1000",
     "authorization": "Bearer test-token",
     "accept": "application/json",
     "userAgent": "Go-http-client/1.1",
@@ -251,6 +252,52 @@
       "id": 2,
       "uid": "scratch-uid",
       "title": "Scratchpad"
+    }
+  },
+  {
+    "name": "CreateFolderWithUID",
+    "method": "POST",
+    "path": "/api/folders",
+    "authorization": "Bearer test-token",
+    "accept": "application/json",
+    "contentType": "application/json",
+    "userAgent": "Go-http-client/1.1",
+    "requestBody": {
+      "title": "Scratchpad",
+      "uid": "scratchpad-uid"
+    },
+    "responseStatus": 200,
+    "responseBody": {
+      "id": 3,
+      "uid": "scratchpad-uid",
+      "title": "Scratchpad",
+      "created": "2026-02-11T09:15:00Z",
+      "updated": "2026-02-11T09:15:00Z"
+    }
+  },
+  {
+    "name": "GetFolderByUID",
+    "method": "GET",
+    "path": "/api/folders/folder-uid",
+    "authorization": "Bearer test-token",
+    "accept": "application/json",
+    "userAgent": "Go-http-client/1.1",
+    "responseStatus": 200,
+    "responseBody": {
+      "id": 338,
+      "uid": "folder-uid",
+      "title": "achvtest",
+      "url": "/dashboards/f/folder-uid/achvtest",
+      "hasAcl": false,
+      "canSave": true,
+      "canEdit": true,
+      "canAdmin": true,
+      "canDelete": true,
+      "createdBy": "Anonymous",
+      "created": "2026-01-20T14:03:21Z",
+      "updatedBy": "Anonymous",
+      "updated": "2026-01-20T14:03:21Z",
+      "version": 1
     }
   },
   {

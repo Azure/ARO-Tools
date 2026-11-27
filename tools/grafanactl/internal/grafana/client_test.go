@@ -18,13 +18,17 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/go-logr/logr/funcr"
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 )
@@ -261,6 +265,243 @@ func TestClientSendsBearerToken(t *testing.T) {
 	})
 }
 
+func TestGetBaseURL(t *testing.T) {
+	for _, tt := range []struct {
+		name     string
+		endpoint string
+		want     string
+	}{
+		{name: "bare host", endpoint: "https://g.example.com", want: "https://g.example.com"},
+		{name: "trailing slash", endpoint: "https://g.example.com/", want: "https://g.example.com"},
+		{name: "reverse-proxy prefix", endpoint: "https://g.example.com/grafana", want: "https://g.example.com/grafana"},
+		{name: "endpoint already ends in /api", endpoint: "https://g.example.com/api", want: "https://g.example.com"},
+		{name: "schemeless host", endpoint: "g.example.com", want: "https://g.example.com"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			client, err := newClient(tt.endpoint, "")
+			require.NoError(t, err)
+			require.Equal(t, tt.want, client.GetBaseURL())
+		})
+	}
+}
+
+// Grafana's folder list endpoint defaults to far fewer folders than the
+// instances grafanactl manages hold, so the limit must be sent explicitly.
+func TestListFoldersRequestsAnExplicitLimit(t *testing.T) {
+	var gotQueries []string
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		require.Equal(t, "/api/folders", request.URL.Path)
+		gotQueries = append(gotQueries, request.URL.RawQuery)
+		writeFolderSearchHits(t, writer, buildFolderUIDs(0, 42))
+	}))
+	defer server.Close()
+
+	client := newTestClient(t, server.URL)
+	folders, err := client.ListFolders(context.Background())
+	require.NoError(t, err)
+
+	require.Equal(t, []string{"limit=" + strconv.FormatInt(folderListLimit, 10)}, gotQueries,
+		"the folder list must be one call carrying an explicit limit")
+	require.Len(t, folders, 42)
+	require.Equal(t, "folder-0", folders[0].UID)
+	require.Equal(t, "folder-41", folders[len(folders)-1].UID)
+	require.True(t, folders[0].Created.IsZero(),
+		"the folder list endpoint reports no creation time")
+}
+
+func TestListFoldersHandlesEmptyInstance(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		writeFolderSearchHits(t, writer, nil)
+	}))
+	defer server.Close()
+
+	client := newTestClient(t, server.URL)
+	folders, err := client.ListFolders(context.Background())
+	require.NoError(t, err)
+	require.Empty(t, folders)
+}
+
+// A full response means Grafana may have truncated the list. The caller gets
+// what there is, plus a log line, rather than silently seeing a partial instance.
+func TestListFoldersWarnsWhenTheLimitIsReached(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		writeFolderSearchHits(t, writer, buildFolderUIDs(0, int(folderListLimit)))
+	}))
+	defer server.Close()
+
+	var logged []string
+	logger := funcr.New(func(prefix, args string) {
+		logged = append(logged, args)
+	}, funcr.Options{})
+
+	client := newTestClient(t, server.URL)
+	folders, err := client.ListFolders(logr.NewContext(context.Background(), logger))
+	require.NoError(t, err)
+
+	require.Len(t, folders, int(folderListLimit))
+	require.Contains(t, strings.Join(logged, "\n"), "may be incomplete")
+}
+
+func TestGetFolderByUID(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		require.Equal(t, "/api/folders/pr-123", request.URL.Path)
+		writer.Header().Set("Content-Type", "application/json")
+		_, err := writer.Write([]byte(`{"id":7,"uid":"pr-123","title":"PR-123","created":"2026-01-20T14:03:21Z"}`))
+		require.NoError(t, err)
+	}))
+	defer server.Close()
+
+	client := newTestClient(t, server.URL)
+	folder, err := client.GetFolderByUID(context.Background(), "pr-123")
+	require.NoError(t, err)
+
+	require.Equal(t, "pr-123", folder.UID)
+	require.Equal(t, "PR-123", folder.Title)
+	require.Equal(t, time.Date(2026, time.January, 20, 14, 3, 21, 0, time.UTC), folder.Created.UTC())
+}
+
+func TestGetFolderByUIDNotFound(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		writeJSON(writer, http.StatusNotFound, `{"message":"folder not found"}`)
+	}))
+	defer server.Close()
+
+	client := newTestClient(t, server.URL)
+	_, err := client.GetFolderByUID(context.Background(), "missing")
+	require.ErrorIs(t, err, ErrFolderNotFound)
+	require.Contains(t, err.Error(), "missing", "the error must name the folder")
+}
+
+// A 403 stands in for "the call failed for a reason other than absence". It is
+// used in place of a 500 because the transport retries 5xx with a backoff,
+// which would make the test take tens of seconds.
+func TestGetFolderByUIDOtherErrorIsNotNotFound(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		writeJSON(writer, http.StatusForbidden, `{"message":"access denied"}`)
+	}))
+	defer server.Close()
+
+	client := newTestClient(t, server.URL)
+	_, err := client.GetFolderByUID(context.Background(), "pr-123")
+	require.Error(t, err)
+	require.NotErrorIs(t, err, ErrFolderNotFound,
+		"a failed call must not be mistaken for an absent folder")
+}
+
+func TestDeleteFolderByUIDNotFound(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		writeJSON(writer, http.StatusNotFound, `{"message":"folder not found"}`)
+	}))
+	defer server.Close()
+
+	client := newTestClient(t, server.URL)
+	err := client.DeleteFolderByUID(context.Background(), "missing")
+	require.ErrorIs(t, err, ErrFolderNotFound)
+}
+
+func TestDeleteFolderByUIDOtherErrorIsNotNotFound(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		writeJSON(writer, http.StatusForbidden, `{"message":"access denied"}`)
+	}))
+	defer server.Close()
+
+	client := newTestClient(t, server.URL)
+	err := client.DeleteFolderByUID(context.Background(), "folder-uid")
+	require.Error(t, err)
+	require.NotErrorIs(t, err, ErrFolderNotFound)
+}
+
+func TestCreateFolderSendsUID(t *testing.T) {
+	for _, tt := range []struct {
+		name        string
+		uid         string
+		wantRequest string
+	}{
+		{
+			name:        "explicit uid",
+			uid:         "pr-123",
+			wantRequest: `{"title":"PR-123","uid":"pr-123"}`,
+		},
+		{
+			name: "empty uid lets Grafana generate one",
+			uid:  "",
+			// An omitempty uid keeps the request identical to the one the
+			// sync path sent before the uid parameter existed.
+			wantRequest: `{"title":"PR-123"}`,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var gotBody []byte
+			server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+				require.Equal(t, "/api/folders", request.URL.Path)
+				body, err := io.ReadAll(request.Body)
+				require.NoError(t, err)
+				gotBody = body
+
+				writer.Header().Set("Content-Type", "application/json")
+				_, err = writer.Write([]byte(`{"id":7,"uid":"pr-123","title":"PR-123","created":"2026-01-20T14:03:21Z"}`))
+				require.NoError(t, err)
+			}))
+			defer server.Close()
+
+			client := newTestClient(t, server.URL)
+			folder, err := client.CreateFolder(context.Background(), tt.uid, "PR-123")
+			require.NoError(t, err)
+
+			require.JSONEq(t, tt.wantRequest, string(gotBody))
+			require.Equal(t, "pr-123", folder.UID)
+			require.Equal(t, time.Date(2026, time.January, 20, 14, 3, 21, 0, time.UTC), folder.Created.UTC())
+		})
+	}
+}
+
+func TestCreateFolderConflict(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		writeJSON(writer, http.StatusConflict, `{"message":"a folder with the same uid already exists"}`)
+	}))
+	defer server.Close()
+
+	client := newTestClient(t, server.URL)
+	_, err := client.CreateFolder(context.Background(), "pr-123", "PR-123")
+	require.ErrorIs(t, err, ErrFolderAlreadyExists)
+}
+
+func TestCreateFolderOtherErrorIsNotConflict(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		writeJSON(writer, http.StatusForbidden, `{"message":"access denied"}`)
+	}))
+	defer server.Close()
+
+	client := newTestClient(t, server.URL)
+	_, err := client.CreateFolder(context.Background(), "pr-123", "PR-123")
+	require.Error(t, err)
+	require.NotErrorIs(t, err, ErrFolderAlreadyExists)
+}
+
+func buildFolderUIDs(offset, count int) []string {
+	uids := make([]string, 0, count)
+	for i := range count {
+		uids = append(uids, fmt.Sprintf("folder-%d", offset+i))
+	}
+	return uids
+}
+
+func writeFolderSearchHits(t *testing.T, writer http.ResponseWriter, uids []string) {
+	t.Helper()
+
+	hits := make([]map[string]any, 0, len(uids))
+	for _, uid := range uids {
+		hits = append(hits, map[string]any{"uid": uid, "title": uid})
+	}
+
+	body, err := json.Marshal(hits)
+	require.NoError(t, err)
+
+	writer.Header().Set("Content-Type", "application/json")
+	_, err = writer.Write(body)
+	require.NoError(t, err)
+}
+
 func TestSetRawDashboardPreservesUnknownFields(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		require.Equal(t, "/api/dashboards/db", request.URL.Path)
@@ -380,4 +621,31 @@ func TestDecodeDashboardEnvelopeRejectsTrailingJSON(t *testing.T) {
 	body := `{"dashboard":{"uid":"x","title":"ok"},"meta":{}}{"extra":true}`
 	_, _, err := decodeDashboardEnvelope(strings.NewReader(body), "x", 1024)
 	require.ErrorContains(t, err, `dashboard "x": response contains multiple JSON values`)
+}
+
+func TestValidateUID(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		uid        string
+		wantErrSub string
+	}{
+		{name: "empty is fine", uid: ""},
+		{name: "well within the limit", uid: "pr-123"},
+		{name: "underscores and mixed case", uid: "PR_123-abc"},
+		{name: "exactly at the limit", uid: strings.Repeat("a", MaxUIDLength)},
+		{name: "one over the limit", uid: strings.Repeat("a", MaxUIDLength+1), wantErrSub: "too long"},
+		{name: "slash", uid: "feature/foo", wantErrSub: "invalid uid"},
+		{name: "path traversal", uid: "../datasources", wantErrSub: "invalid uid"},
+		{name: "space", uid: "pr 123", wantErrSub: "invalid uid"},
+		{name: "percent", uid: "pr%2F123", wantErrSub: "invalid uid"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := ValidateUID(tc.uid)
+			if tc.wantErrSub != "" {
+				require.ErrorContains(t, err, tc.wantErrSub)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
 }

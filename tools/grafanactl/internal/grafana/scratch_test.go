@@ -57,12 +57,15 @@ func (m *mockScratchClient) ListFolders(_ context.Context) ([]Folder, error) {
 	return m.folders, nil
 }
 
-func (m *mockScratchClient) CreateFolder(_ context.Context, title string) (Folder, error) {
+func (m *mockScratchClient) CreateFolder(_ context.Context, uid, title string) (Folder, error) {
 	if m.createFolderErr != nil {
 		return Folder{}, m.createFolderErr
 	}
 	m.createdFolders = append(m.createdFolders, title)
-	f := Folder{Title: title, UID: "uid-" + title}
+	if uid == "" {
+		uid = "uid-" + title
+	}
+	f := Folder{Title: title, UID: uid}
 	m.folders = append(m.folders, f)
 	return f, nil
 }

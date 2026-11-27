@@ -92,12 +92,16 @@ func TestSeedHTTPGolden(t *testing.T) {
 	require.NoError(t, err, "GetFolderPermissions")
 	permissions = redactDumpPII(dumpJSONBody(permissions))
 
+	folder, err := seedGET(ctx, client, "folders/"+liveFolderUID, nil)
+	require.NoError(t, err, "GetFolderByUID")
+
 	dashboard, err := seedGET(ctx, client, "dashboards/uid/"+liveDashboardUID, nil)
 	require.NoError(t, err, "GetRawDashboardByUID")
 
 	if os.Getenv(liveGrafanaUpdateEnv) != "1" {
 		require.NotEmpty(t, datasources)
 		require.NotEmpty(t, folders)
+		require.NotEmpty(t, folder)
 		require.NotEmpty(t, dashboards)
 		require.NotEmpty(t, searchFolders)
 		require.NotEmpty(t, permissions)
@@ -110,6 +114,7 @@ func TestSeedHTTPGolden(t *testing.T) {
 	bodies := map[string]json.RawMessage{
 		"ListDataSources":      datasources,
 		"ListFolders":          folders,
+		"GetFolderByUID":       folder,
 		"ListDashboards":       dashboards,
 		"SearchFolders":        searchFolders,
 		"GetFolderPermissions": permissions,
