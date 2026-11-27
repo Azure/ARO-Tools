@@ -35,17 +35,9 @@ import (
 // key the dashboard off its UID instead of the numeric ID and version the
 // source file was exported with.
 func PrepareDashboardForUpload(raw []byte, uid, title string) ([]byte, error) {
-	dashboard, err := decodeDashboardObject(raw)
+	dashboard, err := decodeDashboardDocument(raw)
 	if err != nil {
 		return nil, err
-	}
-
-	if inner, ok := dashboard["dashboard"]; ok {
-		nested, ok := inner.(map[string]any)
-		if !ok {
-			return nil, fmt.Errorf("dashboard: \"dashboard\" field is not a JSON object")
-		}
-		dashboard = nested
 	}
 
 	if uid != "" {
@@ -79,6 +71,41 @@ func GetDashboardStringField(raw []byte, field string) (string, error) {
 		return "", nil
 	}
 	return value, nil
+}
+
+// GetDashboardIdentity reads the uid and title that a dashboard document
+// carries. A document wrapped as {"dashboard": {...}} is unwrapped first, so the
+// result is the same for an exported document and for a plain one. A field that
+// is absent, or that is not a string, is reported as an empty value.
+func GetDashboardIdentity(raw []byte) (uid, title string, err error) {
+	dashboard, err := decodeDashboardDocument(raw)
+	if err != nil {
+		return "", "", err
+	}
+
+	uid, _ = dashboard["uid"].(string)
+	title, _ = dashboard["title"].(string)
+	return uid, title, nil
+}
+
+// decodeDashboardDocument decodes one dashboard document and unwraps the
+// {"dashboard": {...}} envelope that Grafana's export produces.
+func decodeDashboardDocument(raw []byte) (map[string]any, error) {
+	dashboard, err := decodeDashboardObject(raw)
+	if err != nil {
+		return nil, err
+	}
+
+	inner, ok := dashboard["dashboard"]
+	if !ok {
+		return dashboard, nil
+	}
+
+	nested, ok := inner.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("dashboard: \"dashboard\" field is not a JSON object")
+	}
+	return nested, nil
 }
 
 // decodeDashboardObject decodes exactly one JSON object, preserving numbers verbatim.

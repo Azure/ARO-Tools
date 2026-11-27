@@ -28,6 +28,26 @@ import (
 	"github.com/Azure/ARO-Tools/tools/grafanactl/internal/grafana"
 )
 
+// MaxUIDLength is the longest UID Grafana accepts for a dashboard. It is
+// re-exported here because the Grafana client it comes from is internal to this
+// module, so a caller outside the module cannot name the original.
+const MaxUIDLength = grafana.MaxUIDLength
+
+// ValidateUID reports whether Grafana accepts uid for a dashboard. An empty uid
+// is not an error: a dashboard document supplies its own. It is re-exported for
+// the same reason as MaxUIDLength.
+func ValidateUID(uid string) error {
+	return grafana.ValidateUID(uid)
+}
+
+// GetDashboardIdentity gets the uid and title that a dashboard document
+// carries, so that a caller can derive a new UID from the document's own. A
+// field that is absent, or that is not a string, is reported as an empty value.
+// It is re-exported for the same reason as MaxUIDLength.
+func GetDashboardIdentity(raw []byte) (uid, title string, err error) {
+	return grafana.GetDashboardIdentity(raw)
+}
+
 // DashboardInfo describes one uploaded Grafana dashboard. It is the result type
 // the dashboard subcommands return to an in-process caller, which cannot name
 // the internal Grafana domain types.

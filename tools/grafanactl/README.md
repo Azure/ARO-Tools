@@ -217,6 +217,20 @@ The command prints the UID, title, and link of the uploaded dashboard. Add
 Fields that grafanactl does not model, such as plugin options, are uploaded
 unchanged.
 
+#### Uploading Dashboards from Another Go Program
+
+The `dashboard` package exports what a Go caller needs to upload a set of
+dashboards in process, without going through the command line:
+
+- `GetDashboardIdentity` gets the uid and title that a dashboard document
+  carries, after unwrapping an export envelope. Use it to derive a new uid from
+  the document's own.
+- `MaxUIDLength` and `ValidateUID` report what Grafana accepts for a uid.
+
+To upload a set of dashboards, build and complete one `RawUploadOptions` per
+file and call `Upload`. Each `Complete` builds its own Grafana client, with an
+ARM request and a token exchange.
+
 ### Manage Commands
 
 #### Reconcile Grafana
