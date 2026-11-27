@@ -1,6 +1,6 @@
 module github.com/Azure/ARO-Tools/testutil
 
-go 1.25.0
+go 1.26.0
 
 require (
 	github.com/google/go-cmp v0.7.0
@@ -9,5 +9,5 @@ require (
 
 require (
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
-	go.yaml.in/yaml/v3 v3.0.4 // indirect
+	go.yaml.in/yaml/v3 v3.0.5 // indirect
 )
