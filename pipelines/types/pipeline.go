@@ -107,6 +107,9 @@ func (p *Pipeline) Validate() error {
 				return fmt.Errorf("pipeline.resourceGroups[%d:%s].steps[%d:%s]: step name %q duplicated", i, rg.Name, j, step.StepName(), step.StepName())
 			}
 			steps.Insert(step.StepName())
+			if err := p.validateEv2StepName(rg.Name, step.StepName()); err != nil {
+				return fmt.Errorf("pipeline.resourceGroups[%d:%s].steps[%d:%s]: %w", i, rg.Name, j, step.StepName(), err)
+			}
 		}
 		references[rg.Name] = steps
 
@@ -119,6 +122,9 @@ func (p *Pipeline) Validate() error {
 				return fmt.Errorf("pipeline.resourceGroups[%d:%s].serviceValidationSteps[%d:%s]: step name %q duplicated", i, rg.Name, j, step.StepName(), step.StepName())
 			}
 			serviceValidationSteps.Insert(step.StepName())
+			if err := p.validateEv2StepName(rg.Name, step.StepName()); err != nil {
+				return fmt.Errorf("pipeline.resourceGroups[%d:%s].serviceValidationSteps[%d:%s]: %w", i, rg.Name, j, step.StepName(), err)
+			}
 		}
 	}
 
@@ -146,4 +152,14 @@ func (p *Pipeline) Validate() error {
 		}
 	}
 	return nil
+}
+
+// validateEv2StepName checks the composed EV2 step name. Service groups without
+// a suffix after the EV2 prefix, such as test fixtures, produce no name to check.
+func (p *Pipeline) validateEv2StepName(resourceGroupName, stepName string) error {
+	if !hasEv2ServiceGroupSuffix(p.ServiceGroup) {
+		return nil
+	}
+	_, err := Ev2OrchestratedStepName(p.ServiceGroup, resourceGroupName, stepName)
+	return err
 }
