@@ -156,6 +156,16 @@ func TestUpload(t *testing.T) {
 	}
 }
 
+func TestUploadReportsAMissingFile(t *testing.T) {
+	opts := buildTestUploadOptions(t, "https://grafana.example.com", &RawUploadOptions{
+		BaseOptions: &base.BaseOptions{},
+		File:        filepath.Join(t.TempDir(), "absent.json"),
+	})
+
+	_, err := opts.Upload(t.Context())
+	require.ErrorContains(t, err, "failed to read dashboard file")
+}
+
 // buildTestUploadOptions builds upload options whose Grafana client targets the
 // given test server. An empty token is passed because these tests exercise the
 // request bodies, not auth; the test servers do not validate the Authorization

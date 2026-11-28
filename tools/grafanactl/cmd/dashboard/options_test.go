@@ -145,6 +145,33 @@ func TestValidateRejectsBadBaseOptions(t *testing.T) {
 	require.ErrorContains(t, err, "subscription ID, resource group, and grafana name are required")
 }
 
+func TestMaxUIDLengthMatchesGrafana(t *testing.T) {
+	require.Equal(t, grafana.MaxUIDLength, MaxUIDLength,
+		"the re-exported limit must not drift from the Grafana client's")
+}
+
+func TestValidateUID(t *testing.T) {
+	require.NoError(t, ValidateUID(""), "an empty uid keeps the document's own")
+	require.NoError(t, ValidateUID(strings.Repeat("a", MaxUIDLength)))
+	require.ErrorContains(t, ValidateUID(strings.Repeat("a", MaxUIDLength+1)), "too long")
+	require.ErrorContains(t, ValidateUID("has spaces"), "invalid uid")
+}
+
+func TestReadDashboardIdentity(t *testing.T) {
+	uid, title, err := GetDashboardIdentity([]byte(`{"uid":"the-uid","title":"The Title"}`))
+	require.NoError(t, err)
+	require.Equal(t, "the-uid", uid)
+	require.Equal(t, "The Title", title)
+
+	uid, title, err = GetDashboardIdentity([]byte(`{"dashboard":{"uid":"the-uid","title":"The Title"}}`))
+	require.NoError(t, err)
+	require.Equal(t, "the-uid", uid, "an exported document must be unwrapped")
+	require.Equal(t, "The Title", title)
+
+	_, _, err = GetDashboardIdentity([]byte(`not json`))
+	require.Error(t, err)
+}
+
 func TestBuildDashboardURL(t *testing.T) {
 	require.Equal(t,
 		"https://g.example.com/d/pr-123-overview",

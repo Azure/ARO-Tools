@@ -137,6 +137,63 @@ func TestGetDashboardStringFieldRejectsBadInput(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestGetDashboardIdentity(t *testing.T) {
+	for _, tt := range []struct {
+		name      string
+		raw       string
+		wantUID   string
+		wantTitle string
+	}{
+		{
+			name:      "plain document",
+			raw:       `{"uid":"the-uid","title":"The Title","version":3}`,
+			wantUID:   "the-uid",
+			wantTitle: "The Title",
+		},
+		{
+			name:      "exported document",
+			raw:       `{"dashboard":{"uid":"the-uid","title":"The Title"},"folderUid":"f","overwrite":true}`,
+			wantUID:   "the-uid",
+			wantTitle: "The Title",
+		},
+		{
+			name:      "absent uid",
+			raw:       `{"title":"The Title"}`,
+			wantUID:   "",
+			wantTitle: "The Title",
+		},
+		{
+			name:      "title is not a string",
+			raw:       `{"uid":"the-uid","title":7}`,
+			wantUID:   "the-uid",
+			wantTitle: "",
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			uid, title, err := GetDashboardIdentity([]byte(tt.raw))
+			require.NoError(t, err)
+			require.Equal(t, tt.wantUID, uid)
+			require.Equal(t, tt.wantTitle, title)
+		})
+	}
+}
+
+func TestGetDashboardIdentityRejectsBadInput(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		raw  string
+	}{
+		{name: "not JSON", raw: `not json`},
+		{name: "not an object", raw: `[1, 2, 3]`},
+		{name: "envelope is not an object", raw: `{"dashboard": "a string"}`},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			_, _, err := GetDashboardIdentity([]byte(tt.raw))
+			require.Error(t, err)
+		})
+	}
+}
+
 // The sync path must keep setting id to 0, not null, so that changing the
 // upload path does not change what sync sends.
 func TestNormalizeDashboardStillSetsIDToZero(t *testing.T) {
